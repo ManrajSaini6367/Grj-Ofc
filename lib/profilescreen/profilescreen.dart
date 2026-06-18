@@ -1,0 +1,639 @@
+import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
+import 'package:grjoffice_apps/contractor/contractor.dart';
+import 'package:grjoffice_apps/core/app_colors.dart';
+
+class ProfileScreen extends StatefulWidget {
+  const ProfileScreen({super.key});
+
+  @override
+  State<ProfileScreen> createState() => _ProfileScreenState();
+}
+
+class _ProfileScreenState extends State<ProfileScreen> {
+  String _selectedSite = 'River Crossing';
+  final GlobalKey _siteSelectorKey = GlobalKey();
+
+  static const _sites = [
+    'Skyline Towers',
+    'Industrial Hub',
+    'River Crossing',
+  ];
+
+  double _hPad(BuildContext context) {
+    final w = MediaQuery.sizeOf(context).width;
+    if (w < 360) return 14;
+    if (w < 600) return 18;
+    return 22;
+  }
+
+  double _avatarSize(BuildContext context) {
+    final w = MediaQuery.sizeOf(context).width;
+    return w < 360 ? 88.0 : w < 600 ? 96.0 : 104.0;
+  }
+
+  bool _isWide(BuildContext context) => MediaQuery.sizeOf(context).width >= 520;
+
+  @override
+  Widget build(BuildContext context) {
+    final hPad = _hPad(context);
+
+    return Scaffold(
+      backgroundColor: AppColors.backgroundGray,
+      body: SafeArea(
+        child: Column(
+          children: [
+            Container(
+              width: double.infinity,
+              padding: EdgeInsets.fromLTRB(hPad, 10, hPad, 10),
+              color: AppColors.cardWhite,
+              child: _buildTopBar(),
+            ),
+            Expanded(
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  return SingleChildScrollView(
+                    padding: EdgeInsets.fromLTRB(hPad, 12, hPad, 16),
+                    child: Center(
+                      child: ConstrainedBox(
+                        constraints: const BoxConstraints(maxWidth: 560),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            _buildProfileCard(context),
+                            const SizedBox(height: 12),
+                            _buildSectionLabel('Account Information'),
+                            const SizedBox(height: 8),
+                            _buildAccountCard(),
+                            const SizedBox(height: 14),
+                            _buildSectionLabel('Security & Access', isCaps: true),
+                            const SizedBox(height: 8),
+                            _buildSecurityCard(),
+                          ],
+                        ),
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ),
+            _buildBottomNav(),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildTopBar() {
+    return Row(
+      children: [
+        Container(
+          width: 38,
+          height: 38,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            border: Border.all(color: AppColors.primaryRed, width: 2),
+            color: AppColors.cardWhite,
+          ),
+          child: Center(
+            child: Text(
+              'GRJ',
+              style: GoogleFonts.poppins(
+                color: AppColors.primaryRed,
+                fontSize: 9,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(width: 10),
+        Expanded(child: _buildSiteSelector()),
+        const SizedBox(width: 10),
+        Container(
+          width: 38,
+          height: 38,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            color: AppColors.iconBgGray,
+            border: Border.all(color: AppColors.borderGray),
+          ),
+          child: Icon(Icons.person_outline, color: AppColors.textSecondary, size: 20),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildSiteSelector() {
+    return Material(
+      key: _siteSelectorKey,
+      color: AppColors.cardWhite,
+      borderRadius: BorderRadius.circular(8),
+      child: InkWell(
+        onTap: () => _openSitePopup(context),
+        borderRadius: BorderRadius.circular(8),
+        child: Container(
+          height: 38,
+          padding: const EdgeInsets.symmetric(horizontal: 10),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: AppColors.borderGray),
+          ),
+          child: Row(
+            children: [
+              Expanded(
+                child: Text(
+                  _selectedSite,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: GoogleFonts.poppins(
+                    color: AppColors.textDark,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ),
+              Icon(Icons.keyboard_arrow_down_rounded, color: AppColors.textSecondary, size: 20),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _openSitePopup(BuildContext context) async {
+    final renderBox =
+        _siteSelectorKey.currentContext?.findRenderObject() as RenderBox?;
+    if (renderBox == null) return;
+
+    final overlay = Overlay.of(context).context.findRenderObject() as RenderBox;
+    final triggerOffset = renderBox.localToGlobal(Offset.zero, ancestor: overlay);
+    final triggerSize = renderBox.size;
+    final screenWidth = MediaQuery.sizeOf(context).width;
+    final popupWidth = triggerSize.width.clamp(180.0, screenWidth * 0.75);
+
+    final selected = await showMenu<String>(
+      context: context,
+      elevation: 8,
+      shadowColor: Colors.black.withValues(alpha: 0.15),
+      color: AppColors.cardWhite,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+      constraints: BoxConstraints(minWidth: popupWidth, maxWidth: popupWidth),
+      position: RelativeRect.fromLTRB(
+        triggerOffset.dx,
+        triggerOffset.dy + triggerSize.height + 6,
+        triggerOffset.dx + popupWidth,
+        triggerOffset.dy + triggerSize.height + 6,
+      ),
+      items: _sites.map((site) {
+        final isSelected = site == _selectedSite;
+        return PopupMenuItem<String>(
+          value: site,
+          height: 46,
+          padding: EdgeInsets.zero,
+          child: Container(
+            width: popupWidth,
+            color: isSelected ? AppColors.selectionBlue : AppColors.cardWhite,
+            padding: const EdgeInsets.symmetric(horizontal: 14),
+            alignment: Alignment.centerLeft,
+            child: Text(
+              site,
+              style: GoogleFonts.poppins(
+                color: isSelected ? AppColors.white : AppColors.textDark,
+                fontSize: 13,
+                fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
+              ),
+            ),
+          ),
+        );
+      }).toList(),
+    );
+
+    if (selected != null && selected != _selectedSite) {
+      setState(() => _selectedSite = selected);
+    }
+  }
+
+  Widget _buildProfileCard(BuildContext context) {
+    final avatar = _avatarSize(context);
+    final wide = _isWide(context);
+
+    return Container(
+      decoration: BoxDecoration(
+        color: AppColors.cardWhite,
+        borderRadius: BorderRadius.circular(14),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.05),
+            blurRadius: 12,
+            offset: const Offset(0, 3),
+          ),
+        ],
+      ),
+      child: Column(
+        children: [
+          Container(
+            height: 4,
+            decoration: BoxDecoration(
+              color: AppColors.primaryRed,
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(14)),
+            ),
+          ),
+          Padding(
+            padding: EdgeInsets.fromLTRB(wide ? 18 : 14, 14, wide ? 18 : 14, 14),
+            child: wide
+                ? Row(
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: [
+                      _buildAvatar(avatar),
+                      const SizedBox(width: 16),
+                      Expanded(child: _buildProfileDetails(alignCenter: false)),
+                    ],
+                  )
+                : Column(
+                    children: [
+                      _buildAvatar(avatar),
+                      const SizedBox(height: 10),
+                      _buildProfileDetails(alignCenter: true),
+                    ],
+                  ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildAvatar(double size) {
+    return Stack(
+      clipBehavior: Clip.none,
+      children: [
+        Container(
+          width: size,
+          height: size,
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: AppColors.primaryRed, width: 2),
+            color: const Color(0xFFE5E7EB),
+          ),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(10),
+            child: Image.network(
+              'https://images.unsplash.com/photo-1560250097-0b93528c311a?w=240&h=240&fit=crop',
+              fit: BoxFit.cover,
+              errorBuilder: (_, __, ___) => Icon(
+                Icons.person,
+                size: size * 0.45,
+                color: AppColors.textSecondary,
+              ),
+            ),
+          ),
+        ),
+        Positioned(
+          right: -3,
+          bottom: -3,
+          child: Container(
+            width: 28,
+            height: 28,
+            decoration: BoxDecoration(
+              color: AppColors.primaryRed,
+              shape: BoxShape.circle,
+              border: Border.all(color: AppColors.cardWhite, width: 2),
+            ),
+            child: const Icon(Icons.camera_alt_outlined, color: AppColors.white, size: 14),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildProfileDetails({required bool alignCenter}) {
+    return Column(
+      crossAxisAlignment: alignCenter ? CrossAxisAlignment.center : CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Gulshan Rai Jain',
+          textAlign: alignCenter ? TextAlign.center : TextAlign.start,
+          style: GoogleFonts.poppins(
+            color: AppColors.headingBlack,
+            fontSize: 20,
+            fontWeight: FontWeight.w700,
+            height: 1.2,
+          ),
+        ),
+        const SizedBox(height: 6),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+          decoration: BoxDecoration(
+            color: AppColors.primaryRed,
+            borderRadius: BorderRadius.circular(16),
+          ),
+          child: Text(
+            'Director',
+            style: GoogleFonts.poppins(
+              color: AppColors.white,
+              fontSize: 10,
+              fontWeight: FontWeight.w600,
+              letterSpacing: 0.3,
+            ),
+          ),
+        ),
+        const SizedBox(height: 6),
+        Row(
+          mainAxisSize: alignCenter ? MainAxisSize.min : MainAxisSize.max,
+          children: [
+            Icon(Icons.badge_outlined, size: 14, color: AppColors.textSecondary),
+            const SizedBox(width: 5),
+            Flexible(
+              child: Text(
+                'Class Contractor ID: CC-9082',
+                style: GoogleFonts.poppins(
+                  color: AppColors.textSecondary,
+                  fontSize: 12,
+                ),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        SizedBox(
+          width: double.infinity,
+          height: 42,
+          child: ElevatedButton.icon(
+            onPressed: () {},
+            icon: const Icon(Icons.edit_outlined, size: 16),
+            label: Text(
+              'Edit Profile',
+              style: GoogleFonts.poppins(fontSize: 13, fontWeight: FontWeight.w600),
+            ),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.primaryRed,
+              foregroundColor: AppColors.white,
+              elevation: 0,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(9)),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildSectionLabel(String title, {bool isCaps = false}) {
+    return Text(
+      isCaps ? title.toUpperCase() : title,
+      style: GoogleFonts.poppins(
+        color: isCaps ? AppColors.textSecondary : AppColors.headingBlack,
+        fontSize: isCaps ? 11 : 16,
+        fontWeight: FontWeight.w700,
+        letterSpacing: isCaps ? 0.7 : 0,
+      ),
+    );
+  }
+
+  Widget _buildAccountCard() {
+    return _surfaceCard(
+      child: Column(
+        children: [
+          _buildInfoRow(Icons.person_outline, 'Full Name', 'Gulshan Rai Jain'),
+          _divider(),
+          _buildInfoRow(
+            Icons.email_outlined,
+            'Email Address',
+            'g.rai.jain@skylinetowers.com',
+            trailing: _primaryTag(),
+          ),
+          _divider(),
+          _buildInfoRow(Icons.phone_outlined, 'Phone Number', '+91 98765 43210'),
+          _divider(),
+          _buildInfoRow(
+            Icons.work_outline,
+            'Department',
+            'Contractor Management & Strategy',
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSecurityCard() {
+    return _surfaceCard(
+      child: Column(
+        children: [
+          _buildSecurityTile(Icons.shield_outlined, 'Security Settings'),
+          _divider(),
+          _buildSecurityTile(Icons.notifications_outlined, 'Notifications'),
+        ],
+      ),
+    );
+  }
+
+  Widget _surfaceCard({required Widget child}) {
+    return Container(
+      width: double.infinity,
+      decoration: BoxDecoration(
+        color: AppColors.cardWhite,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppColors.borderGray.withValues(alpha: 0.35)),
+      ),
+      child: child,
+    );
+  }
+
+  Widget _divider() {
+    return Divider(
+      height: 1,
+      thickness: 1,
+      indent: 14,
+      endIndent: 14,
+      color: AppColors.borderGray.withValues(alpha: 0.45),
+    );
+  }
+
+  Widget _primaryTag() {
+    return Container(
+      margin: const EdgeInsets.only(top: 4),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+      decoration: BoxDecoration(
+        color: AppColors.primaryRed.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(4),
+      ),
+      child: Text(
+        'Primary',
+        style: GoogleFonts.poppins(
+          color: AppColors.primaryRed,
+          fontSize: 10,
+          fontWeight: FontWeight.w600,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildInfoRow(
+    IconData icon,
+    String label,
+    String value, {
+    Widget? trailing,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            width: 34,
+            height: 34,
+            decoration: BoxDecoration(
+              color: AppColors.primaryRed.withValues(alpha: 0.08),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Icon(icon, size: 17, color: AppColors.primaryRed),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  label.toUpperCase(),
+                  style: GoogleFonts.poppins(
+                    color: AppColors.textSecondary,
+                    fontSize: 10,
+                    fontWeight: FontWeight.w600,
+                    letterSpacing: 0.5,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  value,
+                  style: GoogleFonts.poppins(
+                    color: AppColors.headingBlack,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w500,
+                    height: 1.3,
+                  ),
+                ),
+                if (trailing != null) trailing,
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSecurityTile(IconData icon, String title) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: () {
+          if (title == 'Security Settings') {
+            Navigator.of(context).push(
+              MaterialPageRoute(builder: (_) => const Contractor()),
+            );
+          }
+        },
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
+          child: Row(
+            children: [
+              Container(
+                width: 34,
+                height: 34,
+                decoration: BoxDecoration(
+                  color: AppColors.primaryRed.withValues(alpha: 0.08),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Icon(icon, size: 17, color: AppColors.primaryRed),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  title,
+                  style: GoogleFonts.poppins(
+                    color: AppColors.headingBlack,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ),
+              Icon(Icons.chevron_right_rounded, color: AppColors.textSecondary, size: 20),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildBottomNav() {
+    const items = [
+      _NavItem(Icons.grid_view_rounded, 'Dashboard'),
+      _NavItem(Icons.badge_outlined, 'Employees'),
+      _NavItem(Icons.inventory_2_outlined, 'Supplier'),
+      _NavItem(Icons.engineering_outlined, 'Contractor'),
+      _NavItem(Icons.person_outline, 'Profile'),
+    ];
+
+    return Container(
+      decoration: BoxDecoration(
+        color: AppColors.cardWhite,
+        border: Border(top: BorderSide(color: AppColors.borderGray.withValues(alpha: 0.5))),
+      ),
+      child: SafeArea(
+        top: false,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 6),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceAround,
+            children: List.generate(items.length, (index) {
+              final item = items[index];
+              final isSelected = index == 4;
+              return GestureDetector(
+                onTap: () {
+                  if (index == 0) Navigator.of(context).pop();
+                  if (index == 3) {
+                    Navigator.of(context).pushReplacement(
+                      MaterialPageRoute(builder: (_) => const Contractor()),
+                    );
+                  }
+                },
+                behavior: HitTestBehavior.opaque,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      width: 42,
+                      height: 30,
+                      decoration: BoxDecoration(
+                        color: isSelected ? AppColors.primaryRed : Colors.transparent,
+                        borderRadius: BorderRadius.circular(18),
+                      ),
+                      child: Icon(
+                        item.icon,
+                        size: 20,
+                        color: isSelected ? AppColors.white : AppColors.textSecondary,
+                      ),
+                    ),
+                    const SizedBox(height: 3),
+                    Text(
+                      item.label,
+                      style: GoogleFonts.poppins(
+                        color: isSelected ? AppColors.primaryRed : AppColors.textSecondary,
+                        fontSize: 10,
+                        fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            }),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _NavItem {
+  const _NavItem(this.icon, this.label);
+
+  final IconData icon;
+  final String label;
+}
