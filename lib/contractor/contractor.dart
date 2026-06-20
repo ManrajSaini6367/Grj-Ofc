@@ -1,7 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:grjoffice_apps/contractors/contractors.dart';
 import 'package:grjoffice_apps/core/app_colors.dart';
+import 'package:grjoffice_apps/drawer/app_end_drawer.dart';
+import 'package:grjoffice_apps/employees/employees.dart';
+import 'package:grjoffice_apps/homepage/homepage.dart';
 import 'package:grjoffice_apps/profilescreen/profilescreen.dart';
+import 'package:grjoffice_apps/suppliers/suppliers.dart';
+import 'package:grjoffice_apps/widgets/app_logo.dart';
 
 class Contractor extends StatefulWidget {
   const Contractor({super.key});
@@ -11,6 +17,7 @@ class Contractor extends StatefulWidget {
 }
 
 class _ContractorState extends State<Contractor> {
+  final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
   final _currentPasswordController = TextEditingController();
   final _newPasswordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
@@ -45,7 +52,9 @@ class _ContractorState extends State<Contractor> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      key: _scaffoldKey,
       backgroundColor: AppColors.backgroundGray,
+      endDrawer: const AppEndDrawer(),
       body: SafeArea(
         child: Column(
           children: [
@@ -115,37 +124,22 @@ class _ContractorState extends State<Contractor> {
   Widget _buildTopBar() {
     return Row(
       children: [
-        Container(
-          width: 40,
-          height: 40,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            border: Border.all(color: AppColors.primaryRed, width: 2),
-            color: AppColors.cardWhite,
-          ),
-          child: Center(
-            child: Text(
-              'GRJ',
-              style: GoogleFonts.poppins(
-                color: AppColors.primaryRed,
-                fontSize: 10,
-                fontWeight: FontWeight.w800,
-              ),
-            ),
-          ),
-        ),
+        const AppLogo(size: 40),
         const SizedBox(width: 12),
         Expanded(child: _buildSiteSelector()),
         const SizedBox(width: 12),
-        Container(
-          width: 40,
-          height: 40,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            color: AppColors.iconBgGray,
-            border: Border.all(color: AppColors.borderGray),
+        GestureDetector(
+          onTap: () => _scaffoldKey.currentState?.openEndDrawer(),
+          child: Container(
+            width: 40,
+            height: 40,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: AppColors.iconBgGray,
+              border: Border.all(color: AppColors.borderGray),
+            ),
+            child: Icon(Icons.person_outline, color: AppColors.textSecondary, size: 22),
           ),
-          child: Icon(Icons.person_outline, color: AppColors.textSecondary, size: 22),
         ),
       ],
     );
@@ -492,7 +486,22 @@ class _ContractorState extends State<Contractor> {
               return GestureDetector(
                 onTap: () {
                   if (index == 0) {
-                    Navigator.of(context).pop();
+                    Navigator.of(context).pushAndRemoveUntil(
+                      MaterialPageRoute(builder: (_) => const HomePage()),
+                      (route) => false,
+                    );
+                  } else if (index == 1) {
+                    Navigator.of(context).pushReplacement(
+                      MaterialPageRoute(builder: (_) => const EmployeesScreen()),
+                    );
+                  } else if (index == 2) {
+                    Navigator.of(context).pushReplacement(
+                      MaterialPageRoute(builder: (_) => const SuppliersScreen()),
+                    );
+                  } else if (index == 3) {
+                    Navigator.of(context).pushReplacement(
+                      MaterialPageRoute(builder: (_) => const ContractorsScreen()),
+                    );
                   } else if (index == 4) {
                     Navigator.of(context).pushReplacement(
                       MaterialPageRoute(builder: (_) => const ProfileScreen()),

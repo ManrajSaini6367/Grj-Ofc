@@ -1,7 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:grjoffice_apps/contractor/contractor.dart';
+import 'package:grjoffice_apps/contractors/contractors.dart';
 import 'package:grjoffice_apps/core/app_colors.dart';
+import 'package:grjoffice_apps/drawer/app_end_drawer.dart';
+import 'package:grjoffice_apps/employees/employees.dart';
+import 'package:grjoffice_apps/homepage/homepage.dart';
+import 'package:grjoffice_apps/suppliers/suppliers.dart';
+import 'package:grjoffice_apps/widgets/app_logo.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -11,6 +17,7 @@ class ProfileScreen extends StatefulWidget {
 }
 
 class _ProfileScreenState extends State<ProfileScreen> {
+  final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
   String _selectedSite = 'River Crossing';
   final GlobalKey _siteSelectorKey = GlobalKey();
 
@@ -39,7 +46,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
     final hPad = _hPad(context);
 
     return Scaffold(
+      key: _scaffoldKey,
       backgroundColor: AppColors.backgroundGray,
+      endDrawer: const AppEndDrawer(),
       body: SafeArea(
         child: Column(
           children: [
@@ -87,37 +96,22 @@ class _ProfileScreenState extends State<ProfileScreen> {
   Widget _buildTopBar() {
     return Row(
       children: [
-        Container(
-          width: 38,
-          height: 38,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            border: Border.all(color: AppColors.primaryRed, width: 2),
-            color: AppColors.cardWhite,
-          ),
-          child: Center(
-            child: Text(
-              'GRJ',
-              style: GoogleFonts.poppins(
-                color: AppColors.primaryRed,
-                fontSize: 9,
-                fontWeight: FontWeight.w800,
-              ),
-            ),
-          ),
-        ),
+        const AppLogo(size: 38),
         const SizedBox(width: 10),
         Expanded(child: _buildSiteSelector()),
         const SizedBox(width: 10),
-        Container(
-          width: 38,
-          height: 38,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            color: AppColors.iconBgGray,
-            border: Border.all(color: AppColors.borderGray),
+        GestureDetector(
+          onTap: () => _scaffoldKey.currentState?.openEndDrawer(),
+          child: Container(
+            width: 38,
+            height: 38,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: AppColors.iconBgGray,
+              border: Border.all(color: AppColors.borderGray),
+            ),
+            child: Icon(Icons.person_outline, color: AppColors.textSecondary, size: 20),
           ),
-          child: Icon(Icons.person_outline, color: AppColors.textSecondary, size: 20),
         ),
       ],
     );
@@ -587,10 +581,22 @@ class _ProfileScreenState extends State<ProfileScreen> {
               final isSelected = index == 4;
               return GestureDetector(
                 onTap: () {
-                  if (index == 0) Navigator.of(context).pop();
-                  if (index == 3) {
+                  if (index == 0) {
+                    Navigator.of(context).pushAndRemoveUntil(
+                      MaterialPageRoute(builder: (_) => const HomePage()),
+                      (route) => false,
+                    );
+                  } else if (index == 1) {
                     Navigator.of(context).pushReplacement(
-                      MaterialPageRoute(builder: (_) => const Contractor()),
+                      MaterialPageRoute(builder: (_) => const EmployeesScreen()),
+                    );
+                  } else if (index == 2) {
+                    Navigator.of(context).pushReplacement(
+                      MaterialPageRoute(builder: (_) => const SuppliersScreen()),
+                    );
+                  } else if (index == 3) {
+                    Navigator.of(context).pushReplacement(
+                      MaterialPageRoute(builder: (_) => const ContractorsScreen()),
                     );
                   }
                 },

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:grjoffice_apps/core/app_colors.dart';
 import 'package:grjoffice_apps/loginpage/loginpage.dart';
+import 'package:grjoffice_apps/widgets/app_logo.dart';
 
 class AppDrawer extends StatelessWidget {
   const AppDrawer({
@@ -15,9 +16,9 @@ class AppDrawer extends StatelessWidget {
 
   static const _menuItems = [
     _DrawerMenuItem(Icons.grid_view_rounded, 'Dashboard'),
-    _DrawerMenuItem(Icons.badge_outlined, 'Employees'),
+    _DrawerMenuItem(Icons.badge_outlined, 'Employee List'),
     _DrawerMenuItem(Icons.event_note_outlined, 'Day End Report'),
-    _DrawerMenuItem(Icons.inventory_2_outlined, 'Supplier'),
+    _DrawerMenuItem(Icons.inventory_2_outlined, 'Supplier List'),
     _DrawerMenuItem(Icons.groups_outlined, 'Labour Contractor'),
     _DrawerMenuItem(Icons.category_outlined, 'Items'),
     _DrawerMenuItem(Icons.storefront_outlined, 'Store'),
@@ -56,8 +57,8 @@ class AppDrawer extends StatelessWidget {
                     item: item,
                     isSelected: isSelected,
                     onTap: () {
-                      onItemTap?.call(index);
                       Navigator.of(context).pop();
+                      onItemTap?.call(index);
                     },
                   );
                 },
@@ -75,25 +76,7 @@ class AppDrawer extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(20, 16, 20, 12),
       child: Row(
         children: [
-          Container(
-            width: 36,
-            height: 36,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              border: Border.all(color: AppColors.primaryRed, width: 2),
-              color: AppColors.cardWhite,
-            ),
-            child: Center(
-              child: Text(
-                'GRJ',
-                style: GoogleFonts.poppins(
-                  color: AppColors.primaryRed,
-                  fontSize: 9,
-                  fontWeight: FontWeight.w800,
-                ),
-              ),
-            ),
-          ),
+          const AppLogo(size: 36, showBorder: true),
           const SizedBox(width: 12),
           Expanded(
             child: Text(

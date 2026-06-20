@@ -2,12 +2,19 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:grjoffice_apps/contractor/contractor.dart';
+import 'package:grjoffice_apps/activities/activities.dart';
+import 'package:grjoffice_apps/contractors/contractors.dart';
+import 'package:grjoffice_apps/items/items.dart';
+import 'package:grjoffice_apps/store/store.dart';
 import 'package:grjoffice_apps/core/app_colors.dart';
+import 'package:grjoffice_apps/drawer/app_end_drawer.dart';
 import 'package:grjoffice_apps/drawer/drawer.dart';
+import 'package:grjoffice_apps/employees/employees.dart';
+import 'package:grjoffice_apps/suppliers/suppliers.dart';
 import 'package:grjoffice_apps/profilescreen/profilescreen.dart';
 import 'package:grjoffice_apps/services/attendance_service.dart';
 import 'package:grjoffice_apps/services/location_service.dart';
+import 'package:grjoffice_apps/widgets/app_logo.dart';
 import 'package:grjoffice_apps/widgets/site_selection_dialog.dart';
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -140,8 +147,32 @@ class _HomePageState extends State<HomePage> {
       backgroundColor: AppColors.backgroundGray,
       drawer: AppDrawer(
         selectedIndex: _selectedDrawerIndex,
-        onItemTap: (index) => setState(() => _selectedDrawerIndex = index),
+        onItemTap: (index) {
+          setState(() => _selectedDrawerIndex = index);
+          if (index == 1) {
+            Navigator.of(context).push(
+              MaterialPageRoute(builder: (_) => const EmployeesScreen()),
+            );
+          } else if (index == 3) {
+            Navigator.of(context).push(
+              MaterialPageRoute(builder: (_) => const SuppliersScreen()),
+            );
+          } else if (index == 4) {
+            Navigator.of(context).push(
+              MaterialPageRoute(builder: (_) => const ContractorsScreen()),
+            );
+          } else if (index == 5) {
+            Navigator.of(context).push(
+              MaterialPageRoute(builder: (_) => const ItemsScreen()),
+            );
+          } else if (index == 6) {
+            Navigator.of(context).push(
+              MaterialPageRoute(builder: (_) => const StoreScreen()),
+            );
+          }
+        },
       ),
+      endDrawer: const AppEndDrawer(),
       body: SafeArea(
         child: Column(
           children: [
@@ -236,25 +267,7 @@ class _HomePageState extends State<HomePage> {
       children: [
         GestureDetector(
           onTap: () => _scaffoldKey.currentState?.openDrawer(),
-          child: Container(
-            width: 40,
-            height: 40,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              border: Border.all(color: AppColors.primaryRed, width: 2),
-              color: AppColors.cardWhite,
-            ),
-            child: Center(
-              child: Text(
-                'GRJ',
-                style: TextStyle(
-                  color: AppColors.primaryRed,
-                  fontSize: 10,
-                  fontWeight: FontWeight.w800,
-                ),
-              ),
-            ),
-          ),
+          child: const AppLogo(size: 40),
         ),
         const SizedBox(width: 12),
         Expanded(child: _buildSiteSelector()),
@@ -267,7 +280,11 @@ class _HomePageState extends State<HomePage> {
             color: AppColors.iconBgGray,
             border: Border.all(color: AppColors.borderGray),
           ),
-          child: Icon(Icons.person_outline, color: AppColors.textSecondary, size: 22),
+          child: IconButton(
+            onPressed: () => _scaffoldKey.currentState?.openEndDrawer(),
+            icon: Icon(Icons.person_outline, color: AppColors.textSecondary, size: 22),
+            padding: EdgeInsets.zero,
+          ),
         ),
       ],
     );
@@ -365,6 +382,11 @@ class _HomePageState extends State<HomePage> {
             icon: Icons.history,
             title: 'Activity',
             subtitle: 'Check all activity',
+            onTap: () {
+              Navigator.of(context).push(
+                MaterialPageRoute(builder: (_) => const ActivitiesScreen()),
+              );
+            },
           ),
         ),
       ],
@@ -375,8 +397,11 @@ class _HomePageState extends State<HomePage> {
     required IconData icon,
     required String title,
     required String subtitle,
+    VoidCallback? onTap,
   }) {
-    return Container(
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: AppColors.operationsCardBg,
@@ -405,6 +430,7 @@ class _HomePageState extends State<HomePage> {
           ),
         ],
       ),
+    ),
     );
   }
 
@@ -433,40 +459,57 @@ class _HomePageState extends State<HomePage> {
         childAspectRatio: aspectRatio,
       ),
       itemCount: _operations.length,
-      itemBuilder: (context, index) => _buildOperationCard(_operations[index]),
+      itemBuilder: (context, index) => _buildOperationCard(_operations[index], index),
     );
   }
-  Widget _buildOperationCard(_OperationItem item) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: AppColors.operationsCardBg,
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Icon(item.icon, color: AppColors.primaryRed, size: 28),
-          const Spacer(),
-          Text(
-            item.title,
-            style: TextStyle(
-              color: AppColors.headingBlack,
-              fontSize: 14,
-              fontWeight: FontWeight.w700,
+  Widget _buildOperationCard(_OperationItem item, int index) {
+    return GestureDetector(
+      onTap: () {
+        if (index == 0) {
+          Navigator.of(context).push(
+            MaterialPageRoute(builder: (_) => const SuppliersScreen()),
+          );
+        } else if (index == 1) {
+          Navigator.of(context).push(
+            MaterialPageRoute(builder: (_) => const ContractorsScreen()),
+          );
+        } else if (index == 2) {
+          Navigator.of(context).push(
+            MaterialPageRoute(builder: (_) => const StoreScreen()),
+          );
+        }
+      },
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: AppColors.operationsCardBg,
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Icon(item.icon, color: AppColors.primaryRed, size: 28),
+            const Spacer(),
+            Text(
+              item.title,
+              style: TextStyle(
+                color: AppColors.headingBlack,
+                fontSize: 14,
+                fontWeight: FontWeight.w700,
+              ),
             ),
-          ),
-          const SizedBox(height: 2),
-          Text(
-            item.subtitle,
-            style: TextStyle(
-              color: AppColors.textSecondary,
-              fontSize: 10,
-              fontWeight: FontWeight.w500,
-              letterSpacing: 0.4,
+            const SizedBox(height: 2),
+            Text(
+              item.subtitle,
+              style: TextStyle(
+                color: AppColors.textSecondary,
+                fontSize: 10,
+                fontWeight: FontWeight.w500,
+                letterSpacing: 0.4,
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -552,9 +595,21 @@ class _HomePageState extends State<HomePage> {
               final isSelected = _selectedNavIndex == index;
               return GestureDetector(
                 onTap: () {
+                  if (index == 1) {
+                    Navigator.of(context).push(
+                      MaterialPageRoute(builder: (_) => const EmployeesScreen()),
+                    );
+                    return;
+                  }
+                  if (index == 2) {
+                    Navigator.of(context).push(
+                      MaterialPageRoute(builder: (_) => const SuppliersScreen()),
+                    );
+                    return;
+                  }
                   if (index == 3) {
                     Navigator.of(context).push(
-                      MaterialPageRoute(builder: (_) => const Contractor()),
+                      MaterialPageRoute(builder: (_) => const ContractorsScreen()),
                     );
                     return;
                   }

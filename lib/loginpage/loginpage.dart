@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:grjoffice_apps/core/app_colors.dart';
 import 'package:grjoffice_apps/homepage/homepage.dart';
+import 'package:grjoffice_apps/widgets/app_logo.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -56,26 +57,7 @@ class _LoginPageState extends State<LoginPage> {
   Widget _buildHeader() {
     return Column(
       children: [
-        Container(
-          width: 88,
-          height: 88,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            border: Border.all(color: AppColors.primaryRed, width: 3),
-            color: AppColors.cardWhite,
-          ),
-          child: Center(
-            child: Text(
-              'GRJ',
-              style: TextStyle(
-                color: AppColors.primaryRed,
-                fontSize: 22,
-                fontWeight: FontWeight.w800,
-                letterSpacing: 1.2,
-              ),
-            ),
-          ),
-        ),
+        const AppLogo(size: 120, showBorder: true),
         const SizedBox(height: 16),
         Text(
           'Gulshan Rai Jain',
