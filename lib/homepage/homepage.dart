@@ -3,15 +3,12 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:grjoffice_apps/activities/activities.dart';
-import 'package:grjoffice_apps/contractors/contractors.dart';
 import 'package:grjoffice_apps/items/items.dart';
 import 'package:grjoffice_apps/store/store.dart';
 import 'package:grjoffice_apps/core/app_colors.dart';
 import 'package:grjoffice_apps/drawer/app_end_drawer.dart';
 import 'package:grjoffice_apps/drawer/drawer.dart';
-import 'package:grjoffice_apps/employees/employees.dart';
-import 'package:grjoffice_apps/suppliers/suppliers.dart';
-import 'package:grjoffice_apps/profilescreen/profilescreen.dart';
+import 'package:grjoffice_apps/navigation/app_navigation.dart';
 import 'package:grjoffice_apps/services/attendance_service.dart';
 import 'package:grjoffice_apps/services/location_service.dart';
 import 'package:grjoffice_apps/widgets/app_logo.dart';
@@ -28,7 +25,6 @@ class _HomePageState extends State<HomePage> {
   final AttendanceService _attendance = AttendanceService.instance;
   final LocationService _location = LocationService.instance;
 
-  int _selectedNavIndex = 0;
   int _selectedDrawerIndex = 0;
   String _selectedSite = 'River Crossing';
   bool _isProcessingPunch = false;
@@ -150,17 +146,11 @@ class _HomePageState extends State<HomePage> {
         onItemTap: (index) {
           setState(() => _selectedDrawerIndex = index);
           if (index == 1) {
-            Navigator.of(context).push(
-              MaterialPageRoute(builder: (_) => const EmployeesScreen()),
-            );
+            navigateToMainTab(context, 1);
           } else if (index == 3) {
-            Navigator.of(context).push(
-              MaterialPageRoute(builder: (_) => const SuppliersScreen()),
-            );
+            navigateToMainTab(context, 2);
           } else if (index == 4) {
-            Navigator.of(context).push(
-              MaterialPageRoute(builder: (_) => const ContractorsScreen()),
-            );
+            navigateToMainTab(context, 3);
           } else if (index == 5) {
             Navigator.of(context).push(
               MaterialPageRoute(builder: (_) => const ItemsScreen()),
@@ -227,36 +217,7 @@ class _HomePageState extends State<HomePage> {
                 },
               ),
             ),
-            Stack(
-              clipBehavior: Clip.none,
-              children: [
-                _buildBottomNav(),
-                Positioned(
-                  right: 20,
-                  top: -56,
-                  child: _buildAddButton(),
-                ),
-              ],
-            ),
           ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildAddButton() {
-    return Material(
-      color: AppColors.primaryRed,
-      elevation: 4,
-      shadowColor: Colors.black.withValues(alpha: 0.2),
-      borderRadius: BorderRadius.circular(12),
-      child: InkWell(
-        onTap: () {},
-        borderRadius: BorderRadius.circular(12),
-        child: const SizedBox(
-          width: 52,
-          height: 52,
-          child: Icon(Icons.add, color: AppColors.white, size: 28),
         ),
       ),
     );
@@ -466,13 +427,9 @@ class _HomePageState extends State<HomePage> {
     return GestureDetector(
       onTap: () {
         if (index == 0) {
-          Navigator.of(context).push(
-            MaterialPageRoute(builder: (_) => const SuppliersScreen()),
-          );
+          navigateToMainTab(context, 2);
         } else if (index == 1) {
-          Navigator.of(context).push(
-            MaterialPageRoute(builder: (_) => const ContractorsScreen()),
-          );
+          navigateToMainTab(context, 3);
         } else if (index == 2) {
           Navigator.of(context).push(
             MaterialPageRoute(builder: (_) => const StoreScreen()),
@@ -562,100 +519,6 @@ class _HomePageState extends State<HomePage> {
       ),
     );
   }
-
-  Widget _buildBottomNav() {
-    const items = [
-      _NavItem(Icons.grid_view_rounded, 'Dashboard'),
-      _NavItem(Icons.badge_outlined, 'Employees'),
-      _NavItem(Icons.inventory_2_outlined, 'Supplier'),
-      _NavItem(Icons.engineering_outlined, 'Contractor'),
-      _NavItem(Icons.person_outline, 'Profile'),
-    ];
-
-    return Container(
-      decoration: BoxDecoration(
-        color: AppColors.cardWhite,
-        border: Border(top: BorderSide(color: AppColors.borderGray.withValues(alpha: 0.5))),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.05),
-            blurRadius: 8,
-            offset: const Offset(0, -2),
-          ),
-        ],
-      ),
-      child: SafeArea(
-        top: false,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 8),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceAround,
-            children: List.generate(items.length, (index) {
-              final item = items[index];
-              final isSelected = _selectedNavIndex == index;
-              return GestureDetector(
-                onTap: () {
-                  if (index == 1) {
-                    Navigator.of(context).push(
-                      MaterialPageRoute(builder: (_) => const EmployeesScreen()),
-                    );
-                    return;
-                  }
-                  if (index == 2) {
-                    Navigator.of(context).push(
-                      MaterialPageRoute(builder: (_) => const SuppliersScreen()),
-                    );
-                    return;
-                  }
-                  if (index == 3) {
-                    Navigator.of(context).push(
-                      MaterialPageRoute(builder: (_) => const ContractorsScreen()),
-                    );
-                    return;
-                  }
-                  if (index == 4) {
-                    Navigator.of(context).push(
-                      MaterialPageRoute(builder: (_) => const ProfileScreen()),
-                    );
-                    return;
-                  }
-                  setState(() => _selectedNavIndex = index);
-                },
-                behavior: HitTestBehavior.opaque,
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Container(
-                      width: 44,
-                      height: 32,
-                      decoration: BoxDecoration(
-                        color: isSelected ? AppColors.primaryRed : Colors.transparent,
-                        borderRadius: BorderRadius.circular(20),
-                      ),
-                      child: Icon(
-                        item.icon,
-                        size: 22,
-                        color: isSelected ? AppColors.white : AppColors.textSecondary,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      item.label,
-                      style: TextStyle(
-                        color: isSelected ? AppColors.primaryRed : AppColors.textSecondary,
-                        fontSize: 11,
-                        fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
-                      ),
-                    ),
-                  ],
-                ),
-              );
-            }),
-          ),
-        ),
-      ),
-    );
-  }
 }
 
 class _OperationItem {
@@ -672,13 +535,6 @@ class _SupplyItem {
   final IconData icon;
   final String title;
   final String subtitle;
-}
-
-class _NavItem {
-  const _NavItem(this.icon, this.label);
-
-  final IconData icon;
-  final String label;
 }
 
 class _AttendanceCard extends StatefulWidget {

@@ -145,7 +145,7 @@ class _StoreScreenState extends State<StoreScreen> {
                             crossAxisCount: crossAxisCount,
                             mainAxisSpacing: 12,
                             crossAxisSpacing: 12,
-                            childAspectRatio: 0.78,
+                            childAspectRatio: 0.70,
                           ),
                           delegate: SliverChildBuilderDelegate(
                             (context, index) => _buildStoreCard(items[index]),
@@ -499,10 +499,10 @@ class _StoreScreenState extends State<StoreScreen> {
                     gradient: LinearGradient(colors: [accent, accent.withValues(alpha: 0.5)]),
                   ),
                 ),
-                ItemThumbnail(item: item, height: 86),
+                ItemThumbnail(item: item, height: 78),
                 Expanded(
                   child: Padding(
-                    padding: const EdgeInsets.fromLTRB(14, 10, 14, 12),
+                    padding: const EdgeInsets.fromLTRB(12, 8, 12, 10),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
@@ -513,22 +513,28 @@ class _StoreScreenState extends State<StoreScreen> {
                             Icon(Icons.history_rounded, size: 18, color: AppColors.textSecondary.withValues(alpha: 0.7)),
                           ],
                         ),
-                        const SizedBox(height: 8),
+                        const SizedBox(height: 6),
                         Row(
                           crossAxisAlignment: CrossAxisAlignment.end,
                           children: [
-                            Text(
-                              formatStoreQty(balance),
-                              style: GoogleFonts.poppins(
-                                fontSize: 32,
-                                fontWeight: FontWeight.w800,
-                                color: AppColors.headingBlack,
-                                height: 1,
+                            Flexible(
+                              child: FittedBox(
+                                fit: BoxFit.scaleDown,
+                                alignment: Alignment.centerLeft,
+                                child: Text(
+                                  formatStoreQty(balance),
+                                  style: GoogleFonts.poppins(
+                                    fontSize: 28,
+                                    fontWeight: FontWeight.w800,
+                                    color: AppColors.headingBlack,
+                                    height: 1,
+                                  ),
+                                ),
                               ),
                             ),
                             const SizedBox(width: 6),
                             Padding(
-                              padding: const EdgeInsets.only(bottom: 4),
+                              padding: const EdgeInsets.only(bottom: 2),
                               child: Container(
                                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                                 decoration: BoxDecoration(
@@ -548,20 +554,25 @@ class _StoreScreenState extends State<StoreScreen> {
                             ),
                           ],
                         ),
-                        const SizedBox(height: 8),
-                        Text(
-                          item.name.toUpperCase(),
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                          style: GoogleFonts.poppins(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w600,
-                            color: AppColors.textSecondary,
-                            letterSpacing: 0.3,
-                            height: 1.25,
+                        const SizedBox(height: 6),
+                        Expanded(
+                          child: Align(
+                            alignment: Alignment.topLeft,
+                            child: Text(
+                              item.name.toUpperCase(),
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                              style: GoogleFonts.poppins(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600,
+                                color: AppColors.textSecondary,
+                                letterSpacing: 0.3,
+                                height: 1.2,
+                              ),
+                            ),
                           ),
                         ),
-                        const SizedBox(height: 10),
+                        const SizedBox(height: 6),
                         Row(
                           children: [
                             Icon(Icons.qr_code_2_rounded, size: 13, color: AppColors.textSecondary),
@@ -574,15 +585,27 @@ class _StoreScreenState extends State<StoreScreen> {
                                 style: GoogleFonts.poppins(fontSize: 11, color: AppColors.textSecondary),
                               ),
                             ),
-                            Text(
-                              'View history',
-                              style: GoogleFonts.poppins(
-                                fontSize: 11,
-                                fontWeight: FontWeight.w600,
-                                color: AppColors.primaryRed,
+                            const SizedBox(width: 4),
+                            Flexible(
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Flexible(
+                                    child: Text(
+                                      'View history',
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: GoogleFonts.poppins(
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.w600,
+                                        color: AppColors.primaryRed,
+                                      ),
+                                    ),
+                                  ),
+                                  const Icon(Icons.chevron_right_rounded, size: 16, color: AppColors.primaryRed),
+                                ],
                               ),
                             ),
-                            const Icon(Icons.chevron_right_rounded, size: 16, color: AppColors.primaryRed),
                           ],
                         ),
                       ],

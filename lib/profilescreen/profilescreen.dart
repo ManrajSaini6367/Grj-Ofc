@@ -1,12 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:grjoffice_apps/contractor/contractor.dart';
-import 'package:grjoffice_apps/contractors/contractors.dart';
 import 'package:grjoffice_apps/core/app_colors.dart';
 import 'package:grjoffice_apps/drawer/app_end_drawer.dart';
-import 'package:grjoffice_apps/employees/employees.dart';
-import 'package:grjoffice_apps/homepage/homepage.dart';
-import 'package:grjoffice_apps/suppliers/suppliers.dart';
 import 'package:grjoffice_apps/widgets/app_logo.dart';
 
 class ProfileScreen extends StatefulWidget {
@@ -86,7 +82,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 },
               ),
             ),
-            _buildBottomNav(),
           ],
         ),
       ),
@@ -555,91 +550,4 @@ class _ProfileScreenState extends State<ProfileScreen> {
       ),
     );
   }
-
-  Widget _buildBottomNav() {
-    const items = [
-      _NavItem(Icons.grid_view_rounded, 'Dashboard'),
-      _NavItem(Icons.badge_outlined, 'Employees'),
-      _NavItem(Icons.inventory_2_outlined, 'Supplier'),
-      _NavItem(Icons.engineering_outlined, 'Contractor'),
-      _NavItem(Icons.person_outline, 'Profile'),
-    ];
-
-    return Container(
-      decoration: BoxDecoration(
-        color: AppColors.cardWhite,
-        border: Border(top: BorderSide(color: AppColors.borderGray.withValues(alpha: 0.5))),
-      ),
-      child: SafeArea(
-        top: false,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 6),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceAround,
-            children: List.generate(items.length, (index) {
-              final item = items[index];
-              final isSelected = index == 4;
-              return GestureDetector(
-                onTap: () {
-                  if (index == 0) {
-                    Navigator.of(context).pushAndRemoveUntil(
-                      MaterialPageRoute(builder: (_) => const HomePage()),
-                      (route) => false,
-                    );
-                  } else if (index == 1) {
-                    Navigator.of(context).pushReplacement(
-                      MaterialPageRoute(builder: (_) => const EmployeesScreen()),
-                    );
-                  } else if (index == 2) {
-                    Navigator.of(context).pushReplacement(
-                      MaterialPageRoute(builder: (_) => const SuppliersScreen()),
-                    );
-                  } else if (index == 3) {
-                    Navigator.of(context).pushReplacement(
-                      MaterialPageRoute(builder: (_) => const ContractorsScreen()),
-                    );
-                  }
-                },
-                behavior: HitTestBehavior.opaque,
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Container(
-                      width: 42,
-                      height: 30,
-                      decoration: BoxDecoration(
-                        color: isSelected ? AppColors.primaryRed : Colors.transparent,
-                        borderRadius: BorderRadius.circular(18),
-                      ),
-                      child: Icon(
-                        item.icon,
-                        size: 20,
-                        color: isSelected ? AppColors.white : AppColors.textSecondary,
-                      ),
-                    ),
-                    const SizedBox(height: 3),
-                    Text(
-                      item.label,
-                      style: GoogleFonts.poppins(
-                        color: isSelected ? AppColors.primaryRed : AppColors.textSecondary,
-                        fontSize: 10,
-                        fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
-                      ),
-                    ),
-                  ],
-                ),
-              );
-            }),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _NavItem {
-  const _NavItem(this.icon, this.label);
-
-  final IconData icon;
-  final String label;
 }

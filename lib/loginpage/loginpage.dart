@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:grjoffice_apps/core/app_colors.dart';
-import 'package:grjoffice_apps/homepage/homepage.dart';
+import 'package:grjoffice_apps/main_shell.dart';
 import 'package:grjoffice_apps/widgets/app_logo.dart';
 
 class LoginPage extends StatefulWidget {
@@ -39,8 +39,8 @@ class _LoginPageState extends State<LoginPage> {
                   _buildHeader(),
                   const SizedBox(height: 28),
                   _buildLoginForm(),
-                  const SizedBox(height: 24),
-                  _buildRequestAccess(),
+                  // const SizedBox(height: 24),
+                  // _buildRequestAccess(),
                   const SizedBox(height: 20),
                   _buildSecurityNote(),
                   const SizedBox(height: 16),
@@ -172,7 +172,7 @@ class _LoginPageState extends State<LoginPage> {
             child: ElevatedButton(
               onPressed: () {
                 Navigator.of(context).pushReplacement(
-                  MaterialPageRoute(builder: (_) => const HomePage()),
+                  MaterialPageRoute(builder: (_) => const MainShell()),
                 );
               },
               style: ElevatedButton.styleFrom(
@@ -260,27 +260,27 @@ class _LoginPageState extends State<LoginPage> {
     );
   }
 
-  Widget _buildRequestAccess() {
-    return RichText(
-      textAlign: TextAlign.center,
-      text: TextSpan(
-        style: TextStyle(
-          color: AppColors.textSecondary,
-          fontSize: 13,
-        ),
-        children: [
-          const TextSpan(text: "Don't have an account? "),
-          TextSpan(
-            text: 'Request Access',
-            style: TextStyle(
-              color: AppColors.primaryRed,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
+  // Widget _buildRequestAccess() {
+  //   return RichText(
+  //     textAlign: TextAlign.center,
+  //     text: TextSpan(
+  //       style: TextStyle(
+  //         color: AppColors.textSecondary,
+  //         fontSize: 13,
+  //       ),
+  //       children: [
+  //         const TextSpan(text: "Don't have an account? "),
+  //         TextSpan(
+  //           text: 'Request Access',
+  //           style: TextStyle(
+  //             color: AppColors.primaryRed,
+  //             fontWeight: FontWeight.w600,
+  //           ),
+  //         ),
+  //       ],
+  //     ),
+  //   );
+  // }
 
   Widget _buildSecurityNote() {
     return Row(

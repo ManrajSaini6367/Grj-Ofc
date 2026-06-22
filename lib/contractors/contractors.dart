@@ -5,12 +5,9 @@ import 'package:grjoffice_apps/contractors/labour_contractor.dart';
 import 'package:grjoffice_apps/core/app_colors.dart';
 import 'package:grjoffice_apps/drawer/app_end_drawer.dart';
 import 'package:grjoffice_apps/drawer/drawer.dart';
-import 'package:grjoffice_apps/employees/employees.dart';
-import 'package:grjoffice_apps/homepage/homepage.dart';
 import 'package:grjoffice_apps/items/items.dart';
+import 'package:grjoffice_apps/navigation/app_navigation.dart';
 import 'package:grjoffice_apps/store/store.dart';
-import 'package:grjoffice_apps/profilescreen/profilescreen.dart';
-import 'package:grjoffice_apps/suppliers/suppliers.dart';
 import 'package:grjoffice_apps/widgets/app_logo.dart';
 
 class ContractorsScreen extends StatefulWidget {
@@ -98,7 +95,6 @@ class _ContractorsScreenState extends State<ContractorsScreen> {
                 ),
               ),
             ),
-            _buildBottomNav(),
           ],
         ),
       ),
@@ -107,18 +103,11 @@ class _ContractorsScreenState extends State<ContractorsScreen> {
 
   void _onDrawerItemTap(int index) {
     if (index == 0) {
-      Navigator.of(context).pushAndRemoveUntil(
-        MaterialPageRoute(builder: (_) => const HomePage()),
-        (route) => false,
-      );
+      navigateToMainTab(context, 0);
     } else if (index == 1) {
-      Navigator.of(context).pushReplacement(
-        MaterialPageRoute(builder: (_) => const EmployeesScreen()),
-      );
+      navigateToMainTab(context, 1);
     } else if (index == 3) {
-      Navigator.of(context).pushReplacement(
-        MaterialPageRoute(builder: (_) => const SuppliersScreen()),
-      );
+      navigateToMainTab(context, 2);
     } else if (index == 5) {
       Navigator.of(context).pushReplacement(
         MaterialPageRoute(builder: (_) => const ItemsScreen()),
@@ -534,91 +523,4 @@ class _ContractorsScreenState extends State<ContractorsScreen> {
       ),
     );
   }
-
-  Widget _buildBottomNav() {
-    const items = [
-      _NavItem(Icons.grid_view_rounded, 'Dashboard'),
-      _NavItem(Icons.badge_outlined, 'Employees'),
-      _NavItem(Icons.inventory_2_outlined, 'Supplier'),
-      _NavItem(Icons.engineering_outlined, 'Contractor'),
-      _NavItem(Icons.person_outline, 'Profile'),
-    ];
-
-    return Container(
-      decoration: BoxDecoration(
-        color: AppColors.cardWhite,
-        border: Border(top: BorderSide(color: AppColors.borderGray.withValues(alpha: 0.5))),
-      ),
-      child: SafeArea(
-        top: false,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 8),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceAround,
-            children: List.generate(items.length, (index) {
-              final item = items[index];
-              final isSelected = index == 3;
-              return GestureDetector(
-                onTap: () {
-                  if (index == 0) {
-                    Navigator.of(context).pushAndRemoveUntil(
-                      MaterialPageRoute(builder: (_) => const HomePage()),
-                      (route) => false,
-                    );
-                  } else if (index == 1) {
-                    Navigator.of(context).pushReplacement(
-                      MaterialPageRoute(builder: (_) => const EmployeesScreen()),
-                    );
-                  } else if (index == 2) {
-                    Navigator.of(context).pushReplacement(
-                      MaterialPageRoute(builder: (_) => const SuppliersScreen()),
-                    );
-                  } else if (index == 4) {
-                    Navigator.of(context).pushReplacement(
-                      MaterialPageRoute(builder: (_) => const ProfileScreen()),
-                    );
-                  }
-                },
-                behavior: HitTestBehavior.opaque,
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Container(
-                      width: 44,
-                      height: 32,
-                      decoration: BoxDecoration(
-                        color: isSelected ? AppColors.primaryRed : Colors.transparent,
-                        borderRadius: BorderRadius.circular(20),
-                      ),
-                      child: Icon(
-                        item.icon,
-                        size: 22,
-                        color: isSelected ? AppColors.white : AppColors.textSecondary,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      item.label,
-                      style: GoogleFonts.poppins(
-                        color: isSelected ? AppColors.primaryRed : AppColors.textSecondary,
-                        fontSize: 11,
-                        fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
-                      ),
-                    ),
-                  ],
-                ),
-              );
-            }),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _NavItem {
-  const _NavItem(this.icon, this.label);
-
-  final IconData icon;
-  final String label;
 }
