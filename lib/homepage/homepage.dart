@@ -9,6 +9,7 @@ import 'package:grjoffice_apps/core/app_colors.dart';
 import 'package:grjoffice_apps/drawer/app_end_drawer.dart';
 import 'package:grjoffice_apps/drawer/drawer.dart';
 import 'package:grjoffice_apps/navigation/app_navigation.dart';
+import 'package:grjoffice_apps/purchases/purchases.dart';
 import 'package:grjoffice_apps/services/attendance_service.dart';
 import 'package:grjoffice_apps/services/location_service.dart';
 import 'package:grjoffice_apps/widgets/app_logo.dart';
@@ -158,6 +159,10 @@ class _HomePageState extends State<HomePage> {
           } else if (index == 6) {
             Navigator.of(context).push(
               MaterialPageRoute(builder: (_) => const StoreScreen()),
+            );
+          } else if (index == 9) {
+            Navigator.of(context).push(
+              MaterialPageRoute(builder: (_) => const PurchasesScreen()),
             );
           }
         },
@@ -433,6 +438,10 @@ class _HomePageState extends State<HomePage> {
         } else if (index == 2) {
           Navigator.of(context).push(
             MaterialPageRoute(builder: (_) => const StoreScreen()),
+          );
+        } else if (index == 3) {
+          Navigator.of(context).push(
+            MaterialPageRoute(builder: (_) => const PurchasesScreen()),
           );
         }
       },
