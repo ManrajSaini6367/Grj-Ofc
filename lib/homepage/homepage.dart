@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -10,7 +11,9 @@ import 'package:grjoffice_apps/drawer/app_end_drawer.dart';
 import 'package:grjoffice_apps/drawer/drawer.dart';
 import 'package:grjoffice_apps/navigation/app_navigation.dart';
 import 'package:grjoffice_apps/purchases/purchases.dart';
+import 'package:grjoffice_apps/core/preference.dart';
 import 'package:grjoffice_apps/services/attendance_service.dart';
+import 'package:grjoffice_apps/services/api_sites.dart';
 import 'package:grjoffice_apps/services/location_service.dart';
 import 'package:grjoffice_apps/widgets/app_logo.dart';
 import 'package:grjoffice_apps/widgets/site_selection_dialog.dart';
@@ -27,13 +30,11 @@ class _HomePageState extends State<HomePage> {
   final LocationService _location = LocationService.instance;
 
   int _selectedDrawerIndex = 0;
-  String _selectedSite = 'River Crossing';
+  String _selectedSite = '';
   bool _isProcessingPunch = false;
-
-  static const _sites = [    'Skyline Towers',
-    'Industrial Hub',
-    'River Crossing',
-  ];
+  bool _isLoadingSites = true;
+  List<Map<String, dynamic>> _siteItems = [];
+  List<String> _sites = [];
 
   static const _operations = [
     _OperationItem(Icons.inventory_2_outlined, 'Supplier', 'SUPPLIER'),
@@ -73,11 +74,66 @@ class _HomePageState extends State<HomePage> {
 
   Future<void> _bootstrap() async {
     await _attendance.load();
+    await _loadSites();
     final granted = await _location.initialize();
     if (_attendance.isPunchedIn && granted) {
       await _location.startTracking();
     }
     if (mounted) setState(() {});
+  }
+
+  Future<void> _loadSites() async {
+    final sites = await sitesApi(context);
+    if (!mounted) return;
+
+    if (sites != null && sites.isNotEmpty) {
+      final names = siteNamesFromItems(sites);
+      var selected = Preference.pref.getString('selectedSiteName');
+      final selectedId = Preference.pref.getInt('selectedSiteId');
+
+      if (selectedId != null) {
+        selected = siteNameById(sites, selectedId) ?? selected;
+      }
+
+      if (selected == null || !names.contains(selected)) {
+        selected = _defaultSiteName(sites) ?? names.first;
+      }
+
+      setState(() {
+        _siteItems = sites;
+        _sites = names;
+        _selectedSite = selected!;
+        _isLoadingSites = false;
+      });
+      return;
+    }
+
+    setState(() => _isLoadingSites = false);
+  }
+
+  String? _defaultSiteName(List<Map<String, dynamic>> sites) {
+    final userJson = Preference.pref.getString('user');
+    if (userJson == null) return null;
+    try {
+      final user = jsonDecode(userJson) as Map<String, dynamic>;
+      final siteId = user['site_id'];
+      if (siteId is int) return siteNameById(sites, siteId);
+      if (siteId != null) return siteNameById(sites, int.tryParse(siteId.toString()) ?? -1);
+    } catch (_) {}
+    return null;
+  }
+
+  Future<void> _saveSelectedSite(String siteName) async {
+    for (final site in _siteItems) {
+      if (site['name']?.toString() == siteName) {
+        final id = site['id'];
+        if (id is int) {
+          await Preference.pref.setInt('selectedSiteId', id);
+        }
+        await Preference.pref.setString('selectedSiteName', siteName);
+        return;
+      }
+    }
   }
 
   @override
@@ -261,7 +317,7 @@ class _HomePageState extends State<HomePage> {
       color: AppColors.cardWhite,
       borderRadius: BorderRadius.circular(8),
       child: InkWell(
-        onTap: _openSiteSelection,
+        onTap: _isLoadingSites || _sites.isEmpty ? null : _openSiteSelection,
         borderRadius: BorderRadius.circular(8),
         child: Container(
           height: 40,
@@ -273,8 +329,19 @@ class _HomePageState extends State<HomePage> {
           child: Row(
             children: [
               Expanded(
-                child: Text(
-                  _selectedSite,
+                child: _isLoadingSites
+                    ? Text(
+                        'Loading sites...',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: GoogleFonts.poppins(
+                          color: AppColors.textSecondary,
+                          fontSize: 14,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      )
+                    : Text(
+                        _selectedSite.isEmpty ? 'Select site' : _selectedSite,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: GoogleFonts.poppins(
@@ -297,13 +364,15 @@ class _HomePageState extends State<HomePage> {
   }
 
   Future<void> _openSiteSelection() async {
+    if (_sites.isEmpty) return;
     final selected = await SiteSelectionDialog.show(
       context,
       sites: _sites,
-      selectedSite: _selectedSite,
+      selectedSite: _selectedSite.isEmpty ? _sites.first : _selectedSite,
     );
     if (selected != null && selected != _selectedSite) {
-      setState(() => _selectedSite = selected);
+      await _saveSelectedSite(selected);
+      if (mounted) setState(() => _selectedSite = selected);
     }
   }
 
@@ -413,7 +482,7 @@ class _HomePageState extends State<HomePage> {
 
   Widget _buildOperationsGrid(double maxWidth) {
     final crossAxisCount = maxWidth >= 520 ? 3 : 2;
-    final aspectRatio = maxWidth < 360 ? 1.25 : 1.35;
+    final aspectRatio = maxWidth < 360 ? 1.18 : 1.28;
 
     return GridView.builder(
       shrinkWrap: true,
@@ -453,26 +522,36 @@ class _HomePageState extends State<HomePage> {
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
             Icon(item.icon, color: AppColors.primaryRed, size: 28),
-            const Spacer(),
-            Text(
-              item.title,
-              style: TextStyle(
-                color: AppColors.headingBlack,
-                fontSize: 14,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-            const SizedBox(height: 2),
-            Text(
-              item.subtitle,
-              style: TextStyle(
-                color: AppColors.textSecondary,
-                fontSize: 10,
-                fontWeight: FontWeight.w500,
-                letterSpacing: 0.4,
-              ),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  item.title,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: AppColors.headingBlack,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  item.subtitle,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: AppColors.textSecondary,
+                    fontSize: 10,
+                    fontWeight: FontWeight.w500,
+                    letterSpacing: 0.4,
+                  ),
+                ),
+              ],
             ),
           ],
         ),

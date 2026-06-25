@@ -1,8 +1,12 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:grjoffice_apps/contractor/contractor.dart';
 import 'package:grjoffice_apps/core/app_colors.dart';
+import 'package:grjoffice_apps/core/preference.dart';
 import 'package:grjoffice_apps/drawer/app_end_drawer.dart';
+import 'package:grjoffice_apps/services/api_auth.dart';
 import 'package:grjoffice_apps/widgets/app_logo.dart';
 
 class ProfileScreen extends StatefulWidget {
@@ -16,6 +20,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
   String _selectedSite = 'River Crossing';
   final GlobalKey _siteSelectorKey = GlobalKey();
+  Map<String, dynamic>? _profile;
+  bool _isLoading = true;
 
   static const _sites = [
     'Skyline Towers',
@@ -38,6 +44,39 @@ class _ProfileScreenState extends State<ProfileScreen> {
   bool _isWide(BuildContext context) => MediaQuery.sizeOf(context).width >= 520;
 
   @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _loadProfile());
+  }
+
+  Future<void> _loadProfile() async {
+    final profile = await profileApi(context);
+    if (!mounted) return;
+    setState(() {
+      _profile = profile ?? _cachedProfile();
+      _isLoading = false;
+    });
+  }
+
+  Map<String, dynamic>? _cachedProfile() {
+    final userJson = Preference.pref.getString('user');
+    if (userJson == null) return null;
+    try {
+      return jsonDecode(userJson) as Map<String, dynamic>;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  String get _name => _profile?['name']?.toString() ?? Preference.pref.getString('name') ?? '-';
+  String get _email => _profile?['email']?.toString() ?? Preference.pref.getString('email') ?? '-';
+  String get _phone => _profile?['mobile']?.toString() ?? Preference.pref.getString('phone') ?? '-';
+  String get _role => profileRoleLabel(_profile?['roles'] as List<dynamic>?);
+  String get _userId => _profile?['id']?.toString() ?? Preference.pref.getString('userId') ?? '-';
+  String? get _designation => _profile?['designation']?.toString();
+  String get _avatarUrl => profileAvatarUrl(_profile?['avatar']?.toString());
+
+  @override
   Widget build(BuildContext context) {
     final hPad = _hPad(context);
 
@@ -55,7 +94,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
               child: _buildTopBar(),
             ),
             Expanded(
-              child: LayoutBuilder(
+              child: _isLoading
+                  ? const Center(
+                      child: CircularProgressIndicator(color: AppColors.primaryRed),
+                    )
+                  : LayoutBuilder(
                 builder: (context, constraints) {
                   return SingleChildScrollView(
                     padding: EdgeInsets.fromLTRB(hPad, 12, hPad, 16),
@@ -263,17 +306,23 @@ class _ProfileScreenState extends State<ProfileScreen> {
             border: Border.all(color: AppColors.primaryRed, width: 2),
             color: const Color(0xFFE5E7EB),
           ),
-          child: ClipRRect(
+            child: ClipRRect(
             borderRadius: BorderRadius.circular(10),
-            child: Image.network(
-              'https://images.unsplash.com/photo-1560250097-0b93528c311a?w=240&h=240&fit=crop',
-              fit: BoxFit.cover,
-              errorBuilder: (_, __, ___) => Icon(
-                Icons.person,
-                size: size * 0.45,
-                color: AppColors.textSecondary,
-              ),
-            ),
+            child: _avatarUrl.isNotEmpty
+                ? Image.network(
+                    _avatarUrl,
+                    fit: BoxFit.cover,
+                    errorBuilder: (_, __, ___) => Icon(
+                      Icons.person,
+                      size: size * 0.45,
+                      color: AppColors.textSecondary,
+                    ),
+                  )
+                : Icon(
+                    Icons.person,
+                    size: size * 0.45,
+                    color: AppColors.textSecondary,
+                  ),
           ),
         ),
         Positioned(
@@ -299,7 +348,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       crossAxisAlignment: alignCenter ? CrossAxisAlignment.center : CrossAxisAlignment.start,
       children: [
         Text(
-          'Gulshan Rai Jain',
+          _name,
           textAlign: alignCenter ? TextAlign.center : TextAlign.start,
           style: GoogleFonts.poppins(
             color: AppColors.headingBlack,
@@ -316,7 +365,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             borderRadius: BorderRadius.circular(16),
           ),
           child: Text(
-            'Director',
+            _role,
             style: GoogleFonts.poppins(
               color: AppColors.white,
               fontSize: 10,
@@ -333,7 +382,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             const SizedBox(width: 5),
             Flexible(
               child: Text(
-                'Class Contractor ID: CC-9082',
+                'User ID: $_userId',
                 style: GoogleFonts.poppins(
                   color: AppColors.textSecondary,
                   fontSize: 12,
@@ -381,21 +430,21 @@ class _ProfileScreenState extends State<ProfileScreen> {
     return _surfaceCard(
       child: Column(
         children: [
-          _buildInfoRow(Icons.person_outline, 'Full Name', 'Gulshan Rai Jain'),
+          _buildInfoRow(Icons.person_outline, 'Full Name', _name),
           _divider(),
           _buildInfoRow(
             Icons.email_outlined,
             'Email Address',
-            'g.rai.jain@skylinetowers.com',
+            _email,
             trailing: _primaryTag(),
           ),
           _divider(),
-          _buildInfoRow(Icons.phone_outlined, 'Phone Number', '+91 98765 43210'),
+          _buildInfoRow(Icons.phone_outlined, 'Phone Number', _phone),
           _divider(),
           _buildInfoRow(
             Icons.work_outline,
             'Department',
-            'Contractor Management & Strategy',
+            _designation?.isNotEmpty == true ? _designation! : _role,
           ),
         ],
       ),

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:grjoffice_apps/core/app_colors.dart';
-import 'package:grjoffice_apps/main_shell.dart';
+import 'package:grjoffice_apps/core/preference.dart';
+import 'package:grjoffice_apps/services/api_auth.dart';
 import 'package:grjoffice_apps/widgets/app_logo.dart';
 
 class LoginPage extends StatefulWidget {
@@ -15,6 +16,17 @@ class _LoginPageState extends State<LoginPage> {
   final _passwordController = TextEditingController();
   bool _obscurePassword = true;
   bool _rememberDevice = false;
+  bool _isLoading = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _rememberDevice = Preference.pref.getBool('rememberDevice') ?? false;
+    final rememberedLogin = Preference.pref.getString('rememberedLogin');
+    if (rememberedLogin != null) {
+      _emailController.text = rememberedLogin;
+    }
+  }
 
   @override
   void dispose() {
@@ -170,39 +182,61 @@ class _LoginPageState extends State<LoginPage> {
             width: double.infinity,
             height: 48,
             child: ElevatedButton(
-              onPressed: () {
-                Navigator.of(context).pushReplacement(
-                  MaterialPageRoute(builder: (_) => const MainShell()),
-                );
-              },
+              onPressed: _isLoading ? null : _handleLogin,
               style: ElevatedButton.styleFrom(
                 backgroundColor: AppColors.primaryRed,
                 foregroundColor: AppColors.white,
+                disabledBackgroundColor:
+                    AppColors.primaryRed.withValues(alpha: 0.6),
+                disabledForegroundColor: AppColors.white,
                 elevation: 0,
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(6),
                 ),
               ),
-              child: const Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Text(
-                    'LOGIN SECURELY',
-                    style: TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w700,
-                      letterSpacing: 0.8,
+              child: _isLoading
+                  ? const SizedBox(
+                      width: 22,
+                      height: 22,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2.2,
+                        color: AppColors.white,
+                      ),
+                    )
+                  : const Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Text(
+                          'LOGIN SECURELY',
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w700,
+                            letterSpacing: 0.8,
+                          ),
+                        ),
+                        SizedBox(width: 8),
+                        Icon(Icons.arrow_forward, size: 18),
+                      ],
                     ),
-                  ),
-                  SizedBox(width: 8),
-                  Icon(Icons.arrow_forward, size: 18),
-                ],
-              ),
             ),
           ),
         ],
       ),
     );
+  }
+
+  Future<void> _handleLogin() async {
+    FocusScope.of(context).unfocus();
+    setState(() => _isLoading = true);
+    await logInApi(
+      context,
+      _emailController.text,
+      _passwordController.text,
+      rememberDevice: _rememberDevice,
+    );
+    if (mounted) {
+      setState(() => _isLoading = false);
+    }
   }
 
   Widget _buildFieldLabel(String label) {
