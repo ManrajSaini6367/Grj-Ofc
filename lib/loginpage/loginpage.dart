@@ -2,10 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:grjoffice_apps/core/app_colors.dart';
 import 'package:grjoffice_apps/core/preference.dart';
 import 'package:grjoffice_apps/services/api_auth.dart';
+import 'package:grjoffice_apps/utils/app_helpers.dart';
 import 'package:grjoffice_apps/widgets/app_logo.dart';
 
 class LoginPage extends StatefulWidget {
-  const LoginPage({super.key});
+  const LoginPage({super.key, this.flashMessage});
+
+  final String? flashMessage;
 
   @override
   State<LoginPage> createState() => _LoginPageState();
@@ -25,6 +28,13 @@ class _LoginPageState extends State<LoginPage> {
     final rememberedLogin = Preference.pref.getString('rememberedLogin');
     if (rememberedLogin != null) {
       _emailController.text = rememberedLogin;
+    }
+
+    final flash = widget.flashMessage;
+    if (flash != null && flash.isNotEmpty) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) message(context, flash);
+      });
     }
   }
 

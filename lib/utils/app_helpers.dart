@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:grjoffice_apps/core/app_colors.dart';
+import 'package:grjoffice_apps/core/app_navigator.dart';
 
 void message(BuildContext context, String text) {
   ScaffoldMessenger.of(context).showSnackBar(
@@ -11,8 +12,5 @@ void message(BuildContext context, String text) {
 }
 
 void pushAndRevoveUntil(BuildContext context, Widget screen) {
-  Navigator.of(context).pushAndRemoveUntil(
-    MaterialPageRoute(builder: (_) => screen),
-    (route) => false,
-  );
+  navigateToScreenAndClearStack(screen);
 }

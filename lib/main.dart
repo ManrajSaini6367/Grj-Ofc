@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:grjoffice_apps/core/app_colors.dart';
 import 'package:grjoffice_apps/core/app_date_time.dart';
+import 'package:grjoffice_apps/core/app_navigator.dart';
 import 'package:grjoffice_apps/core/preference.dart';
 import 'package:grjoffice_apps/spleshscreen/spleshscreen.dart';
 
@@ -26,6 +27,7 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
+      navigatorKey: appNavigatorKey,
       debugShowCheckedModeBanner: false,
       title: 'GRJ Office App',
       theme: ThemeData(

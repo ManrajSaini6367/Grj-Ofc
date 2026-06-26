@@ -5,7 +5,9 @@ import 'package:grjoffice_apps/items/items.dart';
 import 'package:grjoffice_apps/store/store.dart';
 import 'package:grjoffice_apps/drawer/app_end_drawer.dart';
 import 'package:grjoffice_apps/drawer/drawer.dart';
+import 'package:grjoffice_apps/models/getsupplierlist.dart';
 import 'package:grjoffice_apps/navigation/app_navigation.dart';
+import 'package:grjoffice_apps/services/api_auth.dart';
 import 'package:grjoffice_apps/suppliers/add_supplier_screen.dart';
 import 'package:grjoffice_apps/suppliers/supplier.dart';
 import 'package:grjoffice_apps/widgets/app_logo.dart';
@@ -21,15 +23,46 @@ class _SuppliersScreenState extends State<SuppliersScreen> {
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
   final _searchController = TextEditingController();
   String _searchQuery = '';
-  late List<Supplier> _suppliers;
+  List<Supplier> _suppliers = [];
+  bool _isLoading = true;
 
   @override
   void initState() {
     super.initState();
-    _suppliers = List<Supplier>.from(kMockSuppliers);
     _searchController.addListener(() {
       setState(() => _searchQuery = _searchController.text.trim().toLowerCase());
     });
+    WidgetsBinding.instance.addPostFrameCallback((_) => _loadSuppliers());
+  }
+
+  Future<void> _loadSuppliers() async {
+    final response = await getSuppliersApi(context);
+    if (!mounted) return;
+    setState(() {
+      _suppliers = response?.data?.items?.map(_toSupplier).toList() ?? [];
+      _isLoading = false;
+    });
+  }
+
+  Supplier _toSupplier(SupplierListItem item) {
+    final materials = item.items
+            ?.map((m) => m.name ?? '')
+            .where((name) => name.isNotEmpty)
+            .toList() ??
+        [];
+
+    return Supplier(
+      id: (item.id ?? 0).toString(),
+      name: item.name ?? '',
+      mobile: item.mobile ?? '',
+      materials: materials,
+      gstNo: item.gstNo ?? '-',
+      panNo: item.panNo ?? '-',
+      address: item.address ?? '-',
+      status: item.status == 'published'
+          ? SupplierStatus.published
+          : SupplierStatus.unpublished,
+    );
   }
 
   @override
@@ -77,7 +110,11 @@ class _SuppliersScreenState extends State<SuppliersScreen> {
               child: _buildTopBar(),
             ),
             Expanded(
-              child: SingleChildScrollView(
+              child: _isLoading
+                  ? const Center(
+                      child: CircularProgressIndicator(color: AppColors.primaryRed),
+                    )
+                  : SingleChildScrollView(
                 padding: EdgeInsets.fromLTRB(hPad, 16, hPad, 16),
                 child: Center(
                   child: ConstrainedBox(
@@ -220,6 +257,18 @@ class _SuppliersScreenState extends State<SuppliersScreen> {
     );
 
     if (confirmed != true || !mounted) return;
+
+    final supplierId = int.tryParse(supplier.id);
+    if (supplierId == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Invalid supplier id.')),
+      );
+      return;
+    }
+
+    final deleted = await deleteSupplierApi(context, supplierId);
+    if (!mounted || !deleted) return;
+
     setState(() => _suppliers.removeWhere((s) => s.id == supplier.id));
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text('${supplier.name} deleted successfully.')),

@@ -6,7 +6,9 @@ import 'package:grjoffice_apps/core/app_colors.dart';
 import 'package:grjoffice_apps/drawer/app_end_drawer.dart';
 import 'package:grjoffice_apps/drawer/drawer.dart';
 import 'package:grjoffice_apps/items/items.dart';
+import 'package:grjoffice_apps/models/listcontractor.dart';
 import 'package:grjoffice_apps/navigation/app_navigation.dart';
+import 'package:grjoffice_apps/services/api_auth.dart';
 import 'package:grjoffice_apps/store/store.dart';
 import 'package:grjoffice_apps/widgets/app_logo.dart';
 
@@ -21,15 +23,43 @@ class _ContractorsScreenState extends State<ContractorsScreen> {
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
   final _searchController = TextEditingController();
   String _searchQuery = '';
-  late List<LabourContractor> _contractors;
+  List<LabourContractor> _contractors = [];
+  bool _isLoading = true;
 
   @override
   void initState() {
     super.initState();
-    _contractors = List<LabourContractor>.from(kMockContractors);
     _searchController.addListener(() {
       setState(() => _searchQuery = _searchController.text.trim().toLowerCase());
     });
+    WidgetsBinding.instance.addPostFrameCallback((_) => _loadContractors());
+  }
+
+  Future<void> _loadContractors() async {
+    final response = await getContractorListApi(context);
+    if (!mounted) return;
+    setState(() {
+      _contractors = response?.data?.items?.map(_toContractor).toList() ?? [];
+      _isLoading = false;
+    });
+  }
+
+  LabourContractor _toContractor(ContractorListItem item) {
+    return LabourContractor(
+      id: (item.id ?? 0).toString(),
+      name: item.name ?? '',
+      mobile: item.mobile ?? '',
+      address: item.address ?? '',
+      masonRatePerDay: item.masonRateValue,
+      beldarRatePerDay: item.beldarRateValue,
+      coolieRatePerDay: item.coolieRateValue,
+      masonOtRatePerHour: item.masonOverRateValue,
+      beldarOtRatePerHour: item.beldarOverRateValue,
+      coolieOtRatePerHour: item.coolieOverRateValue,
+      status: item.status == 'published'
+          ? ContractorStatus.published
+          : ContractorStatus.unpublished,
+    );
   }
 
   @override
@@ -75,7 +105,11 @@ class _ContractorsScreenState extends State<ContractorsScreen> {
               child: _buildTopBar(),
             ),
             Expanded(
-              child: SingleChildScrollView(
+              child: _isLoading
+                  ? const Center(
+                      child: CircularProgressIndicator(color: AppColors.primaryRed),
+                    )
+                  : SingleChildScrollView(
                 padding: EdgeInsets.fromLTRB(hPad, 16, hPad, 16),
                 child: Center(
                   child: ConstrainedBox(
@@ -171,11 +205,14 @@ class _ContractorsScreenState extends State<ContractorsScreen> {
     final result = await Navigator.of(context).push<LabourContractor>(
       MaterialPageRoute(builder: (_) => AddContractorScreen(contractor: contractor)),
     );
-    if (result == null || !mounted) return;
-    setState(() {
-      final index = _contractors.indexWhere((c) => c.id == contractor.id);
-      if (index != -1) _contractors[index] = result;
-    });
+    if (!mounted) return;
+    if (result != null) {
+      setState(() {
+        final index = _contractors.indexWhere((c) => c.id == contractor.id);
+        if (index != -1) _contractors[index] = result;
+      });
+    }
+    await _loadContractors();
   }
 
   Future<void> _confirmDelete(LabourContractor contractor) async {
@@ -209,6 +246,18 @@ class _ContractorsScreenState extends State<ContractorsScreen> {
     );
 
     if (confirmed != true || !mounted) return;
+
+    final contractorId = int.tryParse(contractor.id);
+    if (contractorId == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Invalid contractor id.')),
+      );
+      return;
+    }
+
+    final deleted = await deleteContractorApi(context, contractorId);
+    if (!mounted || !deleted) return;
+
     setState(() => _contractors.removeWhere((c) => c.id == contractor.id));
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text('${contractor.name} deleted successfully.')),

@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:grjoffice_apps/contractors/labour_contractor.dart';
 import 'package:grjoffice_apps/core/app_colors.dart';
+import 'package:grjoffice_apps/services/api_auth.dart';
 import 'package:grjoffice_apps/widgets/app_logo.dart';
 
 class AddContractorScreen extends StatefulWidget {
@@ -29,6 +30,7 @@ class _AddContractorScreenState extends State<AddContractorScreen> {
   final _coolieOtController = TextEditingController();
 
   ContractorStatus _status = ContractorStatus.published;
+  bool _isSaving = false;
 
   @override
   void initState() {
@@ -67,29 +69,90 @@ class _AddContractorScreenState extends State<AddContractorScreen> {
     return double.tryParse(value.trim());
   }
 
-  void _submit() {
+  Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
 
-    final contractor = LabourContractor(
-      id: widget.contractor?.id ?? 'CON-${DateTime.now().millisecondsSinceEpoch}',
-      name: _nameController.text.trim(),
-      mobile: _mobileController.text.trim(),
-      address: _addressController.text.trim(),
-      masonRatePerDay: _parseRate(_masonDayController.text)!,
-      beldarRatePerDay: _parseRate(_beldarDayController.text)!,
-      coolieRatePerDay: _parseRate(_coolieDayController.text)!,
-      masonOtRatePerHour: _parseRate(_masonOtController.text)!,
-      beldarOtRatePerHour: _parseRate(_beldarOtController.text)!,
-      coolieOtRatePerHour: _parseRate(_coolieOtController.text)!,
-      status: _status,
-    );
+    final status =
+        _status == ContractorStatus.published ? 'published' : 'unpublished';
+    final masonRate = _parseRate(_masonDayController.text)!.round();
+    final beldarRate = _parseRate(_beldarDayController.text)!.round();
+    final coolieRate = _parseRate(_coolieDayController.text)!.round();
+    final masonOverRate = _parseRate(_masonOtController.text)!.round();
+    final beldarOverRate = _parseRate(_beldarOtController.text)!.round();
+    final coolieOverRate = _parseRate(_coolieOtController.text)!.round();
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(widget.isEditing ? 'Contractor updated successfully.' : 'Contractor created successfully.'),
-      ),
-    );
-    Navigator.of(context).pop(contractor);
+    if (widget.isEditing) {
+      final contractorId = int.tryParse(widget.contractor!.id);
+      if (contractorId == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Invalid contractor id.')),
+        );
+        return;
+      }
+
+      setState(() => _isSaving = true);
+      try {
+        final contractor = await updateContractorApi(
+          context,
+          contractorId: contractorId,
+          name: _nameController.text.trim(),
+          mobile: _mobileController.text.trim(),
+          address: _addressController.text.trim(),
+          status: status,
+          masonRate: masonRate,
+          beldarRate: beldarRate,
+          coolieRate: coolieRate,
+          masonOverRate: masonOverRate,
+          beldarOverRate: beldarOverRate,
+          coolieOverRate: coolieOverRate,
+        );
+
+        if (!mounted) return;
+        if (contractor != null) {
+          Navigator.of(context).pop(contractor);
+        }
+      } finally {
+        if (mounted) {
+          setState(() => _isSaving = false);
+        }
+      }
+      return;
+    }
+
+    final siteId = selectedSiteId();
+    if (siteId == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please select a site first.')),
+      );
+      return;
+    }
+
+    setState(() => _isSaving = true);
+    try {
+      final contractor = await createContractorApi(
+        context,
+        siteId: siteId,
+        name: _nameController.text.trim(),
+        mobile: _mobileController.text.trim(),
+        address: _addressController.text.trim(),
+        status: status,
+        masonRate: masonRate,
+        beldarRate: beldarRate,
+        coolieRate: coolieRate,
+        masonOverRate: masonOverRate,
+        beldarOverRate: beldarOverRate,
+        coolieOverRate: coolieOverRate,
+      );
+
+      if (!mounted) return;
+      if (contractor != null) {
+        Navigator.of(context).pop(contractor);
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isSaving = false);
+      }
+    }
   }
 
   @override
@@ -351,17 +414,32 @@ class _AddContractorScreenState extends State<AddContractorScreen> {
     return SizedBox(
       height: 48,
       child: ElevatedButton(
-        onPressed: _submit,
+        onPressed: _isSaving ? null : _submit,
         style: ElevatedButton.styleFrom(
           backgroundColor: AppColors.primaryRed,
           foregroundColor: AppColors.white,
+          disabledBackgroundColor: AppColors.primaryRed.withValues(alpha: 0.6),
+          disabledForegroundColor: AppColors.white,
           elevation: 0,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
         ),
-        child: Text(
-          widget.isEditing ? 'UPDATE CONTRACTOR' : 'SAVE CONTRACTOR',
-          style: GoogleFonts.poppins(fontSize: 14, fontWeight: FontWeight.w700, letterSpacing: 0.6),
-        ),
+        child: _isSaving
+            ? const SizedBox(
+                width: 22,
+                height: 22,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2.2,
+                  color: AppColors.white,
+                ),
+              )
+            : Text(
+                widget.isEditing ? 'UPDATE CONTRACTOR' : 'SAVE CONTRACTOR',
+                style: GoogleFonts.poppins(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: 0.6,
+                ),
+              ),
       ),
     );
   }

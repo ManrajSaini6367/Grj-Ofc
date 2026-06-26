@@ -2,8 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:grjoffice_apps/contractor/contractor.dart';
 import 'package:grjoffice_apps/core/app_colors.dart';
-import 'package:grjoffice_apps/loginpage/loginpage.dart';
 import 'package:grjoffice_apps/profilescreen/profilescreen.dart';
+import 'package:grjoffice_apps/services/api_auth.dart';
 
 class AppEndDrawer extends StatelessWidget {
   const AppEndDrawer({super.key});
@@ -60,13 +60,7 @@ class AppEndDrawer extends StatelessWidget {
                   icon: Icons.logout_rounded,
                   title: 'Logout',
                   isDestructive: true,
-                  onTap: (context) {
-                    Navigator.of(context).pop();
-                    Navigator.of(context).pushAndRemoveUntil(
-                      MaterialPageRoute(builder: (_) => const LoginPage()),
-                      (route) => false,
-                    );
-                  },
+                  onTap: (context) => _confirmAndLogout(context),
                 ),
               ],
             ),
@@ -74,6 +68,62 @@ class AppEndDrawer extends StatelessWidget {
         ),
       ),
     );
+  }
+
+  Future<void> _confirmAndLogout(BuildContext context) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) {
+        return AlertDialog(
+          backgroundColor: AppColors.cardWhite,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+          title: Text(
+            'Logout',
+            style: GoogleFonts.poppins(
+              color: AppColors.headingBlack,
+              fontSize: 18,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          content: Text(
+            'Are you sure you want to logout?',
+            style: GoogleFonts.poppins(
+              color: AppColors.textDark,
+              fontSize: 14,
+              height: 1.4,
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(false),
+              child: Text(
+                'Cancel',
+                style: GoogleFonts.poppins(
+                  color: AppColors.textSecondary,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(true),
+              child: Text(
+                'Logout',
+                style: GoogleFonts.poppins(
+                  color: AppColors.primaryRed,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (confirmed != true || !context.mounted) return;
+
+    Navigator.of(context).pop();
+    await logoutApi(context);
   }
 
   Widget _buildHeader() {

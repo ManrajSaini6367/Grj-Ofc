@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:grjoffice_apps/core/app_colors.dart';
 import 'package:grjoffice_apps/items/item.dart';
+import 'package:grjoffice_apps/services/api_auth.dart';
 import 'package:grjoffice_apps/widgets/app_logo.dart';
 
 class AddItemScreen extends StatefulWidget {
@@ -25,6 +26,7 @@ class _AddItemScreenState extends State<AddItemScreen> {
   bool _directPurchase = false;
   bool _dayReport = false;
   bool _consumable = true;
+  bool _isSaving = false;
 
   @override
   void initState() {
@@ -48,26 +50,59 @@ class _AddItemScreenState extends State<AddItemScreen> {
     super.dispose();
   }
 
-  void _submit() {
+  Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
 
-    final item = InventoryItem(
-      id: widget.item?.id ?? 'ITM-${DateTime.now().millisecondsSinceEpoch}',
-      name: _nameController.text.trim(),
-      sku: _skuController.text.trim(),
-      unit: _unit,
-      status: _status,
-      directPurchase: _directPurchase,
-      dayReport: _dayReport,
-      consumable: _consumable,
-    );
+    final status =
+        _status == ItemStatus.published ? 'published' : 'unpublished';
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(widget.isEditing ? 'Item updated successfully.' : 'Item created successfully.'),
-      ),
-    );
-    Navigator.of(context).pop(item);
+    if (widget.isEditing) {
+      final item = InventoryItem(
+        id: widget.item!.id,
+        name: _nameController.text.trim(),
+        sku: _skuController.text.trim(),
+        unit: _unit,
+        status: _status,
+        directPurchase: _directPurchase,
+        dayReport: _dayReport,
+        consumable: _consumable,
+      );
+      Navigator.of(context).pop(item);
+      return;
+    }
+
+    final siteId = selectedSiteId();
+    if (siteId == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please select a site first.')),
+      );
+      return;
+    }
+
+    setState(() => _isSaving = true);
+    try {
+      final item = await createItemApi(
+        context,
+        siteId: siteId,
+        name: _nameController.text.trim(),
+        sku: _skuController.text.trim(),
+        unit: _unit,
+        status: status,
+        balance: 0,
+        purchase: _directPurchase ? 1 : 0,
+        dayReport: _dayReport ? 1 : 0,
+        consumable: _consumable ? 1 : 0,
+      );
+
+      if (!mounted) return;
+      if (item != null) {
+        Navigator.of(context).pop(item);
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isSaving = false);
+      }
+    }
   }
 
   @override
@@ -318,17 +353,32 @@ class _AddItemScreenState extends State<AddItemScreen> {
     return SizedBox(
       height: 48,
       child: ElevatedButton(
-        onPressed: _submit,
+        onPressed: _isSaving ? null : _submit,
         style: ElevatedButton.styleFrom(
           backgroundColor: AppColors.primaryRed,
           foregroundColor: AppColors.white,
+          disabledBackgroundColor: AppColors.primaryRed.withValues(alpha: 0.6),
+          disabledForegroundColor: AppColors.white,
           elevation: 0,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
         ),
-        child: Text(
-          widget.isEditing ? 'UPDATE ITEM' : 'SAVE ITEM',
-          style: GoogleFonts.poppins(fontSize: 14, fontWeight: FontWeight.w700, letterSpacing: 0.6),
-        ),
+        child: _isSaving
+            ? const SizedBox(
+                width: 22,
+                height: 22,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2.2,
+                  color: AppColors.white,
+                ),
+              )
+            : Text(
+                widget.isEditing ? 'UPDATE ITEM' : 'SAVE ITEM',
+                style: GoogleFonts.poppins(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: 0.6,
+                ),
+              ),
       ),
     );
   }

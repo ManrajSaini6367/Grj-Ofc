@@ -28,11 +28,13 @@ class _AddSupplierScreenState extends State<AddSupplierScreen> {
   final _panController = TextEditingController();
   final _addressController = TextEditingController();
 
-  final List<String> _selectedMaterials = [];
+  final List<ItemModel> _selectedItems = [];
   List<ItemModel> _materialSuggestions = [];
   SupplierStatus _status = SupplierStatus.published;
   bool _showMaterialSuggestions = false;
   bool _isMaterialSearching = false;
+  bool _isSaving = false;
+  bool _isLoadingSupplier = false;
   Timer? _materialSearchDebounce;
 
   @override
@@ -45,10 +47,37 @@ class _AddSupplierScreenState extends State<AddSupplierScreen> {
       _gstController.text = supplier.gstNo;
       _panController.text = supplier.panNo;
       _addressController.text = supplier.address;
-      _selectedMaterials.addAll(supplier.materials);
       _status = supplier.status;
+      WidgetsBinding.instance.addPostFrameCallback((_) => _loadSupplierForEdit());
     }
     _materialSearchController.addListener(_onMaterialSearchChanged);
+  }
+
+  Future<void> _loadSupplierForEdit() async {
+    final supplierId = int.tryParse(widget.supplier?.id ?? '');
+    if (supplierId == null) return;
+
+    setState(() => _isLoadingSupplier = true);
+    final response = await getSupplierApi(context, supplierId);
+    if (!mounted) return;
+
+    final items = response?.data?.items ?? [];
+    setState(() {
+      _selectedItems
+        ..clear()
+        ..addAll(
+          items.map(
+            (item) => ItemModel(
+              id: item.id ?? 0,
+              siteId: response?.data?.siteId ?? 0,
+              name: item.name ?? '',
+              unit: item.unit ?? '',
+              status: 'published',
+            ),
+          ),
+        );
+      _isLoadingSupplier = false;
+    });
   }
 
   void _onMaterialSearchChanged() {
@@ -76,7 +105,10 @@ class _AddSupplierScreenState extends State<AddSupplierScreen> {
     if (!mounted) return;
     setState(() {
       _materialSuggestions = items
-              ?.where((item) => !_selectedMaterials.contains(item.displayName))
+              ?.where(
+                (item) =>
+                    !_selectedItems.any((selected) => selected.id == item.id),
+              )
               .toList() ??
           [];
       _isMaterialSearching = false;
@@ -96,10 +128,9 @@ class _AddSupplierScreenState extends State<AddSupplierScreen> {
   }
 
   void _addMaterial(ItemModel item) {
-    final name = item.displayName;
     setState(() {
-      if (!_selectedMaterials.contains(name)) {
-        _selectedMaterials.add(name);
+      if (!_selectedItems.any((selected) => selected.id == item.id)) {
+        _selectedItems.add(item);
       }
       _materialSearchController.clear();
       _materialSuggestions = [];
@@ -107,40 +138,85 @@ class _AddSupplierScreenState extends State<AddSupplierScreen> {
     });
   }
 
-  void _removeMaterial(String material) {
-    setState(() => _selectedMaterials.remove(material));
+  void _removeItem(ItemModel item) {
+    setState(() => _selectedItems.removeWhere((selected) => selected.id == item.id));
   }
 
-  void _submit() {
+  Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
-    if (_selectedMaterials.isEmpty) {
+
+    if (_selectedItems.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Please select at least one material.')),
       );
       return;
     }
 
-    final supplier = Supplier(
-      id: widget.supplier?.id ?? 'SUP-${DateTime.now().millisecondsSinceEpoch}',
+    final itemIds = _selectedItems.map((item) => item.id).toList();
+    final materialNames = _selectedItems.map((item) => item.displayName).toList();
+    final status =
+        _status == SupplierStatus.published ? 'published' : 'unpublished';
+
+    if (widget.isEditing) {
+      final supplierId = int.tryParse(widget.supplier!.id);
+      if (supplierId == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Invalid supplier id.')),
+        );
+        return;
+      }
+
+      setState(() => _isSaving = true);
+      final supplier = await updateSupplierApi(
+        context,
+        supplierId: supplierId,
+        name: _nameController.text.trim(),
+        mobile: _mobileController.text.trim(),
+        address: _addressController.text.trim(),
+        gstNo: _gstController.text.trim(),
+        panNo: _panController.text.trim(),
+        status: status,
+        itemIds: itemIds,
+        materialNames: materialNames,
+      );
+
+      if (!mounted) return;
+      setState(() => _isSaving = false);
+
+      if (supplier != null) {
+        Navigator.of(context).pop(supplier);
+      }
+      return;
+    }
+
+    final siteId = selectedSiteId();
+    if (siteId == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please select a site first.')),
+      );
+      return;
+    }
+
+    setState(() => _isSaving = true);
+    final supplier = await createSupplierApi(
+      context,
+      siteId: siteId,
       name: _nameController.text.trim(),
       mobile: _mobileController.text.trim(),
-      materials: List<String>.from(_selectedMaterials),
+      address: _addressController.text.trim(),
       gstNo: _gstController.text.trim(),
       panNo: _panController.text.trim(),
-      address: _addressController.text.trim(),
-      status: _status,
+      status: status,
+      itemIds: itemIds,
+      materialNames: materialNames,
     );
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          widget.isEditing
-              ? 'Supplier updated successfully.'
-              : 'Supplier created successfully.',
-        ),
-      ),
-    );
-    Navigator.of(context).pop(supplier);
+    if (!mounted) return;
+    setState(() => _isSaving = false);
+
+    if (supplier != null) {
+      Navigator.of(context).pop(supplier);
+    }
   }
 
   @override
@@ -421,23 +497,36 @@ class _AddSupplierScreenState extends State<AddSupplierScreen> {
               ),
             ),
         ],
-        if (_selectedMaterials.isNotEmpty) ...[
+        if (_selectedItems.isNotEmpty) ...[
           const SizedBox(height: 10),
           Wrap(
             spacing: 8,
             runSpacing: 8,
-            children: _selectedMaterials.map((material) {
+            children: _selectedItems.map((item) {
               return InputChip(
                 label: Text(
-                  material,
+                  item.displayName,
                   style: GoogleFonts.poppins(fontSize: 12, color: AppColors.primaryRed),
                 ),
                 deleteIcon: const Icon(Icons.close, size: 16, color: AppColors.primaryRed),
-                onDeleted: () => _removeMaterial(material),
+                onDeleted: () => _removeItem(item),
                 backgroundColor: AppColors.primaryRed.withValues(alpha: 0.1),
                 side: BorderSide(color: AppColors.primaryRed.withValues(alpha: 0.3)),
               );
             }).toList(),
+          ),
+        ],
+        if (_isLoadingSupplier) ...[
+          const SizedBox(height: 10),
+          const Center(
+            child: SizedBox(
+              width: 22,
+              height: 22,
+              child: CircularProgressIndicator(
+                color: AppColors.primaryRed,
+                strokeWidth: 2,
+              ),
+            ),
           ),
         ],
       ],
@@ -563,21 +652,32 @@ class _AddSupplierScreenState extends State<AddSupplierScreen> {
     return SizedBox(
       height: 48,
       child: ElevatedButton(
-        onPressed: _submit,
+        onPressed: _isSaving ? null : _submit,
         style: ElevatedButton.styleFrom(
           backgroundColor: AppColors.primaryRed,
           foregroundColor: AppColors.white,
+          disabledBackgroundColor: AppColors.primaryRed.withValues(alpha: 0.6),
+          disabledForegroundColor: AppColors.white,
           elevation: 0,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
         ),
-        child: Text(
-          widget.isEditing ? 'UPDATE SUPPLIER' : 'SAVE SUPPLIER',
-          style: GoogleFonts.poppins(
-            fontSize: 14,
-            fontWeight: FontWeight.w700,
-            letterSpacing: 0.6,
-          ),
-        ),
+        child: _isSaving
+            ? const SizedBox(
+                width: 22,
+                height: 22,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2.2,
+                  color: AppColors.white,
+                ),
+              )
+            : Text(
+                widget.isEditing ? 'UPDATE SUPPLIER' : 'SAVE SUPPLIER',
+                style: GoogleFonts.poppins(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: 0.6,
+                ),
+              ),
       ),
     );
   }

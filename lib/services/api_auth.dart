@@ -1,17 +1,26 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:grjoffice_apps/core/app_navigator.dart';
 import 'package:grjoffice_apps/core/api_config.dart';
 import 'package:grjoffice_apps/core/preference.dart';
+import 'package:grjoffice_apps/loginpage/loginpage.dart';
 import 'package:grjoffice_apps/main_shell.dart';
+import 'package:grjoffice_apps/contractors/labour_contractor.dart';
+import 'package:grjoffice_apps/items/item.dart';
+import 'package:grjoffice_apps/models/getsupplier.dart';
+import 'package:grjoffice_apps/models/getsupplierlist.dart';
 import 'package:grjoffice_apps/models/item_model.dart';
 import 'package:grjoffice_apps/models/items_response_model.dart';
+import 'package:grjoffice_apps/models/listcontractor.dart';
 import 'package:grjoffice_apps/models/login_model.dart';
 import 'package:grjoffice_apps/models/site_model.dart';
 import 'package:grjoffice_apps/models/sites_response_model.dart';
 import 'package:grjoffice_apps/models/user_model.dart';
+import 'package:grjoffice_apps/suppliers/supplier.dart';
 import 'package:grjoffice_apps/utils/app_helpers.dart';
 import 'package:http/http.dart' as http;
 
@@ -24,6 +33,93 @@ Map<String, String> get authHeaders {
     'Accept': 'application/json',
     if (token != null) 'Authorization': 'Bearer $token',
   };
+}
+
+double apiToDouble(dynamic value, double fallback) {
+  if (value == null) return fallback;
+  if (value is num) return value.toDouble();
+  return double.tryParse(value.toString()) ?? fallback;
+}
+
+Map<String, dynamic>? decodeApiJson(String body) {
+  final trimmed = body.trim();
+  if (trimmed.isEmpty || trimmed.startsWith('<')) return null;
+  try {
+    final decoded = jsonDecode(trimmed);
+    if (decoded is Map<String, dynamic>) return decoded;
+  } catch (_) {}
+  return null;
+}
+
+Future<http.Response> apiPut(
+  Uri uri, {
+  required Map<String, String> headers,
+  required String body,
+}) async {
+  final client = HttpClient()
+    ..connectionTimeout = const Duration(seconds: 30)
+    ..idleTimeout = const Duration(seconds: 30);
+
+  try {
+    final request = await client.putUrl(uri);
+    request.persistentConnection = false;
+    // Dart sends Expect: 100-continue on PUT; many nginx/Laravel setups hang on it.
+    request.headers.remove(HttpHeaders.expectHeader, '100-continue');
+
+    for (final entry in headers.entries) {
+      request.headers.set(entry.key, entry.value);
+    }
+
+    request.add(utf8.encode(body));
+
+    final ioResponse = await request.close().timeout(const Duration(seconds: 30));
+    final responseBody = await ioResponse
+        .transform(utf8.decoder)
+        .join()
+        .timeout(const Duration(seconds: 30));
+
+    final responseHeaders = <String, String>{};
+    ioResponse.headers.forEach((name, values) {
+      responseHeaders[name] = values.join(',');
+    });
+
+    return http.Response(
+      responseBody,
+      ioResponse.statusCode,
+      headers: responseHeaders,
+    );
+  } finally {
+    client.close(force: true);
+  }
+}
+
+LabourContractor labourContractorFromApiData(
+  Map<String, dynamic> responseData, {
+  required String fallbackId,
+  required String name,
+  required String mobile,
+  required String address,
+  required double masonRate,
+  required double beldarRate,
+  required double coolieRate,
+  required double masonOverRate,
+  required double beldarOverRate,
+  required double coolieOverRate,
+  required ContractorStatus status,
+}) {
+  return LabourContractor(
+    id: responseData['id']?.toString() ?? fallbackId,
+    name: responseData['name']?.toString() ?? name,
+    mobile: responseData['mobile']?.toString() ?? mobile,
+    address: responseData['address']?.toString() ?? address,
+    masonRatePerDay: apiToDouble(responseData['mason_rate'], masonRate),
+    beldarRatePerDay: apiToDouble(responseData['beldar_rate'], beldarRate),
+    coolieRatePerDay: apiToDouble(responseData['coolie_rate'], coolieRate),
+    masonOtRatePerHour: apiToDouble(responseData['mason_over_rate'], masonOverRate),
+    beldarOtRatePerHour: apiToDouble(responseData['beldar_over_rate'], beldarOverRate),
+    coolieOtRatePerHour: apiToDouble(responseData['coolie_over_rate'], coolieOverRate),
+    status: status,
+  );
 }
 
 int? selectedSiteId() =>
@@ -349,4 +445,803 @@ String get _deviceName {
   if (Platform.isWindows) return 'windows';
   if (Platform.isLinux) return 'linux';
   return 'flutter';
+}
+//logout api
+Future<void> logoutApi(BuildContext context) async {
+  try {
+    final token = Preference.pref.getString('token') ?? '';
+    final url = '$baseUrl/api/v1/logout';
+
+    print('[logoutApi] POST $url');
+    print('[logoutApi] Authorization: Bearer ${token.isEmpty ? '(empty)' : '***'}');
+
+    final response = await http.post(
+      Uri.parse(url),
+      headers: {
+        'Accept': 'application/json',
+        'Authorization': 'Bearer $token',
+      },
+    );
+
+    print('[logoutApi] statusCode: ${response.statusCode}');
+    print('[logoutApi] response body: ${response.body}');
+
+    if (response.statusCode == 200) {
+      final data = jsonDecode(response.body) as Map<String, dynamic>;
+      final success = data['success'] == true;
+      final apiMessage = data['message']?.toString();
+
+      if (success) {
+        await _clearSessionData();
+        print('[logoutApi] session cleared, navigating to LoginPage');
+        navigateToScreenAndClearStack(LoginPage(flashMessage: apiMessage));
+      } else {
+        if (!context.mounted || apiMessage == null) return;
+        message(context, apiMessage);
+      }
+    } else {
+      Map<String, dynamic>? data;
+      try {
+        data = jsonDecode(response.body) as Map<String, dynamic>;
+      } catch (_) {}
+      if (!context.mounted) return;
+      final apiMessage = data?['message']?.toString();
+      if (apiMessage != null) message(context, apiMessage);
+    }
+  } catch (e, stack) {
+    print('[logoutApi] error: $e');
+    print('[logoutApi] stack: $stack');
+  }
+}
+
+Future<void> _clearSessionData() async {
+  await Preference.pref.remove('token');
+  await Preference.pref.remove('user');
+  await Preference.pref.remove('userId');
+  await Preference.pref.remove('phone');
+  await Preference.pref.remove('email');
+  await Preference.pref.remove('name');
+  await Preference.pref.remove('sites');
+  await Preference.pref.remove('items');
+  await Preference.pref.remove('site_id');
+  await Preference.pref.remove('selectedSiteId');
+  await Preference.pref.remove('selectedSiteName');
+}
+
+
+//create supplierapi
+Future<Supplier?> createSupplierApi(
+  BuildContext context, {
+  required int siteId,
+  required String name,
+  required String mobile,
+  required String address,
+  required String gstNo,
+  required String panNo,
+  required String status,
+  required List<int> itemIds,
+  required List<String> materialNames,
+}) async {
+  try {
+    final token = Preference.pref.getString('token') ?? '';
+    final url = '$baseUrl/api/v1/suppliers';
+
+    print('[createSupplierApi] POST $url');
+    print('[createSupplierApi] siteId: $siteId, itemIds: $itemIds');
+
+    final response = await http.post(
+      Uri.parse(url),
+      headers: {
+        'Accept': 'application/json',
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $token',
+      },
+      body: jsonEncode({
+        'site_id': siteId,
+        'name': name,
+        'mobile': mobile,
+        'address': address,
+        'gst_no': gstNo,
+        'pan_no': panNo,
+        'status': status,
+        'item_id': itemIds,
+      }),
+    );
+
+    print('[createSupplierApi] statusCode: ${response.statusCode}');
+    print('[createSupplierApi] response body: ${response.body}');
+
+    final data = jsonDecode(response.body) as Map<String, dynamic>;
+    final apiMessage = data['message']?.toString();
+
+    if (response.statusCode == 201 || response.statusCode == 200) {
+      if (data['success'] == true) {
+        if (!context.mounted) return null;
+        if (apiMessage != null) message(context, apiMessage);
+
+        final responseData = data['data'];
+        final supplierStatus = status == 'unpublished'
+            ? SupplierStatus.unpublished
+            : SupplierStatus.published;
+
+        if (responseData is Map<String, dynamic>) {
+          return Supplier(
+            id: responseData['id']?.toString() ?? '',
+            name: responseData['name']?.toString() ?? name,
+            mobile: responseData['mobile']?.toString() ?? mobile,
+            materials: materialNames,
+            gstNo: responseData['gst_no']?.toString() ?? gstNo,
+            panNo: responseData['pan_no']?.toString() ?? panNo,
+            address: responseData['address']?.toString() ?? address,
+            status: supplierStatus,
+          );
+        }
+
+        return Supplier(
+          id: 'SUP-${DateTime.now().millisecondsSinceEpoch}',
+          name: name,
+          mobile: mobile,
+          materials: materialNames,
+          gstNo: gstNo,
+          panNo: panNo,
+          address: address,
+          status: supplierStatus,
+        );
+      }
+
+      if (!context.mounted) return null;
+      if (apiMessage != null) message(context, apiMessage);
+      return null;
+    }
+
+    if (!context.mounted) return null;
+    if (apiMessage != null) message(context, apiMessage);
+    return null;
+  } catch (e, stack) {
+    print('[createSupplierApi] error: $e');
+    print('[createSupplierApi] stack: $stack');
+    return null;
+  }
+}
+
+//get supplier api
+Future<Getsuppilerdata?> getSupplierApi(BuildContext context, int supplierId) async {
+  try {
+    final url = '$baseUrl/api/v1/suppliers/$supplierId';
+
+    print('[getSupplierApi] GET $url');
+
+    final response = await http.get(
+      Uri.parse(url),
+      headers: authHeaders,
+    );
+
+    print('[getSupplierApi] statusCode: ${response.statusCode}');
+    print('[getSupplierApi] response body: ${response.body}');
+
+    final decoded = json.decode(response.body) as Map<String, dynamic>;
+    final apiMessage = decoded['message']?.toString();
+
+    if (response.statusCode == 200 && decoded['success'] == true) {
+      return Getsuppilerdata.fromJson(decoded);
+    }
+
+    if (!context.mounted) return null;
+    if (apiMessage != null) message(context, apiMessage);
+    return null;
+  } catch (e, stack) {
+    print('[getSupplierApi] error: $e');
+    print('[getSupplierApi] stack: $stack');
+    return null;
+  }
+}
+//getsupplierlistapi
+Future<Getsupplierlistdata?> getSuppliersApi(
+  BuildContext context, {
+  int? siteId,
+  String search = '',
+  int perPage = 50,
+}) async {
+  try {
+    final resolvedSiteId = siteId ?? selectedSiteId();
+    if (resolvedSiteId == null) {
+      if (context.mounted) {
+        message(context, 'Please select a site first.');
+      }
+      return null;
+    }
+
+    final uri = Uri.parse('$baseUrl/api/v1/suppliers').replace(
+      queryParameters: {
+        'site_id': resolvedSiteId.toString(),
+        'search': search,
+        'per_page': perPage.toString(),
+      },
+    );
+
+    print('[getSuppliersApi] GET $uri');
+
+    final response = await http.get(uri, headers: authHeaders);
+
+    print('[getSuppliersApi] statusCode: ${response.statusCode}');
+    print('[getSuppliersApi] response body: ${response.body}');
+
+    final decoded = json.decode(response.body) as Map<String, dynamic>;
+    final apiMessage = decoded['message']?.toString();
+
+    if (response.statusCode == 200 && decoded['success'] == true) {
+      return Getsupplierlistdata.fromJson(decoded);
+    }
+
+    if (!context.mounted) return null;
+    message(context, apiMessage ?? 'Failed to load suppliers.');
+    return null;
+  } catch (e, stack) {
+    print('[getSuppliersApi] error: $e');
+    print('[getSuppliersApi] stack: $stack');
+    if (!context.mounted) return null;
+    message(context, 'Something went wrong');
+    return null;
+  }
+}
+//updatesupplierapi
+Future<Supplier?> updateSupplierApi(
+  BuildContext context, {
+  required int supplierId,
+  required String name,
+  required String mobile,
+  required String address,
+  required String gstNo,
+  required String panNo,
+  required String status,
+  required List<int> itemIds,
+  required List<String> materialNames,
+}) async {
+  try {
+    final url = '$baseUrl/api/v1/suppliers/$supplierId';
+
+    print('[updateSupplierApi] PUT $url');
+    print('[updateSupplierApi] supplierId: $supplierId, itemIds: $itemIds');
+
+    final response = await apiPut(
+      Uri.parse(url),
+      headers: authHeaders,
+      body: jsonEncode({
+        'name': name,
+        'mobile': mobile,
+        'address': address,
+        'gst_no': gstNo,
+        'pan_no': panNo,
+        'status': status,
+        'item_id': itemIds,
+      }),
+    );
+
+    print('[updateSupplierApi] statusCode: ${response.statusCode}');
+    print('[updateSupplierApi] response body: ${response.body}');
+
+    final data = jsonDecode(response.body) as Map<String, dynamic>;
+    final apiMessage = data['message']?.toString();
+
+    if (response.statusCode == 200 && data['success'] == true) {
+      if (!context.mounted) return null;
+      if (apiMessage != null) message(context, apiMessage);
+
+      final responseData = data['data'];
+      final supplierStatus = status == 'unpublished'
+          ? SupplierStatus.unpublished
+          : SupplierStatus.published;
+
+      if (responseData is Map<String, dynamic>) {
+        return Supplier(
+          id: responseData['id']?.toString() ?? supplierId.toString(),
+          name: responseData['name']?.toString() ?? name,
+          mobile: responseData['mobile']?.toString() ?? mobile,
+          materials: materialNames,
+          gstNo: responseData['gst_no']?.toString() ?? gstNo,
+          panNo: responseData['pan_no']?.toString() ?? panNo,
+          address: responseData['address']?.toString() ?? address,
+          status: supplierStatus,
+        );
+      }
+
+      return Supplier(
+        id: supplierId.toString(),
+        name: name,
+        mobile: mobile,
+        materials: materialNames,
+        gstNo: gstNo,
+        panNo: panNo,
+        address: address,
+        status: supplierStatus,
+      );
+    }
+
+    if (!context.mounted) return null;
+    message(context, apiMessage ?? 'Failed to update supplier.');
+    return null;
+  } catch (e, stack) {
+    print('[updateSupplierApi] error: $e');
+    print('[updateSupplierApi] stack: $stack');
+    if (!context.mounted) return null;
+    message(context, 'Something went wrong');
+    return null;
+  }
+}
+//delete supplier api
+Future<bool> deleteSupplierApi(
+  BuildContext context,
+  int supplierId,
+) async {
+  try {
+    final url = '$baseUrl/api/v1/suppliers/$supplierId';
+
+    print('[deleteSupplierApi] DELETE $url');
+
+    final response = await http.delete(
+      Uri.parse(url),
+      headers: authHeaders,
+    );
+
+    print('[deleteSupplierApi] statusCode: ${response.statusCode}');
+    print('[deleteSupplierApi] response body: ${response.body}');
+
+    final data = jsonDecode(response.body) as Map<String, dynamic>;
+    final apiMessage = data['message']?.toString();
+
+    if (response.statusCode == 200 && data['success'] == true) {
+      if (!context.mounted) return false;
+      if (apiMessage != null) message(context, apiMessage);
+      return true;
+    }
+
+    if (!context.mounted) return false;
+    message(context, apiMessage ?? 'Failed to delete supplier.');
+    return false;
+  } catch (e, stack) {
+    print('[deleteSupplierApi] error: $e');
+    print('[deleteSupplierApi] stack: $stack');
+    if (!context.mounted) return false;
+    message(context, 'Something went wrong');
+    return false;
+  }
+}
+//create contractorapi
+Future<LabourContractor?> createContractorApi(
+  BuildContext context, {
+  required int siteId,
+  required String name,
+  required String mobile,
+  required String address,
+  required String status,
+  required int masonRate,
+  required int beldarRate,
+  required int coolieRate,
+  required int masonOverRate,
+  required int beldarOverRate,
+  required int coolieOverRate,
+}) async {
+  try {
+    final url = '$baseUrl/api/v1/contractors';
+
+    print('[createContractorApi] POST $url');
+    print('[createContractorApi] siteId: $siteId');
+
+    final response = await http
+        .post(
+          Uri.parse(url),
+          headers: authHeaders,
+          body: jsonEncode({
+            'site_id': siteId,
+            'name': name,
+            'mobile': mobile,
+            'address': address,
+            'status': status,
+            'mason_rate': masonRate,
+            'beldar_rate': beldarRate,
+            'coolie_rate': coolieRate,
+            'mason_over_rate': masonOverRate,
+            'beldar_over_rate': beldarOverRate,
+            'coolie_over_rate': coolieOverRate,
+          }),
+        )
+        .timeout(const Duration(seconds: 30));
+
+    print('[createContractorApi] statusCode: ${response.statusCode}');
+    print('[createContractorApi] response body: ${response.body}');
+
+    final data = decodeApiJson(response.body);
+    final apiMessage = data?['message']?.toString();
+
+    if (response.statusCode == 201 || response.statusCode == 200) {
+      if (data != null && data['success'] == true) {
+        final responseData = data['data'];
+        final contractorStatus = status == 'unpublished'
+            ? ContractorStatus.unpublished
+            : ContractorStatus.published;
+
+        if (responseData is Map<String, dynamic> &&
+            responseData.containsKey('items') &&
+            responseData.containsKey('pagination')) {
+          if (!context.mounted) return null;
+          message(
+            context,
+            'Invalid server response. Contractor was not created.',
+          );
+          return null;
+        }
+
+        if (!context.mounted) return null;
+        if (apiMessage != null &&
+            apiMessage.toLowerCase().contains('contractor')) {
+          message(context, apiMessage);
+        }
+
+        if (responseData is Map<String, dynamic>) {
+          return labourContractorFromApiData(
+            responseData,
+            fallbackId: '',
+            name: name,
+            mobile: mobile,
+            address: address,
+            masonRate: masonRate.toDouble(),
+            beldarRate: beldarRate.toDouble(),
+            coolieRate: coolieRate.toDouble(),
+            masonOverRate: masonOverRate.toDouble(),
+            beldarOverRate: beldarOverRate.toDouble(),
+            coolieOverRate: coolieOverRate.toDouble(),
+            status: contractorStatus,
+          );
+        }
+
+        return LabourContractor(
+          id: 'CON-${DateTime.now().millisecondsSinceEpoch}',
+          name: name,
+          mobile: mobile,
+          address: address,
+          masonRatePerDay: masonRate.toDouble(),
+          beldarRatePerDay: beldarRate.toDouble(),
+          coolieRatePerDay: coolieRate.toDouble(),
+          masonOtRatePerHour: masonOverRate.toDouble(),
+          beldarOtRatePerHour: beldarOverRate.toDouble(),
+          coolieOtRatePerHour: coolieOverRate.toDouble(),
+          status: contractorStatus,
+        );
+      }
+
+      if (!context.mounted) return null;
+      if (apiMessage != null) message(context, apiMessage);
+      return null;
+    }
+
+    if (!context.mounted) return null;
+    message(context, apiMessage ?? 'Failed to create contractor.');
+    return null;
+  } on TimeoutException {
+    print('[createContractorApi] request timed out');
+    if (!context.mounted) return null;
+    message(context, 'Request timed out. Please try again.');
+    return null;
+  } catch (e, stack) {
+    print('[createContractorApi] error: $e');
+    print('[createContractorApi] stack: $stack');
+    if (!context.mounted) return null;
+    message(context, 'Something went wrong');
+    return null;
+  }
+}
+
+//listcontractorapi
+
+Future<Contractorlistdatamodal?> getContractorListApi(
+  BuildContext context, {
+  int? siteId,
+  String search = '',
+  int perPage = 50,
+}) async {
+  try {
+    final resolvedSiteId = siteId ?? selectedSiteId();
+    if (resolvedSiteId == null) {
+      if (context.mounted) {
+        message(context, 'Please select a site first.');
+      }
+      return null;
+    }
+
+    final uri = Uri.parse('$baseUrl/api/v1/contractors').replace(
+      queryParameters: {
+        'site_id': resolvedSiteId.toString(),
+        'search': search,
+        'per_page': perPage.toString(),
+      },
+    );
+
+    print('[getContractorListApi] GET $uri');
+
+    final response = await http.get(uri, headers: authHeaders);
+
+    print('[getContractorListApi] statusCode: ${response.statusCode}');
+    print('[getContractorListApi] response body: ${response.body}');
+
+    final decoded = json.decode(response.body) as Map<String, dynamic>;
+    final apiMessage = decoded['message']?.toString();
+
+    if (response.statusCode == 200 && decoded['success'] == true) {
+      return Contractorlistdatamodal.fromJson(decoded);
+    }
+
+    if (!context.mounted) return null;
+    message(context, apiMessage ?? 'Failed to load contractors.');
+    return null;
+  } catch (e, stack) {
+    print('[getContractorListApi] error: $e');
+    print('[getContractorListApi] stack: $stack');
+    if (!context.mounted) return null;
+    message(context, 'Something went wrong');
+    return null;
+  }
+}
+//updatecontractorapi
+Future<LabourContractor?> updateContractorApi(
+  BuildContext context, {
+  required int contractorId,
+  required String name,
+  required String mobile,
+  required String address,
+  required String status,
+  required int masonRate,
+  required int beldarRate,
+  required int coolieRate,
+  required int masonOverRate,
+  required int beldarOverRate,
+  required int coolieOverRate,
+}) async {
+  try {
+    // Postman uses: PUT /api/v1/contractors/{id}  (no trailing slash)
+    final uri = Uri.parse('$baseUrl/api/v1/contractors/$contractorId');
+    final body = jsonEncode({
+      'name': name,
+      'mobile': mobile,
+      'address': address,
+      'status': status,
+      'mason_rate': masonRate,
+      'beldar_rate': beldarRate,
+      'coolie_rate': coolieRate,
+      'mason_over_rate': masonOverRate,
+      'beldar_over_rate': beldarOverRate,
+      'coolie_over_rate': coolieOverRate,
+    });
+
+    print('[updateContractorApi] PUT $uri');
+    print('[updateContractorApi] contractorId: $contractorId');
+
+    final response = await apiPut(
+      uri,
+      headers: authHeaders,
+      body: body,
+    );
+
+    print('[updateContractorApi] statusCode: ${response.statusCode}');
+    print('[updateContractorApi] response body: ${response.body}');
+
+    final data = decodeApiJson(response.body);
+    if (data == null) {
+      if (!context.mounted) return null;
+      message(context, 'Invalid server response. Please try again.');
+      return null;
+    }
+
+    final apiMessage = data['message']?.toString();
+
+    if (response.statusCode == 200 && data['success'] == true) {
+      if (!context.mounted) return null;
+      if (apiMessage != null) message(context, apiMessage);
+
+      final responseData = data['data'];
+      final contractorStatus = status == 'unpublished'
+          ? ContractorStatus.unpublished
+          : ContractorStatus.published;
+
+      final fallbackContractor = LabourContractor(
+        id: contractorId.toString(),
+        name: name,
+        mobile: mobile,
+        address: address,
+        masonRatePerDay: masonRate.toDouble(),
+        beldarRatePerDay: beldarRate.toDouble(),
+        coolieRatePerDay: coolieRate.toDouble(),
+        masonOtRatePerHour: masonOverRate.toDouble(),
+        beldarOtRatePerHour: beldarOverRate.toDouble(),
+        coolieOtRatePerHour: coolieOverRate.toDouble(),
+        status: contractorStatus,
+      );
+
+      if (responseData is Map<String, dynamic>) {
+        try {
+          return labourContractorFromApiData(
+            responseData,
+            fallbackId: contractorId.toString(),
+            name: name,
+            mobile: mobile,
+            address: address,
+            masonRate: masonRate.toDouble(),
+            beldarRate: beldarRate.toDouble(),
+            coolieRate: coolieRate.toDouble(),
+            masonOverRate: masonOverRate.toDouble(),
+            beldarOverRate: beldarOverRate.toDouble(),
+            coolieOverRate: coolieOverRate.toDouble(),
+            status: contractorStatus,
+          );
+        } catch (e, stack) {
+          print('[updateContractorApi] parse warning: $e');
+          print('[updateContractorApi] parse stack: $stack');
+          return fallbackContractor;
+        }
+      }
+
+      return fallbackContractor;
+    }
+
+    if (!context.mounted) return null;
+    message(context, apiMessage ?? 'Failed to update contractor.');
+    return null;
+  } on TimeoutException {
+    print('[updateContractorApi] request timed out');
+    if (!context.mounted) return null;
+    message(context, 'Request timed out. Please try again.');
+    return null;
+  } catch (e, stack) {
+    print('[updateContractorApi] error: $e');
+    print('[updateContractorApi] stack: $stack');
+    if (!context.mounted) return null;
+    message(context, 'Something went wrong');
+    return null;
+  }
+}
+//deletecontractorapi
+
+
+Future<bool> deleteContractorApi(
+  BuildContext context,
+  int contractorId,
+) async {
+  try {
+    final url = '$baseUrl/api/v1/contractors/$contractorId';
+
+    print('[deleteContractorApi] DELETE $url');
+
+    final response = await http.delete(
+      Uri.parse(url),
+      headers: authHeaders,
+    ).timeout(const Duration(seconds: 30));
+
+    print('[deleteContractorApi] statusCode: ${response.statusCode}');
+    print('[deleteContractorApi] response body: ${response.body}');
+
+    final data = decodeApiJson(response.body);
+    if (data == null) {
+      if (!context.mounted) return false;
+      message(context, 'Invalid server response. Please try again.');
+      return false;
+    }
+
+    final apiMessage = data['message']?.toString();
+
+    if (response.statusCode == 200 && data['success'] == true) {
+      if (!context.mounted) return false;
+      if (apiMessage != null) message(context, apiMessage);
+      return true;
+    }
+
+    if (!context.mounted) return false;
+    message(context, apiMessage ?? 'Failed to delete contractor.');
+    return false;
+  } catch (e, stack) {
+    print('[deleteContractorApi] error: $e');
+    print('[deleteContractorApi] stack: $stack');
+    if (!context.mounted) return false;
+    message(context, 'Something went wrong');
+    return false;
+  }
+}
+
+//createitemapi
+Future<InventoryItem?> createItemApi(
+  BuildContext context, {
+  required int siteId,
+  required String name,
+  required String sku,
+  required String unit,
+  required String status,
+  required int balance,
+  required int purchase,
+  required int dayReport,
+  required int consumable,
+}) async {
+  try {
+    final url = '$baseUrl/api/v1/items';
+
+    print('[createItemApi] POST $url');
+    print('[createItemApi] siteId: $siteId');
+
+    final response = await http
+        .post(
+          Uri.parse(url),
+          headers: authHeaders,
+          body: jsonEncode({
+            'site_id': siteId,
+            'name': name,
+            'sku': sku,
+            'unit': unit,
+            'status': status,
+            'balance': balance,
+            'purchase': purchase,
+            'day_report': dayReport,
+            'consumable': consumable,
+          }),
+        )
+        .timeout(const Duration(seconds: 30));
+
+    print('[createItemApi] statusCode: ${response.statusCode}');
+    print('[createItemApi] response body: ${response.body}');
+
+    final data = decodeApiJson(response.body);
+    final apiMessage = data?['message']?.toString();
+    final itemStatus = status == 'unpublished'
+        ? ItemStatus.unpublished
+        : ItemStatus.published;
+
+    if (response.statusCode == 201 || response.statusCode == 200) {
+      if (data != null && data['success'] == true) {
+        if (!context.mounted) return null;
+        if (apiMessage != null) message(context, apiMessage);
+
+        final responseData = data['data'];
+        if (responseData is Map<String, dynamic>) {
+          return InventoryItem(
+            id: responseData['id']?.toString() ?? '',
+            name: responseData['name']?.toString() ?? name,
+            sku: responseData['sku']?.toString() ?? sku,
+            unit: responseData['unit']?.toString() ?? unit,
+            status: (responseData['status']?.toString() ?? status) == 'published'
+                ? ItemStatus.published
+                : ItemStatus.unpublished,
+            directPurchase: (responseData['purchase'] ?? purchase) == 1,
+            dayReport: (responseData['day_report'] ?? dayReport) == 1,
+            consumable: (responseData['consumable'] ?? consumable) == 1,
+          );
+        }
+
+        return InventoryItem(
+          id: 'ITM-${DateTime.now().millisecondsSinceEpoch}',
+          name: name,
+          sku: sku,
+          unit: unit,
+          status: itemStatus,
+          directPurchase: purchase == 1,
+          dayReport: dayReport == 1,
+          consumable: consumable == 1,
+        );
+      }
+
+      if (!context.mounted) return null;
+      if (apiMessage != null) message(context, apiMessage);
+      return null;
+    }
+
+    if (!context.mounted) return null;
+    message(context, apiMessage ?? 'Failed to create item.');
+    return null;
+  } on TimeoutException {
+    print('[createItemApi] request timed out');
+    if (!context.mounted) return null;
+    message(context, 'Request timed out. Please try again.');
+    return null;
+  } catch (e, stack) {
+    print('[createItemApi] error: $e');
+    print('[createItemApi] stack: $stack');
+    if (!context.mounted) return null;
+    message(context, 'Something went wrong');
+    return null;
+  }
 }
