@@ -9,7 +9,9 @@ import 'package:grjoffice_apps/homepage/homepage.dart';
 import 'package:grjoffice_apps/items/add_item_screen.dart';
 import 'package:grjoffice_apps/items/item.dart';
 import 'package:grjoffice_apps/items/item_history_screen.dart';
+import 'package:grjoffice_apps/models/item_model.dart';
 import 'package:grjoffice_apps/profilescreen/profilescreen.dart';
+import 'package:grjoffice_apps/services/api_auth.dart';
 import 'package:grjoffice_apps/store/store.dart';
 import 'package:grjoffice_apps/suppliers/suppliers.dart';
 import 'package:grjoffice_apps/widgets/app_logo.dart';
@@ -26,15 +28,40 @@ class _ItemsScreenState extends State<ItemsScreen> {
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
   final _searchController = TextEditingController();
   String _searchQuery = '';
-  late List<InventoryItem> _items;
+  List<InventoryItem> _items = [];
+  bool _isLoading = true;
 
   @override
   void initState() {
     super.initState();
-    _items = List<InventoryItem>.from(kMockItems);
     _searchController.addListener(() {
       setState(() => _searchQuery = _searchController.text.trim().toLowerCase());
     });
+    WidgetsBinding.instance.addPostFrameCallback((_) => _loadItems());
+  }
+
+  Future<void> _loadItems() async {
+    final apiItems = await itemsApi(context, perPage: 50);
+    if (!mounted) return;
+    setState(() {
+      _items = apiItems?.map(_toInventoryItem).toList() ?? [];
+      _isLoading = false;
+    });
+  }
+
+  InventoryItem _toInventoryItem(ItemModel model) {
+    return InventoryItem(
+      id: model.id.toString(),
+      name: model.displayName,
+      sku: model.sku ?? '-',
+      unit: model.unit,
+      status: model.status == 'published'
+          ? ItemStatus.published
+          : ItemStatus.unpublished,
+      directPurchase: model.purchase == 1,
+      dayReport: model.dayReport == 1,
+      consumable: model.consumable == 1,
+    );
   }
 
   @override
@@ -80,7 +107,11 @@ class _ItemsScreenState extends State<ItemsScreen> {
               child: _buildTopBar(),
             ),
             Expanded(
-              child: SingleChildScrollView(
+              child: _isLoading
+                  ? const Center(
+                      child: CircularProgressIndicator(color: AppColors.primaryRed),
+                    )
+                  : SingleChildScrollView(
                 padding: EdgeInsets.fromLTRB(hPad, 16, hPad, 16),
                 child: Center(
                   child: ConstrainedBox(

@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -12,8 +11,9 @@ import 'package:grjoffice_apps/drawer/drawer.dart';
 import 'package:grjoffice_apps/navigation/app_navigation.dart';
 import 'package:grjoffice_apps/purchases/purchases.dart';
 import 'package:grjoffice_apps/core/preference.dart';
+import 'package:grjoffice_apps/models/site_model.dart';
 import 'package:grjoffice_apps/services/attendance_service.dart';
-import 'package:grjoffice_apps/services/api_sites.dart';
+import 'package:grjoffice_apps/services/api_auth.dart';
 import 'package:grjoffice_apps/services/location_service.dart';
 import 'package:grjoffice_apps/widgets/app_logo.dart';
 import 'package:grjoffice_apps/widgets/site_selection_dialog.dart';
@@ -33,7 +33,7 @@ class _HomePageState extends State<HomePage> {
   String _selectedSite = '';
   bool _isProcessingPunch = false;
   bool _isLoadingSites = true;
-  List<Map<String, dynamic>> _siteItems = [];
+  List<SiteModel> _siteItems = [];
   List<String> _sites = [];
 
   static const _operations = [
@@ -87,9 +87,9 @@ class _HomePageState extends State<HomePage> {
     if (!mounted) return;
 
     if (sites != null && sites.isNotEmpty) {
-      final names = siteNamesFromItems(sites);
+      final names = siteNames(sites);
       var selected = Preference.pref.getString('selectedSiteName');
-      final selectedId = Preference.pref.getInt('selectedSiteId');
+      final selectedId = selectedSiteId();
 
       if (selectedId != null) {
         selected = siteNameById(sites, selectedId) ?? selected;
@@ -111,26 +111,16 @@ class _HomePageState extends State<HomePage> {
     setState(() => _isLoadingSites = false);
   }
 
-  String? _defaultSiteName(List<Map<String, dynamic>> sites) {
-    final userJson = Preference.pref.getString('user');
-    if (userJson == null) return null;
-    try {
-      final user = jsonDecode(userJson) as Map<String, dynamic>;
-      final siteId = user['site_id'];
-      if (siteId is int) return siteNameById(sites, siteId);
-      if (siteId != null) return siteNameById(sites, int.tryParse(siteId.toString()) ?? -1);
-    } catch (_) {}
-    return null;
+  String? _defaultSiteName(List<SiteModel> sites) {
+    final user = cachedUser();
+    if (user == null || user.siteId <= 0) return null;
+    return siteNameById(sites, user.siteId);
   }
 
   Future<void> _saveSelectedSite(String siteName) async {
     for (final site in _siteItems) {
-      if (site['name']?.toString() == siteName) {
-        final id = site['id'];
-        if (id is int) {
-          await Preference.pref.setInt('selectedSiteId', id);
-        }
-        await Preference.pref.setString('selectedSiteName', siteName);
+      if (site.name == siteName) {
+        await saveSiteId(site.id, siteName: siteName);
         return;
       }
     }

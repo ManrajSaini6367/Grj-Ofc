@@ -1,11 +1,10 @@
-import 'dart:convert';
-
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:grjoffice_apps/contractor/contractor.dart';
 import 'package:grjoffice_apps/core/app_colors.dart';
 import 'package:grjoffice_apps/core/preference.dart';
 import 'package:grjoffice_apps/drawer/app_end_drawer.dart';
+import 'package:grjoffice_apps/models/user_model.dart';
 import 'package:grjoffice_apps/services/api_auth.dart';
 import 'package:grjoffice_apps/widgets/app_logo.dart';
 
@@ -20,7 +19,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
   String _selectedSite = 'River Crossing';
   final GlobalKey _siteSelectorKey = GlobalKey();
-  Map<String, dynamic>? _profile;
+  UserModel? _profile;
   bool _isLoading = true;
 
   static const _sites = [
@@ -53,28 +52,18 @@ class _ProfileScreenState extends State<ProfileScreen> {
     final profile = await profileApi(context);
     if (!mounted) return;
     setState(() {
-      _profile = profile ?? _cachedProfile();
+      _profile = profile ?? cachedUser();
       _isLoading = false;
     });
   }
 
-  Map<String, dynamic>? _cachedProfile() {
-    final userJson = Preference.pref.getString('user');
-    if (userJson == null) return null;
-    try {
-      return jsonDecode(userJson) as Map<String, dynamic>;
-    } catch (_) {
-      return null;
-    }
-  }
-
-  String get _name => _profile?['name']?.toString() ?? Preference.pref.getString('name') ?? '-';
-  String get _email => _profile?['email']?.toString() ?? Preference.pref.getString('email') ?? '-';
-  String get _phone => _profile?['mobile']?.toString() ?? Preference.pref.getString('phone') ?? '-';
-  String get _role => profileRoleLabel(_profile?['roles'] as List<dynamic>?);
-  String get _userId => _profile?['id']?.toString() ?? Preference.pref.getString('userId') ?? '-';
-  String? get _designation => _profile?['designation']?.toString();
-  String get _avatarUrl => profileAvatarUrl(_profile?['avatar']?.toString());
+  String get _name => _profile?.name ?? Preference.pref.getString('name') ?? '-';
+  String get _email => _profile?.email ?? Preference.pref.getString('email') ?? '-';
+  String get _phone => _profile?.mobile ?? Preference.pref.getString('phone') ?? '-';
+  String get _role => _profile?.roleLabel ?? 'User';
+  String get _userId => _profile?.id.toString() ?? Preference.pref.getString('userId') ?? '-';
+  String? get _designation => _profile?.designation;
+  String get _avatarUrl => mediaUrl(_profile?.avatar);
 
   @override
   Widget build(BuildContext context) {

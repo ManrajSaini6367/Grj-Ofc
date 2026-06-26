@@ -1,6 +1,10 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:grjoffice_apps/core/app_colors.dart';
+import 'package:grjoffice_apps/models/item_model.dart';
+import 'package:grjoffice_apps/services/api_auth.dart';
 import 'package:grjoffice_apps/suppliers/supplier.dart';
 import 'package:grjoffice_apps/widgets/app_logo.dart';
 
@@ -25,8 +29,11 @@ class _AddSupplierScreenState extends State<AddSupplierScreen> {
   final _addressController = TextEditingController();
 
   final List<String> _selectedMaterials = [];
+  List<ItemModel> _materialSuggestions = [];
   SupplierStatus _status = SupplierStatus.published;
   bool _showMaterialSuggestions = false;
+  bool _isMaterialSearching = false;
+  Timer? _materialSearchDebounce;
 
   @override
   void initState() {
@@ -41,13 +48,44 @@ class _AddSupplierScreenState extends State<AddSupplierScreen> {
       _selectedMaterials.addAll(supplier.materials);
       _status = supplier.status;
     }
-    _materialSearchController.addListener(() {
-      setState(() => _showMaterialSuggestions = _materialSearchController.text.isNotEmpty);
+    _materialSearchController.addListener(_onMaterialSearchChanged);
+  }
+
+  void _onMaterialSearchChanged() {
+    final query = _materialSearchController.text.trim();
+    setState(() => _showMaterialSuggestions = query.isNotEmpty);
+
+    _materialSearchDebounce?.cancel();
+    if (query.length < 3) {
+      setState(() {
+        _materialSuggestions = [];
+        _isMaterialSearching = false;
+      });
+      return;
+    }
+
+    _materialSearchDebounce = Timer(const Duration(milliseconds: 400), () {
+      if (!mounted) return;
+      _searchMaterials(query);
+    });
+  }
+
+  Future<void> _searchMaterials(String keyword) async {
+    setState(() => _isMaterialSearching = true);
+    final items = await itemsSearchApi(context, keyword: keyword);
+    if (!mounted) return;
+    setState(() {
+      _materialSuggestions = items
+              ?.where((item) => !_selectedMaterials.contains(item.displayName))
+              .toList() ??
+          [];
+      _isMaterialSearching = false;
     });
   }
 
   @override
   void dispose() {
+    _materialSearchDebounce?.cancel();
     _nameController.dispose();
     _mobileController.dispose();
     _materialSearchController.dispose();
@@ -57,22 +95,14 @@ class _AddSupplierScreenState extends State<AddSupplierScreen> {
     super.dispose();
   }
 
-  List<String> get _materialSuggestions {
-    final query = _materialSearchController.text.trim().toLowerCase();
-    if (query.isEmpty) return [];
-    return kAvailableMaterials
-        .where((material) => !_selectedMaterials.contains(material))
-        .where((material) => material.toLowerCase().contains(query))
-        .take(8)
-        .toList();
-  }
-
-  void _addMaterial(String material) {
+  void _addMaterial(ItemModel item) {
+    final name = item.displayName;
     setState(() {
-      if (!_selectedMaterials.contains(material)) {
-        _selectedMaterials.add(material);
+      if (!_selectedMaterials.contains(name)) {
+        _selectedMaterials.add(name);
       }
       _materialSearchController.clear();
+      _materialSuggestions = [];
       _showMaterialSuggestions = false;
     });
   }
@@ -287,6 +317,9 @@ class _AddSupplierScreenState extends State<AddSupplierScreen> {
   }
 
   Widget _buildMaterialField() {
+    final query = _materialSearchController.text.trim();
+    final showDropdown = _showMaterialSuggestions && query.length >= 3;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -303,48 +336,90 @@ class _AddSupplierScreenState extends State<AddSupplierScreen> {
           controller: _materialSearchController,
           onTap: () => setState(() => _showMaterialSuggestions = true),
           style: GoogleFonts.poppins(color: AppColors.headingBlack, fontSize: 14),
-          decoration: _inputDecoration('Search and select materials').copyWith(
+          decoration: _inputDecoration('Search materials (min 3 letters)').copyWith(
             prefixIcon: const Icon(Icons.search, color: AppColors.textSecondary, size: 20),
           ),
         ),
-        if (_showMaterialSuggestions && _materialSuggestions.isNotEmpty) ...[
+        if (query.isNotEmpty && query.length < 3) ...[
           const SizedBox(height: 6),
-          Container(
-            decoration: BoxDecoration(
-              color: AppColors.cardWhite,
-              borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: AppColors.borderGray.withValues(alpha: 0.6)),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.06),
-                  blurRadius: 8,
-                  offset: const Offset(0, 2),
-                ),
-              ],
-            ),
-            child: ListView.separated(
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              itemCount: _materialSuggestions.length,
-              separatorBuilder: (_, __) => Divider(
-                height: 1,
-                color: AppColors.borderGray.withValues(alpha: 0.4),
-              ),
-              itemBuilder: (context, index) {
-                final material = _materialSuggestions[index];
-                return ListTile(
-                  dense: true,
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 14),
-                  leading: const Icon(Icons.inventory_2_outlined, size: 18, color: AppColors.primaryRed),
-                  title: Text(
-                    material,
-                    style: GoogleFonts.poppins(fontSize: 13, color: AppColors.textDark),
-                  ),
-                  onTap: () => _addMaterial(material),
-                );
-              },
+          Text(
+            'Type at least 3 letters to search',
+            style: GoogleFonts.poppins(
+              color: AppColors.textSecondary,
+              fontSize: 12,
             ),
           ),
+        ],
+        if (showDropdown) ...[
+          const SizedBox(height: 6),
+          if (_isMaterialSearching)
+            const Padding(
+              padding: EdgeInsets.symmetric(vertical: 12),
+              child: Center(
+                child: SizedBox(
+                  width: 22,
+                  height: 22,
+                  child: CircularProgressIndicator(
+                    color: AppColors.primaryRed,
+                    strokeWidth: 2,
+                  ),
+                ),
+              ),
+            )
+          else if (_materialSuggestions.isEmpty)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 12),
+              child: Text(
+                'No materials found for "$query"',
+                style: GoogleFonts.poppins(
+                  color: AppColors.textSecondary,
+                  fontSize: 12,
+                ),
+              ),
+            )
+          else
+            Container(
+              decoration: BoxDecoration(
+                color: AppColors.cardWhite,
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: AppColors.borderGray.withValues(alpha: 0.6)),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.06),
+                    blurRadius: 8,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
+              ),
+              child: ListView.separated(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                itemCount: _materialSuggestions.length,
+                separatorBuilder: (_, __) => Divider(
+                  height: 1,
+                  color: AppColors.borderGray.withValues(alpha: 0.4),
+                ),
+                itemBuilder: (context, index) {
+                  final item = _materialSuggestions[index];
+                  return ListTile(
+                    dense: true,
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 14),
+                    leading: const Icon(Icons.inventory_2_outlined, size: 18, color: AppColors.primaryRed),
+                    title: Text(
+                      item.displayName,
+                      style: GoogleFonts.poppins(fontSize: 13, color: AppColors.textDark),
+                    ),
+                    subtitle: item.unit.isNotEmpty
+                        ? Text(
+                            item.unit,
+                            style: GoogleFonts.poppins(fontSize: 11, color: AppColors.textSecondary),
+                          )
+                        : null,
+                    onTap: () => _addMaterial(item),
+                  );
+                },
+              ),
+            ),
         ],
         if (_selectedMaterials.isNotEmpty) ...[
           const SizedBox(height: 10),
