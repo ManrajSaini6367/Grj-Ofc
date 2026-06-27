@@ -7,6 +7,13 @@ class Employee {
     required this.role,
     required this.site,
     this.status = EmployeeStatus.active,
+    this.employeeId,
+    this.firstName,
+    this.lastName,
+    this.email,
+    this.mobile,
+    this.dateOfJoin,
+    this.attendanceAllow = true,
   });
 
   final String id;
@@ -14,6 +21,13 @@ class Employee {
   final String role;
   final String site;
   final EmployeeStatus status;
+  final int? employeeId;
+  final String? firstName;
+  final String? lastName;
+  final String? email;
+  final String? mobile;
+  final DateTime? dateOfJoin;
+  final bool attendanceAllow;
 
   String get initials {
     final parts = name.trim().split(RegExp(r'\s+'));

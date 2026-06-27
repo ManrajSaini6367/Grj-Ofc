@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:grjoffice_apps/core/app_colors.dart';
 import 'package:grjoffice_apps/employees/employee.dart';
+import 'package:grjoffice_apps/services/api_auth.dart';
 import 'package:grjoffice_apps/widgets/app_logo.dart';
 
 class AddEmployeeScreen extends StatefulWidget {
@@ -25,8 +26,8 @@ class _AddEmployeeScreenState extends State<AddEmployeeScreen> {
 
   bool _obscurePassword = true;
   bool _attendanceAllowed = true;
+  bool _isSaving = false;
   String? _selectedRole;
-  String? _selectedSite;
   DateTime? _dateOfJoin;
   DateTime? _dateSuspended;
 
@@ -50,6 +51,8 @@ class _AddEmployeeScreenState extends State<AddEmployeeScreen> {
     'River Crossing',
   ];
 
+  String? _editSite;
+
   @override
   void initState() {
     super.initState();
@@ -59,7 +62,7 @@ class _AddEmployeeScreenState extends State<AddEmployeeScreen> {
       _firstNameController.text = parts.isNotEmpty ? parts.first : '';
       _lastNameController.text = parts.length > 1 ? parts.sublist(1).join(' ') : '';
       _selectedRole = employee.role;
-      _selectedSite = employee.site;
+      _editSite = employee.site;
       _dateOfJoin = DateTime.now().subtract(const Duration(days: 365));
     }
   }
@@ -125,11 +128,18 @@ class _AddEmployeeScreenState extends State<AddEmployeeScreen> {
     });
   }
 
-  void _submit() {
+  String _formatApiDate(DateTime date) {
+    final y = date.year.toString();
+    final m = date.month.toString().padLeft(2, '0');
+    final d = date.day.toString().padLeft(2, '0');
+    return '$y-$m-$d';
+  }
+
+  Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
-    if (_selectedRole == null || _selectedSite == null) {
+    if (_selectedRole == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please select role and site.')),
+        const SnackBar(content: Text('Please select role.')),
       );
       return;
     }
@@ -140,16 +150,52 @@ class _AddEmployeeScreenState extends State<AddEmployeeScreen> {
       return;
     }
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          widget.isEditing
-              ? 'Employee updated successfully.'
-              : 'Employee created successfully.',
-        ),
-      ),
-    );
-    Navigator.of(context).pop();
+    if (widget.isEditing) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Employee updated successfully.')),
+      );
+      Navigator.of(context).pop();
+      return;
+    }
+
+    final siteId = selectedSiteId();
+    if (siteId == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please select a site first.')),
+      );
+      return;
+    }
+
+    setState(() => _isSaving = true);
+    await Future<void>.delayed(Duration.zero);
+    if (!mounted) return;
+    try {
+      final success = await createEmployeeApi(
+        context,
+        siteId: siteId,
+        firstName: _firstNameController.text.trim(),
+        lastName: _lastNameController.text.trim(),
+        email: _emailController.text.trim(),
+        mobile: _phoneController.text.trim(),
+        password: _passwordController.text,
+        passwordConfirmation: _passwordController.text,
+        designation: _selectedRole!,
+        dateOfJoin: _formatApiDate(_dateOfJoin!),
+        dateOfSuspended:
+            _dateSuspended != null ? _formatApiDate(_dateSuspended!) : null,
+        attendanceAllow: _attendanceAllowed,
+        status: 1,
+      );
+
+      if (!mounted) return;
+      if (success) {
+        Navigator.of(context).pop(true);
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isSaving = false);
+      }
+    }
   }
 
   @override
@@ -307,12 +353,15 @@ class _AddEmployeeScreenState extends State<AddEmployeeScreen> {
             onChanged: (value) => setState(() => _selectedRole = value),
           ),
           const SizedBox(height: 16),
-          _buildDropdownField(
-            label: 'Site',
-            value: _selectedSite,
-            items: _sites,
-            onChanged: (value) => setState(() => _selectedSite = value),
-          ),
+          if (widget.isEditing)
+            _buildDropdownField(
+              label: 'Site',
+              value: _editSite,
+              items: _sites,
+              onChanged: (value) => setState(() => _editSite = value),
+            )
+          else
+            _buildSiteInfoField(),
           const SizedBox(height: 16),
           _buildDateField(
             label: 'Date of Join',
@@ -531,6 +580,36 @@ class _AddEmployeeScreenState extends State<AddEmployeeScreen> {
     );
   }
 
+  Widget _buildSiteInfoField() {
+    final siteName = selectedSiteName();
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Site',
+          style: GoogleFonts.poppins(
+            color: AppColors.textDark,
+            fontSize: 13,
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+        const SizedBox(height: 8),
+        InputDecorator(
+          decoration: _inputDecoration(
+            siteName ?? 'Select site on homepage',
+          ),
+          child: Text(
+            siteName ?? 'Select site on homepage',
+            style: GoogleFonts.poppins(
+              color: siteName == null ? AppColors.inputHint : AppColors.headingBlack,
+              fontSize: 14,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
   Widget _buildDropdownField({
     required String label,
     required String? value,
@@ -736,21 +815,30 @@ class _AddEmployeeScreenState extends State<AddEmployeeScreen> {
     return SizedBox(
       height: 48,
       child: ElevatedButton(
-        onPressed: _submit,
+        onPressed: _isSaving ? null : _submit,
         style: ElevatedButton.styleFrom(
           backgroundColor: AppColors.primaryRed,
           foregroundColor: AppColors.white,
           elevation: 0,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
         ),
-        child: Text(
-          widget.isEditing ? 'UPDATE EMPLOYEE' : 'SAVE EMPLOYEE',
-          style: GoogleFonts.poppins(
-            fontSize: 14,
-            fontWeight: FontWeight.w700,
-            letterSpacing: 0.6,
-          ),
-        ),
+        child: _isSaving
+            ? const SizedBox(
+                width: 22,
+                height: 22,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  color: AppColors.white,
+                ),
+              )
+            : Text(
+                widget.isEditing ? 'UPDATE EMPLOYEE' : 'SAVE EMPLOYEE',
+                style: GoogleFonts.poppins(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: 0.6,
+                ),
+              ),
       ),
     );
   }

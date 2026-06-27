@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:grjoffice_apps/core/app_colors.dart';
 import 'package:grjoffice_apps/items/item.dart';
+import 'package:grjoffice_apps/models/itemhistorymodal.dart';
+import 'package:grjoffice_apps/services/api_auth.dart';
 import 'package:grjoffice_apps/widgets/app_logo.dart';
 import 'package:grjoffice_apps/widgets/item_thumbnail.dart';
 
@@ -25,7 +27,9 @@ class _ItemHistoryScreenState extends State<ItemHistoryScreen> {
   final _issueToController = TextEditingController();
   final _remarkController = TextEditingController();
   String _searchQuery = '';
-  late List<ItemTransaction> _transactions;
+  List<ItemTransaction> _transactions = [];
+  bool _isLoading = true;
+  ItemHistoryItemInfo? _apiItem;
   DateTime _selectedDateTime = DateTime.now();
 
   ItemTransactionType? _typeFilter;
@@ -35,11 +39,51 @@ class _ItemHistoryScreenState extends State<ItemHistoryScreen> {
   @override
   void initState() {
     super.initState();
-    _transactions = getItemTransactions(widget.item.id);
     _searchController.addListener(() {
       setState(() => _searchQuery = _searchController.text.trim().toLowerCase());
     });
+    WidgetsBinding.instance.addPostFrameCallback((_) => _loadHistory());
   }
+
+  Future<void> _loadHistory() async {
+    final itemId = int.tryParse(widget.item.id);
+    if (itemId == null) {
+      if (!mounted) return;
+      setState(() => _isLoading = false);
+      return;
+    }
+
+    final response = await itemHistoryApi(context, itemId: itemId);
+    if (!mounted) return;
+
+    final records = response?.data?.items ?? [];
+    setState(() {
+      _apiItem = response?.data?.item;
+      _transactions = records
+          .map(
+            (record) => record.toTransaction(
+              fallbackUnit: _apiItem?.unit ?? widget.item.unit,
+            ),
+          )
+          .toList();
+      _isLoading = false;
+    });
+  }
+
+  String get _displayName => _apiItem?.name ?? widget.item.name;
+
+  String get _displaySku => _apiItem?.sku ?? widget.item.sku;
+
+  String get _displayUnit => _apiItem?.unit ?? widget.item.unit;
+
+  double get _stockBalance {
+    final fromApi = double.tryParse(_apiItem?.balance ?? '');
+    if (fromApi != null) return fromApi;
+    return widget.item.balance.toDouble();
+  }
+
+  bool get _hasNoHistory =>
+      _transactions.isEmpty && !_hasActiveFilters && _searchQuery.isEmpty;
 
   @override
   void dispose() {
@@ -85,7 +129,7 @@ class _ItemHistoryScreenState extends State<ItemHistoryScreen> {
       .where((tx) => tx.type == ItemTransactionType.debit)
       .fold(0, (sum, tx) => sum + tx.qty);
 
-  double get _netBalance => _totalCredit - _totalDebit;
+  double get _netBalance => _stockBalance;
 
   bool _matchesDateFilter(DateTime dateTime) {
     final now = DateTime.now();
@@ -263,7 +307,11 @@ class _ItemHistoryScreenState extends State<ItemHistoryScreen> {
         children: [
           _buildHeroHeader(hPad),
           Expanded(
-            child: CustomScrollView(
+            child: _isLoading
+                ? const Center(
+                    child: CircularProgressIndicator(color: AppColors.primaryRed),
+                  )
+                : CustomScrollView(
               slivers: [
                 SliverToBoxAdapter(
                   child: Padding(
@@ -373,7 +421,7 @@ class _ItemHistoryScreenState extends State<ItemHistoryScreen> {
                         ),
                         const SizedBox(height: 2),
                         Text(
-                          widget.item.name,
+                          _displayName,
                           style: GoogleFonts.poppins(
                             color: Colors.white,
                             fontSize: 20,
@@ -386,8 +434,9 @@ class _ItemHistoryScreenState extends State<ItemHistoryScreen> {
                           spacing: 8,
                           runSpacing: 6,
                           children: [
-                            _heroChip('SKU: ${widget.item.sku}'),
-                            _heroChip('Unit: ${widget.item.unit}'),
+                            _heroChip('SKU: $_displaySku'),
+                            _heroChip('Unit: $_displayUnit'),
+                            _heroChip('Balance: ${_formatQty(_stockBalance)}'),
                             _heroChip('${_transactions.length} records'),
                           ],
                         ),
@@ -461,7 +510,7 @@ class _ItemHistoryScreenState extends State<ItemHistoryScreen> {
           child: _statCard(
             label: 'Credit',
             value: _formatQty(_totalCredit),
-            unit: widget.item.unit,
+            unit: _displayUnit,
             icon: Icons.arrow_downward_rounded,
             color: _creditColor,
             bg: _creditBg,
@@ -472,7 +521,7 @@ class _ItemHistoryScreenState extends State<ItemHistoryScreen> {
           child: _statCard(
             label: 'Debit',
             value: _formatQty(_totalDebit),
-            unit: widget.item.unit,
+            unit: _displayUnit,
             icon: Icons.arrow_upward_rounded,
             color: _debitColor,
             bg: _debitBg,
@@ -483,7 +532,7 @@ class _ItemHistoryScreenState extends State<ItemHistoryScreen> {
           child: _statCard(
             label: 'Balance',
             value: _formatQty(_netBalance),
-            unit: widget.item.unit,
+            unit: _displayUnit,
             icon: Icons.account_balance_wallet_outlined,
             color: AppColors.primaryRed,
             bg: AppColors.primaryRed.withValues(alpha: 0.08),
@@ -1252,12 +1301,14 @@ class _ItemHistoryScreenState extends State<ItemHistoryScreen> {
           ),
           const SizedBox(height: 16),
           Text(
-            'No transactions found',
+            _hasNoHistory ? 'No history yet' : 'No transactions found',
             style: GoogleFonts.poppins(fontSize: 16, fontWeight: FontWeight.w600, color: AppColors.headingBlack),
           ),
           const SizedBox(height: 6),
           Text(
-            'Try adjusting your search or filters',
+            _hasNoHistory
+                ? 'Credit or debit entries for this item will appear here.'
+                : 'Try adjusting your search or filters',
             textAlign: TextAlign.center,
             style: GoogleFonts.poppins(fontSize: 13, color: AppColors.textSecondary),
           ),

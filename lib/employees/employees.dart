@@ -6,8 +6,13 @@ import 'package:grjoffice_apps/core/app_colors.dart';
 import 'package:grjoffice_apps/drawer/app_end_drawer.dart';
 import 'package:grjoffice_apps/drawer/drawer.dart';
 import 'package:grjoffice_apps/employees/add_employee_screen.dart';
+import 'package:grjoffice_apps/employees/delete_employee.dart';
+import 'package:grjoffice_apps/employees/editemployees.dart';
 import 'package:grjoffice_apps/employees/employee.dart';
+import 'package:grjoffice_apps/employees/viewemployeeprofile.dart';
+import 'package:grjoffice_apps/models/getemployeemodal.dart';
 import 'package:grjoffice_apps/navigation/app_navigation.dart';
+import 'package:grjoffice_apps/services/api_auth.dart';
 import 'package:grjoffice_apps/widgets/app_logo.dart';
 
 enum _SortOption { nameAsc, nameDesc, idAsc }
@@ -23,16 +28,10 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
   final _searchController = TextEditingController();
   String _searchQuery = '';
-  String? _siteFilter;
   EmployeeStatus? _statusFilter;
   _SortOption _sortOption = _SortOption.nameAsc;
-
-  static const _sites = [
-    'Skyline B-4',
-    'Skyline Main',
-    'Skyline B-2',
-    'Skyline Towers',
-  ];
+  List<Employee> _employees = [];
+  bool _isLoading = true;
 
   @override
   void initState() {
@@ -40,6 +39,44 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
     _searchController.addListener(() {
       setState(() => _searchQuery = _searchController.text.trim().toLowerCase());
     });
+    WidgetsBinding.instance.addPostFrameCallback((_) => _loadEmployees());
+  }
+
+  Future<void> _loadEmployees() async {
+    setState(() => _isLoading = true);
+    final response = await getEmployeesApi(
+      context,
+      search: _searchController.text.trim(),
+    );
+    if (!mounted) return;
+    setState(() {
+      _employees = response?.data?.items?.map(_toEmployee).toList() ?? [];
+      _isLoading = false;
+    });
+  }
+
+  Employee _toEmployee(EmployeeListItem item) {
+    final displayName = (item.name?.trim().isNotEmpty == true)
+        ? item.name!.trim()
+        : '${item.firstName ?? ''} ${item.lastName ?? ''}'.trim();
+    final id = item.username?.isNotEmpty == true
+        ? item.username!
+        : (item.id ?? 0).toString();
+
+    return Employee(
+      id: id,
+      employeeId: item.id,
+      name: displayName.isNotEmpty ? displayName : 'Employee',
+      firstName: item.firstName,
+      lastName: item.lastName,
+      email: item.email,
+      mobile: item.mobile,
+      role: item.designation ?? '',
+      site: selectedSiteName() ?? 'Site ${item.siteId ?? ''}',
+      status: item.status == 1 ? EmployeeStatus.active : EmployeeStatus.inactive,
+      dateOfJoin: item.dateOfJoin,
+      attendanceAllow: item.attendanceAllow ?? true,
+    );
   }
 
   @override
@@ -56,8 +93,7 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
   }
 
   List<Employee> get _filteredEmployees {
-    var list = kMockEmployees.where((employee) {
-      if (_siteFilter != null && employee.site != _siteFilter) return false;
+    var list = _employees.where((employee) {
       if (_statusFilter != null && employee.status != _statusFilter) {
         return false;
       }
@@ -100,31 +136,35 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
               child: _buildTopBar(),
             ),
             Expanded(
-              child: LayoutBuilder(
-                builder: (context, constraints) {
-                  return SingleChildScrollView(
-                    padding: EdgeInsets.fromLTRB(hPad, 16, hPad, 16),
-                    child: Center(
-                      child: ConstrainedBox(
-                        constraints: const BoxConstraints(maxWidth: 640),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.stretch,
-                          children: [
-                            _buildSearchBar(),
-                            const SizedBox(height: 12),
-                            _buildFilterSortRow(),
-                            const SizedBox(height: 12),
-                            _buildCreateEmployeeButton(),
-                            const SizedBox(height: 16),
-                            ..._filteredEmployees.map(_buildEmployeeCard),
-                            if (_filteredEmployees.isEmpty) _buildEmptyState(),
-                          ],
-                        ),
-                      ),
+              child: _isLoading
+                  ? const Center(
+                      child: CircularProgressIndicator(color: AppColors.primaryRed),
+                    )
+                  : LayoutBuilder(
+                      builder: (context, constraints) {
+                        return SingleChildScrollView(
+                          padding: EdgeInsets.fromLTRB(hPad, 16, hPad, 16),
+                          child: Center(
+                            child: ConstrainedBox(
+                              constraints: const BoxConstraints(maxWidth: 640),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.stretch,
+                                children: [
+                                  _buildSearchBar(),
+                                  const SizedBox(height: 12),
+                                  _buildFilterSortRow(),
+                                  const SizedBox(height: 12),
+                                  _buildCreateEmployeeButton(),
+                                  const SizedBox(height: 16),
+                                  ..._filteredEmployees.map(_buildEmployeeCard),
+                                  if (_filteredEmployees.isEmpty) _buildEmptyState(),
+                                ],
+                              ),
+                            ),
+                          ),
+                        );
+                      },
                     ),
-                  );
-                },
-              ),
             ),
           ],
         ),
@@ -189,10 +229,15 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
     );
   }
 
-  void _openCreateEmployee() {
-    Navigator.of(context).push(
+  void _openCreateEmployee() async {
+    final created = await Navigator.of(context).push<bool>(
       MaterialPageRoute(builder: (_) => const AddEmployeeScreen()),
     );
+    if (!mounted || created != true) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Employee created successfully.')),
+    );
+    await _loadEmployees();
   }
 
   Widget _buildCreateEmployeeButton() {
@@ -223,6 +268,7 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
   Widget _buildSearchBar() {
     return TextField(
       controller: _searchController,
+      onSubmitted: (_) => _loadEmployees(),
       style: GoogleFonts.poppins(
         color: AppColors.textDark,
         fontSize: 14,
@@ -318,6 +364,14 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
     );
   }
 
+  void _openProfile(Employee employee) {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => ViewEmployeeProfileScreen(employee: employee),
+      ),
+    );
+  }
+
   Widget _buildEmployeeCard(Employee employee) {
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
@@ -394,7 +448,7 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
             child: Row(
               children: [
                 InkWell(
-                  onTap: () {},
+                  onTap: () => _openProfile(employee),
                   borderRadius: BorderRadius.circular(4),
                   child: Padding(
                     padding: const EdgeInsets.symmetric(vertical: 2),
@@ -420,6 +474,27 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
                   ),
                 ),
                 const Spacer(),
+                IconButton(
+                  onPressed: () async {
+                    final deleted = await deleteEmployeeWithDialog(context, employee);
+                    if (!mounted || !deleted) return;
+                    setState(() {
+                      _employees.removeWhere((e) => e.employeeId == employee.employeeId);
+                    });
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text('${employee.name} deleted successfully.')),
+                    );
+                  },
+                  icon: const Icon(
+                    Icons.delete_outline,
+                    color: AppColors.primaryRed,
+                    size: 22,
+                  ),
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                  visualDensity: VisualDensity.compact,
+                  tooltip: 'Delete',
+                ),
                 IconButton(
                   onPressed: () => _showEmployeeMenu(employee),
                   icon: const Icon(
@@ -550,31 +625,6 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
               ),
               const SizedBox(height: 16),
               Text(
-                'SITE',
-                style: GoogleFonts.poppins(
-                  fontSize: 11,
-                  fontWeight: FontWeight.w600,
-                  letterSpacing: 0.6,
-                  color: AppColors.textSecondary,
-                ),
-              ),
-              const SizedBox(height: 8),
-              Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: [
-                  _filterChip('All', _siteFilter == null, () {
-                    setState(() => _siteFilter = null);
-                    Navigator.pop(context);
-                  }),
-                  ..._sites.map((site) => _filterChip(site, _siteFilter == site, () {
-                    setState(() => _siteFilter = site);
-                    Navigator.pop(context);
-                  })),
-                ],
-              ),
-              const SizedBox(height: 16),
-              Text(
                 'STATUS',
                 style: GoogleFonts.poppins(
                   fontSize: 11,
@@ -695,18 +745,28 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
               ListTile(
                 leading: const Icon(Icons.person_outline, color: AppColors.textDark),
                 title: Text('View Profile', style: GoogleFonts.poppins(fontSize: 14)),
-                onTap: () => Navigator.pop(context),
+                onTap: () {
+                  Navigator.pop(context);
+                  _openProfile(employee);
+                },
               ),
               ListTile(
                 leading: const Icon(Icons.edit_outlined, color: AppColors.textDark),
                 title: Text('Edit Employee', style: GoogleFonts.poppins(fontSize: 14)),
-                onTap: () {
+                onTap: () async {
                   Navigator.pop(context);
-                  Navigator.of(context).push(
+                  final nav = Navigator.of(context);
+                  final messenger = ScaffoldMessenger.of(context);
+                  final updated = await nav.push<bool>(
                     MaterialPageRoute(
-                      builder: (_) => AddEmployeeScreen(employee: employee),
+                      builder: (_) => EditEmployeeScreen(employee: employee),
                     ),
                   );
+                  if (!mounted || updated != true) return;
+                  messenger.showSnackBar(
+                    const SnackBar(content: Text('Employee updated successfully.')),
+                  );
+                  await _loadEmployees();
                 },
               ),
               ListTile(

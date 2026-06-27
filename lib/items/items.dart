@@ -61,6 +61,7 @@ class _ItemsScreenState extends State<ItemsScreen> {
       directPurchase: model.purchase == 1,
       dayReport: model.dayReport == 1,
       consumable: model.consumable == 1,
+      balance: int.tryParse(model.balance ?? '') ?? 0,
     );
   }
 
@@ -215,11 +216,17 @@ class _ItemsScreenState extends State<ItemsScreen> {
     final result = await Navigator.of(context).push<InventoryItem>(
       MaterialPageRoute(builder: (_) => AddItemScreen(item: item)),
     );
-    if (result == null || !mounted) return;
-    setState(() {
-      final index = _items.indexWhere((i) => i.id == item.id);
-      if (index != -1) _items[index] = result;
-    });
+    if (!mounted) return;
+    if (result != null) {
+      setState(() {
+        final index = _items.indexWhere((i) => i.id == item.id);
+        if (index != -1) _items[index] = result;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('${result.name} updated successfully.')),
+      );
+    }
+    await _loadItems();
   }
 
   Future<void> _confirmDelete(InventoryItem item) async {
@@ -253,6 +260,18 @@ class _ItemsScreenState extends State<ItemsScreen> {
     );
 
     if (confirmed != true || !mounted) return;
+
+    final itemId = int.tryParse(item.id);
+    if (itemId == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Invalid item id.')),
+      );
+      return;
+    }
+
+    final deleted = await deleteItemApi(context, itemId);
+    if (!mounted || !deleted) return;
+
     setState(() => _items.removeWhere((i) => i.id == item.id));
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text('${item.name} deleted successfully.')),

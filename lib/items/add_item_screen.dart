@@ -26,20 +26,27 @@ class _AddItemScreenState extends State<AddItemScreen> {
   bool _directPurchase = false;
   bool _dayReport = false;
   bool _consumable = true;
+  int _balance = 0;
   bool _isSaving = false;
+  late List<String> _units;
 
   @override
   void initState() {
     super.initState();
+    _units = List<String>.from(kAvailableUnits);
     final item = widget.item;
     if (item != null) {
       _nameController.text = item.name;
       _skuController.text = item.sku;
-      _unit = item.unit;
       _status = item.status;
       _directPurchase = item.directPurchase;
       _dayReport = item.dayReport;
       _consumable = item.consumable;
+      _balance = item.balance;
+      if (item.unit.isNotEmpty && !_units.contains(item.unit)) {
+        _units.insert(0, item.unit);
+      }
+      _unit = _units.contains(item.unit) ? item.unit : _units.first;
     }
   }
 
@@ -51,23 +58,53 @@ class _AddItemScreenState extends State<AddItemScreen> {
   }
 
   Future<void> _submit() async {
-    if (!_formKey.currentState!.validate()) return;
+    if (!_formKey.currentState!.validate()) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please fill all required fields.')),
+      );
+      return;
+    }
 
     final status =
         _status == ItemStatus.published ? 'published' : 'unpublished';
+    final purchase = _directPurchase ? 1 : 0;
+    final dayReport = _dayReport ? 1 : 0;
+    final consumable = _consumable ? 1 : 0;
 
     if (widget.isEditing) {
-      final item = InventoryItem(
-        id: widget.item!.id,
-        name: _nameController.text.trim(),
-        sku: _skuController.text.trim(),
-        unit: _unit,
-        status: _status,
-        directPurchase: _directPurchase,
-        dayReport: _dayReport,
-        consumable: _consumable,
-      );
-      Navigator.of(context).pop(item);
+      final itemId = int.tryParse(widget.item!.id);
+      if (itemId == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Invalid item id.')),
+        );
+        return;
+      }
+
+      setState(() => _isSaving = true);
+      await Future<void>.delayed(Duration.zero);
+      try {
+        final item = await updateItemApi(
+          context,
+          itemId: itemId,
+          name: _nameController.text.trim(),
+          sku: _skuController.text.trim(),
+          unit: _unit,
+          status: status,
+          balance: _balance,
+          purchase: purchase,
+          dayReport: dayReport,
+          consumable: consumable,
+        );
+
+        if (!mounted) return;
+        if (item != null) {
+          Navigator.of(context).pop(item);
+        }
+      } finally {
+        if (mounted) {
+          setState(() => _isSaving = false);
+        }
+      }
       return;
     }
 
@@ -80,6 +117,7 @@ class _AddItemScreenState extends State<AddItemScreen> {
     }
 
     setState(() => _isSaving = true);
+    await Future<void>.delayed(Duration.zero);
     try {
       final item = await createItemApi(
         context,
@@ -89,9 +127,9 @@ class _AddItemScreenState extends State<AddItemScreen> {
         unit: _unit,
         status: status,
         balance: 0,
-        purchase: _directPurchase ? 1 : 0,
-        dayReport: _dayReport ? 1 : 0,
-        consumable: _consumable ? 1 : 0,
+        purchase: purchase,
+        dayReport: dayReport,
+        consumable: consumable,
       );
 
       if (!mounted) return;
@@ -243,13 +281,14 @@ class _AddItemScreenState extends State<AddItemScreen> {
         Text('Unit', style: GoogleFonts.poppins(fontSize: 13, fontWeight: FontWeight.w500)),
         const SizedBox(height: 8),
         DropdownButtonFormField<String>(
-          initialValue: _unit,
-          items: kAvailableUnits
+          value: _unit,
+          items: _units
               .map((u) => DropdownMenuItem(value: u, child: Text(u, style: GoogleFonts.poppins(fontSize: 14))))
               .toList(),
           onChanged: (v) {
             if (v != null) setState(() => _unit = v);
           },
+          validator: (v) => v == null || v.isEmpty ? 'Unit is required' : null,
           decoration: _inputDecoration('Select unit'),
           style: GoogleFonts.poppins(fontSize: 14, color: AppColors.textDark),
         ),

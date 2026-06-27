@@ -32,6 +32,7 @@ class InventoryItem {
     this.directPurchase = false,
     this.dayReport = false,
     this.consumable = true,
+    this.balance = 0,
     this.imageAsset,
     this.imageUrl,
   });
@@ -44,6 +45,7 @@ class InventoryItem {
   final bool directPurchase;
   final bool dayReport;
   final bool consumable;
+  final int balance;
   final String? imageAsset;
   final String? imageUrl;
 }

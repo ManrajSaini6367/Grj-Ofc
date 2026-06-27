@@ -11,15 +11,18 @@ import 'package:grjoffice_apps/loginpage/loginpage.dart';
 import 'package:grjoffice_apps/main_shell.dart';
 import 'package:grjoffice_apps/contractors/labour_contractor.dart';
 import 'package:grjoffice_apps/items/item.dart';
+import 'package:grjoffice_apps/models/getemployeemodal.dart';
 import 'package:grjoffice_apps/models/getsupplier.dart';
 import 'package:grjoffice_apps/models/getsupplierlist.dart';
 import 'package:grjoffice_apps/models/item_model.dart';
+import 'package:grjoffice_apps/models/itemhistorymodal.dart';
 import 'package:grjoffice_apps/models/items_response_model.dart';
 import 'package:grjoffice_apps/models/listcontractor.dart';
 import 'package:grjoffice_apps/models/login_model.dart';
 import 'package:grjoffice_apps/models/site_model.dart';
 import 'package:grjoffice_apps/models/sites_response_model.dart';
 import 'package:grjoffice_apps/models/user_model.dart';
+import 'package:grjoffice_apps/models/viewemployeeprofile.dart';
 import 'package:grjoffice_apps/suppliers/supplier.dart';
 import 'package:grjoffice_apps/utils/app_helpers.dart';
 import 'package:http/http.dart' as http;
@@ -124,6 +127,8 @@ LabourContractor labourContractorFromApiData(
 
 int? selectedSiteId() =>
     Preference.pref.getInt('site_id') ?? Preference.pref.getInt('selectedSiteId');
+
+String? selectedSiteName() => Preference.pref.getString('selectedSiteName');
 
 Future<void> saveSiteId(int siteId, {String? siteName}) async {
   await Preference.pref.setInt('site_id', siteId);
@@ -1240,6 +1245,524 @@ Future<InventoryItem?> createItemApi(
   } catch (e, stack) {
     print('[createItemApi] error: $e');
     print('[createItemApi] stack: $stack');
+    if (!context.mounted) return null;
+    message(context, 'Something went wrong');
+    return null;
+  }
+}
+
+InventoryItem inventoryItemFromApiData(
+  Map<String, dynamic> responseData, {
+  required String fallbackId,
+  required String name,
+  required String sku,
+  required String unit,
+  required String status,
+  required int purchase,
+  required int dayReport,
+  required int consumable,
+  int balance = 0,
+}) {
+  return InventoryItem(
+    id: responseData['id']?.toString() ?? fallbackId,
+    name: responseData['name']?.toString() ?? name,
+    sku: responseData['sku']?.toString() ?? sku,
+    unit: responseData['unit']?.toString() ?? unit,
+    status: (responseData['status']?.toString() ?? status) == 'published'
+        ? ItemStatus.published
+        : ItemStatus.unpublished,
+    directPurchase: (responseData['purchase'] ?? purchase) == 1,
+    dayReport: (responseData['day_report'] ?? dayReport) == 1,
+    consumable: (responseData['consumable'] ?? consumable) == 1,
+    balance: apiToDouble(responseData['balance'], balance.toDouble()).round(),
+  );
+}
+
+//itemupdate api
+Future<InventoryItem?> updateItemApi(
+  BuildContext context, {
+  required int itemId,
+  required String name,
+  required String sku,
+  required String unit,
+  required String status,
+  required int balance,
+  required int purchase,
+  required int dayReport,
+  required int consumable,
+}) async {
+  try {
+    final uri = Uri.parse('$baseUrl/api/v1/items/$itemId');
+    final body = jsonEncode({
+      'name': name,
+      'sku': sku,
+      'unit': unit,
+      'status': status,
+      'balance': balance,
+      'purchase': purchase,
+      'day_report': dayReport,
+      'consumable': consumable,
+    });
+
+    print('[updateItemApi] PUT $uri');
+    print('[updateItemApi] itemId: $itemId');
+
+    final response = await apiPut(
+      uri,
+      headers: authHeaders,
+      body: body,
+    );
+
+    print('[updateItemApi] statusCode: ${response.statusCode}');
+    print('[updateItemApi] response body: ${response.body}');
+
+    final data = decodeApiJson(response.body);
+    if (data == null) {
+      if (!context.mounted) return null;
+      message(context, 'Invalid server response. Please try again.');
+      return null;
+    }
+
+    final apiMessage = data['message']?.toString();
+    final itemStatus = status == 'unpublished'
+        ? ItemStatus.unpublished
+        : ItemStatus.published;
+
+    if (response.statusCode == 200 && data['success'] == true) {
+      final responseData = data['data'];
+      final fallbackItem = InventoryItem(
+        id: itemId.toString(),
+        name: name,
+        sku: sku,
+        unit: unit,
+        status: itemStatus,
+        directPurchase: purchase == 1,
+        dayReport: dayReport == 1,
+        consumable: consumable == 1,
+        balance: balance,
+      );
+
+      if (responseData is Map<String, dynamic>) {
+        try {
+          return inventoryItemFromApiData(
+            responseData,
+            fallbackId: itemId.toString(),
+            name: name,
+            sku: sku,
+            unit: unit,
+            status: status,
+            purchase: purchase,
+            dayReport: dayReport,
+            consumable: consumable,
+            balance: balance,
+          );
+        } catch (e, stack) {
+          print('[updateItemApi] parse warning: $e');
+          print('[updateItemApi] parse stack: $stack');
+          return fallbackItem;
+        }
+      }
+
+      return fallbackItem;
+    }
+
+    if (!context.mounted) return null;
+    message(context, apiMessage ?? 'Failed to update item.');
+    return null;
+  } on TimeoutException {
+    print('[updateItemApi] request timed out');
+    if (!context.mounted) return null;
+    message(context, 'Request timed out. Please try again.');
+    return null;
+  } catch (e, stack) {
+    print('[updateItemApi] error: $e');
+    print('[updateItemApi] stack: $stack');
+    if (!context.mounted) return null;
+    message(context, 'Something went wrong');
+    return null;
+  }
+}
+
+//itemdeleteapi
+Future<bool> deleteItemApi(
+  BuildContext context,
+  int itemId,
+) async {
+  try {
+    final url = '$baseUrl/api/v1/items/$itemId';
+
+    print('[deleteItemApi] DELETE $url');
+
+    final response = await http
+        .delete(
+          Uri.parse(url),
+          headers: authHeaders,
+        )
+        .timeout(const Duration(seconds: 30));
+
+    print('[deleteItemApi] statusCode: ${response.statusCode}');
+    print('[deleteItemApi] response body: ${response.body}');
+
+    final data = decodeApiJson(response.body);
+    if (data == null) {
+      if (!context.mounted) return false;
+      message(context, 'Invalid server response. Please try again.');
+      return false;
+    }
+
+    final apiMessage = data['message']?.toString();
+
+    if (response.statusCode == 200 && data['success'] == true) {
+      if (!context.mounted) return false;
+      if (apiMessage != null) message(context, apiMessage);
+      return true;
+    }
+
+    if (!context.mounted) return false;
+    message(context, apiMessage ?? 'Failed to delete item.');
+    return false;
+  } catch (e, stack) {
+    print('[deleteItemApi] error: $e');
+    print('[deleteItemApi] stack: $stack');
+    if (!context.mounted) return false;
+    message(context, 'Something went wrong');
+    return false;
+  }
+}
+//itemhistoryapi
+Future<Itemhistorydata?> itemHistoryApi(
+  BuildContext context, {
+  required int itemId,
+  int perPage = 50,
+}) async {
+  try {
+    final uri = Uri.parse('$baseUrl/api/v1/items/$itemId/history').replace(
+      queryParameters: {
+        'per_page': perPage.toString(),
+      },
+    );
+
+    print('[itemHistoryApi] GET $uri');
+
+    final response = await http
+        .get(uri, headers: authHeaders)
+        .timeout(const Duration(seconds: 30));
+
+    print('[itemHistoryApi] statusCode: ${response.statusCode}');
+    print('[itemHistoryApi] response body: ${response.body}');
+
+    final decoded = decodeApiJson(response.body);
+    final apiMessage = decoded?['message']?.toString();
+
+    if (response.statusCode == 200 &&
+        decoded != null &&
+        decoded['success'] == true) {
+      return Itemhistorydata.fromJson(decoded);
+    }
+
+    if (!context.mounted) return null;
+    message(context, apiMessage ?? 'Failed to load item history.');
+    return null;
+  } on TimeoutException {
+    print('[itemHistoryApi] request timed out');
+    if (!context.mounted) return null;
+    message(context, 'Request timed out. Please try again.');
+    return null;
+  } catch (e, stack) {
+    print('[itemHistoryApi] error: $e');
+    print('[itemHistoryApi] stack: $stack');
+    if (!context.mounted) return null;
+    message(context, 'Something went wrong');
+    return null;
+  }
+}
+// createemployeeapi
+Future<bool> createEmployeeApi(
+  BuildContext context, {
+  required int siteId,
+  required String firstName,
+  required String lastName,
+  required String email,
+  required String mobile,
+  required String password,
+  required String passwordConfirmation,
+  required String designation,
+  required String dateOfJoin,
+  String? dateOfSuspended,
+  required bool attendanceAllow,
+  required int status,
+}) async {
+  try {
+    final url = '$baseUrl/api/v1/employees';
+
+    print('[createEmployeeApi] POST $url');
+    print('[createEmployeeApi] siteId: $siteId');
+
+    final body = <String, dynamic>{
+      'site_id': siteId,
+      'first_name': firstName,
+      'last_name': lastName,
+      'email': email,
+      'mobile': mobile,
+      'password': password,
+      'password_confirmation': passwordConfirmation,
+      'designation': designation,
+      'date_of_join': dateOfJoin,
+      'attendance_allow': attendanceAllow ? 1 : 0,
+      'status': status,
+    };
+    if (dateOfSuspended != null && dateOfSuspended.isNotEmpty) {
+      body['date_of_suspended'] = dateOfSuspended;
+    }
+
+    final response = await http
+        .post(
+          Uri.parse(url),
+          headers: authHeaders,
+          body: jsonEncode(body),
+        )
+        .timeout(const Duration(seconds: 30));
+
+    print('[createEmployeeApi] statusCode: ${response.statusCode}');
+    print('[createEmployeeApi] response body: ${response.body}');
+
+    final data = decodeApiJson(response.body);
+    final apiMessage = data?['message']?.toString();
+
+    if (response.statusCode == 201 || response.statusCode == 200) {
+      if (data != null && data['success'] == true) {
+        return true;
+      }
+
+      if (!context.mounted) return false;
+      message(context, apiMessage ?? 'Failed to create employee.');
+      return false;
+    }
+
+    if (!context.mounted) return false;
+    message(context, apiMessage ?? 'Failed to create employee.');
+    return false;
+  } on TimeoutException {
+    print('[createEmployeeApi] request timed out');
+    if (!context.mounted) return false;
+    message(context, 'Request timed out. Please try again.');
+    return false;
+  } catch (e, stack) {
+    print('[createEmployeeApi] error: $e');
+    print('[createEmployeeApi] stack: $stack');
+    if (!context.mounted) return false;
+    message(context, 'Something went wrong');
+    return false;
+  }
+}
+// listemployeeapi
+Future<Getemployeesmodal?> getEmployeesApi(
+  BuildContext context, {
+  int? siteId,
+  String search = '',
+  int perPage = 50,
+}) async {
+  try {
+    final resolvedSiteId = siteId ?? selectedSiteId();
+    if (resolvedSiteId == null) {
+      if (context.mounted) {
+        message(context, 'Please select a site first.');
+      }
+      return null;
+    }
+
+    final queryParams = <String, String>{
+      'site_id': resolvedSiteId.toString(),
+      'per_page': perPage.toString(),
+    };
+    if (search.trim().isNotEmpty) {
+      queryParams['search'] = search.trim();
+    }
+
+    final uri = Uri.parse('$baseUrl/api/v1/employees').replace(
+      queryParameters: queryParams,
+    );
+
+    print('[getEmployeesApi] GET $uri');
+
+    final response = await http
+        .get(uri, headers: authHeaders)
+        .timeout(const Duration(seconds: 30));
+
+    print('[getEmployeesApi] statusCode: ${response.statusCode}');
+    print('[getEmployeesApi] response body: ${response.body}');
+
+    final decoded = decodeApiJson(response.body);
+    final apiMessage = decoded?['message']?.toString();
+
+    if (response.statusCode == 200 &&
+        decoded != null &&
+        decoded['success'] == true) {
+      return Getemployeesmodal.fromJson(decoded);
+    }
+
+    if (!context.mounted) return null;
+    message(context, apiMessage ?? 'Failed to load employees.');
+    return null;
+  } on TimeoutException {
+    print('[getEmployeesApi] request timed out');
+    if (!context.mounted) return null;
+    message(context, 'Request timed out. Please try again.');
+    return null;
+  } catch (e, stack) {
+    print('[getEmployeesApi] error: $e');
+    print('[getEmployeesApi] stack: $stack');
+    if (!context.mounted) return null;
+    message(context, 'Something went wrong');
+    return null;
+  }
+}
+// editemployeeapi
+Future<bool> updateEmployeeApi(
+  BuildContext context, {
+  required int employeeId,
+  required String firstName,
+  required String lastName,
+  required String email,
+  required String mobile,
+  required String designation,
+  required String dateOfJoin,
+  String? dateOfSuspended,
+  String? password,
+  String? passwordConfirmation,
+  required bool attendanceAllow,
+  required int status,
+}) async {
+  try {
+    final uri = Uri.parse('$baseUrl/api/v1/employees/$employeeId');
+    final body = <String, dynamic>{
+      'first_name': firstName,
+      'last_name': lastName,
+      'email': email,
+      'mobile': mobile,
+      'designation': designation,
+      'date_of_join': dateOfJoin,
+      'attendance_allow': attendanceAllow ? 1 : 0,
+      'status': status,
+    };
+    if (dateOfSuspended != null && dateOfSuspended.isNotEmpty) {
+      body['date_of_suspended'] = dateOfSuspended;
+    }
+    if (password != null && password.isNotEmpty) {
+      body['password'] = password;
+      body['password_confirmation'] = passwordConfirmation ?? password;
+    }
+
+    print('[updateEmployeeApi] PUT $uri');
+    print('[updateEmployeeApi] employeeId: $employeeId');
+
+    final response = await apiPut(
+      uri,
+      headers: authHeaders,
+      body: jsonEncode(body),
+    );
+
+    print('[updateEmployeeApi] statusCode: ${response.statusCode}');
+    print('[updateEmployeeApi] response body: ${response.body}');
+
+    final data = decodeApiJson(response.body);
+    final apiMessage = data?['message']?.toString();
+
+    if (response.statusCode == 200 && data != null && data['success'] == true) {
+      return true;
+    }
+
+    if (!context.mounted) return false;
+    message(context, apiMessage ?? 'Failed to update employee.');
+    return false;
+  } catch (e, stack) {
+    print('[updateEmployeeApi] error: $e');
+    print('[updateEmployeeApi] stack: $stack');
+    if (!context.mounted) return false;
+    message(context, 'Something went wrong');
+    return false;
+  }
+}
+// deleteemployeeapi
+Future<bool> deleteEmployeeApi(
+  BuildContext context,
+  int employeeId,
+) async {
+  try {
+    final url = '$baseUrl/api/v1/employees/$employeeId';
+
+    print('[deleteEmployeeApi] DELETE $url');
+
+    final response = await http
+        .delete(
+          Uri.parse(url),
+          headers: authHeaders,
+        )
+        .timeout(const Duration(seconds: 30));
+
+    print('[deleteEmployeeApi] statusCode: ${response.statusCode}');
+    print('[deleteEmployeeApi] response body: ${response.body}');
+
+    final data = decodeApiJson(response.body);
+    final apiMessage = data?['message']?.toString();
+
+    if (response.statusCode == 200 && data != null && data['success'] == true) {
+      return true;
+    }
+
+    if (!context.mounted) return false;
+    message(context, apiMessage ?? 'Failed to delete employee.');
+    return false;
+  } on TimeoutException {
+    print('[deleteEmployeeApi] request timed out');
+    if (!context.mounted) return false;
+    message(context, 'Request timed out. Please try again.');
+    return false;
+  } catch (e, stack) {
+    print('[deleteEmployeeApi] error: $e');
+    print('[deleteEmployeeApi] stack: $stack');
+    if (!context.mounted) return false;
+    message(context, 'Something went wrong');
+    return false;
+  }
+}
+// viewprofileofemployeeapi
+Future<Viewemployeeprofile?> viewProfileOfEmployeeApi(
+  BuildContext context,
+  int employeeId,
+) async {
+  try {
+    final url = '$baseUrl/api/v1/employees/$employeeId';
+
+    print('[viewProfileOfEmployeeApi] GET $url');
+
+    final response = await http
+        .get(Uri.parse(url), headers: authHeaders)
+        .timeout(const Duration(seconds: 30));
+
+    print('[viewProfileOfEmployeeApi] statusCode: ${response.statusCode}');
+    print('[viewProfileOfEmployeeApi] response body: ${response.body}');
+
+    final decoded = decodeApiJson(response.body);
+    final apiMessage = decoded?['message']?.toString();
+
+    if (response.statusCode == 200 &&
+        decoded != null &&
+        decoded['success'] == true) {
+      return Viewemployeeprofile.fromJson(decoded);
+    }
+
+    if (!context.mounted) return null;
+    message(context, apiMessage ?? 'Failed to load employee profile.');
+    return null;
+  } on TimeoutException {
+    print('[viewProfileOfEmployeeApi] request timed out');
+    if (!context.mounted) return null;
+    message(context, 'Request timed out. Please try again.');
+    return null;
+  } catch (e, stack) {
+    print('[viewProfileOfEmployeeApi] error: $e');
+    print('[viewProfileOfEmployeeApi] stack: $stack');
     if (!context.mounted) return null;
     message(context, 'Something went wrong');
     return null;
