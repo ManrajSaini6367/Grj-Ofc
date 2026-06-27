@@ -25,7 +25,7 @@ class UserModel {
   final int siteId;
   final String? designation;
   final String? avatar;
-  final int status;
+  final String status;
   final List<String> roles;
   final String? dateOfJoin;
   final String? dateOfSuspended;
@@ -33,24 +33,38 @@ class UserModel {
 
   factory UserModel.fromJson(Map<String, dynamic> json) {
     return UserModel(
-      id: json['id'] as int,
+      id: _parseInt(json['id']),
       name: json['name']?.toString() ?? '',
       firstName: json['first_name']?.toString() ?? '',
       lastName: json['last_name']?.toString() ?? '',
       email: json['email']?.toString() ?? '',
       mobile: json['mobile']?.toString() ?? '',
-      siteId: json['site_id'] as int? ?? 0,
+      siteId: _parseInt(json['site_id']),
       designation: json['designation']?.toString(),
       avatar: json['avatar']?.toString(),
-      status: json['status'] as int? ?? 0,
+      status: json['status']?.toString() ?? '',
       roles: (json['roles'] as List<dynamic>?)
               ?.map((role) => role.toString())
               .toList() ??
           const [],
       dateOfJoin: json['date_of_join']?.toString(),
       dateOfSuspended: json['date_of_suspended']?.toString(),
-      attendanceAllow: json['attendance_allow'] as bool? ?? false,
+      attendanceAllow: _parseBool(json['attendance_allow']),
     );
+  }
+
+  static int _parseInt(dynamic value, [int fallback = 0]) {
+    if (value == null) return fallback;
+    if (value is int) return value;
+    return int.tryParse(value.toString()) ?? fallback;
+  }
+
+  static bool _parseBool(dynamic value) {
+    if (value == null) return false;
+    if (value is bool) return value;
+    if (value is num) return value != 0;
+    final normalized = value.toString().trim().toLowerCase();
+    return normalized == '1' || normalized == 'true' || normalized == 'yes';
   }
 
   Map<String, dynamic> toJson() {
@@ -77,5 +91,12 @@ class UserModel {
     final role = roles.first;
     if (role.isEmpty) return 'User';
     return role[0].toUpperCase() + role.substring(1);
+  }
+
+  bool get isActiveStatus {
+    final normalized = status.trim().toLowerCase();
+    return normalized == 'published' ||
+        normalized == 'active' ||
+        normalized == '1';
   }
 }
