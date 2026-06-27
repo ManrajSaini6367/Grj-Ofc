@@ -52,7 +52,7 @@ class _ViewEmployeeProfileScreenState extends State<ViewEmployeeProfileScreen> {
     return '${date.day.toString().padLeft(2, '0')}/${date.month.toString().padLeft(2, '0')}/${date.year}';
   }
 
-  bool get _isActive => (_profile?.status ?? (widget.employee.status == EmployeeStatus.active ? 1 : 0)) == 1;
+  bool get _isActive => _profile?.isActiveStatus ?? widget.employee.status == EmployeeStatus.active;
 
   bool get _attendanceAllowed => _profile?.attendanceAllow ?? widget.employee.attendanceAllow;
 

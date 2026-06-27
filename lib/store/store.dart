@@ -1,16 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:grjoffice_apps/contractors/contractors.dart';
-import 'package:grjoffice_apps/core/app_colors.dart';
 import 'package:grjoffice_apps/drawer/app_end_drawer.dart';
 import 'package:grjoffice_apps/drawer/drawer.dart';
-import 'package:grjoffice_apps/employees/employees.dart';
-import 'package:grjoffice_apps/homepage/homepage.dart';
 import 'package:grjoffice_apps/items/item.dart';
 import 'package:grjoffice_apps/items/item_history_screen.dart';
-import 'package:grjoffice_apps/items/items.dart';
-import 'package:grjoffice_apps/profilescreen/profilescreen.dart';
-import 'package:grjoffice_apps/suppliers/suppliers.dart';
+import 'package:grjoffice_apps/core/app_colors.dart';
+import 'package:grjoffice_apps/navigation/app_navigation.dart';
 import 'package:grjoffice_apps/widgets/app_logo.dart';
 import 'package:grjoffice_apps/widgets/item_thumbnail.dart';
 
@@ -158,7 +153,6 @@ class _StoreScreenState extends State<StoreScreen> {
               ],
             ),
           ),
-          _buildBottomNav(),
         ],
       ),
     );
@@ -672,84 +666,8 @@ class _StoreScreenState extends State<StoreScreen> {
   }
 
   void _onDrawerItemTap(int index) {
-    if (index == 0) {
-      Navigator.of(context).pushAndRemoveUntil(
-        MaterialPageRoute(builder: (_) => const HomePage()),
-        (route) => false,
-      );
-    } else if (index == 1) {
-      Navigator.of(context).pushReplacement(MaterialPageRoute(builder: (_) => const EmployeesScreen()));
-    } else if (index == 3) {
-      Navigator.of(context).pushReplacement(MaterialPageRoute(builder: (_) => const SuppliersScreen()));
-    } else if (index == 4) {
-      Navigator.of(context).pushReplacement(MaterialPageRoute(builder: (_) => const ContractorsScreen()));
-    } else if (index == 5) {
-      Navigator.of(context).pushReplacement(MaterialPageRoute(builder: (_) => const ItemsScreen()));
-    }
-  }
-
-  Widget _buildBottomNav() {
-    const items = [
-      _NavItem(Icons.grid_view_rounded, 'Dashboard'),
-      _NavItem(Icons.badge_outlined, 'Employees'),
-      _NavItem(Icons.inventory_2_outlined, 'Supplier'),
-      _NavItem(Icons.engineering_outlined, 'Contractor'),
-      _NavItem(Icons.person_outline, 'Profile'),
-    ];
-
-    return Container(
-      decoration: BoxDecoration(
-        color: AppColors.cardWhite,
-        border: Border(top: BorderSide(color: AppColors.borderGray.withValues(alpha: 0.5))),
-      ),
-      child: SafeArea(
-        top: false,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 8),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceAround,
-            children: List.generate(items.length, (index) {
-              final item = items[index];
-              return GestureDetector(
-                onTap: () {
-                  if (index == 0) {
-                    Navigator.of(context).pushAndRemoveUntil(
-                      MaterialPageRoute(builder: (_) => const HomePage()),
-                      (route) => false,
-                    );
-                  } else if (index == 1) {
-                    Navigator.of(context).pushReplacement(MaterialPageRoute(builder: (_) => const EmployeesScreen()));
-                  } else if (index == 2) {
-                    Navigator.of(context).pushReplacement(MaterialPageRoute(builder: (_) => const SuppliersScreen()));
-                  } else if (index == 3) {
-                    Navigator.of(context).pushReplacement(MaterialPageRoute(builder: (_) => const ContractorsScreen()));
-                  } else if (index == 4) {
-                    Navigator.of(context).pushReplacement(MaterialPageRoute(builder: (_) => const ProfileScreen()));
-                  }
-                },
-                behavior: HitTestBehavior.opaque,
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(item.icon, size: 22, color: AppColors.textSecondary),
-                    const SizedBox(height: 4),
-                    Text(item.label, style: GoogleFonts.poppins(color: AppColors.textSecondary, fontSize: 11)),
-                  ],
-                ),
-              );
-            }),
-          ),
-        ),
-      ),
-    );
+    navigateFromDrawer(context, index);
   }
 }
 
 enum _StockLevel { good, low, outOfStock }
-
-class _NavItem {
-  const _NavItem(this.icon, this.label);
-
-  final IconData icon;
-  final String label;
-}

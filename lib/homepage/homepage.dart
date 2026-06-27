@@ -3,7 +3,6 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:grjoffice_apps/activities/activities.dart';
-import 'package:grjoffice_apps/items/items.dart';
 import 'package:grjoffice_apps/store/store.dart';
 import 'package:grjoffice_apps/core/app_colors.dart';
 import 'package:grjoffice_apps/drawer/app_end_drawer.dart';
@@ -192,25 +191,7 @@ class _HomePageState extends State<HomePage> {
         selectedIndex: _selectedDrawerIndex,
         onItemTap: (index) {
           setState(() => _selectedDrawerIndex = index);
-          if (index == 1) {
-            navigateToMainTab(context, 1);
-          } else if (index == 3) {
-            navigateToMainTab(context, 2);
-          } else if (index == 4) {
-            navigateToMainTab(context, 3);
-          } else if (index == 5) {
-            Navigator.of(context).push(
-              MaterialPageRoute(builder: (_) => const ItemsScreen()),
-            );
-          } else if (index == 6) {
-            Navigator.of(context).push(
-              MaterialPageRoute(builder: (_) => const StoreScreen()),
-            );
-          } else if (index == 9) {
-            Navigator.of(context).push(
-              MaterialPageRoute(builder: (_) => const PurchasesScreen()),
-            );
-          }
+          navigateFromDrawer(context, index);
         },
       ),
       endDrawer: const AppEndDrawer(),

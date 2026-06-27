@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:grjoffice_apps/navigation/app_navigation.dart';
 import 'package:grjoffice_apps/contractor/contractor.dart';
 import 'package:grjoffice_apps/core/app_colors.dart';
 import 'package:grjoffice_apps/core/preference.dart';
@@ -9,7 +10,9 @@ import 'package:grjoffice_apps/services/api_auth.dart';
 import 'package:grjoffice_apps/widgets/app_logo.dart';
 
 class ProfileScreen extends StatefulWidget {
-  const ProfileScreen({super.key});
+  const ProfileScreen({super.key, this.isActive = false});
+
+  final bool isActive;
 
   @override
   State<ProfileScreen> createState() => _ProfileScreenState();
@@ -17,16 +20,9 @@ class ProfileScreen extends StatefulWidget {
 
 class _ProfileScreenState extends State<ProfileScreen> {
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
-  String _selectedSite = 'River Crossing';
-  final GlobalKey _siteSelectorKey = GlobalKey();
   UserModel? _profile;
-  bool _isLoading = true;
-
-  static const _sites = [
-    'Skyline Towers',
-    'Industrial Hub',
-    'River Crossing',
-  ];
+  bool _isLoading = false;
+  bool _startedLoad = false;
 
   double _hPad(BuildContext context) {
     final w = MediaQuery.sizeOf(context).width;
@@ -45,10 +41,27 @@ class _ProfileScreenState extends State<ProfileScreen> {
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) => _loadProfile());
+    if (widget.isActive) _scheduleInitialLoad();
+  }
+
+  @override
+  void didUpdateWidget(ProfileScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.isActive && !oldWidget.isActive) {
+      _scheduleInitialLoad();
+    }
+  }
+
+  void _scheduleInitialLoad() {
+    if (_startedLoad) return;
+    _startedLoad = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _loadProfile();
+    });
   }
 
   Future<void> _loadProfile() async {
+    setState(() => _isLoading = true);
     final profile = await profileApi(context);
     if (!mounted) return;
     setState(() {
@@ -124,9 +137,18 @@ class _ProfileScreenState extends State<ProfileScreen> {
     return Row(
       children: [
         const AppLogo(size: 38),
-        const SizedBox(width: 10),
-        Expanded(child: _buildSiteSelector()),
-        const SizedBox(width: 10),
+        Expanded(
+          child: Text(
+            'Profile',
+            textAlign: TextAlign.center,
+            style: GoogleFonts.poppins(
+              color: AppColors.headingBlack,
+              fontSize: 18,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ),
+        const SizedBox(width: 38),
         GestureDetector(
           onTap: () => _scaffoldKey.currentState?.openEndDrawer(),
           child: Container(
@@ -142,96 +164,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
         ),
       ],
     );
-  }
-
-  Widget _buildSiteSelector() {
-    return Material(
-      key: _siteSelectorKey,
-      color: AppColors.cardWhite,
-      borderRadius: BorderRadius.circular(8),
-      child: InkWell(
-        onTap: () => _openSitePopup(context),
-        borderRadius: BorderRadius.circular(8),
-        child: Container(
-          height: 38,
-          padding: const EdgeInsets.symmetric(horizontal: 10),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(8),
-            border: Border.all(color: AppColors.borderGray),
-          ),
-          child: Row(
-            children: [
-              Expanded(
-                child: Text(
-                  _selectedSite,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: GoogleFonts.poppins(
-                    color: AppColors.textDark,
-                    fontSize: 13,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-              ),
-              Icon(Icons.keyboard_arrow_down_rounded, color: AppColors.textSecondary, size: 20),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Future<void> _openSitePopup(BuildContext context) async {
-    final renderBox =
-        _siteSelectorKey.currentContext?.findRenderObject() as RenderBox?;
-    if (renderBox == null) return;
-
-    final overlay = Overlay.of(context).context.findRenderObject() as RenderBox;
-    final triggerOffset = renderBox.localToGlobal(Offset.zero, ancestor: overlay);
-    final triggerSize = renderBox.size;
-    final screenWidth = MediaQuery.sizeOf(context).width;
-    final popupWidth = triggerSize.width.clamp(180.0, screenWidth * 0.75);
-
-    final selected = await showMenu<String>(
-      context: context,
-      elevation: 8,
-      shadowColor: Colors.black.withValues(alpha: 0.15),
-      color: AppColors.cardWhite,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-      constraints: BoxConstraints(minWidth: popupWidth, maxWidth: popupWidth),
-      position: RelativeRect.fromLTRB(
-        triggerOffset.dx,
-        triggerOffset.dy + triggerSize.height + 6,
-        triggerOffset.dx + popupWidth,
-        triggerOffset.dy + triggerSize.height + 6,
-      ),
-      items: _sites.map((site) {
-        final isSelected = site == _selectedSite;
-        return PopupMenuItem<String>(
-          value: site,
-          height: 46,
-          padding: EdgeInsets.zero,
-          child: Container(
-            width: popupWidth,
-            color: isSelected ? AppColors.selectionBlue : AppColors.cardWhite,
-            padding: const EdgeInsets.symmetric(horizontal: 14),
-            alignment: Alignment.centerLeft,
-            child: Text(
-              site,
-              style: GoogleFonts.poppins(
-                color: isSelected ? AppColors.white : AppColors.textDark,
-                fontSize: 13,
-                fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
-              ),
-            ),
-          ),
-        );
-      }).toList(),
-    );
-
-    if (selected != null && selected != _selectedSite) {
-      setState(() => _selectedSite = selected);
-    }
   }
 
   Widget _buildProfileCard(BuildContext context) {
@@ -255,7 +187,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
           Container(
             height: 4,
             decoration: BoxDecoration(
-              color: AppColors.primaryRed,
+              color: AppColors.cardWhite,
               borderRadius: const BorderRadius.vertical(top: Radius.circular(14)),
             ),
           ),
@@ -552,9 +484,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       child: InkWell(
         onTap: () {
           if (title == 'Security Settings') {
-            Navigator.of(context).push(
-              MaterialPageRoute(builder: (_) => const Contractor()),
-            );
+            pushInShell(context, const Contractor());
           }
         },
         child: Padding(

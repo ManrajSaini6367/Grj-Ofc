@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:grjoffice_apps/contractor/contractor.dart';
 import 'package:grjoffice_apps/core/app_colors.dart';
-import 'package:grjoffice_apps/profilescreen/profilescreen.dart';
+import 'package:grjoffice_apps/navigation/app_navigation.dart';
 import 'package:grjoffice_apps/services/api_auth.dart';
 
 class AppEndDrawer extends StatelessWidget {
@@ -40,9 +40,7 @@ class AppEndDrawer extends StatelessWidget {
                   title: 'Profile',
                   onTap: (context) {
                     Navigator.of(context).pop();
-                    Navigator.of(context).push(
-                      MaterialPageRoute(builder: (_) => const ProfileScreen()),
-                    );
+                    navigateToMainTab(context, 4);
                   },
                 ),
                 _buildMenuItem(
@@ -50,9 +48,7 @@ class AppEndDrawer extends StatelessWidget {
                   title: 'Change Password',
                   onTap: (context) {
                     Navigator.of(context).pop();
-                    Navigator.of(context).push(
-                      MaterialPageRoute(builder: (_) => const Contractor()),
-                    );
+                    pushInShell(context, const Contractor());
                   },
                 ),
                 Divider(height: 1, color: AppColors.borderGray.withValues(alpha: 0.5)),

@@ -1,165 +1,126 @@
-// To parse this JSON data, do
-//
-//     final welcome = welcomeFromJson(jsonString);
-
 import 'dart:convert';
 
-Getcontractordatamodal getcontractordatamodal(String str) => Getcontractordatamodal.fromJson(json.decode(str));
+Getcontractormodal getcontractormodalFromJson(String str) =>
+    Getcontractormodal.fromJson(json.decode(str) as Map<String, dynamic>);
 
-String getcontractordatamodalToJson(Getcontractordatamodal data) => json.encode(data.toJson());
+class Getcontractormodal {
+  Getcontractormodal({
+    this.success,
+    this.message,
+    this.data,
+  });
 
-class Getcontractordatamodal {
-    bool? success;
-    String? message;
-    Data? data;
+  final bool? success;
+  final String? message;
+  final ContractorDetailData? data;
 
-    Getcontractordatamodal({
-         this.success,
-         this.message,
-         this.data,
-    });
-
-    factory Getcontractordatamodal.fromJson(Map<String, dynamic> json) => Getcontractordatamodal(
-        success: json["success"],
-        message: json["message"],
-        data: Data.fromJson(json["data"]),
-    );
-
-    Map<String, dynamic> toJson() => {
-        "success": success,
-        "message": message,
-        "data": data!.toJson(),
-    };
+  factory Getcontractormodal.fromJson(Map<String, dynamic> json) =>
+      Getcontractormodal(
+        success: json['success'] as bool?,
+        message: json['message']?.toString(),
+        data: json['data'] is Map<String, dynamic>
+            ? ContractorDetailData.fromJson(json['data'] as Map<String, dynamic>)
+            : null,
+      );
 }
 
-class Data {
-    int ?id;
-    int ?siteId;
-    String ?name;
-    String ?mobile;
-    String ?address;
-    String ?status;
-    String ?masonRate;
-    String ?beldarRate;
-    String ?coolieRate;
-    String ?masonOverRate;
-    String ?beldarOverRate;
-    String ?coolieOverRate;
-    DateTime ?createdAt;
-    DateTime ?updatedAt;
-    Site ?site;
+class ContractorDetailData {
+  ContractorDetailData({
+    this.id,
+    this.siteId,
+    this.name,
+    this.mobile,
+    this.address,
+    this.status,
+    this.masonRate,
+    this.beldarRate,
+    this.coolieRate,
+    this.masonOverRate,
+    this.beldarOverRate,
+    this.coolieOverRate,
+    this.createdAt,
+    this.updatedAt,
+    this.site,
+  });
 
-    Data({
-         this.id,
-         this.siteId,
-         this.name,
-         this.mobile,
-         this.address,
-         this.status,
-         this.masonRate,
-         this.beldarRate,
-         this.coolieRate,
-         this.masonOverRate,
-         this.beldarOverRate,
-         this.coolieOverRate,
-         this.createdAt,
-         this.updatedAt,
-         this.site,
-    });
+  final int? id;
+  final int? siteId;
+  final String? name;
+  final String? mobile;
+  final String? address;
+  final String? status;
+  final String? masonRate;
+  final String? beldarRate;
+  final String? coolieRate;
+  final String? masonOverRate;
+  final String? beldarOverRate;
+  final String? coolieOverRate;
+  final DateTime? createdAt;
+  final DateTime? updatedAt;
+  final ContractorSiteInfo? site;
 
-    factory Data.fromJson(Map<String, dynamic> json) => Data(
-        id: json["id"],
-        siteId: json["site_id"],
-        name: json["name"],
-        mobile: json["mobile"],
-        address: json["address"],
-        status: json["status"],
-        masonRate: json["mason_rate"],
-        beldarRate: json["beldar_rate"],
-        coolieRate: json["coolie_rate"],
-        masonOverRate: json["mason_over_rate"],
-        beldarOverRate: json["beldar_over_rate"],
-        coolieOverRate: json["coolie_over_rate"],
-        createdAt: DateTime.parse(json["created_at"]),
-        updatedAt: DateTime.parse(json["updated_at"]),
-        site: Site.fromJson(json["site"]),
-    );
+  factory ContractorDetailData.fromJson(Map<String, dynamic> json) =>
+      ContractorDetailData(
+        id: _parseInt(json['id']),
+        siteId: _parseInt(json['site_id']),
+        name: json['name']?.toString(),
+        mobile: json['mobile']?.toString(),
+        address: json['address']?.toString(),
+        status: json['status']?.toString(),
+        masonRate: json['mason_rate']?.toString(),
+        beldarRate: json['beldar_rate']?.toString(),
+        coolieRate: json['coolie_rate']?.toString(),
+        masonOverRate: json['mason_over_rate']?.toString(),
+        beldarOverRate: json['beldar_over_rate']?.toString(),
+        coolieOverRate: json['coolie_over_rate']?.toString(),
+        createdAt: _parseDate(json['created_at']),
+        updatedAt: _parseDate(json['updated_at']),
+        site: json['site'] is Map<String, dynamic>
+            ? ContractorSiteInfo.fromJson(json['site'] as Map<String, dynamic>)
+            : null,
+      );
 
-    Map<String, dynamic> toJson() => {
-        "id": id,
-        "site_id": siteId,
-        "name": name,
-        "mobile": mobile,
-        "address": address,
-        "status": status,
-        "mason_rate": masonRate,
-        "beldar_rate": beldarRate,
-        "coolie_rate": coolieRate,
-        "mason_over_rate": masonOverRate,
-        "beldar_over_rate": beldarOverRate,
-        "coolie_over_rate": coolieOverRate,
-        "created_at": createdAt!.toIso8601String(),
-        "updated_at": updatedAt!.toIso8601String(),
-        "site": site!.toJson(),
-    };
+  bool get isPublished => status == 'published';
+
+  double get masonRateValue => _parseRate(masonRate);
+  double get beldarRateValue => _parseRate(beldarRate);
+  double get coolieRateValue => _parseRate(coolieRate);
+  double get masonOverRateValue => _parseRate(masonOverRate);
+  double get beldarOverRateValue => _parseRate(beldarOverRate);
+  double get coolieOverRateValue => _parseRate(coolieOverRate);
 }
 
-class Site {
-    int ?id;
-    String ?name;
-    String ?address;
-    String ?status;
-    DateTime ?createdAt;
-    DateTime ?updatedAt;
-    String ?image;
-    dynamic shortDescription;
-    int ?tenderAmount;
-    int ?emdDeposit;
-    DateTime ?workStartDate;
-    DateTime ?workEndDate;
+class ContractorSiteInfo {
+  ContractorSiteInfo({
+    this.id,
+    this.name,
+    this.address,
+  });
 
-    Site({
-         this.id,
-         this.name,
-         this.address,
-         this.status,
-         this.createdAt,
-         this.updatedAt,
-         this.image,
-         this.shortDescription,
-         this.tenderAmount,
-         this.emdDeposit,
-         this.workStartDate,
-         this.workEndDate,
-    });
+  final int? id;
+  final String? name;
+  final String? address;
 
-    factory Site.fromJson(Map<String, dynamic> json) => Site(
-        id: json["id"],
-        name: json["name"],
-        address: json["address"],
-        status: json["status"],
-        createdAt: DateTime.parse(json["created_at"]),
-        updatedAt: DateTime.parse(json["updated_at"]),
-        image: json["image"],
-        shortDescription: json["short_description"],
-        tenderAmount: json["tender_amount"],
-        emdDeposit: json["emd_deposit"],
-        workStartDate: DateTime.parse(json["work_start_date"]),
-        workEndDate: DateTime.parse(json["work_end_date"]),
-    );
+  factory ContractorSiteInfo.fromJson(Map<String, dynamic> json) =>
+      ContractorSiteInfo(
+        id: _parseInt(json['id']),
+        name: json['name']?.toString(),
+        address: json['address']?.toString(),
+      );
+}
 
-    Map<String, dynamic> toJson() => {
-        "id": id,
-        "name": name,
-        "address": address,
-        "status": status,
-        "created_at": createdAt!.toIso8601String(),
-        "updated_at": updatedAt!.toIso8601String(),
-        "image": image,
-        "short_description": shortDescription,
-        "tender_amount": tenderAmount,
-        "emd_deposit": emdDeposit,
-        "work_start_date": "${workStartDate!.year.toString().padLeft(4, '0')}-${workStartDate!.month.toString().padLeft(2, '0')}-${workStartDate!.day.toString().padLeft(2, '0')}",
-        "work_end_date": "${workEndDate!.year.toString().padLeft(4, '0')}-${workEndDate!.month.toString().padLeft(2, '0')}-${workEndDate!.day.toString().padLeft(2, '0')}",
-    };
+DateTime? _parseDate(dynamic value) {
+  if (value == null) return null;
+  return DateTime.tryParse(value.toString());
+}
+
+int? _parseInt(dynamic value) {
+  if (value == null) return null;
+  if (value is int) return value;
+  return int.tryParse(value.toString());
+}
+
+double _parseRate(String? value) {
+  if (value == null || value.isEmpty) return 0;
+  return double.tryParse(value) ?? 0;
 }

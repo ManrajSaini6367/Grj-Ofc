@@ -8,19 +8,28 @@ class AppShellScope extends InheritedWidget {
     super.key,
     required this.currentIndex,
     required this.switchToTab,
+    required this.shellNavigatorKey,
     required super.child,
   });
 
   final int currentIndex;
   final ValueChanged<int> switchToTab;
+  final GlobalKey<NavigatorState> shellNavigatorKey;
 
   static AppShellScope? maybeOf(BuildContext context) {
     return context.dependOnInheritedWidgetOfExactType<AppShellScope>();
   }
 
+  static AppShellScope of(BuildContext context) {
+    final scope = maybeOf(context);
+    assert(scope != null, 'AppShellScope not found in widget tree');
+    return scope!;
+  }
+
   @override
   bool updateShouldNotify(AppShellScope oldWidget) {
-    return oldWidget.currentIndex != currentIndex;
+    return oldWidget.currentIndex != currentIndex ||
+        oldWidget.shellNavigatorKey != shellNavigatorKey;
   }
 }
 

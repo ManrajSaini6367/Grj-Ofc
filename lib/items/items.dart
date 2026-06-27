@@ -1,19 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:grjoffice_apps/contractors/contractors.dart';
-import 'package:grjoffice_apps/core/app_colors.dart';
 import 'package:grjoffice_apps/drawer/app_end_drawer.dart';
 import 'package:grjoffice_apps/drawer/drawer.dart';
-import 'package:grjoffice_apps/employees/employees.dart';
-import 'package:grjoffice_apps/homepage/homepage.dart';
 import 'package:grjoffice_apps/items/add_item_screen.dart';
+import 'package:grjoffice_apps/core/app_colors.dart';
 import 'package:grjoffice_apps/items/item.dart';
 import 'package:grjoffice_apps/items/item_history_screen.dart';
 import 'package:grjoffice_apps/models/item_model.dart';
-import 'package:grjoffice_apps/profilescreen/profilescreen.dart';
+import 'package:grjoffice_apps/navigation/app_navigation.dart';
 import 'package:grjoffice_apps/services/api_auth.dart';
-import 'package:grjoffice_apps/store/store.dart';
-import 'package:grjoffice_apps/suppliers/suppliers.dart';
 import 'package:grjoffice_apps/widgets/app_logo.dart';
 import 'package:grjoffice_apps/widgets/item_thumbnail.dart';
 
@@ -132,7 +127,6 @@ class _ItemsScreenState extends State<ItemsScreen> {
                 ),
               ),
             ),
-            _buildBottomNav(),
           ],
         ),
       ),
@@ -140,28 +134,7 @@ class _ItemsScreenState extends State<ItemsScreen> {
   }
 
   void _onDrawerItemTap(int index) {
-    if (index == 0) {
-      Navigator.of(context).pushAndRemoveUntil(
-        MaterialPageRoute(builder: (_) => const HomePage()),
-        (route) => false,
-      );
-    } else if (index == 1) {
-      Navigator.of(context).pushReplacement(
-        MaterialPageRoute(builder: (_) => const EmployeesScreen()),
-      );
-    } else if (index == 3) {
-      Navigator.of(context).pushReplacement(
-        MaterialPageRoute(builder: (_) => const SuppliersScreen()),
-      );
-    } else if (index == 4) {
-      Navigator.of(context).pushReplacement(
-        MaterialPageRoute(builder: (_) => const ContractorsScreen()),
-      );
-    } else if (index == 6) {
-      Navigator.of(context).pushReplacement(
-        MaterialPageRoute(builder: (_) => const StoreScreen()),
-      );
-    }
+    navigateFromDrawer(context, index);
   }
 
   Widget _buildTopBar() {
@@ -331,6 +304,22 @@ class _ItemsScreenState extends State<ItemsScreen> {
     );
   }
 
+  Widget _buildCardActionIcon({
+    required IconData icon,
+    required String tooltip,
+    required VoidCallback onTap,
+    Color color = AppColors.primaryRed,
+  }) {
+    return IconButton(
+      onPressed: onTap,
+      icon: Icon(icon, color: color, size: 22),
+      padding: EdgeInsets.zero,
+      constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+      visualDensity: VisualDensity.compact,
+      tooltip: tooltip,
+    );
+  }
+
   Widget _buildItemCard(InventoryItem item) {
     final isPublished = item.status == ItemStatus.published;
 
@@ -403,61 +392,50 @@ class _ItemsScreenState extends State<ItemsScreen> {
             color: AppColors.borderGray.withValues(alpha: 0.4),
           ),
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
             child: Row(
               children: [
-                _buildActionButton(
-                  icon: Icons.history,
-                  label: 'History',
+                InkWell(
                   onTap: () => _openHistory(item),
-                ),
-                const SizedBox(width: 4),
-                _buildActionButton(
-                  icon: Icons.edit_outlined,
-                  label: 'Edit',
-                  onTap: () => _editItem(item),
+                  borderRadius: BorderRadius.circular(4),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 2),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          'History',
+                          style: GoogleFonts.poppins(
+                            color: AppColors.primaryRed,
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        const SizedBox(width: 2),
+                        const Icon(
+                          Icons.chevron_right,
+                          color: AppColors.primaryRed,
+                          size: 18,
+                        ),
+                      ],
+                    ),
+                  ),
                 ),
                 const Spacer(),
-                IconButton(
-                  onPressed: () => _confirmDelete(item),
-                  icon: const Icon(Icons.delete_outline, color: AppColors.primaryRed, size: 22),
-                  padding: EdgeInsets.zero,
-                  constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
+                _buildCardActionIcon(
+                  icon: Icons.edit_outlined,
+                  tooltip: 'Edit',
+                  onTap: () => _editItem(item),
+                ),
+                _buildCardActionIcon(
+                  icon: Icons.delete_outline,
                   tooltip: 'Delete',
+                  onTap: () => _confirmDelete(item),
                 ),
               ],
             ),
           ),
         ],
-      ),
-    );
-  }
-
-  Widget _buildActionButton({
-    required IconData icon,
-    required String label,
-    required VoidCallback onTap,
-  }) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(8),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(icon, size: 18, color: AppColors.primaryRed),
-            const SizedBox(width: 4),
-            Text(
-              label,
-              style: GoogleFonts.poppins(
-                color: AppColors.primaryRed,
-                fontSize: 13,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ],
-        ),
       ),
     );
   }
@@ -520,94 +498,4 @@ class _ItemsScreenState extends State<ItemsScreen> {
       ),
     );
   }
-
-  Widget _buildBottomNav() {
-    const items = [
-      _NavItem(Icons.grid_view_rounded, 'Dashboard'),
-      _NavItem(Icons.badge_outlined, 'Employees'),
-      _NavItem(Icons.inventory_2_outlined, 'Supplier'),
-      _NavItem(Icons.engineering_outlined, 'Contractor'),
-      _NavItem(Icons.person_outline, 'Profile'),
-    ];
-
-    return Container(
-      decoration: BoxDecoration(
-        color: AppColors.cardWhite,
-        border: Border(top: BorderSide(color: AppColors.borderGray.withValues(alpha: 0.5))),
-      ),
-      child: SafeArea(
-        top: false,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 8),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceAround,
-            children: List.generate(items.length, (index) {
-              final item = items[index];
-              return GestureDetector(
-                onTap: () {
-                  if (index == 0) {
-                    Navigator.of(context).pushAndRemoveUntil(
-                      MaterialPageRoute(builder: (_) => const HomePage()),
-                      (route) => false,
-                    );
-                  } else if (index == 1) {
-                    Navigator.of(context).pushReplacement(
-                      MaterialPageRoute(builder: (_) => const EmployeesScreen()),
-                    );
-                  } else if (index == 2) {
-                    Navigator.of(context).pushReplacement(
-                      MaterialPageRoute(builder: (_) => const SuppliersScreen()),
-                    );
-                  } else if (index == 3) {
-                    Navigator.of(context).pushReplacement(
-                      MaterialPageRoute(builder: (_) => const ContractorsScreen()),
-                    );
-                  } else if (index == 4) {
-                    Navigator.of(context).pushReplacement(
-                      MaterialPageRoute(builder: (_) => const ProfileScreen()),
-                    );
-                  }
-                },
-                behavior: HitTestBehavior.opaque,
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Container(
-                      width: 44,
-                      height: 32,
-                      decoration: BoxDecoration(
-                        color: Colors.transparent,
-                        borderRadius: BorderRadius.circular(20),
-                      ),
-                      child: Icon(
-                        item.icon,
-                        size: 22,
-                        color: AppColors.textSecondary,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      item.label,
-                      style: GoogleFonts.poppins(
-                        color: AppColors.textSecondary,
-                        fontSize: 11,
-                        fontWeight: FontWeight.w400,
-                      ),
-                    ),
-                  ],
-                ),
-              );
-            }),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _NavItem {
-  const _NavItem(this.icon, this.label);
-
-  final IconData icon;
-  final String label;
 }

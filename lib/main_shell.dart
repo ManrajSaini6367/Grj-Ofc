@@ -9,9 +9,10 @@ import 'package:grjoffice_apps/widgets/app_bottom_nav.dart';
 
 /// Root shell with a single persistent bottom navigation bar.
 class MainShell extends StatefulWidget {
-  const MainShell({super.key, this.initialIndex = 0});
+  const MainShell({super.key, this.initialIndex = 0, this.initialPush});
 
   final int initialIndex;
+  final Widget? initialPush;
 
   @override
   State<MainShell> createState() => _MainShellState();
@@ -19,10 +20,29 @@ class MainShell extends StatefulWidget {
 
 class _MainShellState extends State<MainShell> {
   late int _selectedIndex = widget.initialIndex;
+  final GlobalKey<NavigatorState> _shellNavigatorKey = GlobalKey<NavigatorState>();
+
+  @override
+  void initState() {
+    super.initState();
+    final initialPush = widget.initialPush;
+    if (initialPush != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _shellNavigatorKey.currentState?.push(
+          MaterialPageRoute(builder: (_) => initialPush),
+        );
+      });
+    }
+  }
 
   void _switchTab(int index) {
     if (_selectedIndex == index) return;
     setState(() => _selectedIndex = index);
+  }
+
+  void _onTabSelected(int index) {
+    _shellNavigatorKey.currentState?.popUntil((route) => route.isFirst);
+    _switchTab(index);
   }
 
   @override
@@ -30,21 +50,21 @@ class _MainShellState extends State<MainShell> {
     return AppShellScope(
       currentIndex: _selectedIndex,
       switchToTab: _switchTab,
+      shellNavigatorKey: _shellNavigatorKey,
       child: Scaffold(
         backgroundColor: AppColors.backgroundGray,
-        body: IndexedStack(
-          index: _selectedIndex,
-          children: const [
-            HomePage(),
-            EmployeesScreen(),
-            SuppliersScreen(),
-            ContractorsScreen(),
-            ProfileScreen(),
-          ],
+        body: Navigator(
+          key: _shellNavigatorKey,
+          onGenerateRoute: (settings) {
+            return MaterialPageRoute(
+              settings: settings,
+              builder: (_) => const _ShellTabStack(),
+            );
+          },
         ),
         bottomNavigationBar: AppBottomNav(
           selectedIndex: _selectedIndex,
-          onTabSelected: _switchTab,
+          onTabSelected: _onTabSelected,
         ),
         floatingActionButton: _selectedIndex == 0 ? _buildDashboardFab() : null,
         floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
@@ -67,6 +87,26 @@ class _MainShellState extends State<MainShell> {
           child: Icon(Icons.add, color: AppColors.white, size: 28),
         ),
       ),
+    );
+  }
+}
+
+class _ShellTabStack extends StatelessWidget {
+  const _ShellTabStack();
+
+  @override
+  Widget build(BuildContext context) {
+    final index = AppShellScope.of(context).currentIndex;
+    return IndexedStack(
+      index: index,
+      sizing: StackFit.expand,
+      children: [
+        const HomePage(),
+        EmployeesScreen(isActive: index == 1),
+        SuppliersScreen(isActive: index == 2),
+        ContractorsScreen(isActive: index == 3),
+        ProfileScreen(isActive: index == 4),
+      ],
     );
   }
 }

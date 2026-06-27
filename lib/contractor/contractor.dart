@@ -1,12 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:grjoffice_apps/contractors/contractors.dart';
 import 'package:grjoffice_apps/core/app_colors.dart';
 import 'package:grjoffice_apps/drawer/app_end_drawer.dart';
-import 'package:grjoffice_apps/employees/employees.dart';
-import 'package:grjoffice_apps/homepage/homepage.dart';
-import 'package:grjoffice_apps/profilescreen/profilescreen.dart';
-import 'package:grjoffice_apps/suppliers/suppliers.dart';
+import 'package:grjoffice_apps/navigation/app_navigation.dart';
 import 'package:grjoffice_apps/widgets/app_logo.dart';
 
 class Contractor extends StatefulWidget {
@@ -22,18 +18,9 @@ class _ContractorState extends State<Contractor> {
   final _newPasswordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
 
-  String _selectedSite = 'Skyline Towers';
-  final GlobalKey _siteSelectorKey = GlobalKey();
-
   bool _obscureCurrent = true;
   bool _obscureNew = true;
   bool _obscureConfirm = true;
-
-  static const _sites = [
-    'Skyline Towers',
-    'Industrial Hub',
-    'River Crossing',
-  ];
 
   @override
   void dispose() {
@@ -114,7 +101,6 @@ class _ContractorState extends State<Contractor> {
                 ),
               ),
             ),
-            _buildBottomNav(),
           ],
         ),
       ),
@@ -125,9 +111,18 @@ class _ContractorState extends State<Contractor> {
     return Row(
       children: [
         const AppLogo(size: 40),
-        const SizedBox(width: 12),
-        Expanded(child: _buildSiteSelector()),
-        const SizedBox(width: 12),
+        Expanded(
+          child: Text(
+            'Change Password',
+            textAlign: TextAlign.center,
+            style: GoogleFonts.poppins(
+              color: AppColors.headingBlack,
+              fontSize: 18,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ),
+        const SizedBox(width: 40),
         GestureDetector(
           onTap: () => _scaffoldKey.currentState?.openEndDrawer(),
           child: Container(
@@ -145,102 +140,14 @@ class _ContractorState extends State<Contractor> {
     );
   }
 
-  Widget _buildSiteSelector() {
-    return Material(
-      key: _siteSelectorKey,
-      color: AppColors.cardWhite,
-      borderRadius: BorderRadius.circular(8),
-      child: InkWell(
-        onTap: () => _openSitePopup(context),
-        borderRadius: BorderRadius.circular(8),
-        child: Container(
-          height: 40,
-          padding: const EdgeInsets.symmetric(horizontal: 12),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(8),
-            border: Border.all(color: AppColors.borderGray),
-          ),
-          child: Row(
-            children: [
-              Expanded(
-                child: Text(
-                  _selectedSite,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: GoogleFonts.poppins(
-                    color: AppColors.textDark,
-                    fontSize: 14,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-              ),
-              Icon(Icons.keyboard_arrow_down_rounded, color: AppColors.textSecondary, size: 22),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Future<void> _openSitePopup(BuildContext context) async {
-    final renderBox =
-        _siteSelectorKey.currentContext?.findRenderObject() as RenderBox?;
-    if (renderBox == null) return;
-
-    final overlay = Overlay.of(context).context.findRenderObject() as RenderBox;
-    final triggerOffset = renderBox.localToGlobal(Offset.zero, ancestor: overlay);
-    final triggerSize = renderBox.size;
-    final screenWidth = MediaQuery.sizeOf(context).width;
-    final popupWidth = triggerSize.width.clamp(180.0, screenWidth * 0.75);
-
-    final selected = await showMenu<String>(
-      context: context,
-      elevation: 8,
-      shadowColor: Colors.black.withValues(alpha: 0.15),
-      color: AppColors.cardWhite,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-      constraints: BoxConstraints(minWidth: popupWidth, maxWidth: popupWidth),
-      position: RelativeRect.fromLTRB(
-        triggerOffset.dx,
-        triggerOffset.dy + triggerSize.height + 6,
-        triggerOffset.dx + popupWidth,
-        triggerOffset.dy + triggerSize.height + 6,
-      ),
-      items: _sites.map((site) {
-        final isSelected = site == _selectedSite;
-        return PopupMenuItem<String>(
-          value: site,
-          height: 48,
-          padding: EdgeInsets.zero,
-          child: Container(
-            width: popupWidth,
-            color: isSelected ? AppColors.selectionBlue : AppColors.cardWhite,
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            alignment: Alignment.centerLeft,
-            child: Text(
-              site,
-              style: GoogleFonts.poppins(
-                color: isSelected ? AppColors.white : AppColors.textDark,
-                fontSize: 14,
-                fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
-              ),
-            ),
-          ),
-        );
-      }).toList(),
-    );
-
-    if (selected != null && selected != _selectedSite) {
-      setState(() => _selectedSite = selected);
-    }
-  }
-
   Widget _buildBackLink() {
     return InkWell(
       onTap: () {
-        Navigator.of(context).pushReplacement(
-          MaterialPageRoute(builder: (_) => const ProfileScreen()),
-        );
+        if (Navigator.of(context).canPop()) {
+          Navigator.of(context).pop();
+        } else {
+          navigateToMainTab(context, 4);
+        }
       },
       borderRadius: BorderRadius.circular(6),
       child: Padding(
@@ -452,102 +359,4 @@ class _ContractorState extends State<Contractor> {
       ),
     );
   }
-
-  Widget _buildBottomNav() {
-    const items = [
-      _NavItem(Icons.grid_view_rounded, 'Dashboard'),
-      _NavItem(Icons.badge_outlined, 'Employees'),
-      _NavItem(Icons.inventory_2_outlined, 'Supplier'),
-      _NavItem(Icons.engineering_outlined, 'Contractor'),
-      _NavItem(Icons.person_outline, 'Profile'),
-    ];
-
-    return Container(
-      decoration: BoxDecoration(
-        color: AppColors.cardWhite,
-        border: Border(top: BorderSide(color: AppColors.borderGray.withValues(alpha: 0.5))),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.05),
-            blurRadius: 8,
-            offset: const Offset(0, -2),
-          ),
-        ],
-      ),
-      child: SafeArea(
-        top: false,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 8),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceAround,
-            children: List.generate(items.length, (index) {
-              final item = items[index];
-              final isSelected = index == 3;
-              return GestureDetector(
-                onTap: () {
-                  if (index == 0) {
-                    Navigator.of(context).pushAndRemoveUntil(
-                      MaterialPageRoute(builder: (_) => const HomePage()),
-                      (route) => false,
-                    );
-                  } else if (index == 1) {
-                    Navigator.of(context).pushReplacement(
-                      MaterialPageRoute(builder: (_) => const EmployeesScreen()),
-                    );
-                  } else if (index == 2) {
-                    Navigator.of(context).pushReplacement(
-                      MaterialPageRoute(builder: (_) => const SuppliersScreen()),
-                    );
-                  } else if (index == 3) {
-                    Navigator.of(context).pushReplacement(
-                      MaterialPageRoute(builder: (_) => const ContractorsScreen()),
-                    );
-                  } else if (index == 4) {
-                    Navigator.of(context).pushReplacement(
-                      MaterialPageRoute(builder: (_) => const ProfileScreen()),
-                    );
-                  }
-                },
-                behavior: HitTestBehavior.opaque,
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Container(
-                      width: 44,
-                      height: 32,
-                      decoration: BoxDecoration(
-                        color: isSelected ? AppColors.primaryRed : Colors.transparent,
-                        borderRadius: BorderRadius.circular(20),
-                      ),
-                      child: Icon(
-                        item.icon,
-                        size: 22,
-                        color: isSelected ? AppColors.white : AppColors.textSecondary,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      item.label,
-                      style: GoogleFonts.poppins(
-                        color: isSelected ? AppColors.primaryRed : AppColors.textSecondary,
-                        fontSize: 11,
-                        fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
-                      ),
-                    ),
-                  ],
-                ),
-              );
-            }),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _NavItem {
-  const _NavItem(this.icon, this.label);
-
-  final IconData icon;
-  final String label;
 }

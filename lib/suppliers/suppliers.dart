@@ -1,8 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:grjoffice_apps/core/app_colors.dart';
-import 'package:grjoffice_apps/items/items.dart';
-import 'package:grjoffice_apps/store/store.dart';
 import 'package:grjoffice_apps/drawer/app_end_drawer.dart';
 import 'package:grjoffice_apps/drawer/drawer.dart';
 import 'package:grjoffice_apps/models/getsupplierlist.dart';
@@ -10,10 +8,13 @@ import 'package:grjoffice_apps/navigation/app_navigation.dart';
 import 'package:grjoffice_apps/services/api_auth.dart';
 import 'package:grjoffice_apps/suppliers/add_supplier_screen.dart';
 import 'package:grjoffice_apps/suppliers/supplier.dart';
+import 'package:grjoffice_apps/suppliers/view_supplier_screen.dart';
 import 'package:grjoffice_apps/widgets/app_logo.dart';
 
 class SuppliersScreen extends StatefulWidget {
-  const SuppliersScreen({super.key});
+  const SuppliersScreen({super.key, this.isActive = false});
+
+  final bool isActive;
 
   @override
   State<SuppliersScreen> createState() => _SuppliersScreenState();
@@ -24,7 +25,8 @@ class _SuppliersScreenState extends State<SuppliersScreen> {
   final _searchController = TextEditingController();
   String _searchQuery = '';
   List<Supplier> _suppliers = [];
-  bool _isLoading = true;
+  bool _isLoading = false;
+  bool _startedLoad = false;
 
   @override
   void initState() {
@@ -32,10 +34,30 @@ class _SuppliersScreenState extends State<SuppliersScreen> {
     _searchController.addListener(() {
       setState(() => _searchQuery = _searchController.text.trim().toLowerCase());
     });
-    WidgetsBinding.instance.addPostFrameCallback((_) => _loadSuppliers());
+    if (widget.isActive) _scheduleInitialLoad();
+  }
+
+  @override
+  void didUpdateWidget(SuppliersScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.isActive && !oldWidget.isActive) {
+      _scheduleInitialLoad();
+    }
+  }
+
+  void _scheduleInitialLoad() {
+    if (_startedLoad) return;
+    _startedLoad = true;
+    setState(() => _isLoading = true);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _loadSuppliers();
+    });
   }
 
   Future<void> _loadSuppliers() async {
+    if (!_isLoading) setState(() => _isLoading = true);
+    await Future<void>.delayed(Duration.zero);
+    if (!mounted) return;
     final response = await getSuppliersApi(context);
     if (!mounted) return;
     setState(() {
@@ -141,21 +163,7 @@ class _SuppliersScreenState extends State<SuppliersScreen> {
   }
 
   void _onDrawerItemTap(int index) {
-    if (index == 0) {
-      navigateToMainTab(context, 0);
-    } else if (index == 1) {
-      navigateToMainTab(context, 1);
-    } else if (index == 4) {
-      navigateToMainTab(context, 3);
-    } else if (index == 5) {
-      Navigator.of(context).pushReplacement(
-        MaterialPageRoute(builder: (_) => const ItemsScreen()),
-      );
-    } else if (index == 6) {
-      Navigator.of(context).pushReplacement(
-        MaterialPageRoute(builder: (_) => const StoreScreen()),
-      );
-    }
+    navigateFromDrawer(context, index);
   }
 
   Widget _buildTopBar() {
@@ -204,6 +212,12 @@ class _SuppliersScreenState extends State<SuppliersScreen> {
     if (result != null && mounted) {
       setState(() => _suppliers.add(result));
     }
+  }
+
+  void _openViewSupplier(Supplier supplier) {
+    Navigator.of(context).push(
+      MaterialPageRoute(builder: (_) => ViewSupplierScreen(supplier: supplier)),
+    );
   }
 
   Future<void> _editSupplier(Supplier supplier) async {
@@ -275,41 +289,19 @@ class _SuppliersScreenState extends State<SuppliersScreen> {
     );
   }
 
-  void _showSupplierMenu(Supplier supplier) {
-    showModalBottomSheet<void>(
-      context: context,
-      backgroundColor: AppColors.cardWhite,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
-      ),
-      builder: (context) {
-        return SafeArea(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              ListTile(
-                leading: const Icon(Icons.edit_outlined, color: AppColors.textDark),
-                title: Text('Edit Supplier', style: GoogleFonts.poppins(fontSize: 14)),
-                onTap: () {
-                  Navigator.pop(context);
-                  _editSupplier(supplier);
-                },
-              ),
-              ListTile(
-                leading: const Icon(Icons.delete_outline, color: AppColors.primaryRed),
-                title: Text(
-                  'Delete Supplier',
-                  style: GoogleFonts.poppins(fontSize: 14, color: AppColors.primaryRed),
-                ),
-                onTap: () {
-                  Navigator.pop(context);
-                  _confirmDeleteSupplier(supplier);
-                },
-              ),
-            ],
-          ),
-        );
-      },
+  Widget _buildCardActionIcon({
+    required IconData icon,
+    required String tooltip,
+    required VoidCallback onTap,
+    Color color = AppColors.primaryRed,
+  }) {
+    return IconButton(
+      onPressed: onTap,
+      icon: Icon(icon, color: color, size: 22),
+      padding: EdgeInsets.zero,
+      constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+      visualDensity: VisualDensity.compact,
+      tooltip: tooltip,
     );
   }
 
@@ -445,7 +437,7 @@ class _SuppliersScreenState extends State<SuppliersScreen> {
             child: Row(
               children: [
                 InkWell(
-                  onTap: () => _editSupplier(supplier),
+                  onTap: () => _openViewSupplier(supplier),
                   borderRadius: BorderRadius.circular(4),
                   child: Padding(
                     padding: const EdgeInsets.symmetric(vertical: 2),
@@ -471,16 +463,15 @@ class _SuppliersScreenState extends State<SuppliersScreen> {
                   ),
                 ),
                 const Spacer(),
-                IconButton(
-                  onPressed: () => _showSupplierMenu(supplier),
-                  icon: const Icon(
-                    Icons.more_vert,
-                    color: AppColors.textSecondary,
-                    size: 22,
-                  ),
-                  padding: EdgeInsets.zero,
-                  constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
-                  visualDensity: VisualDensity.compact,
+                _buildCardActionIcon(
+                  icon: Icons.edit_outlined,
+                  tooltip: 'Edit Supplier',
+                  onTap: () => _editSupplier(supplier),
+                ),
+                _buildCardActionIcon(
+                  icon: Icons.delete_outline,
+                  tooltip: 'Delete',
+                  onTap: () => _confirmDeleteSupplier(supplier),
                 ),
               ],
             ),

@@ -94,7 +94,7 @@ class EmployeeListItem {
   final String? username;
   final int? siteId;
   final String? designation;
-  final int? status;
+  final String? status;
   final List<dynamic>? roles;
   final DateTime? dateOfJoin;
   final String? dateOfSuspended;
@@ -104,16 +104,16 @@ class EmployeeListItem {
 
   factory EmployeeListItem.fromJson(Map<String, dynamic> json) =>
       EmployeeListItem(
-        id: json['id'] as int?,
+        id: _parseInt(json['id']),
         name: json['name']?.toString(),
         firstName: json['first_name']?.toString(),
         lastName: json['last_name']?.toString(),
         email: json['email']?.toString(),
         mobile: json['mobile']?.toString(),
         username: json['username']?.toString(),
-        siteId: json['site_id'] as int?,
+        siteId: _parseInt(json['site_id']),
         designation: json['designation']?.toString(),
-        status: json['status'] as int?,
+        status: json['status']?.toString(),
         roles: json['roles'] is List ? List<dynamic>.from(json['roles'] as List) : null,
         dateOfJoin: _parseDate(json['date_of_join']),
         dateOfSuspended: json['date_of_suspended']?.toString(),
@@ -121,6 +121,14 @@ class EmployeeListItem {
         createdAt: _parseDate(json['created_at']),
         updatedAt: _parseDate(json['updated_at']),
       );
+
+  bool get isActiveStatus {
+    final value = status?.toLowerCase().trim();
+    if (value == null || value.isEmpty) return true;
+    if (value == 'published' || value == 'active' || value == '1') return true;
+    if (value == 'unpublished' || value == 'inactive' || value == '0') return false;
+    return int.tryParse(value) == 1;
+  }
 
   Map<String, dynamic> toJson() => {
         'id': id,
@@ -183,4 +191,10 @@ bool? _parseBool(dynamic value) {
   if (value is bool) return value;
   if (value is num) return value == 1;
   return value.toString() == '1' || value.toString().toLowerCase() == 'true';
+}
+
+int? _parseInt(dynamic value) {
+  if (value == null) return null;
+  if (value is int) return value;
+  return int.tryParse(value.toString());
 }

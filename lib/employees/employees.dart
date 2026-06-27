@@ -1,7 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:grjoffice_apps/items/items.dart';
-import 'package:grjoffice_apps/store/store.dart';
 import 'package:grjoffice_apps/core/app_colors.dart';
 import 'package:grjoffice_apps/drawer/app_end_drawer.dart';
 import 'package:grjoffice_apps/drawer/drawer.dart';
@@ -18,7 +16,9 @@ import 'package:grjoffice_apps/widgets/app_logo.dart';
 enum _SortOption { nameAsc, nameDesc, idAsc }
 
 class EmployeesScreen extends StatefulWidget {
-  const EmployeesScreen({super.key});
+  const EmployeesScreen({super.key, this.isActive = false});
+
+  final bool isActive;
 
   @override
   State<EmployeesScreen> createState() => _EmployeesScreenState();
@@ -31,7 +31,8 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
   EmployeeStatus? _statusFilter;
   _SortOption _sortOption = _SortOption.nameAsc;
   List<Employee> _employees = [];
-  bool _isLoading = true;
+  bool _isLoading = false;
+  bool _startedLoad = false;
 
   @override
   void initState() {
@@ -39,11 +40,30 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
     _searchController.addListener(() {
       setState(() => _searchQuery = _searchController.text.trim().toLowerCase());
     });
-    WidgetsBinding.instance.addPostFrameCallback((_) => _loadEmployees());
+    if (widget.isActive) _scheduleInitialLoad();
+  }
+
+  @override
+  void didUpdateWidget(EmployeesScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.isActive && !oldWidget.isActive) {
+      _scheduleInitialLoad();
+    }
+  }
+
+  void _scheduleInitialLoad() {
+    if (_startedLoad) return;
+    _startedLoad = true;
+    setState(() => _isLoading = true);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _loadEmployees();
+    });
   }
 
   Future<void> _loadEmployees() async {
-    setState(() => _isLoading = true);
+    if (!_isLoading) setState(() => _isLoading = true);
+    await Future<void>.delayed(Duration.zero);
+    if (!mounted) return;
     final response = await getEmployeesApi(
       context,
       search: _searchController.text.trim(),
@@ -73,7 +93,7 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
       mobile: item.mobile,
       role: item.designation ?? '',
       site: selectedSiteName() ?? 'Site ${item.siteId ?? ''}',
-      status: item.status == 1 ? EmployeeStatus.active : EmployeeStatus.inactive,
+      status: item.isActiveStatus ? EmployeeStatus.active : EmployeeStatus.inactive,
       dateOfJoin: item.dateOfJoin,
       attendanceAllow: item.attendanceAllow ?? true,
     );
@@ -173,21 +193,7 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
   }
 
   void _onDrawerItemTap(int index) {
-    if (index == 0) {
-      navigateToMainTab(context, 0);
-    } else if (index == 3) {
-      navigateToMainTab(context, 2);
-    } else if (index == 4) {
-      navigateToMainTab(context, 3);
-    } else if (index == 5) {
-      Navigator.of(context).pushReplacement(
-        MaterialPageRoute(builder: (_) => const ItemsScreen()),
-      );
-    } else if (index == 6) {
-      Navigator.of(context).pushReplacement(
-        MaterialPageRoute(builder: (_) => const StoreScreen()),
-      );
-    }
+    navigateFromDrawer(context, index);
   }
 
   Widget _buildTopBar() {
@@ -372,6 +378,35 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
     );
   }
 
+  void _openEditEmployee(Employee employee) async {
+    final updated = await Navigator.of(context).push<bool>(
+      MaterialPageRoute(
+        builder: (_) => EditEmployeeScreen(employee: employee),
+      ),
+    );
+    if (!mounted || updated != true) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Employee updated successfully.')),
+    );
+    await _loadEmployees();
+  }
+
+  Widget _buildCardActionIcon({
+    required IconData icon,
+    required String tooltip,
+    required VoidCallback onTap,
+    Color color = AppColors.primaryRed,
+  }) {
+    return IconButton(
+      onPressed: onTap,
+      icon: Icon(icon, color: color, size: 22),
+      padding: EdgeInsets.zero,
+      constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+      visualDensity: VisualDensity.compact,
+      tooltip: tooltip,
+    );
+  }
+
   Widget _buildEmployeeCard(Employee employee) {
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
@@ -474,8 +509,24 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
                   ),
                 ),
                 const Spacer(),
-                IconButton(
-                  onPressed: () async {
+                _buildCardActionIcon(
+                  icon: Icons.edit_outlined,
+                  tooltip: 'Edit Employee',
+                  onTap: () => _openEditEmployee(employee),
+                ),
+                _buildCardActionIcon(
+                  icon: Icons.event_note_outlined,
+                  tooltip: 'View Attendance',
+                  onTap: () {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('Attendance view coming soon.')),
+                    );
+                  },
+                ),
+                _buildCardActionIcon(
+                  icon: Icons.delete_outline,
+                  tooltip: 'Delete',
+                  onTap: () async {
                     final deleted = await deleteEmployeeWithDialog(context, employee);
                     if (!mounted || !deleted) return;
                     setState(() {
@@ -485,29 +536,6 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
                       SnackBar(content: Text('${employee.name} deleted successfully.')),
                     );
                   },
-                  icon: const Icon(
-                    Icons.delete_outline,
-                    color: AppColors.primaryRed,
-                    size: 22,
-                  ),
-                  padding: EdgeInsets.zero,
-                  constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
-                  visualDensity: VisualDensity.compact,
-                  tooltip: 'Delete',
-                ),
-                IconButton(
-                  onPressed: () => _showEmployeeMenu(employee),
-                  icon: const Icon(
-                    Icons.more_vert,
-                    color: AppColors.textSecondary,
-                    size: 22,
-                  ),
-                  padding: EdgeInsets.zero,
-                  constraints: const BoxConstraints(
-                    minWidth: 32,
-                    minHeight: 32,
-                  ),
-                  visualDensity: VisualDensity.compact,
                 ),
               ],
             ),
@@ -726,57 +754,6 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
       onTap: () {
         setState(() => _sortOption = option);
         Navigator.pop(context);
-      },
-    );
-  }
-
-  void _showEmployeeMenu(Employee employee) {
-    showModalBottomSheet<void>(
-      context: context,
-      backgroundColor: AppColors.cardWhite,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
-      ),
-      builder: (context) {
-        return SafeArea(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              ListTile(
-                leading: const Icon(Icons.person_outline, color: AppColors.textDark),
-                title: Text('View Profile', style: GoogleFonts.poppins(fontSize: 14)),
-                onTap: () {
-                  Navigator.pop(context);
-                  _openProfile(employee);
-                },
-              ),
-              ListTile(
-                leading: const Icon(Icons.edit_outlined, color: AppColors.textDark),
-                title: Text('Edit Employee', style: GoogleFonts.poppins(fontSize: 14)),
-                onTap: () async {
-                  Navigator.pop(context);
-                  final nav = Navigator.of(context);
-                  final messenger = ScaffoldMessenger.of(context);
-                  final updated = await nav.push<bool>(
-                    MaterialPageRoute(
-                      builder: (_) => EditEmployeeScreen(employee: employee),
-                    ),
-                  );
-                  if (!mounted || updated != true) return;
-                  messenger.showSnackBar(
-                    const SnackBar(content: Text('Employee updated successfully.')),
-                  );
-                  await _loadEmployees();
-                },
-              ),
-              ListTile(
-                leading: const Icon(Icons.event_note_outlined, color: AppColors.textDark),
-                title: Text('View Attendance', style: GoogleFonts.poppins(fontSize: 14)),
-                onTap: () => Navigator.pop(context),
-              ),
-            ],
-          ),
-        );
       },
     );
   }

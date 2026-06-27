@@ -352,16 +352,16 @@ class _AddEmployeeScreenState extends State<AddEmployeeScreen> {
             items: _roles,
             onChanged: (value) => setState(() => _selectedRole = value),
           ),
-          const SizedBox(height: 16),
-          if (widget.isEditing)
-            _buildDropdownField(
-              label: 'Site',
-              value: _editSite,
-              items: _sites,
-              onChanged: (value) => setState(() => _editSite = value),
-            )
-          else
-            _buildSiteInfoField(),
+          // const SizedBox(height: 16),
+          // if (widget.isEditing)
+          //   _buildDropdownField(
+          //     label: 'Site',
+          //     value: _editSite,
+          //     items: _sites,
+          //     onChanged: (value) => setState(() => _editSite = value),
+          //   )
+          // else
+          //   _buildSiteInfoField(),
           const SizedBox(height: 16),
           _buildDateField(
             label: 'Date of Join',

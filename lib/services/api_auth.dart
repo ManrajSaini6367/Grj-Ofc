@@ -11,6 +11,7 @@ import 'package:grjoffice_apps/loginpage/loginpage.dart';
 import 'package:grjoffice_apps/main_shell.dart';
 import 'package:grjoffice_apps/contractors/labour_contractor.dart';
 import 'package:grjoffice_apps/items/item.dart';
+import 'package:grjoffice_apps/models/getcontractor.dart';
 import 'package:grjoffice_apps/models/getemployeemodal.dart';
 import 'package:grjoffice_apps/models/getsupplier.dart';
 import 'package:grjoffice_apps/models/getsupplierlist.dart';
@@ -616,27 +617,33 @@ Future<Getsuppilerdata?> getSupplierApi(BuildContext context, int supplierId) as
 
     print('[getSupplierApi] GET $url');
 
-    final response = await http.get(
-      Uri.parse(url),
-      headers: authHeaders,
-    );
+    final response = await http
+        .get(Uri.parse(url), headers: authHeaders)
+        .timeout(const Duration(seconds: 30));
 
     print('[getSupplierApi] statusCode: ${response.statusCode}');
     print('[getSupplierApi] response body: ${response.body}');
 
-    final decoded = json.decode(response.body) as Map<String, dynamic>;
-    final apiMessage = decoded['message']?.toString();
+    final decoded = decodeApiJson(response.body);
+    final apiMessage = decoded?['message']?.toString();
 
-    if (response.statusCode == 200 && decoded['success'] == true) {
+    if (response.statusCode == 200 && decoded != null && decoded['success'] == true) {
       return Getsuppilerdata.fromJson(decoded);
     }
 
     if (!context.mounted) return null;
-    if (apiMessage != null) message(context, apiMessage);
+    message(context, apiMessage ?? 'Failed to load supplier.');
+    return null;
+  } on TimeoutException {
+    print('[getSupplierApi] request timed out');
+    if (!context.mounted) return null;
+    message(context, 'Request timed out. Please try again.');
     return null;
   } catch (e, stack) {
     print('[getSupplierApi] error: $e');
     print('[getSupplierApi] stack: $stack');
+    if (!context.mounted) return null;
+    message(context, 'Something went wrong');
     return null;
   }
 }
@@ -650,36 +657,44 @@ Future<Getsupplierlistdata?> getSuppliersApi(
   try {
     final resolvedSiteId = siteId ?? selectedSiteId();
     if (resolvedSiteId == null) {
-      if (context.mounted) {
-        message(context, 'Please select a site first.');
-      }
       return null;
     }
 
+    final queryParams = <String, String>{
+      'site_id': resolvedSiteId.toString(),
+      'per_page': perPage.toString(),
+    };
+    if (search.trim().isNotEmpty) {
+      queryParams['search'] = search.trim();
+    }
+
     final uri = Uri.parse('$baseUrl/api/v1/suppliers').replace(
-      queryParameters: {
-        'site_id': resolvedSiteId.toString(),
-        'search': search,
-        'per_page': perPage.toString(),
-      },
+      queryParameters: queryParams,
     );
 
     print('[getSuppliersApi] GET $uri');
 
-    final response = await http.get(uri, headers: authHeaders);
+    final response = await http
+        .get(uri, headers: authHeaders)
+        .timeout(const Duration(seconds: 30));
 
     print('[getSuppliersApi] statusCode: ${response.statusCode}');
     print('[getSuppliersApi] response body: ${response.body}');
 
-    final decoded = json.decode(response.body) as Map<String, dynamic>;
-    final apiMessage = decoded['message']?.toString();
+    final decoded = decodeApiJson(response.body);
+    final apiMessage = decoded?['message']?.toString();
 
-    if (response.statusCode == 200 && decoded['success'] == true) {
+    if (response.statusCode == 200 && decoded != null && decoded['success'] == true) {
       return Getsupplierlistdata.fromJson(decoded);
     }
 
     if (!context.mounted) return null;
     message(context, apiMessage ?? 'Failed to load suppliers.');
+    return null;
+  } on TimeoutException {
+    print('[getSuppliersApi] request timed out');
+    if (!context.mounted) return null;
+    message(context, 'Request timed out. Please try again.');
     return null;
   } catch (e, stack) {
     print('[getSuppliersApi] error: $e');
@@ -947,36 +962,44 @@ Future<Contractorlistdatamodal?> getContractorListApi(
   try {
     final resolvedSiteId = siteId ?? selectedSiteId();
     if (resolvedSiteId == null) {
-      if (context.mounted) {
-        message(context, 'Please select a site first.');
-      }
       return null;
     }
 
+    final queryParams = <String, String>{
+      'site_id': resolvedSiteId.toString(),
+      'per_page': perPage.toString(),
+    };
+    if (search.trim().isNotEmpty) {
+      queryParams['search'] = search.trim();
+    }
+
     final uri = Uri.parse('$baseUrl/api/v1/contractors').replace(
-      queryParameters: {
-        'site_id': resolvedSiteId.toString(),
-        'search': search,
-        'per_page': perPage.toString(),
-      },
+      queryParameters: queryParams,
     );
 
     print('[getContractorListApi] GET $uri');
 
-    final response = await http.get(uri, headers: authHeaders);
+    final response = await http
+        .get(uri, headers: authHeaders)
+        .timeout(const Duration(seconds: 30));
 
     print('[getContractorListApi] statusCode: ${response.statusCode}');
     print('[getContractorListApi] response body: ${response.body}');
 
-    final decoded = json.decode(response.body) as Map<String, dynamic>;
-    final apiMessage = decoded['message']?.toString();
+    final decoded = decodeApiJson(response.body);
+    final apiMessage = decoded?['message']?.toString();
 
-    if (response.statusCode == 200 && decoded['success'] == true) {
+    if (response.statusCode == 200 && decoded != null && decoded['success'] == true) {
       return Contractorlistdatamodal.fromJson(decoded);
     }
 
     if (!context.mounted) return null;
     message(context, apiMessage ?? 'Failed to load contractors.');
+    return null;
+  } on TimeoutException {
+    print('[getContractorListApi] request timed out');
+    if (!context.mounted) return null;
+    message(context, 'Request timed out. Please try again.');
     return null;
   } catch (e, stack) {
     print('[getContractorListApi] error: $e');
@@ -1565,9 +1588,6 @@ Future<Getemployeesmodal?> getEmployeesApi(
   try {
     final resolvedSiteId = siteId ?? selectedSiteId();
     if (resolvedSiteId == null) {
-      if (context.mounted) {
-        message(context, 'Please select a site first.');
-      }
       return null;
     }
 
@@ -1768,3 +1788,46 @@ Future<Viewemployeeprofile?> viewProfileOfEmployeeApi(
     return null;
   }
 }
+// getcontractor api
+Future<Getcontractormodal?> getContractorApi(
+  BuildContext context,
+  int contractorId,
+) async {
+  try {
+    final url = '$baseUrl/api/v1/contractors/$contractorId';
+
+    print('[getContractorApi] GET $url');
+
+    final response = await http
+        .get(Uri.parse(url), headers: authHeaders)
+        .timeout(const Duration(seconds: 30));
+
+    print('[getContractorApi] statusCode: ${response.statusCode}');
+    print('[getContractorApi] response body: ${response.body}');
+
+    final decoded = decodeApiJson(response.body);
+    final apiMessage = decoded?['message']?.toString();
+
+    if (response.statusCode == 200 &&
+        decoded != null &&
+        decoded['success'] == true) {
+      return Getcontractormodal.fromJson(decoded);
+    }
+
+    if (!context.mounted) return null;
+    message(context, apiMessage ?? 'Failed to load contractor.');
+    return null;
+  } on TimeoutException {
+    print('[getContractorApi] request timed out');
+    if (!context.mounted) return null;
+    message(context, 'Request timed out. Please try again.');
+    return null;
+  } catch (e, stack) {
+    print('[getContractorApi] error: $e');
+    print('[getContractorApi] stack: $stack');
+    if (!context.mounted) return null;
+    message(context, 'Something went wrong');
+    return null;
+  }
+}
+// 
