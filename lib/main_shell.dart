@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
-import 'package:grjoffice_apps/contractors/contractors.dart';
+import 'package:grjoffice_apps/LabourContractor/contractors.dart';
 import 'package:grjoffice_apps/core/app_colors.dart';
-import 'package:grjoffice_apps/employees/employees.dart';
-import 'package:grjoffice_apps/homepage/homepage.dart';
+import 'package:grjoffice_apps/EmployeeListscreen/employees.dart';
+import 'package:grjoffice_apps/dashboardscreen/homepage.dart';
 import 'package:grjoffice_apps/profilescreen/profilescreen.dart';
-import 'package:grjoffice_apps/suppliers/suppliers.dart';
+import 'package:grjoffice_apps/SupplierList/suppliers.dart';
 import 'package:grjoffice_apps/widgets/app_bottom_nav.dart';
 
 /// Root shell with a single persistent bottom navigation bar.
@@ -21,6 +21,18 @@ class MainShell extends StatefulWidget {
 class _MainShellState extends State<MainShell> {
   late int _selectedIndex = widget.initialIndex;
   final GlobalKey<NavigatorState> _shellNavigatorKey = GlobalKey<NavigatorState>();
+  late final NavigatorObserver _shellRouteObserver = _ShellRouteObserver(() {
+    if (!mounted) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) setState(() {});
+    });
+  });
+
+  bool get _showDashboardFab {
+    if (_selectedIndex != 0) return false;
+    final nav = _shellNavigatorKey.currentState;
+    return nav == null || !nav.canPop();
+  }
 
   @override
   void initState() {
@@ -55,6 +67,7 @@ class _MainShellState extends State<MainShell> {
         backgroundColor: AppColors.backgroundGray,
         body: Navigator(
           key: _shellNavigatorKey,
+          observers: [_shellRouteObserver],
           onGenerateRoute: (settings) {
             return MaterialPageRoute(
               settings: settings,
@@ -66,7 +79,7 @@ class _MainShellState extends State<MainShell> {
           selectedIndex: _selectedIndex,
           onTabSelected: _onTabSelected,
         ),
-        floatingActionButton: _selectedIndex == 0 ? _buildDashboardFab() : null,
+        floatingActionButton: _showDashboardFab ? _buildDashboardFab() : null,
         floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
       ),
     );
@@ -89,6 +102,24 @@ class _MainShellState extends State<MainShell> {
       ),
     );
   }
+}
+
+class _ShellRouteObserver extends NavigatorObserver {
+  _ShellRouteObserver(this.onChanged);
+
+  final VoidCallback onChanged;
+
+  @override
+  void didPush(Route<dynamic> route, Route<dynamic>? previousRoute) => onChanged();
+
+  @override
+  void didPop(Route<dynamic> route, Route<dynamic>? previousRoute) => onChanged();
+
+  @override
+  void didRemove(Route<dynamic> route, Route<dynamic>? previousRoute) => onChanged();
+
+  @override
+  void didReplace({Route<dynamic>? newRoute, Route<dynamic>? oldRoute}) => onChanged();
 }
 
 class _ShellTabStack extends StatelessWidget {

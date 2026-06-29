@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:grjoffice_apps/items/items.dart';
+import 'package:grjoffice_apps/Itemsscreen/items.dart';
 import 'package:grjoffice_apps/main_shell.dart';
-import 'package:grjoffice_apps/purchases/purchases.dart';
-import 'package:grjoffice_apps/store/store.dart';
+import 'package:grjoffice_apps/Purchasescreen/purchases.dart';
+import 'package:grjoffice_apps/Storescreens/store.dart';
 import 'package:grjoffice_apps/widgets/app_bottom_nav.dart';
 
 /// Switches tab when already inside [MainShell], otherwise opens [MainShell].

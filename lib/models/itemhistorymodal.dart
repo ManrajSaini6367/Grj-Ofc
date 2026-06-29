@@ -1,6 +1,6 @@
 import 'dart:convert';
 
-import 'package:grjoffice_apps/items/item.dart';
+import 'package:grjoffice_apps/Itemsscreen/item.dart';
 
 Itemhistorydata itemhistorydataFromJson(String str) =>
     Itemhistorydata.fromJson(json.decode(str) as Map<String, dynamic>);

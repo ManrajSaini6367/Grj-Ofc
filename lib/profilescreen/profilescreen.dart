@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:grjoffice_apps/navigation/app_navigation.dart';
-import 'package:grjoffice_apps/contractor/contractor.dart';
+import 'package:grjoffice_apps/profilescreen/contractor.dart';
 import 'package:grjoffice_apps/core/app_colors.dart';
 import 'package:grjoffice_apps/core/preference.dart';
 import 'package:grjoffice_apps/drawer/app_end_drawer.dart';

@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:grjoffice_apps/core/app_colors.dart';
-import 'package:grjoffice_apps/items/item.dart';
+import 'package:grjoffice_apps/Itemsscreen/item.dart';
 
 class ItemThumbnail extends StatelessWidget {
   const ItemThumbnail({

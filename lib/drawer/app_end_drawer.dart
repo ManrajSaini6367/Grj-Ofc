@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:grjoffice_apps/contractor/contractor.dart';
 import 'package:grjoffice_apps/core/app_colors.dart';
+import 'package:grjoffice_apps/core/preference.dart';
 import 'package:grjoffice_apps/navigation/app_navigation.dart';
+import 'package:grjoffice_apps/profilescreen/contractor.dart';
 import 'package:grjoffice_apps/services/api_auth.dart';
 
 class AppEndDrawer extends StatelessWidget {
@@ -123,6 +124,12 @@ class AppEndDrawer extends StatelessWidget {
   }
 
   Widget _buildHeader() {
+    final user = cachedUser();
+    final name = user?.name ?? Preference.pref.getString('name') ?? 'User';
+    final department = user?.designation?.trim().isNotEmpty == true
+        ? user!.designation!.trim()
+        : (user?.roleLabel ?? 'User');
+
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 14, 16, 12),
       child: Row(
@@ -138,7 +145,7 @@ class AppEndDrawer extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Gulshan Rai Jain',
+                  name,
                   style: GoogleFonts.poppins(
                     color: AppColors.headingBlack,
                     fontSize: 14,
@@ -146,7 +153,7 @@ class AppEndDrawer extends StatelessWidget {
                   ),
                 ),
                 Text(
-                  'Director',
+                  department,
                   style: GoogleFonts.poppins(
                     color: AppColors.textSecondary,
                     fontSize: 11,
