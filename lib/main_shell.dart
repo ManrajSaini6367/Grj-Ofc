@@ -28,12 +28,6 @@ class _MainShellState extends State<MainShell> {
     });
   });
 
-  bool get _showDashboardFab {
-    if (_selectedIndex != 0) return false;
-    final nav = _shellNavigatorKey.currentState;
-    return nav == null || !nav.canPop();
-  }
-
   @override
   void initState() {
     super.initState();
@@ -78,26 +72,6 @@ class _MainShellState extends State<MainShell> {
         bottomNavigationBar: AppBottomNav(
           selectedIndex: _selectedIndex,
           onTabSelected: _onTabSelected,
-        ),
-        floatingActionButton: _showDashboardFab ? _buildDashboardFab() : null,
-        floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
-      ),
-    );
-  }
-
-  Widget _buildDashboardFab() {
-    return Material(
-      color: AppColors.primaryRed,
-      elevation: 4,
-      shadowColor: Colors.black.withValues(alpha: 0.2),
-      borderRadius: BorderRadius.circular(12),
-      child: InkWell(
-        onTap: () {},
-        borderRadius: BorderRadius.circular(12),
-        child: const SizedBox(
-          width: 52,
-          height: 52,
-          child: Icon(Icons.add, color: AppColors.white, size: 28),
         ),
       ),
     );

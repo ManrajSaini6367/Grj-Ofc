@@ -1,5 +1,5 @@
+import 'package:convex_bottom_bar/convex_bottom_bar.dart';
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:grjoffice_apps/core/app_colors.dart';
 
 /// Provides tab-switching from child screens inside [MainShell].
@@ -33,7 +33,7 @@ class AppShellScope extends InheritedWidget {
   }
 }
 
-class AppBottomNav extends StatelessWidget {
+class AppBottomNav extends StatefulWidget {
   const AppBottomNav({
     super.key,
     required this.selectedIndex,
@@ -43,81 +43,200 @@ class AppBottomNav extends StatelessWidget {
   final int selectedIndex;
   final ValueChanged<int> onTabSelected;
 
-  static const items = [
-    _NavItem(Icons.grid_view_rounded, 'Dashboard'),
-    _NavItem(Icons.chat_bubble_outline_rounded, 'Chats'),
-    _NavItem(Icons.shopping_cart_outlined, 'Purchase'),
-    _NavItem(Icons.storefront_outlined, 'Store'),
-    _NavItem(Icons.person_outline, 'Profile'),
-  ];
+  static const convexCenterIndex = 2;
+
+  @override
+  State<AppBottomNav> createState() => _AppBottomNavState();
+}
+
+class _AppBottomNavState extends State<AppBottomNav> with SingleTickerProviderStateMixin {
+  static const _tabCount = 5;
+
+  late final TabController _tabController;
+
+  @override
+  void initState() {
+    super.initState();
+    _tabController = TabController(
+      length: _tabCount,
+      vsync: this,
+      initialIndex: widget.selectedIndex.clamp(0, _tabCount - 1),
+    );
+  }
+
+  @override
+  void didUpdateWidget(covariant AppBottomNav oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.selectedIndex != widget.selectedIndex &&
+        _tabController.index != widget.selectedIndex) {
+      _tabController.animateTo(widget.selectedIndex.clamp(0, _tabCount - 1));
+    }
+  }
+
+  @override
+  void dispose() {
+    _tabController.dispose();
+    super.dispose();
+  }
+
+  List<TabItem> _tabItems(double width) {
+    final showLabels = width >= 400;
+    String label(String text) => showLabels ? text : '';
+
+    return [
+      TabItem(
+        icon: Icons.grid_view_rounded,
+        activeIcon: Icons.grid_view,
+        title: label('Dashboard'),
+      ),
+      TabItem(
+        icon: Icons.chat_bubble_outline_rounded,
+        activeIcon: Icons.chat_bubble_rounded,
+        title: label('Chats'),
+      ),
+      TabItem(
+        icon: Icons.shopping_cart_outlined,
+        activeIcon: Icons.shopping_cart,
+        title: label('Purchase'),
+      ),
+      TabItem(
+        icon: Icons.storefront_outlined,
+        activeIcon: Icons.storefront,
+        title: label('Store'),
+      ),
+      TabItem(
+        icon: Icons.person_outline,
+        activeIcon: Icons.person,
+        title: label('Profile'),
+      ),
+    ];
+  }
+
+  _BarMetrics _metrics(double width) {
+    if (width < 340) {
+      return const _BarMetrics(
+        height: 62,
+        curveSize: 74,
+        top: -30,
+        cornerRadius: 22,
+      );
+    }
+    if (width < 600) {
+      return const _BarMetrics(
+        height: 66,
+        curveSize: 82,
+        top: -32,
+        cornerRadius: 24,
+      );
+    }
+    return const _BarMetrics(
+      height: 70,
+      curveSize: 88,
+      top: -34,
+      cornerRadius: 26,
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        color: AppColors.cardWhite,
-        border: Border(top: BorderSide(color: AppColors.borderGray.withValues(alpha: 0.5))),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.05),
-            blurRadius: 8,
-            offset: const Offset(0, -2),
-          ),
+    final width = MediaQuery.sizeOf(context).width;
+    final metrics = _metrics(width);
+
+    return ConvexAppBar(
+      style: TabStyle.fixedCircle,
+      items: _tabItems(width),
+      controller: _tabController,
+      disableDefaultTabController: true,
+      chipBuilder: _PremiumNavChipBuilder(showLabels: width >= 400),
+      onTap: widget.onTabSelected,
+      backgroundColor: AppColors.cardWhite,
+      color: AppColors.textSecondary,
+      activeColor: AppColors.primaryRed,
+      gradient: const LinearGradient(
+        begin: Alignment.topCenter,
+        end: Alignment.bottomCenter,
+        colors: [
+          Color(0xFFFFFFFF),
+          Color(0xFFF5F6F8),
         ],
       ),
-      child: SafeArea(
-        top: false,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 8),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceAround,
-            children: List.generate(items.length, (index) {
-              final item = items[index];
-              final isSelected = selectedIndex >= 0 && selectedIndex == index;
-              return GestureDetector(
-                onTap: () {
-                  if (index != selectedIndex) onTabSelected(index);
-                },
-                behavior: HitTestBehavior.opaque,
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Container(
-                      width: 44,
-                      height: 32,
-                      decoration: BoxDecoration(
-                        color: isSelected ? AppColors.primaryRed : Colors.transparent,
-                        borderRadius: BorderRadius.circular(20),
-                      ),
-                      child: Icon(
-                        item.icon,
-                        size: 22,
-                        color: isSelected ? AppColors.white : AppColors.textSecondary,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      item.label,
-                      style: GoogleFonts.poppins(
-                        color: isSelected ? AppColors.primaryRed : AppColors.textSecondary,
-                        fontSize: 11,
-                        fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
-                      ),
-                    ),
-                  ],
-                ),
-              );
-            }),
-          ),
-        ),
-      ),
+      shadowColor: Colors.black.withValues(alpha: 0.14),
+      elevation: 10,
+      cornerRadius: metrics.cornerRadius,
+      height: metrics.height,
+      curveSize: metrics.curveSize,
+      top: metrics.top,
+      curve: Curves.easeOutCubic,
     );
   }
 }
 
-class _NavItem {
-  const _NavItem(this.icon, this.label);
+class _PremiumNavChipBuilder extends ChipBuilder {
+  _PremiumNavChipBuilder({required this.showLabels});
 
-  final IconData icon;
-  final String label;
+  final bool showLabels;
+
+  @override
+  Widget build(BuildContext context, Widget child, int index, bool active) {
+    if (index == AppBottomNav.convexCenterIndex) {
+      return DecoratedBox(
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.1),
+              blurRadius: 12,
+              offset: const Offset(0, 4),
+            ),
+            BoxShadow(
+              color: AppColors.primaryRed.withValues(alpha: active ? 0.32 : 0.12),
+              blurRadius: active ? 16 : 10,
+              offset: Offset(0, active ? 6 : 4),
+            ),
+          ],
+        ),
+        child: child,
+      );
+    }
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        return SizedBox(
+          height: constraints.maxHeight.isFinite ? constraints.maxHeight : 48,
+          child: FittedBox(
+            fit: BoxFit.scaleDown,
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 220),
+              curve: Curves.easeOutCubic,
+              padding: EdgeInsets.symmetric(
+                horizontal: active ? 10 : 6,
+                vertical: showLabels ? 2 : 0,
+              ),
+              decoration: BoxDecoration(
+                color: active
+                    ? AppColors.primaryRed.withValues(alpha: 0.1)
+                    : Colors.transparent,
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: child,
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _BarMetrics {
+  const _BarMetrics({
+    required this.height,
+    required this.curveSize,
+    required this.top,
+    required this.cornerRadius,
+  });
+
+  final double height;
+  final double curveSize;
+  final double top;
+  final double cornerRadius;
 }

@@ -1,5 +1,3 @@
-import 'dart:async';
-
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:grjoffice_apps/DayEndReport/activities.dart';
@@ -156,7 +154,7 @@ class _HomePageState extends State<HomePage> {
     if (mounted) {
       setState(() => _isProcessingPunch = false);
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Punched in successfully. Timer started.')),
+        const SnackBar(content: Text('Punched in successfully.')),
       );
     }
   }
@@ -165,18 +163,14 @@ class _HomePageState extends State<HomePage> {
     if (_isProcessingPunch || !_attendance.isPunchedIn) return;
     setState(() => _isProcessingPunch = true);
 
-    final total = await _attendance.punchOut();
+    await _attendance.punchOut();
     await _location.getCurrentLocation(reason: 'PUNCH OUT location');
     await _location.stopTracking();
 
     if (mounted) {
       setState(() => _isProcessingPunch = false);
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            'Punched out. Total today: ${AttendanceService.formatDuration(total)}',
-          ),
-        ),
+        const SnackBar(content: Text('Punched out successfully.')),
       );
     }
   }
@@ -616,20 +610,14 @@ class _AttendanceCard extends StatefulWidget {
 }
 
 class _AttendanceCardState extends State<_AttendanceCard> {
-  Timer? _timer;
-
   @override
   void initState() {
     super.initState();
     widget.attendance.addListener(_onAttendanceChanged);
-    _timer = Timer.periodic(const Duration(seconds: 1), (_) {
-      if (mounted && widget.attendance.isPunchedIn) setState(() {});
-    });
   }
 
   @override
   void dispose() {
-    _timer?.cancel();
     widget.attendance.removeListener(_onAttendanceChanged);
     super.dispose();
   }
@@ -638,35 +626,10 @@ class _AttendanceCardState extends State<_AttendanceCard> {
     if (mounted) setState(() {});
   }
 
-  Widget _timeBlock(String label, String value) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          label,
-          style: GoogleFonts.poppins(
-            color: AppColors.textSecondary,
-            fontSize: 11,
-            fontWeight: FontWeight.w500,
-          ),
-        ),
-        const SizedBox(height: 4),
-        Text(
-          value,
-          style: GoogleFonts.poppins(
-            color: AppColors.primaryRed,
-            fontSize: 18,
-            fontWeight: FontWeight.w700,
-          ),
-        ),
-      ],
-    );
-  }
-
   Widget _buildPunchButton(bool isPunchedIn) {
     return SizedBox(
-      width: 118,
-      height: 44,
+      width: 122,
+      height: 46,
       child: ElevatedButton(
         onPressed: widget.isProcessingPunch
             ? null
@@ -675,8 +638,8 @@ class _AttendanceCardState extends State<_AttendanceCard> {
           backgroundColor: isPunchedIn ? AppColors.headingBlack : AppColors.punchLightGreen,
           foregroundColor: AppColors.white,
           elevation: 0,
-          padding: const EdgeInsets.symmetric(horizontal: 8),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+          padding: const EdgeInsets.symmetric(horizontal: 10),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         ),
         child: widget.isProcessingPunch
             ? const SizedBox(
@@ -699,12 +662,6 @@ class _AttendanceCardState extends State<_AttendanceCard> {
   @override
   Widget build(BuildContext context) {
     final isPunchedIn = widget.attendance.isPunchedIn;
-    final punchInTime = widget.attendance.punchInTime;
-    final punchOutTime = widget.attendance.lastPunchOutTime;
-    final lastPunchIn = widget.attendance.lastPunchInTime;
-    final loginDuration = isPunchedIn
-        ? widget.attendance.currentSessionDuration
-        : widget.attendance.todayTotal;
 
     return Container(
       width: double.infinity,
@@ -721,137 +678,10 @@ class _AttendanceCardState extends State<_AttendanceCard> {
           ),
         ],
       ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.center,
-        children: [
-          Expanded(child: _buildLeftContent(
-            isPunchedIn: isPunchedIn,
-            punchInTime: punchInTime,
-            punchOutTime: punchOutTime,
-            lastPunchIn: lastPunchIn,
-            loginDuration: loginDuration,
-          )),
-          const SizedBox(width: 12),
-          _buildPunchButton(isPunchedIn),
-        ],
+      child: Align(
+        alignment: Alignment.centerRight,
+        child: _buildPunchButton(isPunchedIn),
       ),
     );
-  }
-
-  Widget _buildLeftContent({
-    required bool isPunchedIn,
-    required DateTime? punchInTime,
-    required DateTime? punchOutTime,
-    required DateTime? lastPunchIn,
-    required Duration loginDuration,
-  }) {
-    if (isPunchedIn && punchInTime != null) {
-      return Row(
-        children: [
-          Expanded(
-            child: _timeBlock(
-              'Punch In Time',
-              AttendanceService.formatTimeWithSeconds(punchInTime),
-            ),
-          ),
-          Container(
-            width: 1,
-            height: 44,
-            margin: const EdgeInsets.symmetric(horizontal: 12),
-            color: AppColors.borderGray.withValues(alpha: 0.5),
-          ),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Login Duration',
-                  style: GoogleFonts.poppins(
-                    color: AppColors.textSecondary,
-                    fontSize: 11,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  AttendanceService.formatDuration(loginDuration),
-                  style: GoogleFonts.poppins(
-                    color: AppColors.primaryRed,
-                    fontSize: 18,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      );
-    }
-
-    if (lastPunchIn != null && punchOutTime != null) {
-      return Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Expanded(
-                child: _timeBlock(
-                  'Punch In Time',
-                  AttendanceService.formatTimeWithSeconds(lastPunchIn),
-                ),
-              ),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Punch Out Time',
-                      style: GoogleFonts.poppins(
-                        color: AppColors.textSecondary,
-                        fontSize: 11,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      AttendanceService.formatTimeWithSeconds(punchOutTime),
-                      style: GoogleFonts.poppins(
-                        color: AppColors.headingBlack,
-                        fontSize: 18,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 10),
-          Row(
-            children: [
-              Text(
-                'Total Login Today',
-                style: GoogleFonts.poppins(
-                  color: AppColors.textSecondary,
-                  fontSize: 12,
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-              const SizedBox(width: 8),
-              Text(
-                AttendanceService.formatDuration(loginDuration),
-                style: GoogleFonts.poppins(
-                  color: AppColors.primaryRed,
-                  fontSize: 16,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-            ],
-          ),
-        ],
-      );
-    }
-
-    return const SizedBox.shrink();
   }
 }
