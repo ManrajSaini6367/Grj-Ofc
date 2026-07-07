@@ -45,9 +45,9 @@ class AppBottomNav extends StatelessWidget {
 
   static const items = [
     _NavItem(Icons.grid_view_rounded, 'Dashboard'),
-    _NavItem(Icons.badge_outlined, 'Employees'),
-    _NavItem(Icons.inventory_2_outlined, 'Supplier'),
-    _NavItem(Icons.engineering_outlined, 'Contractor'),
+    _NavItem(Icons.chat_bubble_outline_rounded, 'Chats'),
+    _NavItem(Icons.shopping_cart_outlined, 'Purchase'),
+    _NavItem(Icons.storefront_outlined, 'Store'),
     _NavItem(Icons.person_outline, 'Profile'),
   ];
 

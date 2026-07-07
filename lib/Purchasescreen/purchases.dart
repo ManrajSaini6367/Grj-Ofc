@@ -4,7 +4,11 @@ import 'package:grjoffice_apps/core/app_colors.dart';
 import 'package:grjoffice_apps/drawer/app_end_drawer.dart';
 import 'package:grjoffice_apps/drawer/drawer.dart';
 import 'package:grjoffice_apps/navigation/app_navigation.dart';
+import 'package:grjoffice_apps/Purchasescreen/add_purchase_screen.dart';
 import 'package:grjoffice_apps/Purchasescreen/purchase.dart';
+import 'package:grjoffice_apps/Purchasescreen/without_kanta_step2_screen.dart';
+import 'package:grjoffice_apps/Purchasescreen/with_kanta_step2_screen.dart';
+import 'package:grjoffice_apps/Purchasescreen/with_kanta_step3_screen.dart';
 import 'package:grjoffice_apps/widgets/app_logo.dart';
 
 class PurchasesScreen extends StatefulWidget {
@@ -713,15 +717,28 @@ class _PurchasesScreenState extends State<PurchasesScreen> {
         PurchaseStatus.cancelled => 'Cancelled',
       };
 
+  Future<void> _openAddPurchase() async {
+    final result = await Navigator.of(context).push<Purchase>(
+      MaterialPageRoute(builder: (_) => const AddPurchaseScreen()),
+    );
+    if (result != null && mounted) {
+      setState(() => _purchases.insert(0, result));
+      final msg = result.withKantaStage == WithKantaStage.initial
+          ? 'Purchase saved (Initial). Complete Step 2 from the list.'
+          : result.withoutKantaStage == WithoutKantaStage.initial
+              ? 'Purchase saved (Initial). Complete Step 2 from the list.'
+              : result.isDirectPurchase
+                  ? 'Purchase ${result.challanNo} saved (Completed).'
+                  : 'Purchase ${result.challanNo} created.';
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
+    }
+  }
+
   Widget _buildCreateButton() {
     return SizedBox(
       height: 46,
       child: ElevatedButton.icon(
-        onPressed: () {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Create Purchase — coming soon.')),
-          );
-        },
+        onPressed: _openAddPurchase,
         icon: const Icon(Icons.add_shopping_cart_outlined, size: 20),
         label: Text('Create Purchase', style: GoogleFonts.poppins(fontSize: 14, fontWeight: FontWeight.w600)),
         style: ElevatedButton.styleFrom(
@@ -782,12 +799,14 @@ class _PurchasesScreenState extends State<PurchasesScreen> {
                                   ),
                                 ),
                               ),
-                              _buildStatusBadge(purchase.status),
+                              _buildCardBadge(purchase),
                             ],
                           ),
                           const SizedBox(height: 4),
                           Text(
-                            purchase.challanNo,
+                            purchase.hasFlowStage
+                                ? (purchase.vehicleNo ?? purchase.challanNo)
+                                : purchase.challanNo,
                             style: GoogleFonts.poppins(
                               color: AppColors.textSecondary,
                               fontSize: 13,
@@ -799,13 +818,36 @@ class _PurchasesScreenState extends State<PurchasesScreen> {
                   ],
                 ),
                 const SizedBox(height: 10),
+                if ((purchase.itemName ?? '').isNotEmpty) ...[
+                  _buildMetaRow(Icons.inventory_2_outlined, purchase.materialsSummary),
+                  const SizedBox(height: 6),
+                ],
+                if (purchase.withKantaStage != null && purchase.flowStageLabel != null) ...[
+                  _buildMetaRow(
+                    Icons.flag_outlined,
+                    'Status: ${purchase.flowStageLabel}',
+                  ),
+                  const SizedBox(height: 6),
+                ] else if (purchase.withoutKantaStage != null && purchase.flowStageLabel != null) ...[
+                  _buildMetaRow(
+                    Icons.flag_outlined,
+                    'Status: ${purchase.flowStageLabel}',
+                  ),
+                  const SizedBox(height: 6),
+                ] else if (purchase.directPurchaseStage != null && purchase.flowStageLabel != null) ...[
+                  _buildMetaRow(
+                    Icons.flag_outlined,
+                    'Status: ${purchase.flowStageLabel}',
+                  ),
+                  const SizedBox(height: 6),
+                ],
                 _buildMetaRow(Icons.calendar_today_outlined, _formatDate(purchase.date)),
                 const SizedBox(height: 6),
                 _buildMetaRow(Icons.receipt_long_outlined, 'Invoice: ${purchase.invoiceNo}'),
                 const SizedBox(height: 6),
                 _buildMetaRow(
                   Icons.description_outlined,
-                  'Kanta Slip: ${purchase.hasKantaSlip ? 'Yes' : 'No'}',
+                  'Kanta Slip: ${purchase.isDirectPurchase ? 'Other' : purchase.hasKantaSlip ? 'Yes' : 'No'}',
                 ),
                 if ((purchase.remark ?? '').isNotEmpty) ...[
                   const SizedBox(height: 6),
@@ -823,32 +865,52 @@ class _PurchasesScreenState extends State<PurchasesScreen> {
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
             child: Row(
               children: [
-                InkWell(
-                  onTap: () => _showDetails(purchase),
-                  borderRadius: BorderRadius.circular(4),
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 2),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(
-                          'View Purchase',
-                          style: GoogleFonts.poppins(
-                            color: AppColors.primaryRed,
-                            fontSize: 13,
-                            fontWeight: FontWeight.w600,
+                if (_cardFlowActionLabel(purchase) != null)
+                  InkWell(
+                    onTap: () => _openCardFlowAction(purchase),
+                    borderRadius: BorderRadius.circular(4),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 2),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            _cardFlowActionLabel(purchase)!,
+                            style: GoogleFonts.poppins(
+                              color: AppColors.primaryRed,
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600,
+                            ),
                           ),
-                        ),
-                        const SizedBox(width: 2),
-                        const Icon(
-                          Icons.chevron_right,
-                          color: AppColors.primaryRed,
-                          size: 18,
-                        ),
-                      ],
+                          const SizedBox(width: 2),
+                          const Icon(Icons.chevron_right, color: AppColors.primaryRed, size: 18),
+                        ],
+                      ),
+                    ),
+                  )
+                else
+                  InkWell(
+                    onTap: () => _showDetails(purchase),
+                    borderRadius: BorderRadius.circular(4),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 2),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            'View Purchase',
+                            style: GoogleFonts.poppins(
+                              color: AppColors.primaryRed,
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                          const SizedBox(width: 2),
+                          const Icon(Icons.chevron_right, color: AppColors.primaryRed, size: 18),
+                        ],
+                      ),
                     ),
                   ),
-                ),
                 const Spacer(),
                 IconButton(
                   onPressed: () => _showPurchaseMenu(purchase),
@@ -877,10 +939,65 @@ class _PurchasesScreenState extends State<PurchasesScreen> {
         borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
       ),
       builder: (context) {
+        final withKantaFlow = purchase.isWithKanta && purchase.withKantaStage != null;
+        final withoutKantaFlow = purchase.isWithoutKanta && purchase.withoutKantaStage != null;
         return SafeArea(
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
+              if (withKantaFlow) ...[
+                ListTile(
+                  leading: const Icon(Icons.photo_library_outlined, color: AppColors.textDark),
+                  title: Text('View Vehicle Images', style: GoogleFonts.poppins(fontSize: 14)),
+                  onTap: () {
+                    Navigator.pop(context);
+                    _viewVehicleImages(purchase);
+                  },
+                ),
+                ListTile(
+                  leading: const Icon(Icons.download_outlined, color: AppColors.textDark),
+                  title: Text('Download Challan', style: GoogleFonts.poppins(fontSize: 14)),
+                  onTap: () {
+                    Navigator.pop(context);
+                    _downloadChallan(purchase);
+                  },
+                ),
+                if (_canOpenWithKantaStep3(purchase))
+                  ListTile(
+                    leading: const Icon(Icons.playlist_add_check_outlined, color: AppColors.primaryRed),
+                    title: Text(
+                      'Step 3',
+                      style: GoogleFonts.poppins(
+                        fontSize: 14,
+                        color: AppColors.primaryRed,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    onTap: () {
+                      Navigator.pop(context);
+                      _openWithKantaStep3(purchase);
+                    },
+                  ),
+                if (_canOpenWithKantaStep3(purchase)) const Divider(height: 1),
+              ] else if (withoutKantaFlow) ...[
+                if (_canOpenStep2(purchase))
+                  ListTile(
+                    leading: const Icon(Icons.playlist_add_check_outlined, color: AppColors.primaryRed),
+                    title: Text(
+                      'Step 2',
+                      style: GoogleFonts.poppins(
+                        fontSize: 14,
+                        color: AppColors.primaryRed,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    onTap: () {
+                      Navigator.pop(context);
+                      _openFlowStep2(purchase);
+                    },
+                  ),
+                if (_canOpenStep2(purchase)) const Divider(height: 1),
+              ],
               ListTile(
                 leading: const Icon(Icons.edit_outlined, color: AppColors.textDark),
                 title: Text('Edit Purchase', style: GoogleFonts.poppins(fontSize: 14)),
@@ -906,6 +1023,214 @@ class _PurchasesScreenState extends State<PurchasesScreen> {
           ),
         );
       },
+    );
+  }
+
+  void _viewVehicleImages(Purchase purchase) {
+    showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: AppColors.cardWhite,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (context) {
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Text('Vehicle Images', style: GoogleFonts.poppins(fontSize: 18, fontWeight: FontWeight.w700)),
+                const SizedBox(height: 16),
+                _imageRow(
+                  purchase.isDirectPurchase ? 'Image' : 'Loading',
+                  purchase.loadingVehicleImage,
+                  purchase.loadingVehicleImageAt,
+                ),
+                if (!purchase.isDirectPurchase) ...[
+                  const SizedBox(height: 12),
+                  _imageRow('Unloading', purchase.unloadingVehicleImage, purchase.unloadingVehicleImageAt),
+                ],
+                if (purchase.isWithKanta) ...[
+                  const SizedBox(height: 12),
+                  _imageRow('Kanta Slip', purchase.kantaSlipImage, purchase.kantaSlipImageAt),
+                  const SizedBox(height: 12),
+                  _imageRow('Vehicle at Kanta', purchase.vehicleAtKantaImage, purchase.vehicleAtKantaImageAt),
+                ],
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _imageRow(String label, String? fileName, DateTime? capturedAt) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Container(
+          width: 56,
+          height: 56,
+          decoration: BoxDecoration(
+            color: AppColors.operationsCardBg,
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: AppColors.borderGray.withValues(alpha: 0.5)),
+          ),
+          child: Icon(
+            fileName != null ? Icons.image_outlined : Icons.hide_image_outlined,
+            color: AppColors.textSecondary,
+          ),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(label, style: GoogleFonts.poppins(fontSize: 13, fontWeight: FontWeight.w600)),
+              const SizedBox(height: 4),
+              Text(
+                fileName ?? 'Not uploaded',
+                style: GoogleFonts.poppins(fontSize: 12, color: AppColors.textSecondary),
+              ),
+              if (fileName != null && capturedAt != null) ...[
+                const SizedBox(height: 4),
+                Row(
+                  children: [
+                    Icon(Icons.schedule, size: 12, color: AppColors.textSecondary.withValues(alpha: 0.8)),
+                    const SizedBox(width: 4),
+                    Text(
+                      formatPurchaseImageDateTime(capturedAt),
+                      style: GoogleFonts.poppins(fontSize: 11, color: AppColors.textSecondary),
+                    ),
+                  ],
+                ),
+              ],
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  void _downloadChallan(Purchase purchase) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('Downloading challan for ${purchase.challanNo}…')),
+    );
+  }
+
+  String? _cardFlowActionLabel(Purchase purchase) {
+    if (purchase.withoutKantaStage == WithoutKantaStage.initial) return 'Step 2';
+    if (purchase.withKantaStage == WithKantaStage.initial) return 'Step 2';
+    if (purchase.withKantaStage == WithKantaStage.processing) return 'Step 3';
+    return null;
+  }
+
+  void _openCardFlowAction(Purchase purchase) {
+    if (purchase.withKantaStage == WithKantaStage.processing) {
+      _openWithKantaStep3(purchase);
+      return;
+    }
+    _openFlowStep2(purchase);
+  }
+
+  bool _canOpenWithKantaStep3(Purchase purchase) =>
+      purchase.withKantaStage == WithKantaStage.processing;
+
+  bool _canOpenStep2(Purchase purchase) {
+    if (purchase.withoutKantaStage == WithoutKantaStage.initial) return true;
+    if (purchase.withKantaStage == WithKantaStage.initial) return true;
+    return false;
+  }
+
+  Future<void> _openFlowStep2(Purchase purchase) async {
+    if (purchase.isWithoutKanta) {
+      await _openWithoutKantaStep2(purchase);
+      return;
+    }
+    await _openWithKantaStep2(purchase);
+  }
+
+  Future<void> _openWithKantaStep2(Purchase purchase) async {
+    final updated = await Navigator.of(context).push<Purchase>(
+      MaterialPageRoute(builder: (_) => WithKantaStep2Screen(purchase: purchase)),
+    );
+    if (updated == null || !mounted) return;
+    setState(() {
+      final index = _purchases.indexWhere((p) => p.id == updated.id);
+      if (index >= 0) _purchases[index] = updated;
+    });
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('Step 2 saved. Complete Step 3 from the list.')),
+    );
+  }
+
+  Future<void> _openWithKantaStep3(Purchase purchase) async {
+    final updated = await Navigator.of(context).push<Purchase>(
+      MaterialPageRoute(builder: (_) => WithKantaStep3Screen(purchase: purchase)),
+    );
+    if (updated == null || !mounted) return;
+    setState(() {
+      final index = _purchases.indexWhere((p) => p.id == updated.id);
+      if (index >= 0) _purchases[index] = updated;
+    });
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('Purchase ${updated.challanNo} marked completed.')),
+    );
+  }
+
+  Future<void> _openWithoutKantaStep2(Purchase purchase) async {
+    final updated = await Navigator.of(context).push<Purchase>(
+      MaterialPageRoute(builder: (_) => WithoutKantaStep2Screen(purchase: purchase)),
+    );
+    if (updated == null || !mounted) return;
+    setState(() {
+      final index = _purchases.indexWhere((p) => p.id == updated.id);
+      if (index >= 0) _purchases[index] = updated;
+    });
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('Purchase ${updated.challanNo} marked completed.')),
+    );
+  }
+
+  Widget _buildCardBadge(Purchase purchase) {
+    if (purchase.withKantaStage != null) {
+      return _buildFlowStageBadge(purchase.withKantaStageLabel!);
+    }
+    if (purchase.withoutKantaStage != null) {
+      return _buildFlowStageBadge(purchase.withoutKantaStageLabel!);
+    }
+    if (purchase.directPurchaseStage != null) {
+      return _buildFlowStageBadge(purchase.directPurchaseStageLabel!);
+    }
+    return _buildStatusBadge(purchase.status);
+  }
+
+  Widget _buildFlowStageBadge(String label) {
+    final normalized = label.toLowerCase();
+    final color = switch (normalized) {
+      'initial' => const Color(0xFFD97706),
+      'processing' => const Color(0xFF2563EB),
+      'completed' => const Color(0xFF059669),
+      _ => AppColors.textSecondary,
+    };
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Text(
+        label.toUpperCase(),
+        style: GoogleFonts.poppins(
+          color: color,
+          fontSize: 10,
+          fontWeight: FontWeight.w700,
+          letterSpacing: 0.4,
+        ),
+      ),
     );
   }
 
@@ -969,11 +1294,23 @@ class _PurchasesScreenState extends State<PurchasesScreen> {
                 Text('Purchase Details', style: GoogleFonts.poppins(fontSize: 18, fontWeight: FontWeight.w700)),
                 const SizedBox(height: 16),
                 _detailRow('Date', _formatDate(purchase.date)),
+                if ((purchase.itemName ?? '').isNotEmpty)
+                  _detailRow('Materials', purchase.materialsSummary),
+                if (purchase.hasFlowStage) ...[
+                  if (purchase.flowStageLabel != null)
+                    _detailRow('Stage', purchase.flowStageLabel!),
+                  if ((purchase.vehicleNo ?? '').isNotEmpty)
+                    _detailRow('Vehicle No', purchase.vehicleNo!),
+                  if ((purchase.loadingVehicleImage ?? '').isNotEmpty)
+                    _detailRow('Loading Image', purchase.loadingVehicleImage!),
+                  if ((purchase.unloadingVehicleImage ?? '').isNotEmpty)
+                    _detailRow('Unloading Image', purchase.unloadingVehicleImage!),
+                ],
                 _detailRow('Challan No', purchase.challanNo),
                 _detailRow('Invoice No', purchase.invoiceNo),
                 _detailRow('Supplier', purchase.supplierName),
-                _detailRow('Status', purchase.statusLabel),
-                _detailRow('Kanta Slip', purchase.hasKantaSlip ? 'Yes' : 'No'),
+                if (!purchase.hasFlowStage) _detailRow('Status', purchase.statusLabel),
+                _detailRow('Kanta Slip', purchase.isDirectPurchase ? 'Other' : purchase.hasKantaSlip ? 'Yes' : 'No'),
                 _detailRow('Remark', purchase.remark ?? '—'),
               ],
             ),

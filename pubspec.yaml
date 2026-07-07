@@ -39,6 +39,7 @@ dependencies:
   geolocator: ^14.0.2
   shared_preferences: ^2.5.5
   timezone: ^0.10.1
+  intl: ^0.20.3
 
 dev_dependencies:
   flutter_test:

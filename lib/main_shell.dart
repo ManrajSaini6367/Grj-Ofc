@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
-import 'package:grjoffice_apps/LabourContractor/contractors.dart';
+import 'package:grjoffice_apps/chatscreen/chatscreen.dart';
 import 'package:grjoffice_apps/core/app_colors.dart';
-import 'package:grjoffice_apps/EmployeeListscreen/employees.dart';
+import 'package:grjoffice_apps/Purchasescreen/purchases.dart';
 import 'package:grjoffice_apps/dashboardscreen/homepage.dart';
 import 'package:grjoffice_apps/profilescreen/profilescreen.dart';
-import 'package:grjoffice_apps/SupplierList/suppliers.dart';
+import 'package:grjoffice_apps/Storescreens/store.dart';
 import 'package:grjoffice_apps/widgets/app_bottom_nav.dart';
 
 /// Root shell with a single persistent bottom navigation bar.
@@ -133,9 +133,9 @@ class _ShellTabStack extends StatelessWidget {
       sizing: StackFit.expand,
       children: [
         const HomePage(),
-        EmployeesScreen(isActive: index == 1),
-        SuppliersScreen(isActive: index == 2),
-        ContractorsScreen(isActive: index == 3),
+        const ChatScreen(),
+        const PurchasesScreen(),
+        const StoreScreen(),
         ProfileScreen(isActive: index == 4),
       ],
     );

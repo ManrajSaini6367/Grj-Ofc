@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:grjoffice_apps/Expensescreen/expenses.dart';
 import 'package:grjoffice_apps/Itemsscreen/items.dart';
 import 'package:grjoffice_apps/main_shell.dart';
 import 'package:grjoffice_apps/Purchasescreen/purchases.dart';
 import 'package:grjoffice_apps/Storescreens/store.dart';
+import 'package:grjoffice_apps/tasksscreen/tasks_screen.dart';
+import 'package:grjoffice_apps/attendancescreen/attendance_screen.dart';
 import 'package:grjoffice_apps/widgets/app_bottom_nav.dart';
 
 /// Switches tab when already inside [MainShell], otherwise opens [MainShell].
@@ -53,8 +56,14 @@ void navigateFromDrawer(BuildContext context, int drawerIndex) {
       pushInShell(context, const ItemsScreen());
     case 6:
       pushInShell(context, const StoreScreen());
+    case 7:
+      pushInShell(context, const ExpensesScreen());
+    case 8:
+      pushInShell(context, const TasksScreen());
     case 9:
       pushInShell(context, const PurchasesScreen());
+    case 10:
+      pushInShell(context, const AttendanceScreen());
     default:
       break;
   }
