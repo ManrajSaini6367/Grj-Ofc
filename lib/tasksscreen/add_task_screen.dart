@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:grjoffice_apps/core/app_colors.dart';
 import 'package:grjoffice_apps/models/task_model.dart';
-import 'package:grjoffice_apps/models/getemployeemodal.dart';
 import 'package:grjoffice_apps/services/api_auth.dart';
 import 'package:grjoffice_apps/widgets/app_logo.dart';
 
@@ -27,7 +26,6 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
 
   // List of loaded employees
   List<String> _employees = [];
-  bool _isLoadingEmployees = false;
 
   // Static fallback list of employees
   final List<String> _fallbackEmployees = [
@@ -58,7 +56,6 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
   }
 
   Future<void> _loadEmployees() async {
-    setState(() => _isLoadingEmployees = true);
     try {
       final response = await getEmployeesApi(context);
       if (response != null && response.data != null && response.data!.items != null) {
@@ -74,7 +71,6 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
         if (mounted) {
           setState(() {
             _employees = fetched.isNotEmpty ? fetched : _fallbackEmployees;
-            _isLoadingEmployees = false;
           });
           return;
         }
@@ -85,7 +81,6 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
     if (mounted) {
       setState(() {
         _employees = _fallbackEmployees;
-        _isLoadingEmployees = false;
       });
     }
   }

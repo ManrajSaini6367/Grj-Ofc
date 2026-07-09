@@ -26,7 +26,7 @@ class _AddPurchaseScreenState extends State<AddPurchaseScreen> {
   int _step = 0;
   String? _selectedItem;
   PurchaseFlowType? _flowType;
-  DateTime _purchaseDate = DateTime.now();
+  final DateTime _purchaseDate = DateTime.now();
   String? _selectedSupplier;
   String? _directMaterial;
   String? _loadingImageName;

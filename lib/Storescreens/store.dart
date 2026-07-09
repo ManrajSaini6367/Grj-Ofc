@@ -182,7 +182,7 @@ class _StoreScreenState extends State<StoreScreen> {
                 children: [
                   _headerIconButton(Icons.menu_rounded, () => _scaffoldKey.currentState?.openDrawer()),
                   const Spacer(),
-                  const AppLogo(size: 34),
+                  // const AppLogo(size: 34),
                   const Spacer(),
                   _headerIconButton(Icons.person_outline_rounded, () => _scaffoldKey.currentState?.openEndDrawer()),
                 ],

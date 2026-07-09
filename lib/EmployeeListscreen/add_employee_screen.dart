@@ -42,16 +42,7 @@ class _AddEmployeeScreenState extends State<AddEmployeeScreen> {
     'Accountant',
   ];
 
-  static const _sites = [
-    'Skyline B-4',
-    'Skyline Main',
-    'Skyline B-2',
-    'Skyline Towers',
-    'Industrial Hub',
-    'River Crossing',
-  ];
 
-  String? _editSite;
 
   @override
   void initState() {
@@ -62,7 +53,6 @@ class _AddEmployeeScreenState extends State<AddEmployeeScreen> {
       _firstNameController.text = parts.isNotEmpty ? parts.first : '';
       _lastNameController.text = parts.length > 1 ? parts.sublist(1).join(' ') : '';
       _selectedRole = employee.role;
-      _editSite = employee.site;
       _dateOfJoin = DateTime.now().subtract(const Duration(days: 365));
     }
   }
@@ -580,35 +570,6 @@ class _AddEmployeeScreenState extends State<AddEmployeeScreen> {
     );
   }
 
-  Widget _buildSiteInfoField() {
-    final siteName = selectedSiteName();
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          'Site',
-          style: GoogleFonts.poppins(
-            color: AppColors.textDark,
-            fontSize: 13,
-            fontWeight: FontWeight.w500,
-          ),
-        ),
-        const SizedBox(height: 8),
-        InputDecorator(
-          decoration: _inputDecoration(
-            siteName ?? 'Select site on homepage',
-          ),
-          child: Text(
-            siteName ?? 'Select site on homepage',
-            style: GoogleFonts.poppins(
-              color: siteName == null ? AppColors.inputHint : AppColors.headingBlack,
-              fontSize: 14,
-            ),
-          ),
-        ),
-      ],
-    );
-  }
 
   Widget _buildDropdownField({
     required String label,
