@@ -22,7 +22,10 @@ import 'package:grjoffice_apps/models/listcontractor.dart';
 import 'package:grjoffice_apps/models/login_model.dart';
 import 'package:grjoffice_apps/models/site_model.dart';
 import 'package:grjoffice_apps/models/sites_response_model.dart';
+import 'package:grjoffice_apps/models/task_model.dart';
 import 'package:grjoffice_apps/models/user_model.dart';
+import 'package:grjoffice_apps/Expensescreen/expense.dart';
+import 'package:grjoffice_apps/Purchasescreen/purchase.dart';
 import 'package:grjoffice_apps/models/viewemployeeprofile.dart';
 import 'package:grjoffice_apps/SupplierList/supplier.dart';
 import 'package:grjoffice_apps/utils/app_helpers.dart';
@@ -34,6 +37,14 @@ Map<String, String> get authHeaders {
   final token = Preference.pref.getString('token');
   return {
     'Content-Type': 'application/json',
+    'Accept': 'application/json',
+    if (token != null) 'Authorization': 'Bearer $token',
+  };
+}
+
+Map<String, String> get authHeadersMultipart {
+  final token = Preference.pref.getString('token');
+  return {
     'Accept': 'application/json',
     if (token != null) 'Authorization': 'Bearer $token',
   };
@@ -1830,4 +1841,1167 @@ Future<Getcontractormodal?> getContractorApi(
     return null;
   }
 }
-// 
+
+//gettasksapi
+Future<TasksListResponse?> getTasksApi(
+  BuildContext context, {
+  int? siteId,
+  String status = 'all',
+  String search = '',
+  String? level,
+  int? userId,
+  String sortBy = 'due_date',
+  String sortDir = 'asc',
+  int perPage = 50,
+}) async {
+  try {
+    final resolvedSiteId = siteId ?? selectedSiteId();
+    if (resolvedSiteId == null) {
+      if (context.mounted) {
+        message(context, 'Please select a site first.');
+      }
+      return null;
+    }
+
+    final queryParams = <String, String>{
+      'site_id': resolvedSiteId.toString(),
+      'sort_by': sortBy,
+      'sort_dir': sortDir,
+      'per_page': perPage.toString(),
+    };
+    if (status.trim().isNotEmpty) {
+      queryParams['status'] = status.trim();
+    }
+    if (search.trim().isNotEmpty) {
+      queryParams['search'] = search.trim();
+    }
+    if (level != null && level.trim().isNotEmpty) {
+      queryParams['level'] = level.trim();
+    }
+    if (userId != null) {
+      queryParams['user_id'] = userId.toString();
+    }
+
+    final uri = Uri.parse('$baseUrl/api/v1/tasks').replace(
+      queryParameters: queryParams,
+    );
+
+    print('[getTasksApi] GET $uri');
+
+    final response = await http
+        .get(uri, headers: authHeaders)
+        .timeout(const Duration(seconds: 30));
+
+    print('[getTasksApi] statusCode: ${response.statusCode}');
+    print('[getTasksApi] response body: ${response.body}');
+
+    final decoded = decodeApiJson(response.body);
+    final apiMessage = decoded?['message']?.toString();
+
+    if (response.statusCode == 200 &&
+        decoded != null &&
+        decoded['success'] == true) {
+      return TasksListResponse.fromJson(decoded);
+    }
+
+    if (!context.mounted) return null;
+    message(context, apiMessage ?? 'Failed to load tasks.');
+    return null;
+  } on TimeoutException {
+    print('[getTasksApi] request timed out');
+    if (!context.mounted) return null;
+    message(context, 'Request timed out. Please try again.');
+    return null;
+  } catch (e, stack) {
+    print('[getTasksApi] error: $e');
+    print('[getTasksApi] stack: $stack');
+    if (!context.mounted) return null;
+    message(context, 'Something went wrong');
+    return null;
+  }
+}
+
+//createtaskapi
+Future<Task?> createTaskApi(
+  BuildContext context, {
+  int? siteId,
+  required int userId,
+  required String title,
+  String description = '',
+  required String startDate,
+  required String endDate,
+  String status = 'start',
+  String level = 'low',
+}) async {
+  try {
+    final resolvedSiteId = siteId ?? selectedSiteId();
+    if (resolvedSiteId == null) {
+      if (context.mounted) {
+        message(context, 'Please select a site first.');
+      }
+      return null;
+    }
+
+    final url = '$baseUrl/api/v1/tasks';
+    final body = <String, dynamic>{
+      'site_id': resolvedSiteId,
+      'user_id': userId,
+      'title': title.trim(),
+      'description': description.trim(),
+      'start_date': startDate,
+      'end_date': endDate,
+      'status': status,
+      'level': level,
+    };
+
+    print('[createTaskApi] POST $url');
+    print('[createTaskApi] body: $body');
+
+    final response = await http
+        .post(
+          Uri.parse(url),
+          headers: authHeaders,
+          body: jsonEncode(body),
+        )
+        .timeout(const Duration(seconds: 30));
+
+    print('[createTaskApi] statusCode: ${response.statusCode}');
+    print('[createTaskApi] response body: ${response.body}');
+
+    final decoded = decodeApiJson(response.body);
+    final apiMessage = decoded?['message']?.toString();
+
+    if ((response.statusCode == 201 || response.statusCode == 200) &&
+        decoded != null &&
+        decoded['success'] == true) {
+      final data = decoded['data'];
+      if (data is Map<String, dynamic>) {
+        return Task.fromJson(data);
+      }
+      return null;
+    }
+
+    if (!context.mounted) return null;
+    message(context, apiMessage ?? 'Failed to create task.');
+    return null;
+  } on TimeoutException {
+    print('[createTaskApi] request timed out');
+    if (!context.mounted) return null;
+    message(context, 'Request timed out. Please try again.');
+    return null;
+  } catch (e, stack) {
+    print('[createTaskApi] error: $e');
+    print('[createTaskApi] stack: $stack');
+    if (!context.mounted) return null;
+    message(context, 'Something went wrong');
+    return null;
+  }
+}
+
+//gettaskapi
+Future<Task?> getTaskApi(BuildContext context, int taskId) async {
+  try {
+    final url = '$baseUrl/api/v1/tasks/$taskId';
+
+    print('[getTaskApi] GET $url');
+
+    final response = await http
+        .get(Uri.parse(url), headers: authHeaders)
+        .timeout(const Duration(seconds: 30));
+
+    print('[getTaskApi] statusCode: ${response.statusCode}');
+    print('[getTaskApi] response body: ${response.body}');
+
+    final decoded = decodeApiJson(response.body);
+    final apiMessage = decoded?['message']?.toString();
+
+    if (response.statusCode == 200 &&
+        decoded != null &&
+        decoded['success'] == true) {
+      final data = decoded['data'];
+      if (data is Map<String, dynamic>) {
+        return Task.fromJson(data);
+      }
+      return null;
+    }
+
+    if (!context.mounted) return null;
+    message(context, apiMessage ?? 'Failed to load task.');
+    return null;
+  } on TimeoutException {
+    print('[getTaskApi] request timed out');
+    if (!context.mounted) return null;
+    message(context, 'Request timed out. Please try again.');
+    return null;
+  } catch (e, stack) {
+    print('[getTaskApi] error: $e');
+    print('[getTaskApi] stack: $stack');
+    if (!context.mounted) return null;
+    message(context, 'Something went wrong');
+    return null;
+  }
+}
+
+//updatetaskapi
+Future<Task?> updateTaskApi(
+  BuildContext context, {
+  required int taskId,
+  required String title,
+  String description = '',
+  required int userId,
+  required String startDate,
+  required String endDate,
+  String status = 'start',
+  String level = 'low',
+}) async {
+  try {
+    final url = '$baseUrl/api/v1/tasks/$taskId';
+    final body = <String, dynamic>{
+      'title': title.trim(),
+      'description': description.trim(),
+      'user_id': userId,
+      'start_date': startDate,
+      'end_date': endDate,
+      'status': status,
+      'level': level,
+    };
+
+    print('[updateTaskApi] PUT $url');
+    print('[updateTaskApi] body: $body');
+
+    final response = await apiPut(
+      Uri.parse(url),
+      headers: authHeaders,
+      body: jsonEncode(body),
+    );
+
+    print('[updateTaskApi] statusCode: ${response.statusCode}');
+    print('[updateTaskApi] response body: ${response.body}');
+
+    final decoded = decodeApiJson(response.body);
+    final apiMessage = decoded?['message']?.toString();
+
+    if (response.statusCode == 200 &&
+        decoded != null &&
+        decoded['success'] == true) {
+      final data = decoded['data'];
+      if (data is Map<String, dynamic>) {
+        return Task.fromJson(data);
+      }
+      return null;
+    }
+
+    if (!context.mounted) return null;
+    message(context, apiMessage ?? 'Failed to update task.');
+    return null;
+  } on TimeoutException {
+    print('[updateTaskApi] request timed out');
+    if (!context.mounted) return null;
+    message(context, 'Request timed out. Please try again.');
+    return null;
+  } catch (e, stack) {
+    print('[updateTaskApi] error: $e');
+    print('[updateTaskApi] stack: $stack');
+    if (!context.mounted) return null;
+    message(context, 'Something went wrong');
+    return null;
+  }
+}
+
+//updatetaskstatusapi
+Future<Task?> updateTaskStatusApi(
+  BuildContext context, {
+  required int taskId,
+  required String status,
+}) async {
+  try {
+    final url = '$baseUrl/api/v1/tasks/$taskId';
+    final body = <String, dynamic>{
+      'status': status,
+    };
+
+    print('[updateTaskStatusApi] PUT $url');
+    print('[updateTaskStatusApi] body: $body');
+
+    final response = await apiPut(
+      Uri.parse(url),
+      headers: authHeaders,
+      body: jsonEncode(body),
+    );
+
+    print('[updateTaskStatusApi] statusCode: ${response.statusCode}');
+    print('[updateTaskStatusApi] response body: ${response.body}');
+
+    final decoded = decodeApiJson(response.body);
+    final apiMessage = decoded?['message']?.toString();
+
+    if (response.statusCode == 200 &&
+        decoded != null &&
+        decoded['success'] == true) {
+      final data = decoded['data'];
+      if (data is Map<String, dynamic>) {
+        return Task.fromJson(data);
+      }
+      return null;
+    }
+
+    if (!context.mounted) return null;
+    message(context, apiMessage ?? 'Failed to update task status.');
+    return null;
+  } on TimeoutException {
+    print('[updateTaskStatusApi] request timed out');
+    if (!context.mounted) return null;
+    message(context, 'Request timed out. Please try again.');
+    return null;
+  } catch (e, stack) {
+    print('[updateTaskStatusApi] error: $e');
+    print('[updateTaskStatusApi] stack: $stack');
+    if (!context.mounted) return null;
+    message(context, 'Something went wrong');
+    return null;
+  }
+}
+
+//deletetaskapi
+Future<bool> deleteTaskApi(BuildContext context, int taskId) async {
+  try {
+    final url = '$baseUrl/api/v1/tasks/$taskId';
+
+    print('[deleteTaskApi] DELETE $url');
+
+    final response = await http
+        .delete(
+          Uri.parse(url),
+          headers: authHeaders,
+        )
+        .timeout(const Duration(seconds: 30));
+
+    print('[deleteTaskApi] statusCode: ${response.statusCode}');
+    print('[deleteTaskApi] response body: ${response.body}');
+
+    final data = decodeApiJson(response.body);
+    final apiMessage = data?['message']?.toString();
+
+    if (response.statusCode == 200 && data != null && data['success'] == true) {
+      return true;
+    }
+
+    if (!context.mounted) return false;
+    message(context, apiMessage ?? 'Failed to delete task.');
+    return false;
+  } on TimeoutException {
+    print('[deleteTaskApi] request timed out');
+    if (!context.mounted) return false;
+    message(context, 'Request timed out. Please try again.');
+    return false;
+  } catch (e, stack) {
+    print('[deleteTaskApi] error: $e');
+    print('[deleteTaskApi] stack: $stack');
+    if (!context.mounted) return false;
+    message(context, 'Something went wrong');
+    return false;
+  }
+}
+
+//getexpensesapi
+Future<ExpensesListResponse?> getExpensesApi(
+  BuildContext context, {
+  int? siteId,
+  String period = 'this_month',
+  String? category,
+  String? type,
+  String search = '',
+  int perPage = 50,
+}) async {
+  try {
+    final resolvedSiteId = siteId ?? selectedSiteId();
+    if (resolvedSiteId == null) {
+      if (context.mounted) {
+        message(context, 'Please select a site first.');
+      }
+      return null;
+    }
+
+    final queryParams = <String, String>{
+      'site_id': resolvedSiteId.toString(),
+      'period': period,
+      'per_page': perPage.toString(),
+    };
+    if (category != null && category.trim().isNotEmpty) {
+      queryParams['category'] = category.trim();
+    }
+    if (type != null && type.trim().isNotEmpty) {
+      queryParams['type'] = type.trim();
+    }
+    if (search.trim().isNotEmpty) {
+      queryParams['search'] = search.trim();
+    }
+
+    final uri = Uri.parse('$baseUrl/api/v1/expenses').replace(
+      queryParameters: queryParams,
+    );
+
+    print('[getExpensesApi] GET $uri');
+
+    final response = await http
+        .get(uri, headers: authHeaders)
+        .timeout(const Duration(seconds: 30));
+
+    print('[getExpensesApi] statusCode: ${response.statusCode}');
+    print('[getExpensesApi] response body: ${response.body}');
+
+    final decoded = decodeApiJson(response.body);
+    final apiMessage = decoded?['message']?.toString();
+
+    if (response.statusCode == 200 &&
+        decoded != null &&
+        decoded['success'] == true) {
+      return ExpensesListResponse.fromJson(decoded);
+    }
+
+    if (!context.mounted) return null;
+    message(context, apiMessage ?? 'Failed to load expenses.');
+    return null;
+  } on TimeoutException {
+    print('[getExpensesApi] request timed out');
+    if (!context.mounted) return null;
+    message(context, 'Request timed out. Please try again.');
+    return null;
+  } catch (e, stack) {
+    print('[getExpensesApi] error: $e');
+    print('[getExpensesApi] stack: $stack');
+    if (!context.mounted) return null;
+    message(context, 'Something went wrong');
+    return null;
+  }
+}
+
+//createexpenseapi
+/// Supports cheque / cash / credit create payloads.
+/// - Debit + cheque: includes `source` + `cheque`
+/// - Debit + cash/upi/bank: includes `source` only
+/// - Credit: omits `source` and `cheque`
+Future<Expense?> createExpenseApi(
+  BuildContext context, {
+  int? siteId,
+  required String date,
+  required String type,
+  String? source,
+  String? cheque,
+  required double amount,
+  String? voucherNo,
+  required String detail,
+  required String category,
+}) async {
+  try {
+    final resolvedSiteId = siteId ?? selectedSiteId();
+    if (resolvedSiteId == null) {
+      if (context.mounted) {
+        message(context, 'Please select a site first.');
+      }
+      return null;
+    }
+
+    final url = '$baseUrl/api/v1/expenses';
+    final normalizedType = type.trim().toLowerCase();
+    final body = <String, dynamic>{
+      'site_id': resolvedSiteId,
+      'date': date,
+      'type': normalizedType,
+      'amount': amount,
+      'detail': detail.trim(),
+      'category': category,
+    };
+
+    // Credit create does not send source/cheque (per API).
+    if (normalizedType != 'credit') {
+      final normalizedSource = source?.trim().toLowerCase();
+      if (normalizedSource != null && normalizedSource.isNotEmpty) {
+        body['source'] = normalizedSource;
+      }
+      if (normalizedSource == 'cheque' &&
+          cheque != null &&
+          cheque.trim().isNotEmpty) {
+        body['cheque'] = cheque.trim();
+      }
+    }
+
+    if (voucherNo != null && voucherNo.trim().isNotEmpty) {
+      body['voucher_no'] = voucherNo.trim();
+    }
+
+    print('[createExpenseApi] POST $url');
+    print('[createExpenseApi] body: $body');
+
+    final response = await http
+        .post(
+          Uri.parse(url),
+          headers: authHeaders,
+          body: jsonEncode(body),
+        )
+        .timeout(const Duration(seconds: 30));
+
+    print('[createExpenseApi] statusCode: ${response.statusCode}');
+    print('[createExpenseApi] response body: ${response.body}');
+
+    final decoded = decodeApiJson(response.body);
+    final apiMessage = decoded?['message']?.toString();
+
+    if ((response.statusCode == 201 || response.statusCode == 200) &&
+        decoded != null &&
+        decoded['success'] == true) {
+      final data = decoded['data'];
+      if (data is Map<String, dynamic>) {
+        return Expense.fromJson(data);
+      }
+      return null;
+    }
+
+    if (!context.mounted) return null;
+    message(context, apiMessage ?? 'Failed to create expense.');
+    return null;
+  } on TimeoutException {
+    print('[createExpenseApi] request timed out');
+    if (!context.mounted) return null;
+    message(context, 'Request timed out. Please try again.');
+    return null;
+  } catch (e, stack) {
+    print('[createExpenseApi] error: $e');
+    print('[createExpenseApi] stack: $stack');
+    if (!context.mounted) return null;
+    message(context, 'Something went wrong');
+    return null;
+  }
+}
+
+//getexpenseapi
+Future<Expense?> getExpenseApi(BuildContext context, int expenseId) async {
+  try {
+    final url = '$baseUrl/api/v1/expenses/$expenseId';
+
+    print('[getExpenseApi] GET $url');
+
+    final response = await http
+        .get(Uri.parse(url), headers: authHeaders)
+        .timeout(const Duration(seconds: 30));
+
+    print('[getExpenseApi] statusCode: ${response.statusCode}');
+    print('[getExpenseApi] response body: ${response.body}');
+
+    final decoded = decodeApiJson(response.body);
+    final apiMessage = decoded?['message']?.toString();
+
+    if (response.statusCode == 200 &&
+        decoded != null &&
+        decoded['success'] == true) {
+      final data = decoded['data'];
+      if (data is Map<String, dynamic>) {
+        return Expense.fromJson(data);
+      }
+      return null;
+    }
+
+    if (!context.mounted) return null;
+    message(context, apiMessage ?? 'Failed to load expense.');
+    return null;
+  } on TimeoutException {
+    print('[getExpenseApi] request timed out');
+    if (!context.mounted) return null;
+    message(context, 'Request timed out. Please try again.');
+    return null;
+  } catch (e, stack) {
+    print('[getExpenseApi] error: $e');
+    print('[getExpenseApi] stack: $stack');
+    if (!context.mounted) return null;
+    message(context, 'Something went wrong');
+    return null;
+  }
+}
+
+//updateexpenseapi
+Future<Expense?> updateExpenseApi(
+  BuildContext context, {
+  required int expenseId,
+  required String date,
+  required String type,
+  String? source,
+  String? cheque,
+  required double amount,
+  String? voucherNo,
+  required String detail,
+  required String category,
+}) async {
+  try {
+    final url = '$baseUrl/api/v1/expenses/$expenseId';
+    final normalizedType = type.trim().toLowerCase();
+    final body = <String, dynamic>{
+      'date': date,
+      'type': normalizedType,
+      'amount': amount,
+      'detail': detail.trim(),
+      'category': category,
+    };
+
+    if (normalizedType != 'credit') {
+      final normalizedSource = source?.trim().toLowerCase();
+      if (normalizedSource != null && normalizedSource.isNotEmpty) {
+        body['source'] = normalizedSource;
+      }
+      if (normalizedSource == 'cheque' &&
+          cheque != null &&
+          cheque.trim().isNotEmpty) {
+        body['cheque'] = cheque.trim();
+      }
+    }
+
+    if (voucherNo != null && voucherNo.trim().isNotEmpty) {
+      body['voucher_no'] = voucherNo.trim();
+    }
+
+    print('[updateExpenseApi] PUT $url');
+    print('[updateExpenseApi] body: $body');
+
+    final response = await apiPut(
+      Uri.parse(url),
+      headers: authHeaders,
+      body: jsonEncode(body),
+    );
+
+    print('[updateExpenseApi] statusCode: ${response.statusCode}');
+    print('[updateExpenseApi] response body: ${response.body}');
+
+    final decoded = decodeApiJson(response.body);
+    final apiMessage = decoded?['message']?.toString();
+
+    if (response.statusCode == 200 &&
+        decoded != null &&
+        decoded['success'] == true) {
+      final data = decoded['data'];
+      if (data is Map<String, dynamic>) {
+        return Expense.fromJson(data);
+      }
+      return null;
+    }
+
+    if (!context.mounted) return null;
+    message(context, apiMessage ?? 'Failed to update expense.');
+    return null;
+  } on TimeoutException {
+    print('[updateExpenseApi] request timed out');
+    if (!context.mounted) return null;
+    message(context, 'Request timed out. Please try again.');
+    return null;
+  } catch (e, stack) {
+    print('[updateExpenseApi] error: $e');
+    print('[updateExpenseApi] stack: $stack');
+    if (!context.mounted) return null;
+    message(context, 'Something went wrong');
+    return null;
+  }
+}
+
+//deleteexpenseapi
+Future<bool> deleteExpenseApi(BuildContext context, int expenseId) async {
+  try {
+    final url = '$baseUrl/api/v1/expenses/$expenseId';
+
+    print('[deleteExpenseApi] DELETE $url');
+
+    final response = await http
+        .delete(
+          Uri.parse(url),
+          headers: authHeaders,
+        )
+        .timeout(const Duration(seconds: 30));
+
+    print('[deleteExpenseApi] statusCode: ${response.statusCode}');
+    print('[deleteExpenseApi] response body: ${response.body}');
+
+    final data = decodeApiJson(response.body);
+    final apiMessage = data?['message']?.toString();
+
+    if (response.statusCode == 200 && data != null && data['success'] == true) {
+      return true;
+    }
+
+    if (!context.mounted) return false;
+    message(context, apiMessage ?? 'Failed to delete expense.');
+    return false;
+  } on TimeoutException {
+    print('[deleteExpenseApi] request timed out');
+    if (!context.mounted) return false;
+    message(context, 'Request timed out. Please try again.');
+    return false;
+  } catch (e, stack) {
+    print('[deleteExpenseApi] error: $e');
+    print('[deleteExpenseApi] stack: $stack');
+    if (!context.mounted) return false;
+    message(context, 'Something went wrong');
+    return false;
+  }
+}
+
+Future<http.Response> _sendMultipart(
+  Uri uri, {
+  required Map<String, String> fields,
+  List<http.MultipartFile> files = const [],
+}) async {
+  final request = http.MultipartRequest('POST', uri);
+  request.headers.addAll(authHeadersMultipart);
+  request.fields.addAll(fields);
+  request.files.addAll(files);
+  final streamed = await request.send().timeout(const Duration(seconds: 60));
+  return http.Response.fromStream(streamed).timeout(const Duration(seconds: 60));
+}
+
+Future<http.MultipartFile> _multipartImage(
+  String field,
+  File file, {
+  String fallbackName = 'photo.jpg',
+}) async {
+  final filename = file.path.split(Platform.pathSeparator).last;
+  return http.MultipartFile.fromPath(
+    field,
+    file.path,
+    filename: filename.isEmpty ? fallbackName : filename,
+  );
+}
+
+Purchase? _purchaseFromApiResponse(Map<String, dynamic>? decoded) {
+  if (decoded == null || decoded['success'] != true) return null;
+  final data = decoded['data'];
+  if (data is Map<String, dynamic>) {
+    return Purchase.fromJson(data);
+  }
+  return null;
+}
+
+//getpurchasesapi
+Future<PurchasesListResponse?> getPurchasesApi(
+  BuildContext context, {
+  int? siteId,
+  String period = 'all',
+  String? status,
+  String? flowType,
+  String search = '',
+  int perPage = 50,
+}) async {
+  try {
+    final resolvedSiteId = siteId ?? selectedSiteId();
+    if (resolvedSiteId == null) {
+      if (context.mounted) {
+        message(context, 'Please select a site first.');
+      }
+      return null;
+    }
+
+    final queryParams = <String, String>{
+      'site_id': resolvedSiteId.toString(),
+      'period': period,
+      'per_page': perPage.toString(),
+      'status': status?.trim() ?? '',
+      'flow_type': flowType?.trim() ?? '',
+      'search': search.trim(),
+    };
+
+    final uri = Uri.parse('$baseUrl/api/v1/purchases').replace(
+      queryParameters: queryParams,
+    );
+
+    print('[getPurchasesApi] GET $uri');
+
+    final response = await http
+        .get(uri, headers: authHeaders)
+        .timeout(const Duration(seconds: 30));
+
+    print('[getPurchasesApi] statusCode: ${response.statusCode}');
+    print('[getPurchasesApi] response body: ${response.body}');
+
+    final decoded = decodeApiJson(response.body);
+    final apiMessage = decoded?['message']?.toString();
+
+    if (response.statusCode == 200 &&
+        decoded != null &&
+        decoded['success'] == true) {
+      return PurchasesListResponse.fromJson(decoded);
+    }
+
+    if (!context.mounted) return null;
+    message(context, apiMessage ?? 'Failed to load purchases.');
+    return null;
+  } on TimeoutException {
+    print('[getPurchasesApi] request timed out');
+    if (!context.mounted) return null;
+    message(context, 'Request timed out. Please try again.');
+    return null;
+  } catch (e, stack) {
+    print('[getPurchasesApi] error: $e');
+    print('[getPurchasesApi] stack: $stack');
+    if (!context.mounted) return null;
+    message(context, 'Something went wrong');
+    return null;
+  }
+}
+
+//getpurchaseapi
+Future<Purchase?> getPurchaseApi(BuildContext context, int purchaseId) async {
+  try {
+    final url = '$baseUrl/api/v1/purchases/$purchaseId';
+
+    print('[getPurchaseApi] GET $url');
+
+    final response = await http
+        .get(Uri.parse(url), headers: authHeaders)
+        .timeout(const Duration(seconds: 30));
+
+    print('[getPurchaseApi] statusCode: ${response.statusCode}');
+    print('[getPurchaseApi] response body: ${response.body}');
+
+    final decoded = decodeApiJson(response.body);
+    final apiMessage = decoded?['message']?.toString();
+
+    if (response.statusCode == 200 &&
+        decoded != null &&
+        decoded['success'] == true) {
+      final data = decoded['data'];
+      if (data is Map<String, dynamic>) {
+        return Purchase.fromJson(data);
+      }
+      return null;
+    }
+
+    if (!context.mounted) return null;
+    message(context, apiMessage ?? 'Failed to load purchase.');
+    return null;
+  } on TimeoutException {
+    print('[getPurchaseApi] request timed out');
+    if (!context.mounted) return null;
+    message(context, 'Request timed out. Please try again.');
+    return null;
+  } catch (e, stack) {
+    print('[getPurchaseApi] error: $e');
+    print('[getPurchaseApi] stack: $stack');
+    if (!context.mounted) return null;
+    message(context, 'Something went wrong');
+    return null;
+  }
+}
+
+//deletepurchaseapi
+Future<bool> deletePurchaseApi(BuildContext context, int purchaseId) async {
+  try {
+    final url = '$baseUrl/api/v1/purchases/$purchaseId';
+
+    print('[deletePurchaseApi] DELETE $url');
+
+    final response = await http
+        .delete(
+          Uri.parse(url),
+          headers: authHeaders,
+        )
+        .timeout(const Duration(seconds: 30));
+
+    print('[deletePurchaseApi] statusCode: ${response.statusCode}');
+    print('[deletePurchaseApi] response body: ${response.body}');
+
+    final data = decodeApiJson(response.body);
+    final apiMessage = data?['message']?.toString();
+
+    if (response.statusCode == 200 && data != null && data['success'] == true) {
+      return true;
+    }
+
+    if (!context.mounted) return false;
+    message(context, apiMessage ?? 'Failed to delete purchase.');
+    return false;
+  } on TimeoutException {
+    print('[deletePurchaseApi] request timed out');
+    if (!context.mounted) return false;
+    message(context, 'Request timed out. Please try again.');
+    return false;
+  } catch (e, stack) {
+    print('[deletePurchaseApi] error: $e');
+    print('[deletePurchaseApi] stack: $stack');
+    if (!context.mounted) return false;
+    message(context, 'Something went wrong');
+    return false;
+  }
+}
+
+//createpurchaseapi — with_kanta / without_kanta / direct (multipart)
+Future<Purchase?> createPurchaseApi(
+  BuildContext context, {
+  required String flowType,
+  required int supplierId,
+  required String vehicleNo,
+  required File imageFile,
+  List<int> itemIds = const [],
+  List<PurchaseMaterialPayload> materials = const [],
+  String? remark,
+  int? siteId,
+}) async {
+  try {
+    final resolvedSiteId = siteId ?? selectedSiteId();
+    if (resolvedSiteId == null) {
+      if (context.mounted) {
+        message(context, 'Please select a site first.');
+      }
+      return null;
+    }
+
+    final normalizedFlow = flowType.trim().toLowerCase();
+    final url = '$baseUrl/api/v1/purchases';
+    final fields = <String, String>{
+      'site_id': resolvedSiteId.toString(),
+      'flow_type': normalizedFlow,
+      'supplier_id': supplierId.toString(),
+      'vehicle_no': vehicleNo.trim(),
+    };
+
+    if (remark != null && remark.trim().isNotEmpty) {
+      fields['remark'] = remark.trim();
+    }
+
+    if (normalizedFlow == 'direct') {
+      for (var i = 0; i < materials.length; i++) {
+        final m = materials[i];
+        fields['materials[$i][item_id]'] = m.itemId.toString();
+        fields['materials[$i][qty]'] = m.qty.toString();
+        fields['materials[$i][unit]'] = m.unit;
+      }
+    } else {
+      for (var i = 0; i < itemIds.length; i++) {
+        fields['item_ids[$i]'] = itemIds[i].toString();
+      }
+    }
+
+    final imageField = normalizedFlow == 'direct' ? 'image' : 'loading_image';
+    final files = [
+      await _multipartImage(imageField, imageFile),
+    ];
+
+    print('[createPurchaseApi] POST $url');
+    print('[createPurchaseApi] fields: $fields');
+    print('[createPurchaseApi] imageField: $imageField path=${imageFile.path}');
+
+    final response = await _sendMultipart(
+      Uri.parse(url),
+      fields: fields,
+      files: files,
+    );
+
+    print('[createPurchaseApi] statusCode: ${response.statusCode}');
+    print('[createPurchaseApi] response body: ${response.body}');
+
+    final decoded = decodeApiJson(response.body);
+    final apiMessage = decoded?['message']?.toString();
+    final purchase = _purchaseFromApiResponse(decoded);
+
+    if ((response.statusCode == 200 || response.statusCode == 201) &&
+        purchase != null) {
+      return purchase;
+    }
+
+    if (!context.mounted) return null;
+    message(context, apiMessage ?? 'Failed to create purchase.');
+    return null;
+  } on TimeoutException {
+    print('[createPurchaseApi] request timed out');
+    if (!context.mounted) return null;
+    message(context, 'Request timed out. Please try again.');
+    return null;
+  } catch (e, stack) {
+    print('[createPurchaseApi] error: $e');
+    print('[createPurchaseApi] stack: $stack');
+    if (!context.mounted) return null;
+    message(context, 'Something went wrong');
+    return null;
+  }
+}
+
+//purchasestep2withkantaapi — POST /purchases/{id}/step-2
+Future<Purchase?> purchaseStep2WithKantaApi(
+  BuildContext context, {
+  required int purchaseId,
+  required String vehicleNo,
+  required File unloadingImage,
+}) async {
+  try {
+    final url = '$baseUrl/api/v1/purchases/$purchaseId/step-2';
+    final fields = <String, String>{
+      'vehicle_no': vehicleNo.trim(),
+    };
+    final files = [
+      await _multipartImage('unloading_image', unloadingImage),
+    ];
+
+    print('[purchaseStep2WithKantaApi] POST $url');
+    print('[purchaseStep2WithKantaApi] fields: $fields');
+
+    final response = await _sendMultipart(
+      Uri.parse(url),
+      fields: fields,
+      files: files,
+    );
+
+    print('[purchaseStep2WithKantaApi] statusCode: ${response.statusCode}');
+    print('[purchaseStep2WithKantaApi] response body: ${response.body}');
+
+    final decoded = decodeApiJson(response.body);
+    final apiMessage = decoded?['message']?.toString();
+    final purchase = _purchaseFromApiResponse(decoded);
+
+    if (response.statusCode == 200 && purchase != null) {
+      return purchase;
+    }
+
+    if (!context.mounted) return null;
+    message(context, apiMessage ?? 'Failed to save step 2.');
+    return null;
+  } on TimeoutException {
+    print('[purchaseStep2WithKantaApi] request timed out');
+    if (!context.mounted) return null;
+    message(context, 'Request timed out. Please try again.');
+    return null;
+  } catch (e, stack) {
+    print('[purchaseStep2WithKantaApi] error: $e');
+    print('[purchaseStep2WithKantaApi] stack: $stack');
+    if (!context.mounted) return null;
+    message(context, 'Something went wrong');
+    return null;
+  }
+}
+
+//purchasestep2withoutkantaapi — POST /purchases/{id}/step-2 (complete)
+Future<Purchase?> purchaseStep2WithoutKantaApi(
+  BuildContext context, {
+  required int purchaseId,
+  required String invoiceNo,
+  String? remark,
+  required List<PurchaseMaterialPayload> materials,
+  required File unloadingImage,
+}) async {
+  try {
+    final url = '$baseUrl/api/v1/purchases/$purchaseId/step-2';
+    final fields = <String, String>{
+      'invoice_no': invoiceNo.trim(),
+    };
+    if (remark != null && remark.trim().isNotEmpty) {
+      fields['remark'] = remark.trim();
+    }
+    for (var i = 0; i < materials.length; i++) {
+      final m = materials[i];
+      fields['materials[$i][item_id]'] = m.itemId.toString();
+      fields['materials[$i][qty]'] = m.qty.toString();
+      fields['materials[$i][unit]'] = m.unit;
+    }
+
+    final files = [
+      await _multipartImage('unloading_image', unloadingImage),
+    ];
+
+    print('[purchaseStep2WithoutKantaApi] POST $url');
+    print('[purchaseStep2WithoutKantaApi] fields: $fields');
+
+    final response = await _sendMultipart(
+      Uri.parse(url),
+      fields: fields,
+      files: files,
+    );
+
+    print('[purchaseStep2WithoutKantaApi] statusCode: ${response.statusCode}');
+    print('[purchaseStep2WithoutKantaApi] response body: ${response.body}');
+
+    final decoded = decodeApiJson(response.body);
+    final apiMessage = decoded?['message']?.toString();
+    final purchase = _purchaseFromApiResponse(decoded);
+
+    if (response.statusCode == 200 && purchase != null) {
+      return purchase;
+    }
+
+    if (!context.mounted) return null;
+    message(context, apiMessage ?? 'Failed to complete purchase.');
+    return null;
+  } on TimeoutException {
+    print('[purchaseStep2WithoutKantaApi] request timed out');
+    if (!context.mounted) return null;
+    message(context, 'Request timed out. Please try again.');
+    return null;
+  } catch (e, stack) {
+    print('[purchaseStep2WithoutKantaApi] error: $e');
+    print('[purchaseStep2WithoutKantaApi] stack: $stack');
+    if (!context.mounted) return null;
+    message(context, 'Something went wrong');
+    return null;
+  }
+}
+
+//purchasestep3withkantaapi — POST /purchases/{id}/step-3
+Future<Purchase?> purchaseStep3WithKantaApi(
+  BuildContext context, {
+  required int purchaseId,
+  required String invoiceNo,
+  required String kantaNo,
+  String? remark,
+  required List<PurchaseMaterialPayload> materials,
+  required File kantaSlipImage,
+  required File vehicleAtKantaImage,
+}) async {
+  try {
+    final url = '$baseUrl/api/v1/purchases/$purchaseId/step-3';
+    final fields = <String, String>{
+      'invoice_no': invoiceNo.trim(),
+      'kanta_no': kantaNo.trim(),
+    };
+    if (remark != null && remark.trim().isNotEmpty) {
+      fields['remark'] = remark.trim();
+    }
+    for (var i = 0; i < materials.length; i++) {
+      final m = materials[i];
+      fields['materials[$i][item_id]'] = m.itemId.toString();
+      fields['materials[$i][qty]'] = m.qty.toString();
+      fields['materials[$i][unit]'] = m.unit;
+    }
+
+    final files = [
+      await _multipartImage('kanta_slip_image', kantaSlipImage),
+      await _multipartImage('vehicle_at_kanta_image', vehicleAtKantaImage),
+    ];
+
+    print('[purchaseStep3WithKantaApi] POST $url');
+    print('[purchaseStep3WithKantaApi] fields: $fields');
+
+    final response = await _sendMultipart(
+      Uri.parse(url),
+      fields: fields,
+      files: files,
+    );
+
+    print('[purchaseStep3WithKantaApi] statusCode: ${response.statusCode}');
+    print('[purchaseStep3WithKantaApi] response body: ${response.body}');
+
+    final decoded = decodeApiJson(response.body);
+    final apiMessage = decoded?['message']?.toString();
+    final purchase = _purchaseFromApiResponse(decoded);
+
+    if (response.statusCode == 200 && purchase != null) {
+      return purchase;
+    }
+
+    if (!context.mounted) return null;
+    message(context, apiMessage ?? 'Failed to complete purchase.');
+    return null;
+  } on TimeoutException {
+    print('[purchaseStep3WithKantaApi] request timed out');
+    if (!context.mounted) return null;
+    message(context, 'Request timed out. Please try again.');
+    return null;
+  } catch (e, stack) {
+    print('[purchaseStep3WithKantaApi] error: $e');
+    print('[purchaseStep3WithKantaApi] stack: $stack');
+    if (!context.mounted) return null;
+    message(context, 'Something went wrong');
+    return null;
+  }
+}

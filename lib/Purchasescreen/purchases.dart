@@ -9,6 +9,8 @@ import 'package:grjoffice_apps/Purchasescreen/purchase.dart';
 import 'package:grjoffice_apps/Purchasescreen/without_kanta_step2_screen.dart';
 import 'package:grjoffice_apps/Purchasescreen/with_kanta_step2_screen.dart';
 import 'package:grjoffice_apps/Purchasescreen/with_kanta_step3_screen.dart';
+import 'package:grjoffice_apps/Purchasescreen/view_purchase_screen.dart';
+import 'package:grjoffice_apps/services/api_auth.dart';
 import 'package:grjoffice_apps/widgets/app_top_bar.dart';
 
 class PurchasesScreen extends StatefulWidget {
@@ -28,21 +30,60 @@ class _PurchasesScreenState extends State<PurchasesScreen> {
   _PurchaseDateFilter _dateFilter = _PurchaseDateFilter.all;
   DateTime? _filterStartDate;
   DateTime? _filterEndDate;
-  late List<Purchase> _purchases;
+  List<Purchase> _purchases = [];
+  PurchasesSummary? _summary;
+  bool _isLoading = true;
 
   @override
   void initState() {
     super.initState();
-    _purchases = List<Purchase>.from(kMockPurchases);
-    _searchController.addListener(() {
-      setState(() => _searchQuery = _searchController.text.trim().toLowerCase());
-    });
+    _searchController.addListener(_onSearchChanged);
+    WidgetsBinding.instance.addPostFrameCallback((_) => _loadPurchases());
   }
 
   @override
   void dispose() {
+    _searchController.removeListener(_onSearchChanged);
     _searchController.dispose();
     super.dispose();
+  }
+
+  void _onSearchChanged() {
+    final next = _searchController.text.trim().toLowerCase();
+    if (next == _searchQuery) return;
+    setState(() => _searchQuery = next);
+  }
+
+  String get _apiPeriod {
+    if (_hasCustomDateRange) return 'all';
+    return switch (_dateFilter) {
+      _PurchaseDateFilter.all => 'all',
+      _PurchaseDateFilter.today => 'today',
+      _PurchaseDateFilter.last7 => 'last_7',
+      _PurchaseDateFilter.last30 => 'last_30',
+      _PurchaseDateFilter.thisMonth => 'this_month',
+    };
+  }
+
+  String? get _apiStatus => null;
+
+  Future<void> _loadPurchases() async {
+    setState(() => _isLoading = true);
+
+    final response = await getPurchasesApi(
+      context,
+      period: _apiPeriod,
+      status: _apiStatus,
+      search: '',
+      perPage: 50,
+    );
+
+    if (!mounted) return;
+    setState(() {
+      _purchases = response?.data?.items ?? [];
+      _summary = response?.data?.summary;
+      _isLoading = false;
+    });
   }
 
   double _hPad(BuildContext context) {
@@ -54,14 +95,27 @@ class _PurchasesScreenState extends State<PurchasesScreen> {
 
   List<Purchase> get _filteredPurchases {
     return _purchases.where((p) {
-      if (_statusFilter != null && p.status != _statusFilter) return false;
+      if (_statusFilter == PurchaseStatus.cancelled) return false;
+      if (_statusFilter == PurchaseStatus.pending &&
+          p.status != PurchaseStatus.pending) {
+        return false;
+      }
+      if (_statusFilter == PurchaseStatus.received &&
+          p.status != PurchaseStatus.received &&
+          p.status != PurchaseStatus.approved) {
+        return false;
+      }
+      if (_statusFilter == PurchaseStatus.approved &&
+          p.status != PurchaseStatus.approved) {
+        return false;
+      }
       if (_supplierFilter != null && p.supplierName != _supplierFilter) return false;
       if (_kantaSlipFilter == _KantaSlipFilter.yes && !p.hasKantaSlip) return false;
       if (_kantaSlipFilter == _KantaSlipFilter.no && p.hasKantaSlip) return false;
       if (!_matchesDateFilter(p.date)) return false;
       if (_searchQuery.isNotEmpty) {
         final haystack =
-            '${p.challanNo} ${p.invoiceNo} ${p.supplierName} ${p.remark ?? ''} ${p.statusLabel}'
+            '${p.challanNo} ${p.invoiceNo} ${p.supplierName} ${p.vehicleNo ?? ''} ${p.itemName ?? ''} ${p.remark ?? ''} ${p.statusLabel}'
                 .toLowerCase();
         if (!haystack.contains(_searchQuery)) return false;
       }
@@ -125,6 +179,7 @@ class _PurchasesScreenState extends State<PurchasesScreen> {
       _filterStartDate = null;
       _filterEndDate = null;
     });
+    _loadPurchases();
   }
 
   String _formatDate(DateTime date) {
@@ -170,22 +225,35 @@ class _PurchasesScreenState extends State<PurchasesScreen> {
             ),
             const SizedBox(height: 12),
             Expanded(
-              child: rows.isEmpty
-                  ? _buildEmptyState()
-                  : SingleChildScrollView(
-                      padding: EdgeInsets.fromLTRB(hPad, 0, hPad, 16),
-                      child: Center(
-                        child: ConstrainedBox(
-                          constraints: const BoxConstraints(maxWidth: 640),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.stretch,
-                            children: [
-                              ...rows.map(_buildPurchaseCard),
-                            ],
+              child: _isLoading
+                  ? const Center(
+                      child: CircularProgressIndicator(color: AppColors.primaryRed),
+                    )
+                  : rows.isEmpty
+                      ? _buildEmptyState()
+                      : RefreshIndicator(
+                          color: AppColors.primaryRed,
+                          onRefresh: _loadPurchases,
+                          child: SingleChildScrollView(
+                            physics: const AlwaysScrollableScrollPhysics(),
+                            padding: EdgeInsets.fromLTRB(hPad, 0, hPad, 16),
+                            child: Center(
+                              child: ConstrainedBox(
+                                constraints: const BoxConstraints(maxWidth: 640),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                                  children: [
+                                    if (_summary != null) ...[
+                                      _buildSummaryRow(_summary!),
+                                      const SizedBox(height: 12),
+                                    ],
+                                    ...rows.map(_buildPurchaseCard),
+                                  ],
+                                ),
+                              ),
+                            ),
                           ),
                         ),
-                      ),
-                    ),
             ),
           ],
         ),
@@ -330,11 +398,14 @@ class _PurchasesScreenState extends State<PurchasesScreen> {
         ),
       ),
       selected: selected,
-      onSelected: (_) => setState(() {
-        _dateFilter = value;
-        _filterStartDate = null;
-        _filterEndDate = null;
-      }),
+      onSelected: (_) {
+        setState(() {
+          _dateFilter = value;
+          _filterStartDate = null;
+          _filterEndDate = null;
+        });
+        _loadPurchases();
+      },
       selectedColor: AppColors.primaryRed.withValues(alpha: 0.12),
       checkmarkColor: AppColors.primaryRed,
       backgroundColor: AppColors.cardWhite,
@@ -370,10 +441,13 @@ class _PurchasesScreenState extends State<PurchasesScreen> {
         if (_hasCustomDateRange) ...[
           const SizedBox(width: 6),
           IconButton(
-            onPressed: () => setState(() {
-              _filterStartDate = null;
-              _filterEndDate = null;
-            }),
+            onPressed: () {
+              setState(() {
+                _filterStartDate = null;
+                _filterEndDate = null;
+              });
+              _loadPurchases();
+            },
             icon: const Icon(Icons.close, size: 20, color: AppColors.textSecondary),
             tooltip: 'Clear dates',
             padding: EdgeInsets.zero,
@@ -494,6 +568,7 @@ class _PurchasesScreenState extends State<PurchasesScreen> {
         _filterEndDate = picked;
       }
     });
+    _loadPurchases();
   }
 
   Widget _activeChip(String label, VoidCallback onRemove) {
@@ -591,6 +666,7 @@ class _PurchasesScreenState extends State<PurchasesScreen> {
                                 _filterEndDate = null;
                               });
                               Navigator.pop(context);
+                              _loadPurchases();
                             },
                           )),
                       const SizedBox(height: 12),
@@ -690,7 +766,6 @@ class _PurchasesScreenState extends State<PurchasesScreen> {
       MaterialPageRoute(builder: (_) => const AddPurchaseScreen()),
     );
     if (result != null && mounted) {
-      setState(() => _purchases.insert(0, result));
       final msg = result.withKantaStage == WithKantaStage.initial
           ? 'Purchase saved (Initial). Complete Step 2 from the list.'
           : result.withoutKantaStage == WithoutKantaStage.initial
@@ -699,7 +774,49 @@ class _PurchasesScreenState extends State<PurchasesScreen> {
                   ? 'Purchase ${result.challanNo} saved (Completed).'
                   : 'Purchase ${result.challanNo} created.';
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
+      await _loadPurchases();
     }
+  }
+
+  Widget _buildSummaryRow(PurchasesSummary summary) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      decoration: BoxDecoration(
+        color: AppColors.cardWhite,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppColors.borderGray.withValues(alpha: 0.5)),
+      ),
+      child: Row(
+        children: [
+          _summaryCell('Total', summary.total.toString()),
+          _summaryCell('Initial', summary.initial.toString()),
+          _summaryCell('Processing', summary.processing.toString()),
+          _summaryCell('Completed', summary.completed.toString()),
+        ],
+      ),
+    );
+  }
+
+  Widget _summaryCell(String label, String value) {
+    return Expanded(
+      child: Column(
+        children: [
+          Text(
+            value,
+            style: GoogleFonts.poppins(
+              fontSize: 16,
+              fontWeight: FontWeight.w700,
+              color: AppColors.headingBlack,
+            ),
+          ),
+          const SizedBox(height: 2),
+          Text(
+            label,
+            style: GoogleFonts.poppins(fontSize: 11, color: AppColors.textSecondary),
+          ),
+        ],
+      ),
+    );
   }
 
   Widget _buildCreateButton() {
@@ -1089,6 +1206,9 @@ class _PurchasesScreenState extends State<PurchasesScreen> {
   }
 
   String? _cardFlowActionLabel(Purchase purchase) {
+    final next = purchase.nextAction?.toLowerCase();
+    if (next == 'step_2') return 'Step 2';
+    if (next == 'step_3') return 'Step 3';
     if (purchase.withoutKantaStage == WithoutKantaStage.initial) return 'Step 2';
     if (purchase.withKantaStage == WithKantaStage.initial) return 'Step 2';
     if (purchase.withKantaStage == WithKantaStage.processing) return 'Step 3';
@@ -1096,7 +1216,8 @@ class _PurchasesScreenState extends State<PurchasesScreen> {
   }
 
   void _openCardFlowAction(Purchase purchase) {
-    if (purchase.withKantaStage == WithKantaStage.processing) {
+    final next = purchase.nextAction?.toLowerCase();
+    if (next == 'step_3' || purchase.withKantaStage == WithKantaStage.processing) {
       _openWithKantaStep3(purchase);
       return;
     }
@@ -1104,9 +1225,11 @@ class _PurchasesScreenState extends State<PurchasesScreen> {
   }
 
   bool _canOpenWithKantaStep3(Purchase purchase) =>
+      purchase.nextAction?.toLowerCase() == 'step_3' ||
       purchase.withKantaStage == WithKantaStage.processing;
 
   bool _canOpenStep2(Purchase purchase) {
+    if (purchase.nextAction?.toLowerCase() == 'step_2') return true;
     if (purchase.withoutKantaStage == WithoutKantaStage.initial) return true;
     if (purchase.withKantaStage == WithKantaStage.initial) return true;
     return false;
@@ -1125,13 +1248,10 @@ class _PurchasesScreenState extends State<PurchasesScreen> {
       MaterialPageRoute(builder: (_) => WithKantaStep2Screen(purchase: purchase)),
     );
     if (updated == null || !mounted) return;
-    setState(() {
-      final index = _purchases.indexWhere((p) => p.id == updated.id);
-      if (index >= 0) _purchases[index] = updated;
-    });
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text('Step 2 saved. Complete Step 3 from the list.')),
     );
+    await _loadPurchases();
   }
 
   Future<void> _openWithKantaStep3(Purchase purchase) async {
@@ -1139,13 +1259,10 @@ class _PurchasesScreenState extends State<PurchasesScreen> {
       MaterialPageRoute(builder: (_) => WithKantaStep3Screen(purchase: purchase)),
     );
     if (updated == null || !mounted) return;
-    setState(() {
-      final index = _purchases.indexWhere((p) => p.id == updated.id);
-      if (index >= 0) _purchases[index] = updated;
-    });
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text('Purchase ${updated.challanNo} marked completed.')),
     );
+    await _loadPurchases();
   }
 
   Future<void> _openWithoutKantaStep2(Purchase purchase) async {
@@ -1153,13 +1270,10 @@ class _PurchasesScreenState extends State<PurchasesScreen> {
       MaterialPageRoute(builder: (_) => WithoutKantaStep2Screen(purchase: purchase)),
     );
     if (updated == null || !mounted) return;
-    setState(() {
-      final index = _purchases.indexWhere((p) => p.id == updated.id);
-      if (index >= 0) _purchases[index] = updated;
-    });
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text('Purchase ${updated.challanNo} marked completed.')),
     );
+    await _loadPurchases();
   }
 
   Widget _buildCardBadge(Purchase purchase) {
@@ -1246,70 +1360,24 @@ class _PurchasesScreenState extends State<PurchasesScreen> {
     );
   }
 
-  void _showDetails(Purchase purchase) {
-    showModalBottomSheet<void>(
-      context: context,
-      backgroundColor: AppColors.cardWhite,
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(16))),
-      builder: (context) {
-        return SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Text('Purchase Details', style: GoogleFonts.poppins(fontSize: 18, fontWeight: FontWeight.w700)),
-                const SizedBox(height: 16),
-                _detailRow('Date', _formatDate(purchase.date)),
-                if ((purchase.itemName ?? '').isNotEmpty)
-                  _detailRow('Materials', purchase.materialsSummary),
-                if (purchase.hasFlowStage) ...[
-                  if (purchase.flowStageLabel != null)
-                    _detailRow('Stage', purchase.flowStageLabel!),
-                  if ((purchase.vehicleNo ?? '').isNotEmpty)
-                    _detailRow('Vehicle No', purchase.vehicleNo!),
-                  if ((purchase.loadingVehicleImage ?? '').isNotEmpty)
-                    _detailRow('Loading Image', purchase.loadingVehicleImage!),
-                  if ((purchase.unloadingVehicleImage ?? '').isNotEmpty)
-                    _detailRow('Unloading Image', purchase.unloadingVehicleImage!),
-                ],
-                _detailRow('Challan No', purchase.challanNo),
-                _detailRow('Invoice No', purchase.invoiceNo),
-                _detailRow('Supplier', purchase.supplierName),
-                if (!purchase.hasFlowStage) _detailRow('Status', purchase.statusLabel),
-                _detailRow('Kanta Slip', purchase.isDirectPurchase ? 'Other' : purchase.hasKantaSlip ? 'Yes' : 'No'),
-                _detailRow('Remark', purchase.remark ?? '—'),
-              ],
-            ),
-          ),
-        );
-      },
+  Future<void> _showDetails(Purchase purchase) async {
+    final result = await Navigator.of(context).push<Object>(
+      MaterialPageRoute(builder: (_) => ViewPurchaseScreen(purchase: purchase)),
     );
-  }
+    if (!mounted || result == null) return;
 
-  Widget _detailRow(String label, String value) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 10),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          SizedBox(
-            width: 100,
-            child: Text(label, style: GoogleFonts.poppins(fontSize: 13, fontWeight: FontWeight.w600)),
-          ),
-          Expanded(
-            child: Text(value, style: GoogleFonts.poppins(fontSize: 13, color: AppColors.textSecondary)),
-          ),
-        ],
-      ),
-    );
+    if (result == 'deleted') {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Purchase "${purchase.challanNo}" deleted')),
+      );
+      await _loadPurchases();
+    }
   }
 
   Future<void> _confirmDelete(Purchase purchase) async {
     final confirmed = await showDialog<bool>(
       context: context,
-      builder: (context) => AlertDialog(
+      builder: (dialogContext) => AlertDialog(
         backgroundColor: AppColors.cardWhite,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         title: Text('Delete Purchase', style: GoogleFonts.poppins(fontWeight: FontWeight.w700)),
@@ -1318,19 +1386,37 @@ class _PurchasesScreenState extends State<PurchasesScreen> {
           style: GoogleFonts.poppins(fontSize: 14),
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
           TextButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: Text('Delete', style: GoogleFonts.poppins(color: AppColors.primaryRed, fontWeight: FontWeight.w600)),
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: Text('Cancel', style: GoogleFonts.poppins()),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: Text(
+              'Delete',
+              style: GoogleFonts.poppins(color: AppColors.primaryRed, fontWeight: FontWeight.w600),
+            ),
           ),
         ],
       ),
     );
 
     if (confirmed != true || !mounted) return;
+
+    final purchaseId = int.tryParse(purchase.id);
+    if (purchaseId == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Invalid purchase id.', style: GoogleFonts.poppins())),
+      );
+      return;
+    }
+
+    final ok = await deletePurchaseApi(context, purchaseId);
+    if (!mounted || !ok) return;
+
     setState(() => _purchases.removeWhere((p) => p.id == purchase.id));
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('${purchase.challanNo} deleted.')),
+      SnackBar(content: Text('Purchase "${purchase.challanNo}" deleted')),
     );
   }
 

@@ -1,9 +1,13 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:grjoffice_apps/core/app_colors.dart';
 import 'package:grjoffice_apps/Purchasescreen/purchase.dart';
-import 'package:grjoffice_apps/SupplierList/supplier.dart';
+import 'package:grjoffice_apps/models/item_model.dart';
+import 'package:grjoffice_apps/services/api_auth.dart';
 import 'package:grjoffice_apps/widgets/app_top_bar.dart';
 
 class WithoutKantaStep2Screen extends StatefulWidget {
@@ -17,50 +21,79 @@ class WithoutKantaStep2Screen extends StatefulWidget {
 
 class _WithoutKantaStep2ScreenState extends State<WithoutKantaStep2Screen> {
   final _formKey = GlobalKey<FormState>();
-  final _vehicleNoController = TextEditingController();
   final _invoiceController = TextEditingController();
   final _remarkController = TextEditingController();
-  final _mat1Controller = TextEditingController();
-  final _mat2Controller = TextEditingController();
   final _qty1Controller = TextEditingController();
   final _qty2Controller = TextEditingController();
   final _unit1Controller = TextEditingController(text: 'NOS');
   final _unit2Controller = TextEditingController(text: 'NOS');
 
-  String? _selectedSupplier;
-  String? _unloadingImageName;
-  DateTime? _unloadingImageAt;
+  ItemModel? _selectedItem1;
+  ItemModel? _selectedItem2;
+  File? _unloadingImageFile;
   bool _isSaving = false;
+
+  List<ItemModel> _items = [];
+  bool _loadingItems = true;
 
   @override
   void initState() {
     super.initState();
     final p = widget.purchase;
-    _selectedSupplier = p.supplierName;
-    _vehicleNoController.text = p.vehicleNo ?? '';
     _invoiceController.text = p.invoiceNo == '—' ? '' : p.invoiceNo;
     _remarkController.text = p.remark ?? '';
-    _unloadingImageName = p.unloadingVehicleImage;
 
     if (p.materials.isNotEmpty) {
-      _mat1Controller.text = p.materials[0].name;
       if (p.materials[0].qty != null) _qty1Controller.text = _formatQty(p.materials[0].qty!);
       _unit1Controller.text = p.materials[0].unit;
     }
     if (p.materials.length > 1) {
-      _mat2Controller.text = p.materials[1].name;
       if (p.materials[1].qty != null) _qty2Controller.text = _formatQty(p.materials[1].qty!);
       _unit2Controller.text = p.materials[1].unit;
+    }
+
+    _loadItems();
+  }
+
+  Future<void> _loadItems() async {
+    final cached = cachedItems();
+    if (cached != null && cached.isNotEmpty) {
+      setState(() {
+        _items = cached;
+        _loadingItems = false;
+        _prefillItems();
+      });
+      return;
+    }
+    final items = await itemsApi(context);
+    if (!mounted) return;
+    setState(() {
+      _items = items ?? [];
+      _loadingItems = false;
+      _prefillItems();
+    });
+  }
+
+  void _prefillItems() {
+    final p = widget.purchase;
+    if (p.materials.isNotEmpty && p.materials[0].itemId != null) {
+      _selectedItem1 = _items.cast<ItemModel?>().firstWhere(
+            (it) => it?.id == p.materials[0].itemId,
+            orElse: () => null,
+          );
+    }
+    if (p.materials.length > 1 && p.materials[1].itemId != null) {
+      _selectedItem2 = _items.cast<ItemModel?>().firstWhere(
+            (it) => it?.id == p.materials[1].itemId,
+            orElse: () => null,
+          );
     }
   }
 
   @override
   void dispose() {
-    _vehicleNoController.dispose();
     _invoiceController.dispose();
     _remarkController.dispose();
-    _mat1Controller.dispose();
-    _mat2Controller.dispose();
     _qty1Controller.dispose();
     _qty2Controller.dispose();
     _unit1Controller.dispose();
@@ -72,73 +105,83 @@ class _WithoutKantaStep2ScreenState extends State<WithoutKantaStep2Screen> {
       qty == qty.roundToDouble() ? qty.toInt().toString() : qty.toString();
 
   Future<void> _pickUnloadingImage() async {
-    setState(() {
-      _unloadingImageName = 'unloading_vehicle.jpg';
-      _unloadingImageAt = DateTime.now();
-    });
+    final picker = ImagePicker();
+    XFile? picked = await picker.pickImage(source: ImageSource.camera);
+    picked ??= await picker.pickImage(source: ImageSource.gallery);
+    if (picked != null) {
+      setState(() => _unloadingImageFile = File(picked!.path));
+    }
   }
 
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
-    if (_selectedSupplier == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Please select a supplier.', style: GoogleFonts.poppins())),
-      );
-      return;
-    }
-    if (_unloadingImageName == null) {
+    if (_unloadingImageFile == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Unloading vehicle image is required.', style: GoogleFonts.poppins())),
       );
       return;
     }
 
-    final materials = <PurchaseMaterialItem>[];
-    void addMaterial(TextEditingController name, TextEditingController qty, TextEditingController unit) {
-      final n = name.text.trim();
-      if (n.isEmpty) return;
-      materials.add(PurchaseMaterialItem(
-        name: n,
-        qty: double.tryParse(qty.text.trim()),
+    final materials = <PurchaseMaterialPayload>[];
+    void addMaterial(ItemModel? item, TextEditingController qty, TextEditingController unit) {
+      if (item == null) return;
+      final qtyVal = double.tryParse(qty.text.trim());
+      if (qtyVal == null) return;
+      materials.add(PurchaseMaterialPayload(
+        itemId: item.id,
+        qty: qtyVal,
         unit: unit.text.trim().isEmpty ? 'NOS' : unit.text.trim(),
       ));
     }
 
-    addMaterial(_mat1Controller, _qty1Controller, _unit1Controller);
-    addMaterial(_mat2Controller, _qty2Controller, _unit2Controller);
+    addMaterial(_selectedItem1, _qty1Controller, _unit1Controller);
+    addMaterial(_selectedItem2, _qty2Controller, _unit2Controller);
 
     if (materials.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Please enter at least one material.', style: GoogleFonts.poppins())),
+        SnackBar(content: Text('Please enter at least one material with qty.', style: GoogleFonts.poppins())),
       );
       return;
     }
 
+    final invoiceNo = _invoiceController.text.trim();
+    if (invoiceNo.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Invoice No is required.', style: GoogleFonts.poppins())),
+      );
+      return;
+    }
+
+    final purchaseId = int.tryParse(widget.purchase.id);
+    if (purchaseId == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Invalid purchase ID.', style: GoogleFonts.poppins())),
+      );
+      return;
+    }
+
+    final remark = _remarkController.text.trim();
+
     setState(() => _isSaving = true);
-    await Future<void>.delayed(const Duration(milliseconds: 300));
-    if (!mounted) return;
-
-    final vehicleNo = _vehicleNoController.text.trim();
-    final updated = widget.purchase.copyWith(
-      supplierName: _selectedSupplier!,
-      vehicleNo: vehicleNo,
-      challanNo: vehicleNo.isNotEmpty ? vehicleNo : widget.purchase.challanNo,
-      invoiceNo: _invoiceController.text.trim().isEmpty ? '—' : _invoiceController.text.trim(),
-      remark: _remarkController.text.trim().isEmpty ? null : _remarkController.text.trim(),
-      unloadingVehicleImage: _unloadingImageName,
-      unloadingVehicleImageAt: _unloadingImageAt ?? DateTime.now(),
+    final updated = await purchaseStep2WithoutKantaApi(
+      context,
+      purchaseId: purchaseId,
+      invoiceNo: invoiceNo,
+      remark: remark.isEmpty ? null : remark,
       materials: materials,
-      itemName: materials.map((m) => m.name).join(', '),
-      withoutKantaStage: WithoutKantaStage.completed,
+      unloadingImage: _unloadingImageFile!,
     );
+    if (!mounted) return;
+    setState(() => _isSaving = false);
 
-    Navigator.of(context).pop(updated);
+    if (updated != null) {
+      Navigator.of(context).pop(updated);
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     final hPad = _hPad(context);
-    final suppliers = kMockSuppliers.map((s) => s.name).toList();
     final isWide = MediaQuery.sizeOf(context).width >= 640;
 
     return Scaffold(
@@ -159,10 +202,7 @@ class _WithoutKantaStep2ScreenState extends State<WithoutKantaStep2Screen> {
                     constraints: const BoxConstraints(maxWidth: 900),
                     child: Form(
                       key: _formKey,
-                      child: _buildFormCard(
-                        isWide: isWide,
-                        suppliers: suppliers,
-                      ),
+                      child: _buildFormCard(isWide: isWide),
                     ),
                   ),
                 ),
@@ -181,7 +221,7 @@ class _WithoutKantaStep2ScreenState extends State<WithoutKantaStep2Screen> {
     return 20;
   }
 
-  Widget _buildFormCard({required bool isWide, required List<String> suppliers}) {
+  Widget _buildFormCard({required bool isWide}) {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -198,34 +238,36 @@ class _WithoutKantaStep2ScreenState extends State<WithoutKantaStep2Screen> {
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Expanded(child: _buildSupplierField(suppliers)),
-                const SizedBox(width: 12),
-                Expanded(child: _buildTextField(label: 'Vehicle No', controller: _vehicleNoController, hint: 'Vehicle No')),
+                Expanded(child: _buildReadOnlyField(label: 'Supplier', value: widget.purchase.supplierName)),
                 const SizedBox(width: 12),
                 Expanded(child: _buildTextField(label: 'Invoice No', controller: _invoiceController, hint: 'Invoice no')),
               ],
             )
           else ...[
-            _buildSupplierField(suppliers),
-            const SizedBox(height: 16),
-            _buildTextField(label: 'Vehicle No', controller: _vehicleNoController, hint: 'Vehicle No'),
+            _buildReadOnlyField(label: 'Supplier', value: widget.purchase.supplierName),
             const SizedBox(height: 16),
             _buildTextField(label: 'Invoice No', controller: _invoiceController, hint: 'Invoice no'),
           ],
           const SizedBox(height: 20),
-          if (isWide)
+          if (_loadingItems)
+            const Center(child: Padding(padding: EdgeInsets.all(16), child: CircularProgressIndicator()))
+          else if (isWide)
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Expanded(child: _buildMaterialGroup(1, _mat1Controller, _qty1Controller, _unit1Controller)),
+                Expanded(child: _buildMaterialGroup(1, _selectedItem1, _qty1Controller, _unit1Controller,
+                    onItemChanged: (v) => setState(() => _selectedItem1 = v))),
                 const SizedBox(width: 12),
-                Expanded(child: _buildMaterialGroup(2, _mat2Controller, _qty2Controller, _unit2Controller)),
+                Expanded(child: _buildMaterialGroup(2, _selectedItem2, _qty2Controller, _unit2Controller,
+                    onItemChanged: (v) => setState(() => _selectedItem2 = v))),
               ],
             )
           else ...[
-            _buildMaterialGroup(1, _mat1Controller, _qty1Controller, _unit1Controller),
+            _buildMaterialGroup(1, _selectedItem1, _qty1Controller, _unit1Controller,
+                onItemChanged: (v) => setState(() => _selectedItem1 = v)),
             const SizedBox(height: 16),
-            _buildMaterialGroup(2, _mat2Controller, _qty2Controller, _unit2Controller),
+            _buildMaterialGroup(2, _selectedItem2, _qty2Controller, _unit2Controller,
+                onItemChanged: (v) => setState(() => _selectedItem2 = v)),
           ],
           const SizedBox(height: 20),
           if (isWide)
@@ -269,14 +311,15 @@ class _WithoutKantaStep2ScreenState extends State<WithoutKantaStep2Screen> {
 
   Widget _buildMaterialGroup(
     int index,
-    TextEditingController name,
+    ItemModel? selectedItem,
     TextEditingController qty,
-    TextEditingController unit,
-  ) {
+    TextEditingController unit, {
+    required ValueChanged<ItemModel?> onItemChanged,
+  }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        _buildTextField(label: 'Material $index', controller: name, hint: name.text.isEmpty ? 'Material' : name.text),
+        _buildItemDropdown(label: 'Material $index', selectedItem: selectedItem, onChanged: onItemChanged),
         const SizedBox(height: 12),
         Row(
           children: [
@@ -297,7 +340,56 @@ class _WithoutKantaStep2ScreenState extends State<WithoutKantaStep2Screen> {
     );
   }
 
+  Widget _buildItemDropdown({
+    required String label,
+    required ItemModel? selectedItem,
+    required ValueChanged<ItemModel?> onChanged,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(label, style: GoogleFonts.poppins(fontSize: 13, fontWeight: FontWeight.w600)),
+        const SizedBox(height: 8),
+        DropdownButtonFormField<ItemModel>(
+          value: selectedItem,
+          decoration: _fieldDecoration(hint: 'Select item'),
+          isExpanded: true,
+          items: _items
+              .map((item) => DropdownMenuItem(
+                    value: item,
+                    child: Text(item.name, style: GoogleFonts.poppins(fontSize: 13), overflow: TextOverflow.ellipsis),
+                  ))
+              .toList(),
+          onChanged: onChanged,
+        ),
+      ],
+    );
+  }
+
+  Widget _buildReadOnlyField({required String label, required String value}) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(label, style: GoogleFonts.poppins(fontSize: 13, fontWeight: FontWeight.w600)),
+        const SizedBox(height: 8),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+          decoration: BoxDecoration(
+            color: const Color(0xFFE5E7EB),
+            borderRadius: BorderRadius.circular(6),
+            border: Border.all(color: AppColors.borderGray.withValues(alpha: 0.6)),
+          ),
+          child: Text(
+            value,
+            style: GoogleFonts.poppins(fontSize: 13, color: AppColors.textSecondary),
+          ),
+        ),
+      ],
+    );
+  }
+
   Widget _buildUnloadingImageField() {
+    final fileName = _unloadingImageFile?.path.split('/').last;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -336,35 +428,16 @@ class _WithoutKantaStep2ScreenState extends State<WithoutKantaStep2Screen> {
               const SizedBox(width: 10),
               Expanded(
                 child: Text(
-                  _unloadingImageName ?? 'No file selected.',
+                  fileName ?? 'No file selected.',
                   style: GoogleFonts.poppins(
                     fontSize: 12,
-                    color: _unloadingImageName == null ? AppColors.textSecondary : AppColors.textDark,
+                    color: _unloadingImageFile == null ? AppColors.textSecondary : AppColors.textDark,
                   ),
                   overflow: TextOverflow.ellipsis,
                 ),
               ),
             ],
           ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildSupplierField(List<String> suppliers) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text('Supplier', style: GoogleFonts.poppins(fontSize: 13, fontWeight: FontWeight.w600)),
-        const SizedBox(height: 8),
-        DropdownButtonFormField<String>(
-          initialValue: _selectedSupplier,
-          decoration: _fieldDecoration(),
-          items: suppliers
-              .map((name) => DropdownMenuItem(value: name, child: Text(name, style: GoogleFonts.poppins(fontSize: 13))))
-              .toList(),
-          onChanged: (value) => setState(() => _selectedSupplier = value),
-          validator: (value) => value == null ? 'Required' : null,
         ),
       ],
     );

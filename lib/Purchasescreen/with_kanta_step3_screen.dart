@@ -1,9 +1,13 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:grjoffice_apps/core/app_colors.dart';
 import 'package:grjoffice_apps/Purchasescreen/purchase.dart';
-import 'package:grjoffice_apps/SupplierList/supplier.dart';
+import 'package:grjoffice_apps/models/item_model.dart';
+import 'package:grjoffice_apps/services/api_auth.dart';
 import 'package:grjoffice_apps/widgets/app_top_bar.dart';
 
 class WithKantaStep3Screen extends StatefulWidget {
@@ -19,121 +23,171 @@ class _WithKantaStep3ScreenState extends State<WithKantaStep3Screen> {
   static const _saveBlue = Color(0xFF2563EB);
 
   final _formKey = GlobalKey<FormState>();
-  final _vehicleNoController = TextEditingController();
   final _invoiceController = TextEditingController();
   final _kantaNoController = TextEditingController();
   final _qtyController = TextEditingController();
   final _unitController = TextEditingController(text: 'NOS');
   final _remarkController = TextEditingController();
-  late final TextEditingController _materialController;
 
-  String? _selectedSupplier;
-  String? _kantaSlipImageName;
-  DateTime? _kantaSlipImageAt;
-  String? _vehicleAtKantaImageName;
-  DateTime? _vehicleAtKantaImageAt;
+  ItemModel? _selectedItem;
+  File? _kantaSlipImageFile;
+  File? _vehicleAtKantaImageFile;
   bool _isSaving = false;
+
+  List<ItemModel> _items = [];
+  bool _loadingItems = true;
 
   @override
   void initState() {
     super.initState();
     final p = widget.purchase;
-    _selectedSupplier = p.supplierName;
-    _vehicleNoController.text = p.vehicleNo ?? '';
     _invoiceController.text = p.invoiceNo == '—' ? '' : p.invoiceNo;
     _kantaNoController.text = p.kantaNo ?? '';
-    _kantaSlipImageName = p.kantaSlipImage;
-    _kantaSlipImageAt = p.kantaSlipImageAt;
-    _vehicleAtKantaImageName = p.vehicleAtKantaImage;
-    _vehicleAtKantaImageAt = p.vehicleAtKantaImageAt;
     _remarkController.text = p.remark ?? '';
-
-    final materialName = p.materials.isNotEmpty
-        ? p.materials.first.name
-        : (p.itemName ?? '').split(',').first.trim();
-    _materialController = TextEditingController(text: materialName);
 
     if (p.materials.isNotEmpty && p.materials.first.qty != null) {
       final qty = p.materials.first.qty!;
       _qtyController.text = qty == qty.roundToDouble() ? qty.toInt().toString() : qty.toString();
       _unitController.text = p.materials.first.unit;
     }
+
+    _loadItems();
+  }
+
+  Future<void> _loadItems() async {
+    final cached = cachedItems();
+    if (cached != null && cached.isNotEmpty) {
+      setState(() {
+        _items = cached;
+        _loadingItems = false;
+        _prefillItem();
+      });
+      return;
+    }
+    final items = await itemsApi(context);
+    if (!mounted) return;
+    setState(() {
+      _items = items ?? [];
+      _loadingItems = false;
+      _prefillItem();
+    });
+  }
+
+  void _prefillItem() {
+    final p = widget.purchase;
+    if (p.materials.isNotEmpty && p.materials.first.itemId != null) {
+      _selectedItem = _items.cast<ItemModel?>().firstWhere(
+            (it) => it?.id == p.materials.first.itemId,
+            orElse: () => null,
+          );
+    }
   }
 
   @override
   void dispose() {
-    _vehicleNoController.dispose();
     _invoiceController.dispose();
     _kantaNoController.dispose();
-    _materialController.dispose();
     _qtyController.dispose();
     _unitController.dispose();
     _remarkController.dispose();
     super.dispose();
   }
 
-  Future<void> _pickImage(void Function(String) onPicked) async {
-    onPicked('photo_camera.jpg');
+  Future<void> _pickImage({required bool isKantaSlip}) async {
+    final picker = ImagePicker();
+    XFile? picked = await picker.pickImage(source: ImageSource.camera);
+    picked ??= await picker.pickImage(source: ImageSource.gallery);
+    if (picked != null) {
+      setState(() {
+        if (isKantaSlip) {
+          _kantaSlipImageFile = File(picked!.path);
+        } else {
+          _vehicleAtKantaImageFile = File(picked!.path);
+        }
+      });
+    }
   }
 
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
-    if (_selectedSupplier == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Please select a supplier.', style: GoogleFonts.poppins())),
-      );
-      return;
-    }
-    if (_kantaSlipImageName == null) {
+    if (_kantaSlipImageFile == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Kanta slip image is required.', style: GoogleFonts.poppins())),
       );
       return;
     }
-    if (_vehicleAtKantaImageName == null) {
+    if (_vehicleAtKantaImageFile == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Vehicle at kanta image is required.', style: GoogleFonts.poppins())),
       );
       return;
     }
 
-    setState(() => _isSaving = true);
-    await Future<void>.delayed(const Duration(milliseconds: 300));
-    if (!mounted) return;
-
-    final vehicleNo = _vehicleNoController.text.trim();
     final invoiceNo = _invoiceController.text.trim();
+    if (invoiceNo.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Invoice No is required.', style: GoogleFonts.poppins())),
+      );
+      return;
+    }
+
     final kantaNo = _kantaNoController.text.trim();
-    final materialName = _materialController.text.trim();
-    final qtyText = _qtyController.text.trim();
-    final qty = qtyText.isEmpty ? null : double.tryParse(qtyText);
+    if (kantaNo.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Kanta No is required.', style: GoogleFonts.poppins())),
+      );
+      return;
+    }
+
+    if (_selectedItem == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Please select a material.', style: GoogleFonts.poppins())),
+      );
+      return;
+    }
+
+    final qtyVal = double.tryParse(_qtyController.text.trim());
+    if (qtyVal == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Please enter a valid quantity.', style: GoogleFonts.poppins())),
+      );
+      return;
+    }
+
+    final purchaseId = int.tryParse(widget.purchase.id);
+    if (purchaseId == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Invalid purchase ID.', style: GoogleFonts.poppins())),
+      );
+      return;
+    }
+
     final unit = _unitController.text.trim().isEmpty ? 'NOS' : _unitController.text.trim();
+    final remark = _remarkController.text.trim();
+    final materials = [PurchaseMaterialPayload(itemId: _selectedItem!.id, qty: qtyVal, unit: unit)];
 
-    final updated = widget.purchase.copyWith(
-      supplierName: _selectedSupplier!,
-      vehicleNo: vehicleNo.isEmpty ? widget.purchase.vehicleNo : vehicleNo,
-      challanNo: vehicleNo.isNotEmpty ? vehicleNo : widget.purchase.challanNo,
-      invoiceNo: invoiceNo.isEmpty ? widget.purchase.invoiceNo : invoiceNo,
-      kantaSlipImage: _kantaSlipImageName,
-      kantaSlipImageAt: _kantaSlipImageAt ?? DateTime.now(),
-      kantaNo: kantaNo.isEmpty ? null : kantaNo,
-      vehicleAtKantaImage: _vehicleAtKantaImageName,
-      vehicleAtKantaImageAt: _vehicleAtKantaImageAt ?? DateTime.now(),
-      remark: _remarkController.text.trim().isEmpty ? null : _remarkController.text.trim(),
-      materials: [
-        PurchaseMaterialItem(name: materialName, qty: qty, unit: unit),
-      ],
-      itemName: materialName,
-      withKantaStage: WithKantaStage.completed,
+    setState(() => _isSaving = true);
+    final updated = await purchaseStep3WithKantaApi(
+      context,
+      purchaseId: purchaseId,
+      invoiceNo: invoiceNo,
+      kantaNo: kantaNo,
+      remark: remark.isEmpty ? null : remark,
+      materials: materials,
+      kantaSlipImage: _kantaSlipImageFile!,
+      vehicleAtKantaImage: _vehicleAtKantaImageFile!,
     );
+    if (!mounted) return;
+    setState(() => _isSaving = false);
 
-    Navigator.of(context).pop(updated);
+    if (updated != null) {
+      Navigator.of(context).pop(updated);
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     final hPad = _hPad(context);
-    final suppliers = kMockSuppliers.map((s) => s.name).toList();
     final isWide = MediaQuery.sizeOf(context).width >= 900;
 
     return Scaffold(
@@ -173,15 +227,7 @@ class _WithKantaStep3ScreenState extends State<WithKantaStep3Screen> {
                               Row(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  Expanded(child: _buildSupplierField(suppliers)),
-                                  const SizedBox(width: 12),
-                                  Expanded(
-                                    child: _buildTextField(
-                                      label: 'Vehicle No',
-                                      controller: _vehicleNoController,
-                                      hint: 'Vehicle No',
-                                    ),
-                                  ),
+                                  Expanded(child: _buildReadOnlyField(label: 'Supplier', value: widget.purchase.supplierName)),
                                   const SizedBox(width: 12),
                                   Expanded(
                                     child: _buildTextField(
@@ -191,7 +237,11 @@ class _WithKantaStep3ScreenState extends State<WithKantaStep3Screen> {
                                     ),
                                   ),
                                   const SizedBox(width: 12),
-                                  Expanded(child: _buildKantaSlipImageField()),
+                                  Expanded(child: _buildImagePickerField(
+                                    label: 'Kanta Slip Image',
+                                    file: _kantaSlipImageFile,
+                                    onPick: () => _pickImage(isKantaSlip: true),
+                                  )),
                                   const SizedBox(width: 12),
                                   Expanded(
                                     child: _buildTextField(
@@ -203,13 +253,7 @@ class _WithKantaStep3ScreenState extends State<WithKantaStep3Screen> {
                                 ],
                               )
                             else ...[
-                              _buildSupplierField(suppliers),
-                              const SizedBox(height: 16),
-                              _buildTextField(
-                                label: 'Vehicle No',
-                                controller: _vehicleNoController,
-                                hint: 'Vehicle No',
-                              ),
+                              _buildReadOnlyField(label: 'Supplier', value: widget.purchase.supplierName),
                               const SizedBox(height: 16),
                               _buildTextField(
                                 label: 'Invoice No',
@@ -217,7 +261,11 @@ class _WithKantaStep3ScreenState extends State<WithKantaStep3Screen> {
                                 hint: 'Invoice no',
                               ),
                               const SizedBox(height: 16),
-                              _buildKantaSlipImageField(),
+                              _buildImagePickerField(
+                                label: 'Kanta Slip Image',
+                                file: _kantaSlipImageFile,
+                                onPick: () => _pickImage(isKantaSlip: true),
+                              ),
                               const SizedBox(height: 16),
                               _buildTextField(
                                 label: 'Kanta No',
@@ -226,11 +274,13 @@ class _WithKantaStep3ScreenState extends State<WithKantaStep3Screen> {
                               ),
                             ],
                             const SizedBox(height: 20),
-                            if (isWide)
+                            if (_loadingItems)
+                              const Center(child: Padding(padding: EdgeInsets.all(16), child: CircularProgressIndicator()))
+                            else if (isWide)
                               Row(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  Expanded(child: _buildMaterialField()),
+                                  Expanded(child: _buildItemDropdown()),
                                   const SizedBox(width: 12),
                                   Expanded(
                                     child: _buildTextField(
@@ -254,7 +304,7 @@ class _WithKantaStep3ScreenState extends State<WithKantaStep3Screen> {
                                 ],
                               )
                             else ...[
-                              _buildMaterialField(),
+                              _buildItemDropdown(),
                               const SizedBox(height: 16),
                               Row(
                                 children: [
@@ -287,7 +337,11 @@ class _WithKantaStep3ScreenState extends State<WithKantaStep3Screen> {
                               Row(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  Expanded(child: _buildVehicleAtKantaImageField()),
+                                  Expanded(child: _buildImagePickerField(
+                                    label: 'Vehicle at Kanta Image',
+                                    file: _vehicleAtKantaImageFile,
+                                    onPick: () => _pickImage(isKantaSlip: false),
+                                  )),
                                   const SizedBox(width: 12),
                                   Expanded(
                                     child: _buildTextField(
@@ -299,7 +353,11 @@ class _WithKantaStep3ScreenState extends State<WithKantaStep3Screen> {
                                 ],
                               )
                             else ...[
-                              _buildVehicleAtKantaImageField(),
+                              _buildImagePickerField(
+                                label: 'Vehicle at Kanta Image',
+                                file: _vehicleAtKantaImageFile,
+                                onPick: () => _pickImage(isKantaSlip: false),
+                              ),
                               const SizedBox(height: 16),
                               _buildTextField(
                                 label: 'Remark',
@@ -352,48 +410,56 @@ class _WithKantaStep3ScreenState extends State<WithKantaStep3Screen> {
     );
   }
 
-  Widget _buildMaterialField() {
+  Widget _buildItemDropdown() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text('Material 1', style: GoogleFonts.poppins(fontSize: 13, fontWeight: FontWeight.w600)),
         const SizedBox(height: 8),
-        TextFormField(
-          controller: _materialController,
-          readOnly: true,
-          style: GoogleFonts.poppins(fontSize: 13, color: AppColors.textSecondary),
-          decoration: _fieldDecoration(hint: 'Material').copyWith(
-            filled: true,
-            fillColor: const Color(0xFFE5E7EB),
+        DropdownButtonFormField<ItemModel>(
+          value: _selectedItem,
+          decoration: _fieldDecoration(hint: 'Select item'),
+          isExpanded: true,
+          items: _items
+              .map((item) => DropdownMenuItem(
+                    value: item,
+                    child: Text(item.name, style: GoogleFonts.poppins(fontSize: 13), overflow: TextOverflow.ellipsis),
+                  ))
+              .toList(),
+          onChanged: (v) => setState(() => _selectedItem = v),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildReadOnlyField({required String label, required String value}) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(label, style: GoogleFonts.poppins(fontSize: 13, fontWeight: FontWeight.w600)),
+        const SizedBox(height: 8),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+          decoration: BoxDecoration(
+            color: const Color(0xFFE5E7EB),
+            borderRadius: BorderRadius.circular(6),
+            border: Border.all(color: AppColors.borderGray.withValues(alpha: 0.6)),
+          ),
+          child: Text(
+            value,
+            style: GoogleFonts.poppins(fontSize: 13, color: AppColors.textSecondary),
           ),
         ),
       ],
     );
   }
 
-  Widget _buildKantaSlipImageField() => _buildImageField(
-        label: 'Kanta Slip Image',
-        fileName: _kantaSlipImageName,
-        onPick: () => _pickImage((name) => setState(() {
-              _kantaSlipImageName = 'kanta_slip_$name';
-              _kantaSlipImageAt = DateTime.now();
-            })),
-      );
-
-  Widget _buildVehicleAtKantaImageField() => _buildImageField(
-        label: 'Vehicle at Kanta Image',
-        fileName: _vehicleAtKantaImageName,
-        onPick: () => _pickImage((name) => setState(() {
-              _vehicleAtKantaImageName = 'vehicle_kanta_$name';
-              _vehicleAtKantaImageAt = DateTime.now();
-            })),
-      );
-
-  Widget _buildImageField({
+  Widget _buildImagePickerField({
     required String label,
-    required String? fileName,
+    required File? file,
     required VoidCallback onPick,
   }) {
+    final fileName = file?.path.split('/').last;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -435,7 +501,7 @@ class _WithKantaStep3ScreenState extends State<WithKantaStep3Screen> {
                   fileName ?? 'No file selected.',
                   style: GoogleFonts.poppins(
                     fontSize: 12,
-                    color: fileName == null ? AppColors.textSecondary : AppColors.textDark,
+                    color: file == null ? AppColors.textSecondary : AppColors.textDark,
                   ),
                   overflow: TextOverflow.ellipsis,
                 ),
@@ -452,25 +518,6 @@ class _WithKantaStep3ScreenState extends State<WithKantaStep3Screen> {
     if (w < 360) return 14;
     if (w < 600) return 18;
     return 20;
-  }
-
-  Widget _buildSupplierField(List<String> suppliers) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text('Supplier', style: GoogleFonts.poppins(fontSize: 13, fontWeight: FontWeight.w600)),
-        const SizedBox(height: 8),
-        DropdownButtonFormField<String>(
-          initialValue: _selectedSupplier,
-          decoration: _fieldDecoration(),
-          items: suppliers
-              .map((name) => DropdownMenuItem(value: name, child: Text(name, style: GoogleFonts.poppins(fontSize: 13))))
-              .toList(),
-          onChanged: (value) => setState(() => _selectedSupplier = value),
-          validator: (value) => value == null ? 'Required' : null,
-        ),
-      ],
-    );
   }
 
   InputDecoration _fieldDecoration({String? hint}) {

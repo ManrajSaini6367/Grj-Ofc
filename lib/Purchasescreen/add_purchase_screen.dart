@@ -1,9 +1,14 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:grjoffice_apps/core/app_colors.dart';
 import 'package:grjoffice_apps/Purchasescreen/purchase.dart';
-import 'package:grjoffice_apps/SupplierList/supplier.dart';
+import 'package:grjoffice_apps/models/getsupplierlist.dart';
+import 'package:grjoffice_apps/models/item_model.dart';
+import 'package:grjoffice_apps/services/api_auth.dart';
 import 'package:grjoffice_apps/widgets/app_top_bar.dart';
 
 class AddPurchaseScreen extends StatefulWidget {
@@ -24,20 +29,46 @@ class _AddPurchaseScreenState extends State<AddPurchaseScreen> {
   final _remarkController = TextEditingController();
 
   int _step = 0;
-  String? _selectedItem;
+  ItemModel? _selectedItem;
   PurchaseFlowType? _flowType;
-  final DateTime _purchaseDate = DateTime.now();
-  String? _selectedSupplier;
-  String? _directMaterial;
+  int? _selectedSupplierId;
+  String? _selectedSupplierName;
+  ItemModel? _directMaterial;
   String? _loadingImageName;
-  DateTime? _loadingImageAt;
-  List<String?> _materialLines = [null];
+  File? _loadingImageFile;
+  List<ItemModel?> _materialLines = [null];
   bool _isSaving = false;
+
+  List<ItemModel> _items = [];
+  List<({int id, String name})> _suppliers = [];
+  bool _loadingLookups = true;
 
   @override
   void initState() {
     super.initState();
     _materialLines = [null];
+    WidgetsBinding.instance.addPostFrameCallback((_) => _loadLookups());
+  }
+
+  Future<void> _loadLookups() async {
+    final itemsFuture = itemsApi(context, perPage: 50);
+    final suppliersFuture = getSuppliersApi(context, perPage: 100);
+
+    final results = await Future.wait([itemsFuture, suppliersFuture]);
+
+    if (!mounted) return;
+
+    final itemsResult = results[0] as List<ItemModel>?;
+    final suppliersResult = results[1] as Getsupplierlistdata?;
+
+    setState(() {
+      _items = itemsResult ?? [];
+      _suppliers = (suppliersResult?.data?.items ?? [])
+          .where((s) => s.id != null && s.name != null)
+          .map((s) => (id: s.id!, name: s.name!))
+          .toList();
+      _loadingLookups = false;
+    });
   }
 
   @override
@@ -55,8 +86,8 @@ class _AddPurchaseScreenState extends State<AddPurchaseScreen> {
 
   bool get _isDirectPurchase => _flowType == PurchaseFlowType.direct;
 
-  List<String> get _chosenMaterials =>
-      _materialLines.whereType<String>().where((m) => m.isNotEmpty).toList();
+  List<ItemModel> get _chosenMaterials =>
+      _materialLines.whereType<ItemModel>().toList();
 
   void _goToNextStep() {
     if (!_canProceedStep1) {
@@ -83,13 +114,13 @@ class _AddPurchaseScreenState extends State<AddPurchaseScreen> {
 
   Future<void> _submitInformationPurchaseStep1({required bool withKanta}) async {
     if (!_formKey.currentState!.validate()) return;
-    if (_selectedSupplier == null) {
+    if (_selectedSupplierId == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Please select a supplier.', style: GoogleFonts.poppins())),
       );
       return;
     }
-    if (_loadingImageName == null) {
+    if (_loadingImageFile == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Loading vehicle image is required.', style: GoogleFonts.poppins())),
       );
@@ -103,30 +134,23 @@ class _AddPurchaseScreenState extends State<AddPurchaseScreen> {
     }
 
     setState(() => _isSaving = true);
-    await Future<void>.delayed(const Duration(milliseconds: 300));
-    if (!mounted) return;
 
-    final vehicleNo = _vehicleNoController.text.trim();
-    final materialItems = _chosenMaterials.map((m) => PurchaseMaterialItem(name: m)).toList();
-    final prefix = withKanta ? 'WK' : 'NK';
-    final purchase = Purchase(
-      id: 'PUR-${DateTime.now().millisecondsSinceEpoch}',
-      date: _purchaseDate,
-      challanNo: vehicleNo.isNotEmpty ? vehicleNo : '$prefix-${DateTime.now().millisecondsSinceEpoch}',
-      invoiceNo: '—',
-      supplierName: _selectedSupplier!,
-      status: PurchaseStatus.pending,
-      flowType: withKanta ? PurchaseFlowType.withKanta : PurchaseFlowType.withoutKanta,
-      vehicleNo: vehicleNo.isEmpty ? null : vehicleNo,
-      loadingVehicleImage: _loadingImageName,
-      loadingVehicleImageAt: _loadingImageAt,
-      materials: materialItems,
-      itemName: _chosenMaterials.join(', '),
-      withoutKantaStage: withKanta ? null : WithoutKantaStage.initial,
-      withKantaStage: withKanta ? WithKantaStage.initial : null,
+    final purchase = await createPurchaseApi(
+      context,
+      flowType: withKanta ? 'with_kanta' : 'without_kanta',
+      supplierId: _selectedSupplierId!,
+      vehicleNo: _vehicleNoController.text.trim(),
+      imageFile: _loadingImageFile!,
+      itemIds: _chosenMaterials.map((m) => m.id).toList(),
     );
 
-    Navigator.of(context).pop(purchase);
+    if (!mounted) return;
+
+    if (purchase != null) {
+      Navigator.of(context).pop(purchase);
+    } else {
+      setState(() => _isSaving = false);
+    }
   }
 
   Future<void> _submitWithoutKanta() => _submitInformationPurchaseStep1(withKanta: false);
@@ -135,7 +159,7 @@ class _AddPurchaseScreenState extends State<AddPurchaseScreen> {
 
   Future<void> _submitDirectPurchase() async {
     if (!_formKey.currentState!.validate()) return;
-    if (_selectedSupplier == null) {
+    if (_selectedSupplierId == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Please select a supplier.', style: GoogleFonts.poppins())),
       );
@@ -147,52 +171,79 @@ class _AddPurchaseScreenState extends State<AddPurchaseScreen> {
       );
       return;
     }
-    if (_loadingImageName == null) {
+    if (_loadingImageFile == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Image is required.', style: GoogleFonts.poppins())),
       );
       return;
     }
 
-    setState(() => _isSaving = true);
-    await Future<void>.delayed(const Duration(milliseconds: 300));
-    if (!mounted) return;
-
-    final vehicleNo = _vehicleNoController.text.trim();
     final qtyText = _qtyController.text.trim();
-    final qty = qtyText.isEmpty ? null : double.tryParse(qtyText);
+    final qty = double.tryParse(qtyText) ?? 0;
+    if (qty <= 0) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Please enter a valid quantity greater than 0.', style: GoogleFonts.poppins())),
+      );
+      return;
+    }
+
+    setState(() => _isSaving = true);
+
     final unit = _unitController.text.trim().isEmpty ? 'Ton' : _unitController.text.trim();
     final remark = _remarkController.text.trim();
 
-    final purchase = Purchase(
-      id: 'PUR-${DateTime.now().millisecondsSinceEpoch}',
-      date: _purchaseDate,
-      challanNo: vehicleNo.isNotEmpty ? vehicleNo : 'DR-${DateTime.now().millisecondsSinceEpoch}',
-      invoiceNo: '—',
-      supplierName: _selectedSupplier!,
-      status: PurchaseStatus.pending,
-      flowType: PurchaseFlowType.direct,
-      vehicleNo: vehicleNo.isEmpty ? null : vehicleNo,
-      loadingVehicleImage: _loadingImageName,
-      loadingVehicleImageAt: _loadingImageAt,
-      materials: [PurchaseMaterialItem(name: _directMaterial!, qty: qty, unit: unit)],
-      itemName: _directMaterial,
+    final purchase = await createPurchaseApi(
+      context,
+      flowType: 'direct',
+      supplierId: _selectedSupplierId!,
+      vehicleNo: _vehicleNoController.text.trim(),
+      imageFile: _loadingImageFile!,
+      materials: [PurchaseMaterialPayload(itemId: _directMaterial!.id, qty: qty, unit: unit)],
       remark: remark.isEmpty ? null : remark,
-      directPurchaseStage: DirectPurchaseStage.completed,
     );
 
-    Navigator.of(context).pop(purchase);
+    if (!mounted) return;
+
+    if (purchase != null) {
+      Navigator.of(context).pop(purchase);
+    } else {
+      setState(() => _isSaving = false);
+    }
   }
 
   Future<void> _pickLoadingImage() async {
+    final picker = ImagePicker();
+    XFile? xfile = await picker.pickImage(source: ImageSource.camera);
+    xfile ??= await picker.pickImage(source: ImageSource.gallery);
+    if (xfile == null || !mounted) return;
     setState(() {
-      _loadingImageName = 'vehicle_loading.jpg';
-      _loadingImageAt = DateTime.now();
+      _loadingImageFile = File(xfile!.path);
+      _loadingImageName = xfile.name;
+    });
+  }
+
+  Future<void> _pickSupplier() async {
+    final picked = await showModalBottomSheet<({int id, String name})>(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (context) {
+        return _SupplierSearchSheet(initialSuppliers: _suppliers);
+      },
+    );
+
+    if (picked == null || !mounted) return;
+    setState(() {
+      _selectedSupplierId = picked.id;
+      _selectedSupplierName = picked.name;
+      if (!_suppliers.any((s) => s.id == picked.id)) {
+        _suppliers = [..._suppliers, picked];
+      }
     });
   }
 
   Future<void> _pickMaterial(int index) async {
-    final picked = await showModalBottomSheet<String>(
+    final picked = await showModalBottomSheet<ItemModel>(
       context: context,
       backgroundColor: Colors.transparent,
       isScrollControlled: true,
@@ -215,14 +266,24 @@ class _AddPurchaseScreenState extends State<AddPurchaseScreen> {
                   style: GoogleFonts.poppins(fontSize: 16, fontWeight: FontWeight.w700),
                 ),
                 const SizedBox(height: 14),
-                Wrap(
-                  spacing: 10,
-                  runSpacing: 10,
-                  children: kPurchaseItemOptions.map((item) {
-                    final selected = _materialLines[index] == item;
-                    return _choiceChip(item, selected, () => Navigator.pop(context, item));
-                  }).toList(),
-                ),
+                if (_items.isEmpty)
+                  Text(
+                    'No items available.',
+                    style: GoogleFonts.poppins(fontSize: 13, color: AppColors.textSecondary),
+                  )
+                else
+                  Wrap(
+                    spacing: 10,
+                    runSpacing: 10,
+                    children: _items.map((item) {
+                      final selected = _materialLines[index]?.id == item.id;
+                      return _choiceChip(
+                        item.displayName,
+                        selected,
+                        () => Navigator.pop(context, item),
+                      );
+                    }).toList(),
+                  ),
               ],
             ),
           ),
@@ -307,7 +368,7 @@ class _AddPurchaseScreenState extends State<AddPurchaseScreen> {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         Text(
-          'Choose $kPurchaseItemOptionsTitle / ${kKantaSlipOptions.join(' / ')}',
+          'Choose Material / ${kKantaSlipOptions.join(' / ')}',
           style: GoogleFonts.poppins(
             fontSize: 15,
             fontWeight: FontWeight.w700,
@@ -316,37 +377,46 @@ class _AddPurchaseScreenState extends State<AddPurchaseScreen> {
           ),
         ),
         const SizedBox(height: 20),
-        Wrap(
-          spacing: 10,
-          runSpacing: 10,
-          children: [
-            ...kPurchaseItemOptions.map(
-              (item) => _choiceChip(
-                item,
-                _selectedItem == item,
-                () => setState(() => _selectedItem = item),
-              ),
-            ),
-            ...kKantaSlipOptions.map((option) {
-              final selected = switch (option) {
-                'With Kanta' => _flowType == PurchaseFlowType.withKanta,
-                'Without Kanta' => _flowType == PurchaseFlowType.withoutKanta,
-                _ => _flowType == PurchaseFlowType.direct,
-              };
-              return _choiceChip(
-                option,
-                selected,
-                () => setState(() {
-                  _flowType = switch (option) {
-                    'With Kanta' => PurchaseFlowType.withKanta,
-                    'Without Kanta' => PurchaseFlowType.withoutKanta,
-                    _ => PurchaseFlowType.direct,
-                  };
-                }),
-              );
-            }),
-          ],
-        ),
+        if (_loadingLookups)
+          const Center(child: CircularProgressIndicator())
+        else
+          Wrap(
+            spacing: 10,
+            runSpacing: 10,
+            children: [
+              if (_items.isEmpty)
+                Text(
+                  'No items available.',
+                  style: GoogleFonts.poppins(fontSize: 13, color: AppColors.textSecondary),
+                )
+              else
+                ..._items.map(
+                  (item) => _choiceChip(
+                    item.displayName,
+                    _selectedItem?.id == item.id,
+                    () => setState(() => _selectedItem = item),
+                  ),
+                ),
+              ...kKantaSlipOptions.map((option) {
+                final selected = switch (option) {
+                  'With Kanta' => _flowType == PurchaseFlowType.withKanta,
+                  'Without Kanta' => _flowType == PurchaseFlowType.withoutKanta,
+                  _ => _flowType == PurchaseFlowType.direct,
+                };
+                return _choiceChip(
+                  option,
+                  selected,
+                  () => setState(() {
+                    _flowType = switch (option) {
+                      'With Kanta' => PurchaseFlowType.withKanta,
+                      'Without Kanta' => PurchaseFlowType.withoutKanta,
+                      _ => PurchaseFlowType.direct,
+                    };
+                  }),
+                );
+              }),
+            ],
+          ),
         const SizedBox(height: 28),
         Align(
           alignment: Alignment.centerLeft,
@@ -408,7 +478,6 @@ class _AddPurchaseScreenState extends State<AddPurchaseScreen> {
   }
 
   Widget _buildDirectPurchaseForm() {
-    final suppliers = kMockSuppliers.map((s) => s.name).toList();
     final isWide = MediaQuery.sizeOf(context).width >= 900;
 
     return Form(
@@ -427,7 +496,7 @@ class _AddPurchaseScreenState extends State<AddPurchaseScreen> {
                     const SizedBox(width: 12),
                     Expanded(child: _buildDirectImageField()),
                     const SizedBox(width: 12),
-                    Expanded(child: _buildSupplierField(suppliers, required: true)),
+                    Expanded(child: _buildSupplierField(required: true)),
                     const SizedBox(width: 12),
                     Expanded(child: _buildDirectMaterialField()),
                   ],
@@ -437,7 +506,7 @@ class _AddPurchaseScreenState extends State<AddPurchaseScreen> {
                 const SizedBox(height: 16),
                 _buildDirectImageField(),
                 const SizedBox(height: 16),
-                _buildSupplierField(suppliers, required: true),
+                _buildSupplierField(required: true),
                 const SizedBox(height: 16),
                 _buildDirectMaterialField(),
               ],
@@ -516,13 +585,20 @@ class _AddPurchaseScreenState extends State<AddPurchaseScreen> {
           ),
         ),
         const SizedBox(height: 8),
-        DropdownButtonFormField<String>(
-          initialValue: _directMaterial,
+        DropdownButtonFormField<int>(
+          value: _directMaterial?.id,
           decoration: _inputDecoration(hint: '-- Select an option --'),
-          items: kPurchaseItemOptions
-              .map((item) => DropdownMenuItem(value: item, child: Text(item, style: GoogleFonts.poppins(fontSize: 13))))
+          items: _items
+              .map((item) => DropdownMenuItem(
+                    value: item.id,
+                    child: Text(item.displayName, style: GoogleFonts.poppins(fontSize: 13)),
+                  ))
               .toList(),
-          onChanged: (value) => setState(() => _directMaterial = value),
+          onChanged: (value) => setState(() {
+            _directMaterial = value != null
+                ? _items.where((i) => i.id == value).firstOrNull
+                : null;
+          }),
           validator: (value) => value == null ? 'Required' : null,
         ),
       ],
@@ -631,7 +707,6 @@ class _AddPurchaseScreenState extends State<AddPurchaseScreen> {
   }
 
   Widget _buildInformationPurchaseForm({required Future<void> Function() onSave}) {
-    final suppliers = kMockSuppliers.map((s) => s.name).toList();
     final isWide = MediaQuery.sizeOf(context).width >= 600;
 
     return Form(
@@ -650,7 +725,7 @@ class _AddPurchaseScreenState extends State<AddPurchaseScreen> {
                     const SizedBox(width: 12),
                     Expanded(child: _buildLoadingImageField()),
                     const SizedBox(width: 12),
-                    Expanded(child: _buildSupplierField(suppliers)),
+                    Expanded(child: _buildSupplierField()),
                   ],
                 )
               else ...[
@@ -658,7 +733,7 @@ class _AddPurchaseScreenState extends State<AddPurchaseScreen> {
                 const SizedBox(height: 16),
                 _buildLoadingImageField(),
                 const SizedBox(height: 16),
-                _buildSupplierField(suppliers),
+                _buildSupplierField(),
               ],
               const SizedBox(height: 20),
               Text('Material', style: GoogleFonts.poppins(fontSize: 13, fontWeight: FontWeight.w600)),
@@ -682,7 +757,7 @@ class _AddPurchaseScreenState extends State<AddPurchaseScreen> {
                           child: Align(
                             alignment: Alignment.centerLeft,
                             child: Text(
-                              _materialLines[index] ?? 'Please Choose',
+                              _materialLines[index]?.displayName ?? 'Please Choose',
                               style: GoogleFonts.poppins(
                                 fontSize: 13,
                                 color: _materialLines[index] == null
@@ -838,33 +913,58 @@ class _AddPurchaseScreenState extends State<AddPurchaseScreen> {
     );
   }
 
-  Widget _buildSupplierField(List<String> suppliers, {bool required = false}) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        if (required)
-          RichText(
-            text: TextSpan(
-              style: GoogleFonts.poppins(fontSize: 13, fontWeight: FontWeight.w600, color: AppColors.textDark),
-              children: const [
-                TextSpan(text: 'Supplier '),
-                TextSpan(text: '*', style: TextStyle(color: AppColors.primaryRed)),
-              ],
+  Widget _buildSupplierField({bool required = false}) {
+    final selectedName = _selectedSupplierName ??
+        _suppliers.where((s) => s.id == _selectedSupplierId).map((s) => s.name).firstOrNull;
+
+    return FormField<int>(
+      initialValue: _selectedSupplierId,
+      validator: (_) => _selectedSupplierId == null ? 'Required' : null,
+      builder: (field) {
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            if (required)
+              RichText(
+                text: TextSpan(
+                  style: GoogleFonts.poppins(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.textDark,
+                  ),
+                  children: const [
+                    TextSpan(text: 'Supplier '),
+                    TextSpan(text: '*', style: TextStyle(color: AppColors.primaryRed)),
+                  ],
+                ),
+              )
+            else
+              Text(
+                'Supplier',
+                style: GoogleFonts.poppins(fontSize: 13, fontWeight: FontWeight.w600),
+              ),
+            const SizedBox(height: 8),
+            InkWell(
+              onTap: _loadingLookups ? null : _pickSupplier,
+              borderRadius: BorderRadius.circular(6),
+              child: InputDecorator(
+                decoration: _inputDecoration(hint: 'Search & select supplier').copyWith(
+                  errorText: field.errorText,
+                  suffixIcon: const Icon(Icons.search, size: 20, color: AppColors.textSecondary),
+                ),
+                child: Text(
+                  selectedName ?? 'Search & select supplier',
+                  style: GoogleFonts.poppins(
+                    fontSize: 13,
+                    color: selectedName == null ? AppColors.inputHint : AppColors.textDark,
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
             ),
-          )
-        else
-          Text('Supplier', style: GoogleFonts.poppins(fontSize: 13, fontWeight: FontWeight.w600)),
-        const SizedBox(height: 8),
-        DropdownButtonFormField<String>(
-          initialValue: _selectedSupplier,
-          decoration: _inputDecoration(hint: '-- Select an option --'),
-          items: suppliers
-              .map((name) => DropdownMenuItem(value: name, child: Text(name, style: GoogleFonts.poppins(fontSize: 13))))
-              .toList(),
-          onChanged: (value) => setState(() => _selectedSupplier = value),
-          validator: (value) => value == null ? 'Required' : null,
-        ),
-      ],
+          ],
+        );
+      },
     );
   }
 
@@ -908,6 +1008,173 @@ class _AddPurchaseScreenState extends State<AddPurchaseScreen> {
               : null,
         ),
       ],
+    );
+  }
+}
+
+class _SupplierSearchSheet extends StatefulWidget {
+  const _SupplierSearchSheet({required this.initialSuppliers});
+
+  final List<({int id, String name})> initialSuppliers;
+
+  @override
+  State<_SupplierSearchSheet> createState() => _SupplierSearchSheetState();
+}
+
+class _SupplierSearchSheetState extends State<_SupplierSearchSheet> {
+  final _searchController = TextEditingController();
+  late List<({int id, String name})> _results;
+  bool _isSearching = false;
+  int _searchToken = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _results = List<({int id, String name})>.from(widget.initialSuppliers);
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _onSearchChanged(String query) async {
+    final token = ++_searchToken;
+    final keyword = query.trim();
+
+    if (keyword.isEmpty) {
+      setState(() {
+        _results = List<({int id, String name})>.from(widget.initialSuppliers);
+        _isSearching = false;
+      });
+      return;
+    }
+
+    setState(() => _isSearching = true);
+    await Future<void>.delayed(const Duration(milliseconds: 300));
+    if (!mounted || token != _searchToken) return;
+
+    final local = widget.initialSuppliers
+        .where((s) => s.name.toLowerCase().contains(keyword.toLowerCase()))
+        .toList();
+
+    final response = await getSuppliersApi(context, search: keyword, perPage: 50);
+    if (!mounted || token != _searchToken) return;
+
+    final apiResults = (response?.data?.items ?? [])
+        .where((s) => s.id != null && (s.name ?? '').trim().isNotEmpty)
+        .map((s) => (id: s.id!, name: s.name!.trim()))
+        .toList();
+
+    final merged = <int, ({int id, String name})>{
+      for (final s in local) s.id: s,
+      for (final s in apiResults) s.id: s,
+    };
+
+    setState(() {
+      _results = merged.values.toList()
+        ..sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
+      _isSearching = false;
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final bottomInset = MediaQuery.viewInsetsOf(context).bottom;
+
+    return Padding(
+      padding: EdgeInsets.only(bottom: bottomInset),
+      child: Container(
+        margin: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+        height: MediaQuery.sizeOf(context).height * 0.65,
+        padding: const EdgeInsets.fromLTRB(16, 16, 16, 12),
+        decoration: BoxDecoration(
+          color: AppColors.cardWhite,
+          borderRadius: BorderRadius.circular(16),
+        ),
+        child: SafeArea(
+          top: false,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text(
+                'Select Supplier',
+                style: GoogleFonts.poppins(fontSize: 16, fontWeight: FontWeight.w700),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: _searchController,
+                autofocus: true,
+                onChanged: _onSearchChanged,
+                style: GoogleFonts.poppins(fontSize: 13),
+                decoration: InputDecoration(
+                  hintText: 'Search supplier...',
+                  hintStyle: GoogleFonts.poppins(color: AppColors.inputHint, fontSize: 13),
+                  prefixIcon: const Icon(Icons.search, size: 20, color: AppColors.textSecondary),
+                  suffixIcon: _isSearching
+                      ? const Padding(
+                          padding: EdgeInsets.all(12),
+                          child: SizedBox(
+                            width: 16,
+                            height: 16,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: AppColors.primaryRed,
+                            ),
+                          ),
+                        )
+                      : null,
+                  filled: true,
+                  fillColor: AppColors.operationsCardBg,
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(8),
+                    borderSide: BorderSide(color: AppColors.borderGray.withValues(alpha: 0.6)),
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(8),
+                    borderSide: BorderSide(color: AppColors.borderGray.withValues(alpha: 0.6)),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(8),
+                    borderSide: BorderSide(color: AppColors.primaryRed.withValues(alpha: 0.5), width: 1.5),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 12),
+              Expanded(
+                child: _results.isEmpty
+                    ? Center(
+                        child: Text(
+                          'No suppliers found',
+                          style: GoogleFonts.poppins(fontSize: 13, color: AppColors.textSecondary),
+                        ),
+                      )
+                    : ListView.separated(
+                        itemCount: _results.length,
+                        separatorBuilder: (_, __) => Divider(
+                          height: 1,
+                          color: AppColors.borderGray.withValues(alpha: 0.4),
+                        ),
+                        itemBuilder: (context, index) {
+                          final supplier = _results[index];
+                          return ListTile(
+                            contentPadding: EdgeInsets.zero,
+                            title: Text(
+                              supplier.name,
+                              style: GoogleFonts.poppins(fontSize: 14, fontWeight: FontWeight.w500),
+                            ),
+                            trailing: const Icon(Icons.chevron_right, color: AppColors.textSecondary),
+                            onTap: () => Navigator.pop(context, supplier),
+                          );
+                        },
+                      ),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }

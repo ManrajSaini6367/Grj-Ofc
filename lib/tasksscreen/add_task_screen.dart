@@ -6,7 +6,10 @@ import 'package:grjoffice_apps/services/api_auth.dart';
 import 'package:grjoffice_apps/widgets/app_top_bar.dart';
 
 class AddTaskScreen extends StatefulWidget {
-  const AddTaskScreen({super.key});
+  const AddTaskScreen({super.key, this.task});
+
+  /// When set, screen works in edit mode and calls update API.
+  final Task? task;
 
   @override
   State<AddTaskScreen> createState() => _AddTaskScreenState();
@@ -19,33 +22,58 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
 
   DateTime? _startDate;
   DateTime? _endDate;
-  String? _selectedEmployee;
-  String _status = 'Start'; // Maps to pending
-  String _level = 'Low'; // Maps to low priority
+  int? _selectedEmployeeId;
+  String _status = 'Start';
+  String _level = 'Low';
   bool _isSaving = false;
+  bool _isLoadingEmployees = true;
 
-  // List of loaded employees
-  List<String> _employees = [];
+  List<_TaskEmployeeOption> _employees = [];
 
-  // Static fallback list of employees
-  final List<String> _fallbackEmployees = [
-    'Amit Kumar',
-    'Sumit Singh',
-    'Nehal Sharma',
-    'Rahul Verma',
-    'Pooja Gupta',
-    'Raj Patel',
-    'Arjun Mehta',
-    'Vikram Malhotra',
-    'Simran Kaur',
-    'Priya Sen',
-    'Karan Johar',
-  ];
+  bool get _isEdit => widget.task != null;
 
   @override
   void initState() {
     super.initState();
-    _loadEmployees();
+    _prefillFromTask();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _loadEmployees());
+  }
+
+  void _prefillFromTask() {
+    final task = widget.task;
+    if (task == null) return;
+
+    _titleController.text = task.title;
+    _descriptionController.text = task.description ?? '';
+    _startDate = task.startDate;
+    _endDate = task.endDate ?? task.dueDate;
+    _selectedEmployeeId = task.userId;
+    _status = _statusLabel(task.status);
+    _level = _levelLabel(task.priority);
+  }
+
+  String _statusLabel(TaskStatus status) {
+    switch (status) {
+      case TaskStatus.onProgress:
+        return 'On Progress';
+      case TaskStatus.inPending:
+        return 'In Pending';
+      case TaskStatus.completed:
+        return 'Completed';
+      case TaskStatus.start:
+        return 'Start';
+    }
+  }
+
+  String _levelLabel(TaskPriority priority) {
+    switch (priority) {
+      case TaskPriority.high:
+        return 'High';
+      case TaskPriority.medium:
+        return 'Medium';
+      case TaskPriority.low:
+        return 'Low';
+    }
   }
 
   @override
@@ -56,33 +84,48 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
   }
 
   Future<void> _loadEmployees() async {
+    setState(() => _isLoadingEmployees = true);
     try {
       final response = await getEmployeesApi(context);
-      if (response != null && response.data != null && response.data!.items != null) {
-        final List<String> fetched = [];
-        for (final item in response.data!.items!) {
-          final displayName = (item.name?.trim().isNotEmpty == true)
-              ? item.name!.trim()
-              : '${item.firstName ?? ''} ${item.lastName ?? ''}'.trim();
-          if (displayName.isNotEmpty) {
-            fetched.add(displayName);
-          }
-        }
-        if (mounted) {
-          setState(() {
-            _employees = fetched.isNotEmpty ? fetched : _fallbackEmployees;
-          });
-          return;
-        }
+      final items = response?.data?.items ?? [];
+      final fetched = <_TaskEmployeeOption>[];
+      for (final item in items) {
+        final id = item.id;
+        if (id == null) continue;
+        final displayName = (item.name?.trim().isNotEmpty == true)
+            ? item.name!.trim()
+            : '${item.firstName ?? ''} ${item.lastName ?? ''}'.trim();
+        if (displayName.isEmpty) continue;
+        fetched.add(_TaskEmployeeOption(id: id, name: displayName));
       }
+
+      // Keep current assignee visible even if not in employee list.
+      final task = widget.task;
+      if (task?.userId != null &&
+          fetched.every((e) => e.id != task!.userId)) {
+        fetched.insert(
+          0,
+          _TaskEmployeeOption(
+            id: task!.userId!,
+            name: task.assigneeName.isNotEmpty ? task.assigneeName : 'Assignee #${task.userId}',
+          ),
+        );
+      }
+
+      if (!mounted) return;
+      setState(() {
+        _employees = fetched;
+        _isLoadingEmployees = false;
+      });
+      return;
     } catch (e) {
       debugPrint('[AddTaskScreen] failed to load employees: $e');
     }
-    if (mounted) {
-      setState(() {
-        _employees = _fallbackEmployees;
-      });
-    }
+    if (!mounted) return;
+    setState(() {
+      _employees = [];
+      _isLoadingEmployees = false;
+    });
   }
 
   Future<void> _pickStartDate() async {
@@ -113,29 +156,36 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
     return '$mm / $dd / $yyyy';
   }
 
-  TaskStatus _mapStatus(String statusStr) {
+  String _formatApiDate(DateTime date) {
+    final y = date.year.toString().padLeft(4, '0');
+    final m = date.month.toString().padLeft(2, '0');
+    final d = date.day.toString().padLeft(2, '0');
+    return '$y-$m-$d';
+  }
+
+  String _apiStatus(String statusStr) {
     switch (statusStr) {
       case 'On Progress':
-        return TaskStatus.onProgress;
+        return 'on_progress';
       case 'In Pending':
-        return TaskStatus.inPending;
+        return 'in_pending';
       case 'Completed':
-        return TaskStatus.completed;
+        return 'completed';
       case 'Start':
       default:
-        return TaskStatus.start;
+        return 'start';
     }
   }
 
-  TaskPriority _mapPriority(String levelStr) {
+  String _apiLevel(String levelStr) {
     switch (levelStr) {
       case 'High':
-        return TaskPriority.high;
+        return 'high';
       case 'Medium':
-        return TaskPriority.medium;
+        return 'medium';
       case 'Low':
       default:
-        return TaskPriority.low;
+        return 'low';
     }
   }
 
@@ -156,7 +206,7 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
       return;
     }
 
-    if (_selectedEmployee == null) {
+    if (_selectedEmployeeId == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Please select an Employee.', style: GoogleFonts.poppins())),
       );
@@ -172,28 +222,45 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
     }
 
     setState(() => _isSaving = true);
-    await Future<void>.delayed(const Duration(milliseconds: 300));
+
+    Task? task;
+    if (_isEdit) {
+      final taskId = int.tryParse(widget.task!.id);
+      if (taskId == null) {
+        setState(() => _isSaving = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Invalid task id.', style: GoogleFonts.poppins())),
+        );
+        return;
+      }
+      task = await updateTaskApi(
+        context,
+        taskId: taskId,
+        userId: _selectedEmployeeId!,
+        title: title,
+        description: _descriptionController.text.trim(),
+        startDate: _formatApiDate(_startDate!),
+        endDate: _formatApiDate(_endDate!),
+        status: _apiStatus(_status),
+        level: _apiLevel(_level),
+      );
+    } else {
+      task = await createTaskApi(
+        context,
+        userId: _selectedEmployeeId!,
+        title: title,
+        description: _descriptionController.text.trim(),
+        startDate: _formatApiDate(_startDate!),
+        endDate: _formatApiDate(_endDate!),
+        status: _apiStatus(_status),
+        level: _apiLevel(_level),
+      );
+    }
+
     if (!mounted) return;
+    setState(() => _isSaving = false);
 
-    final String randomId = DateTime.now().millisecondsSinceEpoch.toString();
-    final String assigneeName = _selectedEmployee!;
-    final String firstName = assigneeName.split(' ').first;
-    final String avatarUrl = 'https://images.unsplash.com/photo-${1500000000000 + (assigneeName.hashCode % 1000000)}?w=100&h=100&fit=crop';
-
-    final task = Task(
-      id: randomId,
-      title: title,
-      projectName: 'Web App Redesign', // Default project
-      dueDate: _endDate!,
-      priority: _mapPriority(_level),
-      status: _mapStatus(_status),
-      assigneeName: firstName,
-      assigneeAvatarUrl: avatarUrl,
-      customColor: _mapStatus(_status) == TaskStatus.inPending ? const Color(0xFF6366F1) : null,
-      startDate: _startDate,
-      description: _descriptionController.text.trim(),
-    );
-
+    if (task == null) return;
     Navigator.of(context).pop(task);
   }
 
@@ -208,7 +275,7 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
         child: Column(
           children: [
             AppTopBar.page(
-              title: 'Add Task',
+              title: _isEdit ? 'Edit Task' : 'Add Task',
               onBack: () => Navigator.pop(context),
               horizontalPadding: hPad,
             ),
@@ -290,32 +357,36 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
                           const SizedBox(height: 24),
                           
                           // Save Action Button
-                          Align(
-                            alignment: Alignment.centerLeft,
-                            child: SizedBox(
-                              height: 44,
-                              child: ElevatedButton.icon(
-                                onPressed: _isSaving ? null : _submit,
-                                icon: _isSaving
-                                    ? const SizedBox(
-                                        width: 18,
-                                        height: 18,
-                                        child: CircularProgressIndicator(
-                                          strokeWidth: 2,
-                                          color: AppColors.white,
-                                        ),
-                                      )
-                                    : const Icon(Icons.save_outlined, size: 18),
-                                label: Text(
-                                  'Save',
-                                  style: GoogleFonts.poppins(fontSize: 14, fontWeight: FontWeight.w600),
+                          SizedBox(
+                            height: 48,
+                            width: double.infinity,
+                            child: ElevatedButton.icon(
+                              onPressed: _isSaving ? null : _submit,
+                              icon: _isSaving
+                                  ? const SizedBox(
+                                      width: 18,
+                                      height: 18,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                        color: AppColors.white,
+                                      ),
+                                    )
+                                  : const Icon(Icons.save_outlined, size: 18),
+                              label: Text(
+                                _isEdit ? 'Update' : 'Save',
+                                style: GoogleFonts.poppins(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w600,
                                 ),
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: AppColors.primaryRed,
-                                  foregroundColor: AppColors.white,
-                                  elevation: 0,
-                                  padding: const EdgeInsets.symmetric(horizontal: 22),
-                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+                              ),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: AppColors.primaryRed,
+                                foregroundColor: AppColors.white,
+                                disabledBackgroundColor:
+                                    AppColors.primaryRed.withValues(alpha: 0.6),
+                                elevation: 0,
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(6),
                                 ),
                               ),
                             ),
@@ -376,50 +447,65 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
   Widget _buildEmployeeField() {
     return _labeledField(
       label: 'Employee',
-      child: LayoutBuilder(
-        builder: (context, constraints) {
-          return DropdownMenu<String>(
-            width: constraints.maxWidth,
-            initialSelection: _selectedEmployee,
-            enableFilter: true,
-            requestFocusOnTap: true,
-            hintText: 'Search Employee',
-            textStyle: GoogleFonts.poppins(fontSize: 13, color: AppColors.headingBlack),
-            inputDecorationTheme: InputDecorationTheme(
-              hintStyle: GoogleFonts.poppins(color: AppColors.inputHint, fontSize: 13),
-              filled: true,
-              fillColor: AppColors.operationsCardBg,
-              contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-              border: OutlineInputBorder(
+      child: _isLoadingEmployees
+          ? Container(
+              height: 48,
+              alignment: Alignment.centerLeft,
+              padding: const EdgeInsets.symmetric(horizontal: 14),
+              decoration: BoxDecoration(
+                color: AppColors.operationsCardBg,
                 borderRadius: BorderRadius.circular(6),
-                borderSide: BorderSide(color: AppColors.borderGray.withOpacity(0.6)),
+                border: Border.all(color: AppColors.borderGray.withOpacity(0.6)),
               ),
-              enabledBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(6),
-                borderSide: BorderSide(color: AppColors.borderGray.withOpacity(0.6)),
+              child: Text(
+                'Loading employees...',
+                style: GoogleFonts.poppins(fontSize: 13, color: AppColors.inputHint),
               ),
-              focusedBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(6),
-                borderSide: BorderSide(color: AppColors.primaryRed.withOpacity(0.5), width: 1.5),
-              ),
-            ),
-            onSelected: (String? value) {
-              setState(() {
-                _selectedEmployee = value;
-              });
-            },
-            dropdownMenuEntries: _employees.map<DropdownMenuEntry<String>>((String emp) {
-              return DropdownMenuEntry<String>(
-                value: emp,
-                label: emp,
-                style: MenuItemButton.styleFrom(
+            )
+          : LayoutBuilder(
+              builder: (context, constraints) {
+                return DropdownMenu<int>(
+                  width: constraints.maxWidth,
+                  initialSelection: _selectedEmployeeId,
+                  enableFilter: true,
+                  requestFocusOnTap: true,
+                  hintText: _employees.isEmpty ? 'No employees found' : 'Search Employee',
                   textStyle: GoogleFonts.poppins(fontSize: 13, color: AppColors.headingBlack),
-                ),
-              );
-            }).toList(),
-          );
-        }
-      ),
+                  inputDecorationTheme: InputDecorationTheme(
+                    hintStyle: GoogleFonts.poppins(color: AppColors.inputHint, fontSize: 13),
+                    filled: true,
+                    fillColor: AppColors.operationsCardBg,
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(6),
+                      borderSide: BorderSide(color: AppColors.borderGray.withOpacity(0.6)),
+                    ),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(6),
+                      borderSide: BorderSide(color: AppColors.borderGray.withOpacity(0.6)),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(6),
+                      borderSide: BorderSide(color: AppColors.primaryRed.withOpacity(0.5), width: 1.5),
+                    ),
+                  ),
+                  onSelected: (int? value) {
+                    setState(() {
+                      _selectedEmployeeId = value;
+                    });
+                  },
+                  dropdownMenuEntries: _employees.map((emp) {
+                    return DropdownMenuEntry<int>(
+                      value: emp.id,
+                      label: emp.name,
+                      style: MenuItemButton.styleFrom(
+                        textStyle: GoogleFonts.poppins(fontSize: 13, color: AppColors.headingBlack),
+                      ),
+                    );
+                  }).toList(),
+                );
+              },
+            ),
     );
   }
 
@@ -524,4 +610,11 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
     if (w < 600) return 18;
     return 20;
   }
+}
+
+class _TaskEmployeeOption {
+  const _TaskEmployeeOption({required this.id, required this.name});
+
+  final int id;
+  final String name;
 }

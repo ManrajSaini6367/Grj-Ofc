@@ -1,8 +1,11 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:grjoffice_apps/core/app_colors.dart';
 import 'package:grjoffice_apps/Purchasescreen/purchase.dart';
-import 'package:grjoffice_apps/SupplierList/supplier.dart';
+import 'package:grjoffice_apps/services/api_auth.dart';
 import 'package:grjoffice_apps/widgets/app_top_bar.dart';
 
 class WithKantaStep2Screen extends StatefulWidget {
@@ -19,87 +22,75 @@ class _WithKantaStep2ScreenState extends State<WithKantaStep2Screen> {
 
   final _formKey = GlobalKey<FormState>();
   final _vehicleNoController = TextEditingController();
-  final _materialController = TextEditingController();
 
-  String? _selectedSupplier;
-  String? _unloadingImageName;
-  DateTime? _unloadingImageAt;
+  File? _unloadingImageFile;
   bool _isSaving = false;
 
   @override
   void initState() {
     super.initState();
     final p = widget.purchase;
-    _selectedSupplier = p.supplierName;
     _vehicleNoController.text = p.vehicleNo ?? '';
-    _unloadingImageName = p.unloadingVehicleImage;
-    if (p.materials.isNotEmpty) {
-      _materialController.text = p.materials.first.name;
-    } else if ((p.itemName ?? '').isNotEmpty) {
-      _materialController.text = p.itemName!.split(',').first.trim();
-    }
   }
 
   @override
   void dispose() {
     _vehicleNoController.dispose();
-    _materialController.dispose();
     super.dispose();
   }
 
   Future<void> _pickUnloadingImage() async {
-    setState(() {
-      _unloadingImageName = 'unloading_vehicle.jpg';
-      _unloadingImageAt = DateTime.now();
-    });
+    final picker = ImagePicker();
+    XFile? picked = await picker.pickImage(source: ImageSource.camera);
+    picked ??= await picker.pickImage(source: ImageSource.gallery);
+    if (picked != null) {
+      setState(() => _unloadingImageFile = File(picked!.path));
+    }
   }
 
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
-    if (_selectedSupplier == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Please select a supplier.', style: GoogleFonts.poppins())),
-      );
-      return;
-    }
-    if (_unloadingImageName == null) {
+    if (_unloadingImageFile == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Unloading vehicle image is required.', style: GoogleFonts.poppins())),
       );
       return;
     }
 
-    final materialName = _materialController.text.trim();
-    if (materialName.isEmpty) {
+    final vehicleNo = _vehicleNoController.text.trim();
+    if (vehicleNo.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Please enter material.', style: GoogleFonts.poppins())),
+        SnackBar(content: Text('Vehicle No is required.', style: GoogleFonts.poppins())),
+      );
+      return;
+    }
+
+    final purchaseId = int.tryParse(widget.purchase.id);
+    if (purchaseId == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Invalid purchase ID.', style: GoogleFonts.poppins())),
       );
       return;
     }
 
     setState(() => _isSaving = true);
-    await Future<void>.delayed(const Duration(milliseconds: 300));
-    if (!mounted) return;
-
-    final vehicleNo = _vehicleNoController.text.trim();
-    final updated = widget.purchase.copyWith(
-      supplierName: _selectedSupplier!,
-      vehicleNo: vehicleNo.isEmpty ? widget.purchase.vehicleNo : vehicleNo,
-      challanNo: vehicleNo.isNotEmpty ? vehicleNo : widget.purchase.challanNo,
-      unloadingVehicleImage: _unloadingImageName,
-      unloadingVehicleImageAt: _unloadingImageAt ?? DateTime.now(),
-      materials: [PurchaseMaterialItem(name: materialName)],
-      itemName: materialName,
-      withKantaStage: WithKantaStage.processing,
+    final updated = await purchaseStep2WithKantaApi(
+      context,
+      purchaseId: purchaseId,
+      vehicleNo: vehicleNo,
+      unloadingImage: _unloadingImageFile!,
     );
+    if (!mounted) return;
+    setState(() => _isSaving = false);
 
-    Navigator.of(context).pop(updated);
+    if (updated != null) {
+      Navigator.of(context).pop(updated);
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     final hPad = _hPad(context);
-    final suppliers = kMockSuppliers.map((s) => s.name).toList();
     final isWide = MediaQuery.sizeOf(context).width >= 640;
 
     return Scaffold(
@@ -139,7 +130,7 @@ class _WithKantaStep2ScreenState extends State<WithKantaStep2Screen> {
                               Row(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  Expanded(child: _buildSupplierField(suppliers)),
+                                  Expanded(child: _buildReadOnlyField(label: 'Supplier', value: widget.purchase.supplierName)),
                                   const SizedBox(width: 12),
                                   Expanded(
                                     child: _buildTextField(
@@ -153,7 +144,7 @@ class _WithKantaStep2ScreenState extends State<WithKantaStep2Screen> {
                                 ],
                               )
                             else ...[
-                              _buildSupplierField(suppliers),
+                              _buildReadOnlyField(label: 'Supplier', value: widget.purchase.supplierName),
                               const SizedBox(height: 16),
                               _buildTextField(
                                 label: 'Vehicle No',
@@ -163,12 +154,6 @@ class _WithKantaStep2ScreenState extends State<WithKantaStep2Screen> {
                               const SizedBox(height: 16),
                               _buildUnloadingImageField(),
                             ],
-                            const SizedBox(height: 20),
-                            _buildTextField(
-                              label: 'Material 1',
-                              controller: _materialController,
-                              hint: 'Material',
-                            ),
                             const SizedBox(height: 24),
                             Align(
                               alignment: Alignment.centerLeft,
@@ -221,7 +206,30 @@ class _WithKantaStep2ScreenState extends State<WithKantaStep2Screen> {
     return 20;
   }
 
+  Widget _buildReadOnlyField({required String label, required String value}) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(label, style: GoogleFonts.poppins(fontSize: 13, fontWeight: FontWeight.w600)),
+        const SizedBox(height: 8),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+          decoration: BoxDecoration(
+            color: const Color(0xFFE5E7EB),
+            borderRadius: BorderRadius.circular(6),
+            border: Border.all(color: AppColors.borderGray.withValues(alpha: 0.6)),
+          ),
+          child: Text(
+            value,
+            style: GoogleFonts.poppins(fontSize: 13, color: AppColors.textSecondary),
+          ),
+        ),
+      ],
+    );
+  }
+
   Widget _buildUnloadingImageField() {
+    final fileName = _unloadingImageFile?.path.split('/').last;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -260,35 +268,16 @@ class _WithKantaStep2ScreenState extends State<WithKantaStep2Screen> {
               const SizedBox(width: 10),
               Expanded(
                 child: Text(
-                  _unloadingImageName ?? 'No file selected.',
+                  fileName ?? 'No file selected.',
                   style: GoogleFonts.poppins(
                     fontSize: 12,
-                    color: _unloadingImageName == null ? AppColors.textSecondary : AppColors.textDark,
+                    color: _unloadingImageFile == null ? AppColors.textSecondary : AppColors.textDark,
                   ),
                   overflow: TextOverflow.ellipsis,
                 ),
               ),
             ],
           ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildSupplierField(List<String> suppliers) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text('Supplier', style: GoogleFonts.poppins(fontSize: 13, fontWeight: FontWeight.w600)),
-        const SizedBox(height: 8),
-        DropdownButtonFormField<String>(
-          initialValue: _selectedSupplier,
-          decoration: _fieldDecoration(),
-          items: suppliers
-              .map((name) => DropdownMenuItem(value: name, child: Text(name, style: GoogleFonts.poppins(fontSize: 13))))
-              .toList(),
-          onChanged: (value) => setState(() => _selectedSupplier = value),
-          validator: (value) => value == null ? 'Required' : null,
         ),
       ],
     );

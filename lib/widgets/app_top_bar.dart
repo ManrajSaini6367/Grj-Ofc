@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:grjoffice_apps/core/app_colors.dart';
-import 'package:grjoffice_apps/navigation/app_navigation.dart';
 import 'package:grjoffice_apps/widgets/app_back_button.dart';
 import 'package:grjoffice_apps/widgets/app_logo.dart';
 
@@ -40,7 +39,7 @@ class AppTopBar extends StatelessWidget {
     );
   }
 
-  /// Shell-pushed list style: back when nested, else logo; optional profile.
+  /// Shell-pushed list style: always back (not a bottom-tab root).
   factory AppTopBar.shell({
     Key? key,
     required String title,
@@ -54,6 +53,7 @@ class AppTopBar extends StatelessWidget {
       title: title,
       scaffoldKey: scaffoldKey,
       useShellPop: true,
+      showBack: true,
       showProfile: showProfile,
       actions: actions,
       horizontalPadding: horizontalPadding,
@@ -139,22 +139,16 @@ class AppTopBar extends StatelessWidget {
       return AppBackButton(onPressed: onBack);
     }
 
+    // Drawer / shell-pushed screens: always show back (never bottom-tab roots).
     if (useShellPop) {
-      if (shellCanPop(context)) {
-        return const AppBackButton(useShellPop: true);
-      }
-      if (scaffoldKey != null) {
-        return GestureDetector(
-          onTap: () => scaffoldKey!.currentState?.openDrawer(),
-          child: const AppLogo(size: 38),
-        );
-      }
+      return const AppBackButton(useShellPop: true);
     }
 
     if (showBack) {
-      return AppBackButton(useShellPop: useShellPop);
+      return const AppBackButton();
     }
 
+    // Bottom-tab roots: logo opens drawer.
     if (scaffoldKey != null) {
       return GestureDetector(
         onTap: () => scaffoldKey!.currentState?.openDrawer(),

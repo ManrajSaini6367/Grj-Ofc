@@ -1,3 +1,5 @@
+import 'package:grjoffice_apps/models/pagination_model.dart';
+
 enum ExpenseStatus { pending, approved, paid }
 
 enum ExpenseCategory {
@@ -29,8 +31,14 @@ class Expense {
     this.entryType,
     this.chequeNo,
     this.voucherNo,
+    this.challanNo,
     this.remark,
+    this.detail,
+    this.siteId,
     this.siteName,
+    this.source,
+    this.balanceAmount,
+    this.updatedAt,
   });
 
   final String id;
@@ -44,8 +52,69 @@ class Expense {
   final ExpenseEntryType? entryType;
   final String? chequeNo;
   final String? voucherNo;
+  final String? challanNo;
   final String? remark;
+  final String? detail;
+  final int? siteId;
   final String? siteName;
+  final String? source;
+  final double? balanceAmount;
+  final DateTime? updatedAt;
+
+  factory Expense.fromJson(Map<String, dynamic> json) {
+    return Expense(
+      id: (json['id'] ?? '').toString(),
+      date: _parseDateTime(json['created_at']) ?? DateTime.now(),
+      title: json['title']?.toString() ?? json['detail']?.toString() ?? '',
+      category: _categoryFromApi(json['category']?.toString()),
+      amount: _toDouble(json['amount']),
+      paidTo: json['paid_to']?.toString() ?? '—',
+      paymentMode: _paymentModeFromApi(
+        json['payment_mode']?.toString() ?? json['source']?.toString(),
+      ),
+      status: _statusFromApi(json['status']?.toString()),
+      entryType: _entryTypeFromApi(
+        json['entry_type']?.toString() ?? json['type']?.toString(),
+      ),
+      chequeNo: json['cheque_no']?.toString(),
+      voucherNo: json['voucher_no']?.toString(),
+      challanNo: json['challan_no']?.toString(),
+      remark: json['remark']?.toString(),
+      detail: json['detail']?.toString(),
+      siteId: json['site_id'] as int?,
+      siteName: json['site_name']?.toString(),
+      source: json['source']?.toString(),
+      balanceAmount: json['balance_amount'] == null
+          ? null
+          : _toDouble(json['balance_amount']),
+      updatedAt: _parseDateTime(json['updated_at']),
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'id': int.tryParse(id) ?? id,
+      'site_id': siteId,
+      'site_name': siteName,
+      'title': title,
+      'detail': detail ?? title,
+      'category': category.name,
+      'amount': amount,
+      'paid_to': paidTo,
+      'payment_mode': paymentMode.name,
+      'source': source ?? paymentMode.name,
+      'status': status.name,
+      'entry_type': entryType?.name,
+      'type': entryType?.name,
+      'cheque_no': chequeNo,
+      'voucher_no': voucherNo,
+      'challan_no': challanNo,
+      'remark': remark,
+      'balance_amount': balanceAmount,
+      'created_at': date.toIso8601String(),
+      'updated_at': updatedAt?.toIso8601String(),
+    };
+  }
 
   String get statusLabel => switch (status) {
         ExpenseStatus.pending => 'Pending',
@@ -73,6 +142,124 @@ class Expense {
         ExpenseEntryType.debit => 'Debit',
         null => null,
       };
+
+  static double _toDouble(dynamic value) {
+    if (value == null) return 0;
+    if (value is num) return value.toDouble();
+    return double.tryParse(value.toString()) ?? 0;
+  }
+
+  static DateTime? _parseDateTime(dynamic value) {
+    if (value == null) return null;
+    final text = value.toString().trim();
+    if (text.isEmpty) return null;
+    return DateTime.tryParse(text);
+  }
+
+  static ExpenseCategory _categoryFromApi(String? value) {
+    switch (value?.toLowerCase().trim()) {
+      case 'transport':
+        return ExpenseCategory.transport;
+      case 'labour':
+        return ExpenseCategory.labour;
+      case 'material':
+        return ExpenseCategory.material;
+      case 'utilities':
+        return ExpenseCategory.utilities;
+      case 'miscellaneous':
+      default:
+        return ExpenseCategory.miscellaneous;
+    }
+  }
+
+  static ExpensePaymentMode _paymentModeFromApi(String? value) {
+    switch (value?.toLowerCase().trim()) {
+      case 'cash':
+        return ExpensePaymentMode.cash;
+      case 'upi':
+        return ExpensePaymentMode.upi;
+      case 'cheque':
+        return ExpensePaymentMode.cheque;
+      case 'bank':
+      case 'bank_transfer':
+      case 'bank transfer':
+      default:
+        return ExpensePaymentMode.bank;
+    }
+  }
+
+  static ExpenseStatus _statusFromApi(String? value) {
+    switch (value?.toLowerCase().trim()) {
+      case 'pending':
+        return ExpenseStatus.pending;
+      case 'approved':
+        return ExpenseStatus.approved;
+      case 'paid':
+      default:
+        return ExpenseStatus.paid;
+    }
+  }
+
+  static ExpenseEntryType? _entryTypeFromApi(String? value) {
+    switch (value?.toLowerCase().trim()) {
+      case 'credit':
+        return ExpenseEntryType.credit;
+      case 'debit':
+        return ExpenseEntryType.debit;
+      default:
+        return null;
+    }
+  }
+}
+
+class ExpensesListData {
+  const ExpensesListData({
+    required this.items,
+    this.pagination,
+    this.totalAmount = 0,
+  });
+
+  final List<Expense> items;
+  final PaginationModel? pagination;
+  final double totalAmount;
+
+  factory ExpensesListData.fromJson(Map<String, dynamic> json) {
+    final itemsJson = json['items'];
+    return ExpensesListData(
+      items: itemsJson is List
+          ? itemsJson
+              .whereType<Map<String, dynamic>>()
+              .map(Expense.fromJson)
+              .toList()
+          : const <Expense>[],
+      pagination: json['pagination'] is Map<String, dynamic>
+          ? PaginationModel.fromJson(json['pagination'] as Map<String, dynamic>)
+          : null,
+      totalAmount: Expense._toDouble(json['total_amount']),
+    );
+  }
+}
+
+class ExpensesListResponse {
+  const ExpensesListResponse({
+    required this.success,
+    this.message,
+    this.data,
+  });
+
+  final bool success;
+  final String? message;
+  final ExpensesListData? data;
+
+  factory ExpensesListResponse.fromJson(Map<String, dynamic> json) {
+    return ExpensesListResponse(
+      success: json['success'] == true,
+      message: json['message']?.toString(),
+      data: json['data'] is Map<String, dynamic>
+          ? ExpensesListData.fromJson(json['data'] as Map<String, dynamic>)
+          : null,
+    );
+  }
 }
 
 String formatExpenseAmount(double amount) {
@@ -108,83 +295,4 @@ const kExpenseCategories = [
   'Material',
   'Utilities',
   'Miscellaneous',
-];
-
-final kMockExpenses = [
-  Expense(
-    id: 'EXP-3001',
-    date: DateTime(2026, 7, 4),
-    title: 'Site logistics transport',
-    category: ExpenseCategory.transport,
-    amount: 2400,
-    paidTo: 'Ramesh Transport',
-    paymentMode: ExpensePaymentMode.upi,
-    status: ExpenseStatus.paid,
-    remark: 'Material delivery to Site A',
-    siteName: 'Site A',
-  ),
-  Expense(
-    id: 'EXP-3002',
-    date: DateTime(2026, 7, 4),
-    title: 'Labour advance payment',
-    category: ExpenseCategory.labour,
-    amount: 15000,
-    paidTo: 'Sunil Contractor',
-    paymentMode: ExpensePaymentMode.bank,
-    status: ExpenseStatus.approved,
-    siteName: 'Site B',
-  ),
-  Expense(
-    id: 'EXP-3003',
-    date: DateTime(2026, 7, 3),
-    title: 'Hardware purchase',
-    category: ExpenseCategory.material,
-    amount: 8750,
-    paidTo: 'Rainbow Paints & Hardware',
-    paymentMode: ExpensePaymentMode.cash,
-    status: ExpenseStatus.pending,
-    remark: 'Nails, binding wire, gloves',
-  ),
-  Expense(
-    id: 'EXP-3004',
-    date: DateTime(2026, 7, 3),
-    title: 'Generator diesel',
-    category: ExpenseCategory.utilities,
-    amount: 5200,
-    paidTo: 'HP Petrol Pump',
-    paymentMode: ExpensePaymentMode.cash,
-    status: ExpenseStatus.paid,
-    siteName: 'Site A',
-  ),
-  Expense(
-    id: 'EXP-3005',
-    date: DateTime(2026, 7, 2),
-    title: 'Office stationery',
-    category: ExpenseCategory.miscellaneous,
-    amount: 980,
-    paidTo: 'City Stationers',
-    paymentMode: ExpensePaymentMode.upi,
-    status: ExpenseStatus.paid,
-  ),
-  Expense(
-    id: 'EXP-3006',
-    date: DateTime(2026, 7, 2),
-    title: 'Safety helmets and vests',
-    category: ExpenseCategory.material,
-    amount: 3450,
-    paidTo: 'Sharma Building Supplies',
-    paymentMode: ExpensePaymentMode.bank,
-    status: ExpenseStatus.paid,
-    siteName: 'Site A',
-  ),
-  Expense(
-    id: 'EXP-3007',
-    date: DateTime(2026, 7, 1),
-    title: 'Water tanker supply',
-    category: ExpenseCategory.utilities,
-    amount: 1800,
-    paidTo: 'Aqua Services',
-    paymentMode: ExpensePaymentMode.cash,
-    status: ExpenseStatus.paid,
-  ),
 ];

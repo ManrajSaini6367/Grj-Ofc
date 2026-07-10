@@ -5,7 +5,9 @@ import 'package:grjoffice_apps/drawer/app_end_drawer.dart';
 import 'package:grjoffice_apps/drawer/drawer.dart';
 import 'package:grjoffice_apps/Expensescreen/add_expense_screen.dart';
 import 'package:grjoffice_apps/Expensescreen/expense.dart';
+import 'package:grjoffice_apps/Expensescreen/view_expense_screen.dart';
 import 'package:grjoffice_apps/navigation/app_navigation.dart';
+import 'package:grjoffice_apps/services/api_auth.dart';
 import 'package:grjoffice_apps/widgets/app_top_bar.dart';
 
 class ExpensesScreen extends StatefulWidget {
@@ -19,12 +21,45 @@ class _ExpensesScreenState extends State<ExpensesScreen> {
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
   ExpenseCategory? _categoryFilter;
   _ExpensePeriod _period = _ExpensePeriod.thisMonth;
-  late List<Expense> _expenses;
+  List<Expense> _expenses = [];
+  double _totalAmount = 0;
+  bool _isLoading = true;
 
   @override
   void initState() {
     super.initState();
-    _expenses = List<Expense>.from(kMockExpenses);
+    WidgetsBinding.instance.addPostFrameCallback((_) => _loadExpenses());
+  }
+
+  String get _apiPeriod {
+    switch (_period) {
+      case _ExpensePeriod.thisMonth:
+        return 'this_month';
+      case _ExpensePeriod.last7:
+        return 'last_7';
+      case _ExpensePeriod.last30:
+        return 'last_30';
+      case _ExpensePeriod.allTime:
+        return 'all';
+    }
+  }
+
+  Future<void> _loadExpenses() async {
+    setState(() => _isLoading = true);
+
+    final response = await getExpensesApi(
+      context,
+      period: _apiPeriod,
+      category: _categoryFilter?.name,
+      perPage: 50,
+    );
+
+    if (!mounted) return;
+    setState(() {
+      _expenses = response?.data?.items ?? [];
+      _totalAmount = response?.data?.totalAmount ?? 0;
+      _isLoading = false;
+    });
   }
 
   double _hPad(BuildContext context) {
@@ -34,34 +69,11 @@ class _ExpensesScreenState extends State<ExpensesScreen> {
     return 24;
   }
 
-  List<Expense> get _periodExpenses {
-    final now = DateTime.now();
-    final today = DateTime(now.year, now.month, now.day);
+  List<Expense> get _filteredExpenses => List<Expense>.from(_expenses)
+    ..sort((a, b) => b.date.compareTo(a.date));
 
-    return _expenses.where((expense) {
-      final date = DateTime(expense.date.year, expense.date.month, expense.date.day);
-      switch (_period) {
-        case _ExpensePeriod.thisMonth:
-          return expense.date.year == now.year && expense.date.month == now.month;
-        case _ExpensePeriod.last7:
-          return !date.isBefore(today.subtract(const Duration(days: 6)));
-        case _ExpensePeriod.last30:
-          return !date.isBefore(today.subtract(const Duration(days: 29)));
-        case _ExpensePeriod.allTime:
-          return true;
-      }
-    }).toList();
-  }
-
-  List<Expense> get _filteredExpenses {
-    return _periodExpenses.where((expense) {
-      if (_categoryFilter != null && expense.category != _categoryFilter) return false;
-      return true;
-    }).toList()
-      ..sort((a, b) => b.date.compareTo(a.date));
-  }
-
-  double get _filteredTotal => _filteredExpenses.fold(0, (sum, e) => sum + e.amount);
+  double get _filteredTotal =>
+      _totalAmount > 0 ? _totalAmount : _filteredExpenses.fold(0, (sum, e) => sum + e.amount);
 
   @override
   Widget build(BuildContext context) {
@@ -98,53 +110,57 @@ class _ExpensesScreenState extends State<ExpensesScreen> {
               ],
             ),
             Expanded(
-              child: ListView(
-                padding: EdgeInsets.fromLTRB(hPad, 16, hPad, 24),
-                children: [
-                  _buildTotalCard(),
-                  const SizedBox(height: 20),
-                  _buildCategoryFilters(),
-                  const SizedBox(height: 24),
-                  Text(
-                    'Recent Expenses',
-                    style: GoogleFonts.poppins(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w700,
-                      color: AppColors.headingBlack,
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  if (rows.isEmpty)
-                    _buildEmptyState()
-                  else
-                    Container(
-                      decoration: BoxDecoration(
-                        color: AppColors.cardWhite,
-                        borderRadius: BorderRadius.circular(16),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withValues(alpha: 0.04),
-                            blurRadius: 12,
-                            offset: const Offset(0, 4),
+              child: _isLoading
+                  ? const Center(
+                      child: CircularProgressIndicator(color: AppColors.primaryRed),
+                    )
+                  : ListView(
+                      padding: EdgeInsets.fromLTRB(hPad, 16, hPad, 24),
+                      children: [
+                        _buildTotalCard(),
+                        const SizedBox(height: 20),
+                        _buildCategoryFilters(),
+                        const SizedBox(height: 24),
+                        Text(
+                          'Recent Expenses',
+                          style: GoogleFonts.poppins(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w700,
+                            color: AppColors.headingBlack,
                           ),
-                        ],
-                      ),
-                      child: Column(
-                        children: [
-                          for (var i = 0; i < rows.length; i++) ...[
-                            _buildExpenseRow(rows[i], highlightAmount: i == 0),
-                            if (i < rows.length - 1)
-                              Divider(
-                                height: 1,
-                                indent: 72,
-                                color: AppColors.borderGray.withValues(alpha: 0.35),
-                              ),
-                          ],
-                        ],
-                      ),
+                        ),
+                        const SizedBox(height: 12),
+                        if (rows.isEmpty)
+                          _buildEmptyState()
+                        else
+                          Container(
+                            decoration: BoxDecoration(
+                              color: AppColors.cardWhite,
+                              borderRadius: BorderRadius.circular(16),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withValues(alpha: 0.04),
+                                  blurRadius: 12,
+                                  offset: const Offset(0, 4),
+                                ),
+                              ],
+                            ),
+                            child: Column(
+                              children: [
+                                for (var i = 0; i < rows.length; i++) ...[
+                                  _buildExpenseRow(rows[i], highlightAmount: i == 0),
+                                  if (i < rows.length - 1)
+                                    Divider(
+                                      height: 1,
+                                      indent: 72,
+                                      color: AppColors.borderGray.withValues(alpha: 0.35),
+                                    ),
+                                ],
+                              ],
+                            ),
+                          ),
+                      ],
                     ),
-                ],
-              ),
             ),
           ],
         ),
@@ -161,10 +177,10 @@ class _ExpensesScreenState extends State<ExpensesScreen> {
       MaterialPageRoute(builder: (_) => const AddExpenseScreen()),
     );
     if (result == null || !mounted) return;
-    setState(() => _expenses.insert(0, result));
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text('Expense ${result.id} saved.')),
     );
+    await _loadExpenses();
   }
 
   Widget _buildTotalCard() {
@@ -240,7 +256,9 @@ class _ExpensesScreenState extends State<ExpensesScreen> {
             DropdownMenuItem(value: _ExpensePeriod.allTime, child: Text('All Time')),
           ],
           onChanged: (value) {
-            if (value != null) setState(() => _period = value);
+            if (value == null) return;
+            setState(() => _period = value);
+            _loadExpenses();
           },
         ),
       ),
@@ -271,7 +289,10 @@ class _ExpensesScreenState extends State<ExpensesScreen> {
               : _categoryStyle(item.category!).color;
 
           return GestureDetector(
-            onTap: () => setState(() => _categoryFilter = item.category),
+            onTap: () {
+              setState(() => _categoryFilter = item.category);
+              _loadExpenses();
+            },
             child: Column(
               children: [
                 Container(
@@ -412,57 +433,96 @@ class _ExpensesScreenState extends State<ExpensesScreen> {
     );
   }
 
-  void _showDetails(Expense expense) {
-    showModalBottomSheet<void>(
+  Future<void> _showDetails(Expense expense) async {
+    final result = await Navigator.of(context).push<Object>(
+      MaterialPageRoute(builder: (_) => ViewExpenseScreen(expense: expense)),
+    );
+    if (!mounted || result == null) return;
+
+    if (result == 'deleted') {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Expense "${expense.title}" deleted')),
+      );
+      await _loadExpenses();
+      return;
+    }
+
+    if (result is Expense) {
+      await _loadExpenses();
+    }
+  }
+
+  Future<void> _openEditExpense(Expense expense) async {
+    final updated = await Navigator.of(context).push<Expense>(
+      MaterialPageRoute(builder: (_) => AddExpenseScreen(expense: expense)),
+    );
+    if (updated == null || !mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('Expense ${updated.id} updated.')),
+    );
+    await _loadExpenses();
+  }
+
+  Future<void> _deleteExpense(Expense expense) async {
+    final confirmed = await showDialog<bool>(
       context: context,
-      backgroundColor: AppColors.cardWhite,
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(16))),
-      builder: (context) {
-        return SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Text('Expense Details', style: GoogleFonts.poppins(fontSize: 18, fontWeight: FontWeight.w700)),
-                const SizedBox(height: 16),
-                _detailRow('Type', expense.entryTypeLabel ?? '—'),
-                _detailRow('Source', expense.paymentModeLabel),
-                _detailRow('Cheque No', expense.chequeNo ?? '—'),
-                _detailRow('Voucher No', expense.voucherNo ?? '—'),
-                _detailRow('Title', expense.title),
-                _detailRow('Amount', formatExpenseAmount(expense.amount)),
-                _detailRow('Category', expense.categoryLabel),
-                _detailRow('Paid To', expense.paidTo),
-                _detailRow('Payment', expense.paymentModeLabel),
-                _detailRow('Status', expense.statusLabel),
-                _detailRow('Date', formatExpenseListDate(expense.date)),
-                _detailRow('Site', expense.siteName ?? '—'),
-                _detailRow('Remark', expense.remark ?? '—'),
-              ],
+      builder: (dialogContext) {
+        return AlertDialog(
+          backgroundColor: AppColors.cardWhite,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+          title: Text(
+            'Delete Expense',
+            style: GoogleFonts.poppins(
+              fontWeight: FontWeight.w700,
+              color: AppColors.headingBlack,
             ),
           ),
+          content: Text(
+            'Are you sure you want to delete "${expense.title}"?',
+            style: GoogleFonts.poppins(fontSize: 14, color: AppColors.textDark),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(false),
+              child: Text(
+                'Cancel',
+                style: GoogleFonts.poppins(
+                  color: AppColors.textSecondary,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(true),
+              child: Text(
+                'Delete',
+                style: GoogleFonts.poppins(
+                  color: AppColors.primaryRed,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
+          ],
         );
       },
     );
-  }
 
-  Widget _detailRow(String label, String value) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 10),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          SizedBox(
-            width: 90,
-            child: Text(label, style: GoogleFonts.poppins(fontSize: 13, fontWeight: FontWeight.w600)),
-          ),
-          Expanded(
-            child: Text(value, style: GoogleFonts.poppins(fontSize: 13, color: AppColors.textSecondary)),
-          ),
-        ],
-      ),
+    if (confirmed != true || !mounted) return;
+
+    final expenseId = int.tryParse(expense.id);
+    if (expenseId == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Invalid expense id.', style: GoogleFonts.poppins())),
+      );
+      return;
+    }
+
+    final ok = await deleteExpenseApi(context, expenseId);
+    if (!mounted || !ok) return;
+
+    setState(() => _expenses.removeWhere((e) => e.id == expense.id));
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('Expense "${expense.title}" deleted')),
     );
   }
 
@@ -481,7 +541,7 @@ class _ExpensesScreenState extends State<ExpensesScreen> {
                 title: Text('Edit Expense', style: GoogleFonts.poppins(fontSize: 14)),
                 onTap: () {
                   Navigator.pop(context);
-                  ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Edit ${expense.id}')));
+                  _openEditExpense(expense);
                 },
               ),
               ListTile(
@@ -489,8 +549,7 @@ class _ExpensesScreenState extends State<ExpensesScreen> {
                 title: Text('Delete Expense', style: GoogleFonts.poppins(fontSize: 14, color: AppColors.primaryRed)),
                 onTap: () {
                   Navigator.pop(context);
-                  setState(() => _expenses.removeWhere((e) => e.id == expense.id));
-                  ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('${expense.id} deleted.')));
+                  _deleteExpense(expense);
                 },
               ),
             ],

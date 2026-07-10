@@ -11,10 +11,12 @@ enum PurchaseFlowType { withKanta, withoutKanta, direct }
 class PurchaseMaterialItem {
   const PurchaseMaterialItem({
     required this.name,
+    this.itemId,
     this.qty,
     this.unit = 'NOS',
   });
 
+  final int? itemId;
   final String name;
   final double? qty;
   final String unit;
@@ -26,6 +28,18 @@ class PurchaseMaterialItem {
   }
 }
 
+class PurchaseMaterialPayload {
+  const PurchaseMaterialPayload({
+    required this.itemId,
+    required this.qty,
+    required this.unit,
+  });
+
+  final int itemId;
+  final double qty;
+  final String unit;
+}
+
 class Purchase {
   const Purchase({
     required this.id,
@@ -35,6 +49,11 @@ class Purchase {
     required this.supplierName,
     required this.status,
     required this.flowType,
+    this.siteId,
+    this.supplierId,
+    this.step,
+    this.stage,
+    this.nextAction,
     this.itemName,
     this.remark,
     this.vehicleNo,
@@ -60,6 +79,11 @@ class Purchase {
   final String supplierName;
   final PurchaseStatus status;
   final PurchaseFlowType flowType;
+  final int? siteId;
+  final int? supplierId;
+  final int? step;
+  final String? stage;
+  final String? nextAction;
   final String? itemName;
   final String? remark;
   final String? vehicleNo;
@@ -76,6 +100,129 @@ class Purchase {
   final WithoutKantaStage? withoutKantaStage;
   final WithKantaStage? withKantaStage;
   final DirectPurchaseStage? directPurchaseStage;
+
+  static Map<String, dynamic>? _asMap(dynamic value) {
+    if (value is Map<String, dynamic>) return value;
+    if (value is Map) return Map<String, dynamic>.from(value);
+    return null;
+  }
+
+  static String? _imageValue(Map<String, dynamic>? images, String key, String field) {
+    final image = _asMap(images?[key]);
+    if (image == null) return null;
+    final value = image[field]?.toString().trim();
+    if (value == null || value.isEmpty) return null;
+    return value;
+  }
+
+  static DateTime? _imageCapturedAt(Map<String, dynamic>? images, String key) {
+    final raw = _imageValue(images, key, 'captured_at');
+    return raw == null ? null : DateTime.tryParse(raw);
+  }
+
+  factory Purchase.fromJson(Map<String, dynamic> json) {
+    final flowRaw = (json['flow_type'] ?? '').toString().toLowerCase();
+    final flowType = switch (flowRaw) {
+      'with_kanta' => PurchaseFlowType.withKanta,
+      'without_kanta' => PurchaseFlowType.withoutKanta,
+      'direct' => PurchaseFlowType.direct,
+      _ => PurchaseFlowType.withoutKanta,
+    };
+
+    final stageRaw = (json['stage'] ?? json['status'] ?? '').toString().toLowerCase();
+    final apiStatus = (json['status'] ?? '').toString().toLowerCase();
+
+    WithoutKantaStage? withoutStage;
+    WithKantaStage? withStage;
+    DirectPurchaseStage? directStage;
+
+    if (flowType == PurchaseFlowType.withKanta) {
+      withStage = switch (stageRaw) {
+        'processing' => WithKantaStage.processing,
+        'completed' => WithKantaStage.completed,
+        _ => WithKantaStage.initial,
+      };
+    } else if (flowType == PurchaseFlowType.withoutKanta) {
+      withoutStage = stageRaw == 'completed'
+          ? WithoutKantaStage.completed
+          : WithoutKantaStage.initial;
+    } else if (stageRaw == 'completed' || apiStatus == 'completed') {
+      directStage = DirectPurchaseStage.completed;
+    }
+
+    final status = switch (apiStatus) {
+      'completed' || 'received' => PurchaseStatus.received,
+      'approved' => PurchaseStatus.approved,
+      'cancelled' => PurchaseStatus.cancelled,
+      _ => PurchaseStatus.pending,
+    };
+
+    final materialsJson = json['materials'];
+    final materials = <PurchaseMaterialItem>[];
+    if (materialsJson is List) {
+      for (final row in materialsJson) {
+        if (row is! Map) continue;
+        final map = Map<String, dynamic>.from(row);
+        materials.add(
+          PurchaseMaterialItem(
+            itemId: int.tryParse(map['item_id']?.toString() ?? ''),
+            name: (map['name'] ?? map['item_name'] ?? '').toString(),
+            qty: double.tryParse(map['qty']?.toString() ?? ''),
+            unit: (map['unit'] ?? 'NOS').toString(),
+          ),
+        );
+      }
+    }
+
+    final images = _asMap(json['images']);
+    final apiItemName = json['item_name']?.toString().trim();
+    final materialsName = materials
+        .map((m) => m.name.trim())
+        .where((n) => n.isNotEmpty)
+        .join(', ');
+
+    final date = DateTime.tryParse(json['date']?.toString() ?? '') ??
+        DateTime.tryParse(json['created_at']?.toString() ?? '') ??
+        DateTime.tryParse(json['updated_at']?.toString() ?? '') ??
+        DateTime.now();
+
+    return Purchase(
+      id: (json['id'] ?? '').toString(),
+      siteId: int.tryParse(json['site_id']?.toString() ?? ''),
+      supplierId: int.tryParse(json['supplier_id']?.toString() ?? ''),
+      date: date,
+      challanNo: (json['challan_no'] ?? json['vehicle_no'] ?? '—').toString(),
+      invoiceNo: (json['invoice_no'] ?? '—').toString(),
+      supplierName: (json['supplier_name'] ?? '—').toString(),
+      status: status,
+      flowType: flowType,
+      step: int.tryParse(json['step']?.toString() ?? ''),
+      stage: stageRaw.isEmpty ? null : stageRaw,
+      nextAction: json['next_action']?.toString(),
+      remark: json['remark']?.toString(),
+      vehicleNo: json['vehicle_no']?.toString(),
+      kantaNo: json['kanta_no']?.toString(),
+      loadingVehicleImage: _imageValue(images, 'loading', 'url') ??
+          _imageValue(images, 'loading', 'file'),
+      loadingVehicleImageAt: _imageCapturedAt(images, 'loading'),
+      unloadingVehicleImage: _imageValue(images, 'unloading', 'url') ??
+          _imageValue(images, 'unloading', 'file'),
+      unloadingVehicleImageAt: _imageCapturedAt(images, 'unloading'),
+      kantaSlipImage: _imageValue(images, 'kanta_slip', 'url') ??
+          _imageValue(images, 'kanta_slip', 'file'),
+      kantaSlipImageAt: _imageCapturedAt(images, 'kanta_slip'),
+      vehicleAtKantaImage: _imageValue(images, 'vehicle_at_kanta', 'url') ??
+          _imageValue(images, 'vehicle_at_kanta', 'file'),
+      vehicleAtKantaImageAt: _imageCapturedAt(images, 'vehicle_at_kanta'),
+      materials: materials,
+      itemName: (apiItemName != null && apiItemName.isNotEmpty)
+          ? apiItemName
+          : (materialsName.isEmpty ? null : materialsName),
+      withoutKantaStage: withoutStage,
+      withKantaStage: withStage,
+      directPurchaseStage: directStage,
+    );
+  }
 
   bool get hasKantaSlip => flowType == PurchaseFlowType.withKanta;
   bool get isWithoutKanta => flowType == PurchaseFlowType.withoutKanta;
@@ -124,6 +271,11 @@ class Purchase {
     String? supplierName,
     PurchaseStatus? status,
     PurchaseFlowType? flowType,
+    int? siteId,
+    int? supplierId,
+    int? step,
+    String? stage,
+    String? nextAction,
     String? itemName,
     String? remark,
     String? vehicleNo,
@@ -149,6 +301,11 @@ class Purchase {
       supplierName: supplierName ?? this.supplierName,
       status: status ?? this.status,
       flowType: flowType ?? this.flowType,
+      siteId: siteId ?? this.siteId,
+      supplierId: supplierId ?? this.supplierId,
+      step: step ?? this.step,
+      stage: stage ?? this.stage,
+      nextAction: nextAction ?? this.nextAction,
       itemName: itemName ?? this.itemName,
       remark: remark ?? this.remark,
       vehicleNo: vehicleNo ?? this.vehicleNo,
@@ -165,6 +322,112 @@ class Purchase {
       withoutKantaStage: withoutKantaStage ?? this.withoutKantaStage,
       withKantaStage: withKantaStage ?? this.withKantaStage,
       directPurchaseStage: directPurchaseStage ?? this.directPurchaseStage,
+    );
+  }
+}
+
+class PurchasesSummary {
+  const PurchasesSummary({
+    this.total = 0,
+    this.initial = 0,
+    this.processing = 0,
+    this.completed = 0,
+  });
+
+  final int total;
+  final int initial;
+  final int processing;
+  final int completed;
+
+  factory PurchasesSummary.fromJson(Map<String, dynamic> json) {
+    int toInt(dynamic value) => int.tryParse(value?.toString() ?? '') ?? 0;
+    return PurchasesSummary(
+      total: toInt(json['total']),
+      initial: toInt(json['initial']),
+      processing: toInt(json['processing']),
+      completed: toInt(json['completed']),
+    );
+  }
+}
+
+class PurchasesPagination {
+  const PurchasesPagination({
+    this.currentPage = 1,
+    this.lastPage = 1,
+    this.perPage = 15,
+    this.total = 0,
+  });
+
+  final int currentPage;
+  final int lastPage;
+  final int perPage;
+  final int total;
+
+  factory PurchasesPagination.fromJson(Map<String, dynamic> json) {
+    int toInt(dynamic value) => int.tryParse(value?.toString() ?? '') ?? 0;
+    return PurchasesPagination(
+      currentPage: toInt(json['current_page']),
+      lastPage: toInt(json['last_page']),
+      perPage: toInt(json['per_page']),
+      total: toInt(json['total']),
+    );
+  }
+}
+
+class PurchasesListData {
+  const PurchasesListData({
+    this.items = const [],
+    this.pagination,
+    this.summary,
+  });
+
+  final List<Purchase> items;
+  final PurchasesPagination? pagination;
+  final PurchasesSummary? summary;
+
+  factory PurchasesListData.fromJson(Map<String, dynamic> json) {
+    final itemsJson = json['items'];
+    return PurchasesListData(
+      items: itemsJson is List
+          ? itemsJson
+              .whereType<Map>()
+              .map((e) => Purchase.fromJson(Map<String, dynamic>.from(e)))
+              .toList()
+          : const [],
+      pagination: json['pagination'] is Map
+          ? PurchasesPagination.fromJson(
+              Map<String, dynamic>.from(json['pagination'] as Map),
+            )
+          : null,
+      summary: json['summary'] is Map
+          ? PurchasesSummary.fromJson(
+              Map<String, dynamic>.from(json['summary'] as Map),
+            )
+          : null,
+    );
+  }
+}
+
+class PurchasesListResponse {
+  const PurchasesListResponse({
+    this.success,
+    this.message,
+    this.data,
+  });
+
+  final bool? success;
+  final String? message;
+  final PurchasesListData? data;
+
+  factory PurchasesListResponse.fromJson(Map<String, dynamic> json) {
+    return PurchasesListResponse(
+      success: json['success'] as bool?,
+      message: json['message']?.toString(),
+      data: json['data'] is Map
+          ? PurchasesListData.fromJson(
+              Map<String, dynamic>.from(json['data'] as Map),
+            )
+          : null,
     );
   }
 }

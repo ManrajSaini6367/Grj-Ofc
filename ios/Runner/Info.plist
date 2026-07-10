@@ -30,6 +30,10 @@
 	<string>GRJ Office tracks your location in the background during active work shifts.</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>GRJ Office needs your location to verify attendance while you are working.</string>
+	<key>NSCameraUsageDescription</key>
+	<string>GRJ Office needs camera access to capture purchase vehicle and kanta slip photos.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>GRJ Office needs photo library access to attach purchase images.</string>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>

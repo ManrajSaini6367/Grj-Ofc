@@ -5,7 +5,9 @@ import 'package:grjoffice_apps/drawer/drawer.dart';
 import 'package:grjoffice_apps/drawer/app_end_drawer.dart';
 import 'package:grjoffice_apps/models/task_model.dart';
 import 'package:grjoffice_apps/navigation/app_navigation.dart';
+import 'package:grjoffice_apps/services/api_auth.dart';
 import 'package:grjoffice_apps/tasksscreen/add_task_screen.dart';
+import 'package:grjoffice_apps/tasksscreen/view_task_screen.dart';
 import 'package:grjoffice_apps/widgets/app_top_bar.dart';
 
 class TasksScreen extends StatefulWidget {
@@ -17,14 +19,16 @@ class TasksScreen extends StatefulWidget {
 
 class _TasksScreenState extends State<TasksScreen> {
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
-  late List<Task> _tasks;
-  
+  List<Task> _tasks = [];
+  TaskSummary? _summary;
+  bool _isLoading = true;
+
   // Filter and Search states
-  String _selectedFilter = 'All'; // 'All', 'Pending', 'In Progress', 'Completed'
+  String _selectedFilter = 'All'; // 'All', 'Start', 'On Progress', 'In Pending', 'Completed'
   String _searchQuery = '';
   bool _isSearching = false;
   final TextEditingController _searchController = TextEditingController();
-  
+
   // Sort states: 'dueDate', 'priority', 'title'
   String _sortBy = 'dueDate';
   bool _sortAscending = true;
@@ -32,7 +36,7 @@ class _TasksScreenState extends State<TasksScreen> {
   @override
   void initState() {
     super.initState();
-    _tasks = List<Task>.from(kMockTasks);
+    WidgetsBinding.instance.addPostFrameCallback((_) => _loadTasks());
   }
 
   @override
@@ -41,80 +45,172 @@ class _TasksScreenState extends State<TasksScreen> {
     super.dispose();
   }
 
+  Future<void> _loadTasks() async {
+    setState(() => _isLoading = true);
+
+    final sortBy = switch (_sortBy) {
+      'priority' => 'priority',
+      'title' => 'title',
+      _ => 'due_date',
+    };
+
+    final response = await getTasksApi(
+      context,
+      status: 'all',
+      search: _searchQuery,
+      sortBy: sortBy,
+      sortDir: _sortAscending ? 'asc' : 'desc',
+      perPage: 50,
+    );
+
+    if (!mounted) return;
+    setState(() {
+      _tasks = response?.data?.items ?? [];
+      _summary = response?.data?.summary;
+      _isLoading = false;
+    });
+  }
+
   void _onDrawerItemTap(int index) {
     navigateFromDrawer(context, index);
   }
 
-  // Stats computation
-  int get _totalCount => _tasks.length;
-  int get _startCount => _tasks.where((t) => t.status == TaskStatus.start).length;
-  int get _onProgressCount => _tasks.where((t) => t.status == TaskStatus.onProgress).length;
-  int get _inPendingCount => _tasks.where((t) => t.status == TaskStatus.inPending).length;
-  int get _completedCount => _tasks.where((t) => t.status == TaskStatus.completed).length;
+  // Stats — prefer API summary when available
+  int get _totalCount => _summary?.total ?? _tasks.length;
+  int get _startCount =>
+      _summary?.start ?? _tasks.where((t) => t.status == TaskStatus.start).length;
+  int get _onProgressCount =>
+      _summary?.onProgress ??
+      _tasks.where((t) => t.status == TaskStatus.onProgress).length;
+  int get _inPendingCount =>
+      _summary?.inPending ??
+      _tasks.where((t) => t.status == TaskStatus.inPending).length;
+  int get _completedCount =>
+      _summary?.completed ??
+      _tasks.where((t) => t.status == TaskStatus.completed).length;
 
   // Toggle check/complete status of a task
-  void _toggleTaskStatus(Task task) {
+  Future<void> _toggleTaskStatus(Task task) async {
+    final nextStatus = task.status == TaskStatus.completed
+        ? TaskStatus.start
+        : TaskStatus.completed;
+    await _setTaskStatus(task, nextStatus);
+  }
+
+  // Change task status via menu / checkbox
+  Future<void> _setTaskStatus(Task task, TaskStatus newStatus) async {
+    final taskId = int.tryParse(task.id);
+    if (taskId == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Invalid task id.')),
+      );
+      return;
+    }
+
+    if (task.status == newStatus) return;
+
+    final updated = await updateTaskStatusApi(
+      context,
+      taskId: taskId,
+      status: newStatus.apiValue,
+    );
+    if (!mounted) return;
+    if (updated == null) return;
+
     setState(() {
       final index = _tasks.indexWhere((t) => t.id == task.id);
       if (index != -1) {
-        if (task.status == TaskStatus.completed) {
-          // Revert to start
-          _tasks[index] = task.copyWith(status: TaskStatus.start);
-        } else {
-          // Set to completed
-          _tasks[index] = task.copyWith(status: TaskStatus.completed);
-        }
+        _tasks[index] = updated;
       }
+      _summary = null;
     });
-    
-    final message = task.status == TaskStatus.completed 
-      ? 'Task marked as Start'
-      : 'Task marked as Completed';
+
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text(message),
+        content: Text('Task marked as ${_statusLabel(newStatus)}'),
         duration: const Duration(seconds: 2),
       ),
     );
   }
 
-  // Change task status via menu
-  void _setTaskStatus(Task task, TaskStatus newStatus) {
-    setState(() {
-      final index = _tasks.indexWhere((t) => t.id == task.id);
-      if (index != -1) {
-        _tasks[index] = _tasks[index].copyWith(status: newStatus);
-      }
-    });
+  String _statusLabel(TaskStatus status) {
+    switch (status) {
+      case TaskStatus.start:
+        return 'Start';
+      case TaskStatus.onProgress:
+        return 'On Progress';
+      case TaskStatus.inPending:
+        return 'In Pending';
+      case TaskStatus.completed:
+        return 'Completed';
+    }
   }
 
   // Delete a task
-  void _deleteTask(Task task) {
+  Future<void> _deleteTask(Task task) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          backgroundColor: AppColors.cardWhite,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+          title: Text(
+            'Delete Task',
+            style: GoogleFonts.poppins(
+              fontWeight: FontWeight.w700,
+              color: AppColors.headingBlack,
+            ),
+          ),
+          content: Text(
+            'Are you sure you want to delete "${task.title}"?',
+            style: GoogleFonts.poppins(fontSize: 14, color: AppColors.textDark),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(false),
+              child: Text(
+                'Cancel',
+                style: GoogleFonts.poppins(
+                  color: AppColors.textSecondary,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(true),
+              child: Text(
+                'Delete',
+                style: GoogleFonts.poppins(
+                  color: AppColors.primaryRed,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (confirmed != true || !mounted) return;
+
+    final taskId = int.tryParse(task.id);
+    if (taskId == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Invalid task id.')),
+      );
+      return;
+    }
+
+    final ok = await deleteTaskApi(context, taskId);
+    if (!mounted || !ok) return;
+
     setState(() {
       _tasks.removeWhere((t) => t.id == task.id);
+      _summary = null;
     });
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('Task "${task.title}" deleted'),
-        action: SnackBarAction(
-          label: 'Undo',
-          onPressed: () {
-            setState(() {
-              _tasks.add(task);
-            });
-          },
-        ),
-      ),
-    );
-  }
 
-  // Add new task
-  void _addNewTask(Task task) {
-    setState(() {
-      _tasks.insert(0, task);
-    });
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('Task "${task.title}" created successfully')),
+      SnackBar(content: Text('Task "${task.title}" deleted')),
     );
   }
 
@@ -122,7 +218,6 @@ class _TasksScreenState extends State<TasksScreen> {
   List<Task> get _filteredTasks {
     List<Task> filtered = _tasks;
 
-    // Apply Tab Filter
     if (_selectedFilter == 'Start') {
       filtered = filtered.where((t) => t.status == TaskStatus.start).toList();
     } else if (_selectedFilter == 'On Progress') {
@@ -133,22 +228,23 @@ class _TasksScreenState extends State<TasksScreen> {
       filtered = filtered.where((t) => t.status == TaskStatus.completed).toList();
     }
 
-    // Apply Search Query
     if (_searchQuery.isNotEmpty) {
       final query = _searchQuery.toLowerCase();
-      filtered = filtered.where((t) => 
-        t.title.toLowerCase().contains(query) || 
-        t.projectName.toLowerCase().contains(query)
-      ).toList();
+      filtered = filtered
+          .where(
+            (t) =>
+                t.title.toLowerCase().contains(query) ||
+                t.projectName.toLowerCase().contains(query) ||
+                t.assigneeName.toLowerCase().contains(query),
+          )
+          .toList();
     }
 
-    // Apply Sorting
     filtered.sort((a, b) {
       int comparison = 0;
       if (_sortBy == 'dueDate') {
         comparison = a.dueDate.compareTo(b.dueDate);
       } else if (_sortBy == 'priority') {
-        // High = 0, Medium = 1, Low = 2
         comparison = a.priority.index.compareTo(b.priority.index);
       } else if (_sortBy == 'title') {
         comparison = a.title.toLowerCase().compareTo(b.title.toLowerCase());
@@ -161,7 +257,20 @@ class _TasksScreenState extends State<TasksScreen> {
 
   // Date formatter helpers
   String _monthName(int month) {
-    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    const months = [
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec',
+    ];
     return (month >= 1 && month <= 12) ? months[month - 1] : '';
   }
 
@@ -185,6 +294,13 @@ class _TasksScreenState extends State<TasksScreen> {
         _searchController.clear();
       }
     });
+  }
+
+  double _hPad(BuildContext context) {
+    final width = MediaQuery.sizeOf(context).width;
+    if (width < 360) return 14;
+    if (width < 600) return 18;
+    return 20;
   }
 
   @override
@@ -292,15 +408,19 @@ class _TasksScreenState extends State<TasksScreen> {
             
             // Task List
             Expanded(
-              child: tasksList.isEmpty
-                  ? _buildEmptyState()
-                  : ListView.builder(
-                      padding: EdgeInsets.fromLTRB(hPad, 4, hPad, 80),
-                      itemCount: tasksList.length,
-                      itemBuilder: (context, index) {
-                        return _buildTaskCard(tasksList[index]);
-                      },
-                    ),
+              child: _isLoading
+                  ? const Center(
+                      child: CircularProgressIndicator(color: AppColors.primaryRed),
+                    )
+                  : tasksList.isEmpty
+                      ? _buildEmptyState()
+                      : ListView.builder(
+                          padding: EdgeInsets.fromLTRB(hPad, 4, hPad, 80),
+                          itemCount: tasksList.length,
+                          itemBuilder: (context, index) {
+                            return _buildTaskCard(tasksList[index]);
+                          },
+                        ),
             ),
           ],
         ),
@@ -311,8 +431,11 @@ class _TasksScreenState extends State<TasksScreen> {
             context,
             MaterialPageRoute(builder: (context) => const AddTaskScreen()),
           );
-          if (newTask != null && newTask is Task) {
-            _addNewTask(newTask);
+          if (newTask != null && newTask is Task && mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text('Task "${newTask.title}" created successfully')),
+            );
+            await _loadTasks();
           }
         },
         backgroundColor: AppColors.primaryRed,
@@ -321,13 +444,6 @@ class _TasksScreenState extends State<TasksScreen> {
         child: const Icon(Icons.add, color: Colors.white, size: 28),
       ),
     );
-  }
-
-  double _hPad(BuildContext context) {
-    final width = MediaQuery.sizeOf(context).width;
-    if (width < 360) return 14;
-    if (width < 600) return 18;
-    return 20;
   }
 
   // 1. Filter Chips Section
@@ -401,7 +517,7 @@ class _TasksScreenState extends State<TasksScreen> {
   // 2. Summary Cards Section
   Widget _buildSummaryCards() {
     return Container(
-      height: 96,
+      height: 108,
       margin: const EdgeInsets.symmetric(vertical: 12),
       child: ListView(
         scrollDirection: Axis.horizontal,
@@ -469,27 +585,30 @@ class _TasksScreenState extends State<TasksScreen> {
           ),
         ],
       ),
-      padding: const EdgeInsets.all(12),
+      padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        mainAxisSize: MainAxisSize.max,
         children: [
-          // Icon Box
           Container(
             padding: const EdgeInsets.all(4),
             decoration: BoxDecoration(
               color: bgColor,
               shape: BoxShape.circle,
             ),
-            child: Icon(icon, color: iconColor, size: 18),
+            child: Icon(icon, color: iconColor, size: 16),
           ),
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
             children: [
               Text(
                 '$count',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
                 style: GoogleFonts.poppins(
-                  fontSize: 16,
+                  fontSize: 15,
                   fontWeight: FontWeight.w700,
                   color: AppColors.headingBlack,
                   height: 1.1,
@@ -497,10 +616,13 @@ class _TasksScreenState extends State<TasksScreen> {
               ),
               Text(
                 title,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
                 style: GoogleFonts.poppins(
-                  fontSize: 10.5,
+                  fontSize: 10,
                   fontWeight: FontWeight.w500,
                   color: AppColors.textSecondary,
+                  height: 1.2,
                 ),
               ),
             ],
@@ -552,7 +674,10 @@ class _TasksScreenState extends State<TasksScreen> {
         borderRadius: BorderRadius.circular(16),
         side: BorderSide(color: Colors.grey.shade100, width: 1.2),
       ),
-      child: Padding(
+      child: InkWell(
+        borderRadius: BorderRadius.circular(16),
+        onTap: () => _openTask(task),
+        child: Padding(
         padding: const EdgeInsets.all(14),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -688,7 +813,39 @@ class _TasksScreenState extends State<TasksScreen> {
           ],
         ),
       ),
+      ),
     );
+  }
+
+  Future<void> _openTask(Task task) async {
+    final result = await Navigator.of(context).push<Object>(
+      MaterialPageRoute(builder: (_) => ViewTaskScreen(task: task)),
+    );
+    if (!mounted || result == null) return;
+
+    if (result == 'deleted') {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Task "${task.title}" deleted')),
+      );
+      await _loadTasks();
+      return;
+    }
+
+    if (result is Task) {
+      await _loadTasks();
+    }
+  }
+
+  Future<void> _editTask(Task task) async {
+    final updated = await Navigator.of(context).push<Task>(
+      MaterialPageRoute(builder: (_) => AddTaskScreen(task: task)),
+    );
+    if (updated != null && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Task "${updated.title}" updated')),
+      );
+      await _loadTasks();
+    }
   }
 
   // Helper widget to paint the checkbox/progress circle
@@ -862,6 +1019,14 @@ class _TasksScreenState extends State<TasksScreen> {
                         },
                       ),
                       const Divider(height: 1),
+                      ListTile(
+                        leading: const Icon(Icons.edit_outlined, color: AppColors.headingBlack),
+                        title: Text('Edit Task', style: GoogleFonts.poppins(fontSize: 13.5)),
+                        onTap: () {
+                          Navigator.pop(context);
+                          _editTask(task);
+                        },
+                      ),
                       ListTile(
                         leading: const Icon(Icons.delete_outline_rounded, color: Colors.red),
                         title: Text('Delete Task', style: GoogleFonts.poppins(fontSize: 13.5, color: Colors.red)),
