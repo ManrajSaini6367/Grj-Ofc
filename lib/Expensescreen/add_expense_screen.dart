@@ -3,7 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:grjoffice_apps/core/app_colors.dart';
 import 'package:grjoffice_apps/Expensescreen/expense.dart';
-import 'package:grjoffice_apps/widgets/app_logo.dart';
+import 'package:grjoffice_apps/widgets/app_top_bar.dart';
 
 class AddExpenseScreen extends StatefulWidget {
   const AddExpenseScreen({super.key});
@@ -107,11 +107,10 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
       body: SafeArea(
         child: Column(
           children: [
-            Container(
-              width: double.infinity,
-              padding: EdgeInsets.fromLTRB(hPad, 10, hPad, 10),
-              color: AppColors.cardWhite,
-              child: _buildTopBar(),
+            AppTopBar.page(
+              title: 'Add Expenses',
+              onBack: () => Navigator.pop(context),
+              horizontalPadding: hPad,
             ),
             Expanded(
               child: SingleChildScrollView(
@@ -226,42 +225,6 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
           ],
         ),
       ),
-    );
-  }
-
-  Widget _buildTopBar() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        Row(
-          children: [
-            IconButton(
-              onPressed: () => Navigator.pop(context),
-              icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 18),
-              color: AppColors.textDark,
-              padding: EdgeInsets.zero,
-              constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
-            ),
-            const SizedBox(width: 8),
-            const AppLogo(size: 36),
-            const SizedBox(width: 10),
-            Expanded(
-              child: Text(
-                'ADD EXPENSES',
-                style: GoogleFonts.poppins(fontSize: 18, fontWeight: FontWeight.w700),
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 4),
-        Padding(
-          padding: const EdgeInsets.only(left: 40),
-          child: Text(
-            'Home  >  Add Expenses',
-            style: GoogleFonts.poppins(fontSize: 12, color: AppColors.textSecondary),
-          ),
-        ),
-      ],
     );
   }
 

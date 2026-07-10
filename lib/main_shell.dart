@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:grjoffice_apps/chatscreen/chatscreen.dart';
 import 'package:grjoffice_apps/core/app_colors.dart';
 import 'package:grjoffice_apps/Purchasescreen/purchases.dart';
@@ -21,12 +22,6 @@ class MainShell extends StatefulWidget {
 class _MainShellState extends State<MainShell> {
   late int _selectedIndex = widget.initialIndex;
   final GlobalKey<NavigatorState> _shellNavigatorKey = GlobalKey<NavigatorState>();
-  late final NavigatorObserver _shellRouteObserver = _ShellRouteObserver(() {
-    if (!mounted) return;
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) setState(() {});
-    });
-  });
 
   @override
   void initState() {
@@ -48,7 +43,24 @@ class _MainShellState extends State<MainShell> {
 
   void _onTabSelected(int index) {
     _shellNavigatorKey.currentState?.popUntil((route) => route.isFirst);
-    _switchTab(index);
+    if (_selectedIndex != index) {
+      setState(() => _selectedIndex = index);
+    }
+  }
+
+  Future<void> _handleSystemBack() async {
+    final nav = _shellNavigatorKey.currentState;
+    if (nav == null) {
+      SystemNavigator.pop();
+      return;
+    }
+    // Shell has a pushed screen — maybePop respects that screen's PopScope
+    // (e.g. Add Purchase step back) and will not exit the app.
+    if (nav.canPop()) {
+      await nav.maybePop();
+      return;
+    }
+    SystemNavigator.pop();
   }
 
   @override
@@ -57,43 +69,32 @@ class _MainShellState extends State<MainShell> {
       currentIndex: _selectedIndex,
       switchToTab: _switchTab,
       shellNavigatorKey: _shellNavigatorKey,
-      child: Scaffold(
-        backgroundColor: AppColors.backgroundGray,
-        body: Navigator(
-          key: _shellNavigatorKey,
-          observers: [_shellRouteObserver],
-          onGenerateRoute: (settings) {
-            return MaterialPageRoute(
-              settings: settings,
-              builder: (_) => const _ShellTabStack(),
-            );
-          },
-        ),
-        bottomNavigationBar: AppBottomNav(
-          selectedIndex: _selectedIndex,
-          onTabSelected: _onTabSelected,
+      child: PopScope(
+        // Always intercept; live nav.canPop() is checked in _handleSystemBack.
+        canPop: false,
+        onPopInvokedWithResult: (didPop, result) {
+          if (didPop) return;
+          _handleSystemBack();
+        },
+        child: Scaffold(
+          backgroundColor: AppColors.backgroundGray,
+          body: Navigator(
+            key: _shellNavigatorKey,
+            onGenerateRoute: (settings) {
+              return MaterialPageRoute(
+                settings: settings,
+                builder: (_) => const _ShellTabStack(),
+              );
+            },
+          ),
+          bottomNavigationBar: AppBottomNav(
+            selectedIndex: _selectedIndex,
+            onTabSelected: _onTabSelected,
+          ),
         ),
       ),
     );
   }
-}
-
-class _ShellRouteObserver extends NavigatorObserver {
-  _ShellRouteObserver(this.onChanged);
-
-  final VoidCallback onChanged;
-
-  @override
-  void didPush(Route<dynamic> route, Route<dynamic>? previousRoute) => onChanged();
-
-  @override
-  void didPop(Route<dynamic> route, Route<dynamic>? previousRoute) => onChanged();
-
-  @override
-  void didRemove(Route<dynamic> route, Route<dynamic>? previousRoute) => onChanged();
-
-  @override
-  void didReplace({Route<dynamic>? newRoute, Route<dynamic>? oldRoute}) => onChanged();
 }
 
 class _ShellTabStack extends StatelessWidget {

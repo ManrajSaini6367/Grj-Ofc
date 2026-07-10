@@ -9,7 +9,7 @@ import 'package:grjoffice_apps/Purchasescreen/purchase.dart';
 import 'package:grjoffice_apps/Purchasescreen/without_kanta_step2_screen.dart';
 import 'package:grjoffice_apps/Purchasescreen/with_kanta_step2_screen.dart';
 import 'package:grjoffice_apps/Purchasescreen/with_kanta_step3_screen.dart';
-import 'package:grjoffice_apps/widgets/app_logo.dart';
+import 'package:grjoffice_apps/widgets/app_top_bar.dart';
 
 class PurchasesScreen extends StatefulWidget {
   const PurchasesScreen({super.key});
@@ -140,17 +140,16 @@ class _PurchasesScreenState extends State<PurchasesScreen> {
     return Scaffold(
       key: _scaffoldKey,
       backgroundColor: AppColors.backgroundGray,
-      drawer: AppDrawer(selectedIndex: 9, onItemTap: _onDrawerItemTap),
+      drawer: AppDrawer(selectedIndex: DrawerIndex.purchase, onItemTap: _onDrawerItemTap),
       endDrawer: const AppEndDrawer(),
       body: SafeArea(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Container(
-              width: double.infinity,
-              padding: EdgeInsets.fromLTRB(hPad, 10, hPad, 10),
-              color: AppColors.cardWhite,
-              child: _buildTopBar(),
+            AppTopBar.tab(
+              title: 'Purchase List',
+              scaffoldKey: _scaffoldKey,
+              horizontalPadding: hPad,
             ),
             Padding(
               padding: EdgeInsets.fromLTRB(hPad, 14, hPad, 0),
@@ -196,37 +195,6 @@ class _PurchasesScreenState extends State<PurchasesScreen> {
 
   void _onDrawerItemTap(int index) {
     navigateFromDrawer(context, index);
-  }
-
-  Widget _buildTopBar() {
-    return Row(
-      children: [
-        GestureDetector(
-          onTap: () => _scaffoldKey.currentState?.openDrawer(),
-          child: const AppLogo(size: 38),
-        ),
-        const SizedBox(width: 10),
-        Expanded(
-          child: Text(
-            'Purchase List',
-            style: GoogleFonts.poppins(fontSize: 18, fontWeight: FontWeight.w700, color: AppColors.headingBlack),
-          ),
-        ),
-        GestureDetector(
-          onTap: () => _scaffoldKey.currentState?.openEndDrawer(),
-          child: Container(
-            width: 38,
-            height: 38,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: AppColors.iconBgGray,
-              border: Border.all(color: AppColors.borderGray),
-            ),
-            child: const Icon(Icons.person_outline, color: AppColors.textSecondary, size: 20),
-          ),
-        ),
-      ],
-    );
   }
 
   Widget _buildToolbar() {

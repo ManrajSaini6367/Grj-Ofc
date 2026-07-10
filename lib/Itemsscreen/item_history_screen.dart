@@ -4,8 +4,7 @@ import 'package:grjoffice_apps/core/app_colors.dart';
 import 'package:grjoffice_apps/Itemsscreen/item.dart';
 import 'package:grjoffice_apps/models/itemhistorymodal.dart';
 import 'package:grjoffice_apps/services/api_auth.dart';
-import 'package:grjoffice_apps/widgets/app_logo.dart';
-import 'package:grjoffice_apps/widgets/item_thumbnail.dart';
+import 'package:grjoffice_apps/widgets/app_top_bar.dart';
 
 class ItemHistoryScreen extends StatefulWidget {
   const ItemHistoryScreen({super.key, required this.item});
@@ -69,10 +68,6 @@ class _ItemHistoryScreenState extends State<ItemHistoryScreen> {
       _isLoading = false;
     });
   }
-
-  String get _displayName => _apiItem?.name ?? widget.item.name;
-
-  String get _displaySku => _apiItem?.sku ?? widget.item.sku;
 
   String get _displayUnit => _apiItem?.unit ?? widget.item.unit;
 
@@ -302,16 +297,31 @@ class _ItemHistoryScreenState extends State<ItemHistoryScreen> {
 
     return Scaffold(
       backgroundColor: AppColors.backgroundGray,
-      body: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          _buildHeroHeader(hPad),
-          Expanded(
-            child: _isLoading
-                ? const Center(
-                    child: CircularProgressIndicator(color: AppColors.primaryRed),
-                  )
-                : CustomScrollView(
+      body: SafeArea(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            AppTopBar.page(
+              title: 'Item History',
+              onBack: () => Navigator.pop(context),
+              horizontalPadding: hPad,
+              actions: [
+                IconButton(
+                  onPressed: _showFilterSheet,
+                  icon: Badge(
+                    isLabelVisible: _hasActiveFilters,
+                    smallSize: 8,
+                    child: const Icon(Icons.filter_list_rounded, color: AppColors.headingBlack),
+                  ),
+                ),
+              ],
+            ),
+            Expanded(
+              child: _isLoading
+                  ? const Center(
+                      child: CircularProgressIndicator(color: AppColors.primaryRed),
+                    )
+                  : CustomScrollView(
               slivers: [
                 SliverToBoxAdapter(
                   child: Padding(
@@ -353,152 +363,7 @@ class _ItemHistoryScreenState extends State<ItemHistoryScreen> {
             ),
           ),
         ],
-      ),
-    );
-  }
-
-  Widget _buildHeroHeader(double hPad) {
-    return Container(
-      decoration: const BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [Color(0xFF8B1D1D), Color(0xFF6B1515)],
         ),
-        borderRadius: BorderRadius.vertical(bottom: Radius.circular(24)),
-        boxShadow: [
-          BoxShadow(
-            color: Color(0x338B1D1D),
-            blurRadius: 16,
-            offset: Offset(0, 6),
-          ),
-        ],
-      ),
-      child: SafeArea(
-        bottom: false,
-        child: Padding(
-          padding: EdgeInsets.fromLTRB(hPad, 8, hPad, 24),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  _headerIconButton(Icons.arrow_back_ios_new_rounded, () => Navigator.pop(context)),
-                  const Spacer(),
-                  const AppLogo(size: 34),
-                  const Spacer(),
-                  _headerIconButton(
-                    Icons.filter_list_rounded,
-                    _showFilterSheet,
-                    showBadge: _hasActiveFilters,
-                  ),
-                ],
-              ),
-              const SizedBox(height: 20),
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(14),
-                    child: SizedBox(
-                      width: 52,
-                      height: 52,
-                      child: ItemThumbnail(item: widget.item, height: 52),
-                    ),
-                  ),
-                  const SizedBox(width: 14),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Item History',
-                          style: GoogleFonts.poppins(
-                            color: Colors.white.withValues(alpha: 0.85),
-                            fontSize: 13,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                        const SizedBox(height: 2),
-                        Text(
-                          _displayName,
-                          style: GoogleFonts.poppins(
-                            color: Colors.white,
-                            fontSize: 20,
-                            fontWeight: FontWeight.w700,
-                            height: 1.2,
-                          ),
-                        ),
-                        const SizedBox(height: 10),
-                        Wrap(
-                          spacing: 8,
-                          runSpacing: 6,
-                          children: [
-                            _heroChip('SKU: $_displaySku'),
-                            _heroChip('Unit: $_displayUnit'),
-                            _heroChip('Balance: ${_formatQty(_stockBalance)}'),
-                            _heroChip('${_transactions.length} records'),
-                          ],
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _headerIconButton(IconData icon, VoidCallback onTap, {bool showBadge = false}) {
-    return Stack(
-      clipBehavior: Clip.none,
-      children: [
-        Material(
-          color: Colors.white.withValues(alpha: 0.15),
-          borderRadius: BorderRadius.circular(12),
-          child: InkWell(
-            onTap: onTap,
-            borderRadius: BorderRadius.circular(12),
-            child: Container(
-              width: 40,
-              height: 40,
-              alignment: Alignment.center,
-              child: Icon(icon, color: Colors.white, size: 18),
-            ),
-          ),
-        ),
-        if (showBadge)
-          Positioned(
-            top: -2,
-            right: -2,
-            child: Container(
-              width: 10,
-              height: 10,
-              decoration: BoxDecoration(
-                color: Colors.white,
-                shape: BoxShape.circle,
-                border: Border.all(color: AppColors.primaryRed, width: 2),
-              ),
-            ),
-          ),
-      ],
-    );
-  }
-
-  Widget _heroChip(String label) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-      decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.12),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.2)),
-      ),
-      child: Text(
-        label,
-        style: GoogleFonts.poppins(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w500),
       ),
     );
   }

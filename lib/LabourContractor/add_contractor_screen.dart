@@ -4,7 +4,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:grjoffice_apps/LabourContractor/labour_contractor.dart';
 import 'package:grjoffice_apps/core/app_colors.dart';
 import 'package:grjoffice_apps/services/api_auth.dart';
-import 'package:grjoffice_apps/widgets/app_logo.dart';
+import 'package:grjoffice_apps/widgets/app_top_bar.dart';
 
 class AddContractorScreen extends StatefulWidget {
   const AddContractorScreen({super.key, this.contractor});
@@ -164,11 +164,10 @@ class _AddContractorScreenState extends State<AddContractorScreen> {
       body: SafeArea(
         child: Column(
           children: [
-            Container(
-              width: double.infinity,
-              padding: EdgeInsets.fromLTRB(hPad, 10, hPad, 10),
-              color: AppColors.cardWhite,
-              child: _buildTopBar(),
+            AppTopBar.page(
+              title: widget.isEditing ? 'Edit Contractor' : 'Create Contractor',
+              onBack: () => Navigator.pop(context),
+              horizontalPadding: hPad,
             ),
             Expanded(
               child: SingleChildScrollView(
@@ -209,29 +208,6 @@ class _AddContractorScreenState extends State<AddContractorScreen> {
     if (w < 360) return 14;
     if (w < 600) return 18;
     return 20;
-  }
-
-  Widget _buildTopBar() {
-    return Row(
-      children: [
-        IconButton(
-          onPressed: () => Navigator.pop(context),
-          icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 18),
-          color: AppColors.textDark,
-          padding: EdgeInsets.zero,
-          constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
-        ),
-        const SizedBox(width: 8),
-        const AppLogo(size: 36),
-        const SizedBox(width: 10),
-        Expanded(
-          child: Text(
-            widget.isEditing ? 'Edit Contractor' : 'Create Contractor',
-            style: GoogleFonts.poppins(fontSize: 18, fontWeight: FontWeight.w700),
-          ),
-        ),
-      ],
-    );
   }
 
   Widget _buildFormCard() {

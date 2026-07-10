@@ -8,6 +8,7 @@ import 'package:grjoffice_apps/chatscreen/widgets/chat_avatar.dart';
 import 'package:grjoffice_apps/chatscreen/widgets/message_bubble.dart';
 import 'package:grjoffice_apps/chatscreen/widgets/typing_indicator.dart';
 import 'package:grjoffice_apps/core/app_colors.dart';
+import 'package:grjoffice_apps/widgets/app_back_button.dart';
 
 class ConversationScreen extends StatefulWidget {
   const ConversationScreen({super.key, required this.threadId});
@@ -120,9 +121,10 @@ class _ConversationScreenState extends State<ConversationScreen> {
         backgroundColor: AppColors.cardWhite,
         foregroundColor: AppColors.headingBlack,
         elevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 18),
-          onPressed: () => Navigator.of(context).pop(),
+        leadingWidth: 48,
+        leading: const Padding(
+          padding: EdgeInsets.only(left: 8),
+          child: AppBackButton(),
         ),
         titleSpacing: 0,
         title: InkWell(

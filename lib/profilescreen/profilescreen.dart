@@ -2,12 +2,15 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:grjoffice_apps/navigation/app_navigation.dart';
 import 'package:grjoffice_apps/profilescreen/contractor.dart';
+import 'package:grjoffice_apps/profilescreen/edit_profile_screen.dart';
+import 'package:grjoffice_apps/profilescreen/notifications_screen.dart';
 import 'package:grjoffice_apps/core/app_colors.dart';
 import 'package:grjoffice_apps/core/preference.dart';
 import 'package:grjoffice_apps/drawer/app_end_drawer.dart';
+import 'package:grjoffice_apps/drawer/drawer.dart';
 import 'package:grjoffice_apps/models/user_model.dart';
 import 'package:grjoffice_apps/services/api_auth.dart';
-import 'package:grjoffice_apps/widgets/app_logo.dart';
+import 'package:grjoffice_apps/widgets/app_top_bar.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key, this.isActive = false});
@@ -85,15 +88,19 @@ class _ProfileScreenState extends State<ProfileScreen> {
     return Scaffold(
       key: _scaffoldKey,
       backgroundColor: AppColors.backgroundGray,
+      drawer: AppDrawer(
+        selectedIndex: -1,
+        onItemTap: (index) => navigateFromDrawer(context, index),
+      ),
       endDrawer: const AppEndDrawer(),
       body: SafeArea(
         child: Column(
           children: [
-            Container(
-              width: double.infinity,
-              padding: EdgeInsets.fromLTRB(hPad, 10, hPad, 10),
-              color: AppColors.cardWhite,
-              child: _buildTopBar(),
+            AppTopBar.tab(
+              title: 'Profile',
+              scaffoldKey: _scaffoldKey,
+              showProfile: false,
+              horizontalPadding: hPad,
             ),
             Expanded(
               child: _isLoading
@@ -130,39 +137,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
           ],
         ),
       ),
-    );
-  }
-
-  Widget _buildTopBar() {
-    return Row(
-      children: [
-        const AppLogo(size: 38),
-        Expanded(
-          child: Text(
-            'Profile',
-            textAlign: TextAlign.center,
-            style: GoogleFonts.poppins(
-              color: AppColors.headingBlack,
-              fontSize: 18,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-        ),
-        const SizedBox(width: 38),
-        GestureDetector(
-          onTap: () => _scaffoldKey.currentState?.openEndDrawer(),
-          child: Container(
-            width: 38,
-            height: 38,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: AppColors.iconBgGray,
-              border: Border.all(color: AppColors.borderGray),
-            ),
-            child: Icon(Icons.person_outline, color: AppColors.textSecondary, size: 20),
-          ),
-        ),
-      ],
     );
   }
 
@@ -317,7 +291,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
           width: double.infinity,
           height: 42,
           child: ElevatedButton.icon(
-            onPressed: () {},
+            onPressed: () => pushInShell(context, const EditProfileScreen()),
             icon: const Icon(Icons.edit_outlined, size: 16),
             label: Text(
               'Edit Profile',
@@ -485,6 +459,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
         onTap: () {
           if (title == 'Security Settings') {
             pushInShell(context, const Contractor());
+          } else if (title == 'Notifications') {
+            pushInShell(context, const NotificationsScreen());
           }
         },
         child: Padding(

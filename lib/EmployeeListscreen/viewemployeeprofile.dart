@@ -4,7 +4,7 @@ import 'package:grjoffice_apps/core/app_colors.dart';
 import 'package:grjoffice_apps/EmployeeListscreen/employee.dart';
 import 'package:grjoffice_apps/models/getemployeemodal.dart';
 import 'package:grjoffice_apps/services/api_auth.dart';
-import 'package:grjoffice_apps/widgets/app_logo.dart';
+import 'package:grjoffice_apps/widgets/app_top_bar.dart';
 
 class ViewEmployeeProfileScreen extends StatefulWidget {
   const ViewEmployeeProfileScreen({super.key, required this.employee});
@@ -56,10 +56,6 @@ class _ViewEmployeeProfileScreenState extends State<ViewEmployeeProfileScreen> {
 
   bool get _attendanceAllowed => _profile?.attendanceAllow ?? widget.employee.attendanceAllow;
 
-  String get _name => _text(_profile?.name, fallback: widget.employee.name);
-
-  String get _role => _text(_profile?.designation, fallback: widget.employee.role);
-
   String get _employeeId => _text(_profile?.username, fallback: widget.employee.id);
 
   double _hPad(BuildContext context) {
@@ -75,191 +71,141 @@ class _ViewEmployeeProfileScreenState extends State<ViewEmployeeProfileScreen> {
 
     return Scaffold(
       backgroundColor: AppColors.backgroundGray,
-      body: Column(
-        children: [
-          _buildHeroHeader(hPad),
-          Expanded(
-            child: _isLoading
-                ? const Center(child: CircularProgressIndicator(color: AppColors.primaryRed))
-                : SingleChildScrollView(
-                    padding: EdgeInsets.fromLTRB(hPad, 16, hPad, 24),
-                    child: Center(
-                      child: ConstrainedBox(
-                        constraints: const BoxConstraints(maxWidth: 640),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.stretch,
-                          children: [
-                            _buildQuickStats(),
-                            const SizedBox(height: 16),
-                            _buildSection(
-                              title: 'Contact',
-                              icon: Icons.contact_mail_outlined,
-                              children: [
-                                _infoTile(Icons.email_outlined, 'Email', _text(_profile?.email)),
-                                _infoTile(Icons.phone_outlined, 'Phone', _text(_profile?.mobile)),
-                              ],
-                            ),
-                            const SizedBox(height: 14),
-                            _buildSection(
-                              title: 'Employment',
-                              icon: Icons.work_outline_rounded,
-                              children: [
-                                _infoTile(Icons.badge_outlined, 'Employee ID', _employeeId),
-                                _infoTile(Icons.apartment_outlined, 'Site', widget.employee.site),
-                                _infoTile(Icons.calendar_today_outlined, 'Date of Join', _formatDate(_profile?.dateOfJoin)),
-                                _infoTile(
-                                  Icons.event_busy_outlined,
-                                  'Date Suspended',
-                                  _text(_profile?.dateOfSuspended),
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 14),
-                            _buildSection(
-                              title: 'Access & Status',
-                              icon: Icons.verified_user_outlined,
-                              children: [
-                                _infoTile(
-                                  Icons.fingerprint_outlined,
-                                  'Attendance',
-                                  _attendanceAllowed ? 'Allowed' : 'Not Allowed',
-                                  valueColor: _attendanceAllowed ? const Color(0xFF059669) : AppColors.textSecondary,
-                                ),
-                                _infoTile(
-                                  Icons.circle,
-                                  'Status',
-                                  _isActive ? 'Active' : 'Inactive',
-                                  valueColor: _isActive ? AppColors.primaryRed : AppColors.textSecondary,
-                                  leadingIconSize: 10,
-                                ),
-                              ],
-                            ),
-                          ],
+      body: SafeArea(
+        child: Column(
+          children: [
+            AppTopBar.page(
+              title: 'Employee Profile',
+              onBack: () => Navigator.pop(context),
+              horizontalPadding: hPad,
+            ),
+            Expanded(
+              child: _isLoading
+                  ? const Center(child: CircularProgressIndicator(color: AppColors.primaryRed))
+                  : SingleChildScrollView(
+                      padding: EdgeInsets.fromLTRB(hPad, 16, hPad, 24),
+                      child: Center(
+                        child: ConstrainedBox(
+                          constraints: const BoxConstraints(maxWidth: 640),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              _buildProfileHeader(),
+                              const SizedBox(height: 16),
+                              _buildQuickStats(),
+                              const SizedBox(height: 16),
+                              _buildSection(
+                                title: 'Contact',
+                                icon: Icons.contact_mail_outlined,
+                                children: [
+                                  _infoTile(Icons.email_outlined, 'Email', _text(_profile?.email)),
+                                  _infoTile(Icons.phone_outlined, 'Phone', _text(_profile?.mobile)),
+                                ],
+                              ),
+                              const SizedBox(height: 14),
+                              _buildSection(
+                                title: 'Employment',
+                                icon: Icons.work_outline_rounded,
+                                children: [
+                                  _infoTile(Icons.badge_outlined, 'Employee ID', _employeeId),
+                                  _infoTile(Icons.apartment_outlined, 'Site', widget.employee.site),
+                                  _infoTile(Icons.calendar_today_outlined, 'Date of Join', _formatDate(_profile?.dateOfJoin)),
+                                  _infoTile(
+                                    Icons.event_busy_outlined,
+                                    'Date Suspended',
+                                    _text(_profile?.dateOfSuspended),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 14),
+                              _buildSection(
+                                title: 'Access & Status',
+                                icon: Icons.verified_user_outlined,
+                                children: [
+                                  _infoTile(
+                                    Icons.fingerprint_outlined,
+                                    'Attendance',
+                                    _attendanceAllowed ? 'Allowed' : 'Not Allowed',
+                                    valueColor: _attendanceAllowed ? const Color(0xFF059669) : AppColors.textSecondary,
+                                  ),
+                                  _infoTile(
+                                    Icons.circle,
+                                    'Status',
+                                    _isActive ? 'Active' : 'Inactive',
+                                    valueColor: _isActive ? AppColors.primaryRed : AppColors.textSecondary,
+                                    leadingIconSize: 10,
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
                         ),
                       ),
                     ),
-                  ),
-          ),
-        ],
+            ),
+          ],
+        ),
       ),
     );
   }
 
-  Widget _buildHeroHeader(double hPad) {
+  Widget _buildProfileHeader() {
+    final name = _text(
+      _profile?.name ??
+          '${_profile?.firstName ?? ''} ${_profile?.lastName ?? ''}'.trim(),
+      fallback: widget.employee.name,
+    );
+    final role = _text(
+      _profile?.designation,
+      fallback: widget.employee.role.isEmpty ? 'Employee' : widget.employee.role,
+    );
+
     return Container(
-      decoration: const BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [Color(0xFF8B1D1D), Color(0xFF6B1515)],
-        ),
-        borderRadius: BorderRadius.vertical(bottom: Radius.circular(24)),
-        boxShadow: [
-          BoxShadow(color: Color(0x338B1D1D), blurRadius: 16, offset: Offset(0, 6)),
-        ],
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppColors.cardWhite,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppColors.borderGray.withValues(alpha: 0.5)),
       ),
-      child: SafeArea(
-        bottom: false,
-        child: Padding(
-          padding: EdgeInsets.fromLTRB(hPad, 8, hPad, 28),
-          child: Column(
-            children: [
-              Row(
-                children: [
-                  _headerBtn(Icons.arrow_back_ios_new_rounded, () => Navigator.pop(context)),
-                  const Spacer(),
-                  const AppLogo(size: 34),
-                  const Spacer(),
-                  const SizedBox(width: 40),
-                ],
+      child: Row(
+        children: [
+          CircleAvatar(
+            radius: 28,
+            backgroundColor: AppColors.primaryRed.withValues(alpha: 0.1),
+            child: Text(
+              name.isNotEmpty ? name.substring(0, 1).toUpperCase() : 'E',
+              style: GoogleFonts.poppins(
+                color: AppColors.primaryRed,
+                fontSize: 22,
+                fontWeight: FontWeight.w700,
               ),
-              const SizedBox(height: 20),
-              Container(
-                width: 88,
-                height: 88,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: Colors.white.withValues(alpha: 0.15),
-                  border: Border.all(color: Colors.white.withValues(alpha: 0.35), width: 2),
-                ),
-                child: Center(
-                  child: Text(
-                    widget.employee.initials,
-                    style: GoogleFonts.poppins(
-                      color: Colors.white,
-                      fontSize: 32,
-                      fontWeight: FontWeight.w700,
-                    ),
+            ),
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  name,
+                  style: GoogleFonts.poppins(
+                    color: AppColors.headingBlack,
+                    fontSize: 18,
+                    fontWeight: FontWeight.w700,
                   ),
                 ),
-              ),
-              const SizedBox(height: 14),
-              Text(
-                _isLoading ? widget.employee.name : _name,
-                textAlign: TextAlign.center,
-                style: GoogleFonts.poppins(
-                  color: Colors.white,
-                  fontSize: 22,
-                  fontWeight: FontWeight.w700,
-                  height: 1.2,
-                ),
-              ),
-              const SizedBox(height: 6),
-              Text(
-                _isLoading ? widget.employee.role : _role,
-                style: GoogleFonts.poppins(
-                  color: Colors.white.withValues(alpha: 0.85),
-                  fontSize: 14,
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-              if (!_isLoading) ...[
-                const SizedBox(height: 14),
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  alignment: WrapAlignment.center,
-                  children: [
-                    _heroChip('ID: $_employeeId'),
-                    _heroChip(widget.employee.site),
-                    _heroChip(_isActive ? 'ACTIVE' : 'INACTIVE'),
-                  ],
+                const SizedBox(height: 4),
+                Text(
+                  role,
+                  style: GoogleFonts.poppins(
+                    color: AppColors.textSecondary,
+                    fontSize: 13,
+                  ),
                 ),
               ],
-            ],
+            ),
           ),
-        ),
-      ),
-    );
-  }
-
-  Widget _headerBtn(IconData icon, VoidCallback onTap) {
-    return Material(
-      color: Colors.white.withValues(alpha: 0.15),
-      borderRadius: BorderRadius.circular(12),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(12),
-        child: SizedBox(
-          width: 40,
-          height: 40,
-          child: Icon(icon, color: Colors.white, size: 18),
-        ),
-      ),
-    );
-  }
-
-  Widget _heroChip(String label) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
-      decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.12),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.22)),
-      ),
-      child: Text(
-        label,
-        style: GoogleFonts.poppins(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w500),
+        ],
       ),
     );
   }

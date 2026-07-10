@@ -3,7 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:grjoffice_apps/core/app_colors.dart';
 import 'package:grjoffice_apps/EmployeeListscreen/employee.dart';
 import 'package:grjoffice_apps/services/api_auth.dart';
-import 'package:grjoffice_apps/widgets/app_logo.dart';
+import 'package:grjoffice_apps/widgets/app_top_bar.dart';
 
 class EditEmployeeScreen extends StatefulWidget {
   const EditEmployeeScreen({super.key, required this.employee});
@@ -175,31 +175,10 @@ class _EditEmployeeScreenState extends State<EditEmployeeScreen> {
       body: SafeArea(
         child: Column(
           children: [
-            Container(
-              color: AppColors.cardWhite,
-              padding: EdgeInsets.fromLTRB(hPad, 10, hPad, 10),
-              child: Row(
-                children: [
-                  IconButton(
-                    onPressed: () => Navigator.pop(context),
-                    icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 18),
-                    color: AppColors.textDark,
-                    padding: EdgeInsets.zero,
-                    constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
-                  ),
-                  const SizedBox(width: 8),
-                  const AppLogo(size: 36),
-                  const SizedBox(width: 10),
-                  Text(
-                    'Edit Employee',
-                    style: GoogleFonts.poppins(
-                      color: AppColors.headingBlack,
-                      fontSize: 18,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                ],
-              ),
+            AppTopBar.page(
+              title: 'Edit Employee',
+              onBack: () => Navigator.pop(context),
+              horizontalPadding: hPad,
             ),
             Expanded(
               child: SingleChildScrollView(

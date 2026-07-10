@@ -6,7 +6,7 @@ import 'package:grjoffice_apps/core/app_colors.dart';
 import 'package:grjoffice_apps/models/item_model.dart';
 import 'package:grjoffice_apps/services/api_auth.dart';
 import 'package:grjoffice_apps/SupplierList/supplier.dart';
-import 'package:grjoffice_apps/widgets/app_logo.dart';
+import 'package:grjoffice_apps/widgets/app_top_bar.dart';
 
 class AddSupplierScreen extends StatefulWidget {
   const AddSupplierScreen({super.key, this.supplier});
@@ -228,11 +228,10 @@ class _AddSupplierScreenState extends State<AddSupplierScreen> {
       body: SafeArea(
         child: Column(
           children: [
-            Container(
-              width: double.infinity,
-              padding: EdgeInsets.fromLTRB(hPad, 10, hPad, 10),
-              color: AppColors.cardWhite,
-              child: _buildTopBar(),
+            AppTopBar.page(
+              title: widget.isEditing ? 'Edit Supplier' : 'Create Supplier',
+              onBack: () => Navigator.of(context).pop(),
+              horizontalPadding: hPad,
             ),
             Expanded(
               child: SingleChildScrollView(
@@ -270,33 +269,6 @@ class _AddSupplierScreenState extends State<AddSupplierScreen> {
     if (width < 360) return 14;
     if (width < 600) return 18;
     return 20;
-  }
-
-  Widget _buildTopBar() {
-    return Row(
-      children: [
-        IconButton(
-          onPressed: () => Navigator.of(context).pop(),
-          icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 18),
-          color: AppColors.textDark,
-          padding: EdgeInsets.zero,
-          constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
-        ),
-        const SizedBox(width: 8),
-        const AppLogo(size: 36),
-        const SizedBox(width: 10),
-        Expanded(
-          child: Text(
-            widget.isEditing ? 'Edit Supplier' : 'Create Supplier',
-            style: GoogleFonts.poppins(
-              color: AppColors.headingBlack,
-              fontSize: 18,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-        ),
-      ],
-    );
   }
 
   Widget _buildHeader() {

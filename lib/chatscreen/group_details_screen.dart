@@ -4,6 +4,7 @@ import 'package:grjoffice_apps/chatscreen/conversation_screen.dart';
 import 'package:grjoffice_apps/chatscreen/services/chat_service.dart';
 import 'package:grjoffice_apps/chatscreen/widgets/chat_avatar.dart';
 import 'package:grjoffice_apps/core/app_colors.dart';
+import 'package:grjoffice_apps/widgets/app_top_bar.dart';
 
 /// Step 2: Group name, description, and profile color.
 class GroupDetailsScreen extends StatefulWidget {
@@ -114,80 +115,84 @@ class _GroupDetailsScreenState extends State<GroupDetailsScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.backgroundGray,
-      appBar: AppBar(
-        backgroundColor: AppColors.cardWhite,
-        foregroundColor: AppColors.headingBlack,
-        elevation: 0,
-        title: Text(
-          'New group',
-          style: GoogleFonts.poppins(fontWeight: FontWeight.w700, fontSize: 17),
-        ),
-      ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(20),
+      body: SafeArea(
         child: Column(
           children: [
-            GroupProfileAvatar(
-              label: _nameController.text.isEmpty ? 'Group' : _nameController.text,
-              color: _avatarColor,
-              radius: 56,
-              showCamera: true,
-              onTap: _pickAvatarColor,
+            AppTopBar.page(
+              title: 'New group',
+              onBack: () => Navigator.pop(context),
             ),
-            const SizedBox(height: 8),
-            Text(
-              'Tap to set group icon color',
-              style: GoogleFonts.poppins(fontSize: 12, color: AppColors.textSecondary),
-            ),
-            const SizedBox(height: 24),
-            TextField(
-              controller: _nameController,
-              onChanged: (_) => setState(() {}),
-              style: GoogleFonts.poppins(fontSize: 14),
-              decoration: _inputDecoration('Group subject'),
-            ),
-            const SizedBox(height: 14),
-            TextField(
-              controller: _descriptionController,
-              minLines: 2,
-              maxLines: 3,
-              style: GoogleFonts.poppins(fontSize: 14),
-              decoration: _inputDecoration('Group description (optional)'),
-            ),
-            const SizedBox(height: 16),
-            Align(
-              alignment: Alignment.centerLeft,
-              child: Text(
-                '${widget.memberIds.length + 1} participants including you',
-                style: GoogleFonts.poppins(
-                  fontSize: 12,
-                  color: AppColors.textSecondary,
+            Expanded(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.all(20),
+                child: Column(
+                  children: [
+                    GroupProfileAvatar(
+                      label: _nameController.text.isEmpty ? 'Group' : _nameController.text,
+                      color: _avatarColor,
+                      radius: 56,
+                      showCamera: true,
+                      onTap: _pickAvatarColor,
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      'Tap to set group icon color',
+                      style: GoogleFonts.poppins(fontSize: 12, color: AppColors.textSecondary),
+                    ),
+                    const SizedBox(height: 24),
+                    TextField(
+                      controller: _nameController,
+                      onChanged: (_) => setState(() {}),
+                      style: GoogleFonts.poppins(fontSize: 14),
+                      decoration: _inputDecoration('Group subject'),
+                    ),
+                    const SizedBox(height: 14),
+                    TextField(
+                      controller: _descriptionController,
+                      minLines: 2,
+                      maxLines: 3,
+                      style: GoogleFonts.poppins(fontSize: 14),
+                      decoration: _inputDecoration('Group description (optional)'),
+                    ),
+                    const SizedBox(height: 16),
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: Text(
+                        '${widget.memberIds.length + 1} participants including you',
+                        style: GoogleFonts.poppins(
+                          fontSize: 12,
+                          color: AppColors.textSecondary,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 28),
+                    SizedBox(
+                      height: 48,
+                      width: double.infinity,
+                      child: ElevatedButton(
+                        onPressed: _createGroup,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppColors.primaryRed,
+                          foregroundColor: AppColors.white,
+                          elevation: 0,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                        child: Text(
+                          'Create group',
+                          style: GoogleFonts.poppins(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ),
           ],
-        ),
-      ),
-      bottomNavigationBar: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
-          child: SizedBox(
-            height: 48,
-            width: double.infinity,
-            child: ElevatedButton(
-              onPressed: _createGroup,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.primaryRed,
-                foregroundColor: AppColors.white,
-                elevation: 0,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-              ),
-              child: Text(
-                'Create group',
-                style: GoogleFonts.poppins(fontSize: 14, fontWeight: FontWeight.w600),
-              ),
-            ),
-          ),
         ),
       ),
     );

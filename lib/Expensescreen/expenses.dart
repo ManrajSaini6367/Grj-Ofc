@@ -6,6 +6,7 @@ import 'package:grjoffice_apps/drawer/drawer.dart';
 import 'package:grjoffice_apps/Expensescreen/add_expense_screen.dart';
 import 'package:grjoffice_apps/Expensescreen/expense.dart';
 import 'package:grjoffice_apps/navigation/app_navigation.dart';
+import 'package:grjoffice_apps/widgets/app_top_bar.dart';
 
 class ExpensesScreen extends StatefulWidget {
   const ExpensesScreen({super.key});
@@ -70,63 +71,80 @@ class _ExpensesScreenState extends State<ExpensesScreen> {
     return Scaffold(
       key: _scaffoldKey,
       backgroundColor: AppColors.backgroundGray,
-      drawer: AppDrawer(selectedIndex: 7, onItemTap: _onDrawerItemTap),
+      drawer: AppDrawer(selectedIndex: DrawerIndex.expenses, onItemTap: _onDrawerItemTap),
       endDrawer: const AppEndDrawer(),
       body: SafeArea(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Padding(
-              padding: EdgeInsets.fromLTRB(hPad, 12, hPad, 0),
-              child: _buildHeader(),
+            AppTopBar.shell(
+              title: 'My Expenses',
+              scaffoldKey: _scaffoldKey,
+              horizontalPadding: hPad,
+              actions: [
+                Material(
+                  color: AppColors.primaryRed,
+                  borderRadius: BorderRadius.circular(10),
+                  child: InkWell(
+                    onTap: _openAddExpense,
+                    borderRadius: BorderRadius.circular(10),
+                    child: const SizedBox(
+                      width: 38,
+                      height: 38,
+                      child: Icon(Icons.add, color: AppColors.white, size: 22),
+                    ),
+                  ),
+                ),
+              ],
             ),
             Expanded(
-              child: rows.isEmpty
-                  ? _buildEmptyState()
-                  : ListView(
-                      padding: EdgeInsets.fromLTRB(hPad, 16, hPad, 24),
-                      children: [
-                        _buildTotalCard(),
-                        const SizedBox(height: 20),
-                        _buildCategoryFilters(),
-                        const SizedBox(height: 24),
-                        Text(
-                          'Recent Expenses',
-                          style: GoogleFonts.poppins(
-                            fontSize: 16,
-                            fontWeight: FontWeight.w700,
-                            color: AppColors.headingBlack,
-                          ),
-                        ),
-                        const SizedBox(height: 12),
-                        Container(
-                          decoration: BoxDecoration(
-                            color: AppColors.cardWhite,
-                            borderRadius: BorderRadius.circular(16),
-                            boxShadow: [
-                              BoxShadow(
-                                color: Colors.black.withValues(alpha: 0.04),
-                                blurRadius: 12,
-                                offset: const Offset(0, 4),
-                              ),
-                            ],
-                          ),
-                          child: Column(
-                            children: [
-                              for (var i = 0; i < rows.length; i++) ...[
-                                _buildExpenseRow(rows[i], highlightAmount: i == 0),
-                                if (i < rows.length - 1)
-                                  Divider(
-                                    height: 1,
-                                    indent: 72,
-                                    color: AppColors.borderGray.withValues(alpha: 0.35),
-                                  ),
-                              ],
-                            ],
-                          ),
-                        ),
-                      ],
+              child: ListView(
+                padding: EdgeInsets.fromLTRB(hPad, 16, hPad, 24),
+                children: [
+                  _buildTotalCard(),
+                  const SizedBox(height: 20),
+                  _buildCategoryFilters(),
+                  const SizedBox(height: 24),
+                  Text(
+                    'Recent Expenses',
+                    style: GoogleFonts.poppins(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w700,
+                      color: AppColors.headingBlack,
                     ),
+                  ),
+                  const SizedBox(height: 12),
+                  if (rows.isEmpty)
+                    _buildEmptyState()
+                  else
+                    Container(
+                      decoration: BoxDecoration(
+                        color: AppColors.cardWhite,
+                        borderRadius: BorderRadius.circular(16),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: 0.04),
+                            blurRadius: 12,
+                            offset: const Offset(0, 4),
+                          ),
+                        ],
+                      ),
+                      child: Column(
+                        children: [
+                          for (var i = 0; i < rows.length; i++) ...[
+                            _buildExpenseRow(rows[i], highlightAmount: i == 0),
+                            if (i < rows.length - 1)
+                              Divider(
+                                height: 1,
+                                indent: 72,
+                                color: AppColors.borderGray.withValues(alpha: 0.35),
+                              ),
+                          ],
+                        ],
+                      ),
+                    ),
+                ],
+              ),
             ),
           ],
         ),
@@ -146,55 +164,6 @@ class _ExpensesScreenState extends State<ExpensesScreen> {
     setState(() => _expenses.insert(0, result));
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text('Expense ${result.id} saved.')),
-    );
-  }
-
-  Widget _buildHeader() {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        IconButton(
-          onPressed: () => _scaffoldKey.currentState?.openDrawer(),
-          icon: const Icon(Icons.menu_rounded, color: AppColors.headingBlack),
-          padding: EdgeInsets.zero,
-          constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
-        ),
-        const SizedBox(width: 4),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'My Expenses',
-                style: GoogleFonts.poppins(
-                  fontSize: 22,
-                  fontWeight: FontWeight.w700,
-                  color: AppColors.headingBlack,
-                ),
-              ),
-              const SizedBox(height: 2),
-              Text(
-                'Track and manage your expenses',
-                style: GoogleFonts.poppins(fontSize: 13, color: AppColors.textSecondary),
-              ),
-            ],
-          ),
-        ),
-        Material(
-          color: AppColors.primaryRed,
-          borderRadius: BorderRadius.circular(12),
-          elevation: 0,
-          child: InkWell(
-            onTap: _openAddExpense,
-            borderRadius: BorderRadius.circular(12),
-            child: const SizedBox(
-              width: 44,
-              height: 44,
-              child: Icon(Icons.add, color: AppColors.white, size: 24),
-            ),
-          ),
-        ),
-      ],
     );
   }
 
@@ -413,33 +382,32 @@ class _ExpensesScreenState extends State<ExpensesScreen> {
   }
 
   Widget _buildEmptyState() {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(32),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Container(
-              width: 72,
-              height: 72,
-              decoration: BoxDecoration(
-                color: AppColors.primaryRed.withValues(alpha: 0.1),
-                shape: BoxShape.circle,
-              ),
-              child: Icon(Icons.account_balance_wallet_outlined, color: AppColors.primaryRed, size: 34),
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 40, horizontal: 16),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Container(
+            width: 72,
+            height: 72,
+            decoration: BoxDecoration(
+              color: AppColors.primaryRed.withValues(alpha: 0.1),
+              shape: BoxShape.circle,
             ),
-            const SizedBox(height: 16),
-            Text(
-              'No expenses found',
-              style: GoogleFonts.poppins(fontSize: 15, fontWeight: FontWeight.w600, color: AppColors.headingBlack),
-            ),
-            const SizedBox(height: 6),
-            Text(
-              'Try another category or time period',
-              style: GoogleFonts.poppins(fontSize: 13, color: AppColors.textSecondary),
-            ),
-          ],
-        ),
+            child: Icon(Icons.account_balance_wallet_outlined, color: AppColors.primaryRed, size: 34),
+          ),
+          const SizedBox(height: 16),
+          Text(
+            'No expenses found',
+            style: GoogleFonts.poppins(fontSize: 15, fontWeight: FontWeight.w600, color: AppColors.headingBlack),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            'Try another category or time period',
+            textAlign: TextAlign.center,
+            style: GoogleFonts.poppins(fontSize: 13, color: AppColors.textSecondary),
+          ),
+        ],
       ),
     );
   }

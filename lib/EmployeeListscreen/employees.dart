@@ -11,7 +11,7 @@ import 'package:grjoffice_apps/EmployeeListscreen/viewemployeeprofile.dart';
 import 'package:grjoffice_apps/models/getemployeemodal.dart';
 import 'package:grjoffice_apps/navigation/app_navigation.dart';
 import 'package:grjoffice_apps/services/api_auth.dart';
-import 'package:grjoffice_apps/widgets/app_logo.dart';
+import 'package:grjoffice_apps/widgets/app_top_bar.dart';
 
 enum _SortOption { nameAsc, nameDesc, idAsc }
 
@@ -40,7 +40,8 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
     _searchController.addListener(() {
       setState(() => _searchQuery = _searchController.text.trim().toLowerCase());
     });
-    if (widget.isActive) _scheduleInitialLoad();
+    // Always load when opened via drawer/shell; isActive is only for tab reuse.
+    _scheduleInitialLoad();
   }
 
   @override
@@ -142,18 +143,17 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
       key: _scaffoldKey,
       backgroundColor: AppColors.backgroundGray,
       drawer: AppDrawer(
-        selectedIndex: 1,
+        selectedIndex: DrawerIndex.employees,
         onItemTap: _onDrawerItemTap,
       ),
       endDrawer: const AppEndDrawer(),
       body: SafeArea(
         child: Column(
           children: [
-            Container(
-              width: double.infinity,
-              padding: EdgeInsets.fromLTRB(hPad, 10, hPad, 10),
-              color: AppColors.cardWhite,
-              child: _buildTopBar(),
+            AppTopBar.shell(
+              title: 'Employee List',
+              scaffoldKey: _scaffoldKey,
+              horizontalPadding: hPad,
             ),
             Expanded(
               child: _isLoading
@@ -194,45 +194,6 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
 
   void _onDrawerItemTap(int index) {
     navigateFromDrawer(context, index);
-  }
-
-  Widget _buildTopBar() {
-    return Row(
-      children: [
-        GestureDetector(
-          onTap: () => _scaffoldKey.currentState?.openDrawer(),
-          child: const AppLogo(size: 38),
-        ),
-        const SizedBox(width: 10),
-        Expanded(
-          child: Text(
-            'Employee List',
-            style: GoogleFonts.poppins(
-              color: AppColors.headingBlack,
-              fontSize: 18,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-        ),
-        GestureDetector(
-          onTap: () => _scaffoldKey.currentState?.openEndDrawer(),
-          child: Container(
-            width: 38,
-            height: 38,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: AppColors.iconBgGray,
-              border: Border.all(color: AppColors.borderGray),
-            ),
-            child: const Icon(
-              Icons.person_outline,
-              color: AppColors.textSecondary,
-              size: 20,
-            ),
-          ),
-        ),
-      ],
-    );
   }
 
   void _openCreateEmployee() async {

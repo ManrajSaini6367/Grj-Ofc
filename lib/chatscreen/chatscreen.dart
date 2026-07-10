@@ -6,6 +6,10 @@ import 'package:grjoffice_apps/chatscreen/select_participants_screen.dart';
 import 'package:grjoffice_apps/chatscreen/services/chat_service.dart';
 import 'package:grjoffice_apps/chatscreen/widgets/chat_thread_tile.dart';
 import 'package:grjoffice_apps/core/app_colors.dart';
+import 'package:grjoffice_apps/drawer/app_end_drawer.dart';
+import 'package:grjoffice_apps/drawer/drawer.dart';
+import 'package:grjoffice_apps/navigation/app_navigation.dart';
+import 'package:grjoffice_apps/widgets/app_top_bar.dart';
 
 class ChatScreen extends StatefulWidget {
   const ChatScreen({super.key});
@@ -15,6 +19,7 @@ class ChatScreen extends StatefulWidget {
 }
 
 class _ChatScreenState extends State<ChatScreen> {
+  final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
   final _searchController = TextEditingController();
   final _service = ChatService.instance;
   String _searchQuery = '';
@@ -74,15 +79,46 @@ class _ChatScreenState extends State<ChatScreen> {
     final threads = _filteredThreads;
 
     return Scaffold(
+      key: _scaffoldKey,
       backgroundColor: AppColors.backgroundGray,
+      drawer: AppDrawer(
+        selectedIndex: -1,
+        onItemTap: (index) => navigateFromDrawer(context, index),
+      ),
+      endDrawer: const AppEndDrawer(),
       body: SafeArea(
         child: Column(
           children: [
-            Container(
-              width: double.infinity,
-              padding: EdgeInsets.fromLTRB(hPad, 10, hPad, 10),
-              color: AppColors.cardWhite,
-              child: _buildTopBar(),
+            AppTopBar.tab(
+              title: 'Chats',
+              scaffoldKey: _scaffoldKey,
+              showProfile: true,
+              horizontalPadding: hPad,
+              actions: [
+                PopupMenuButton<String>(
+                  icon: const Icon(Icons.more_vert, color: AppColors.textSecondary, size: 22),
+                  color: AppColors.cardWhite,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  onSelected: (value) {
+                    if (value == 'new_group') _openNewGroup();
+                  },
+                  itemBuilder: (context) => [
+                    PopupMenuItem(
+                      value: 'new_group',
+                      child: Row(
+                        children: [
+                          const Icon(Icons.group_add_outlined, color: AppColors.primaryRed, size: 20),
+                          const SizedBox(width: 12),
+                          Text(
+                            'New group',
+                            style: GoogleFonts.poppins(fontSize: 14, color: AppColors.headingBlack),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ],
             ),
             Padding(
               padding: EdgeInsets.fromLTRB(hPad, 12, hPad, 8),
@@ -134,57 +170,6 @@ class _ChatScreenState extends State<ChatScreen> {
           ],
         ),
       ),
-    );
-  }
-
-  Widget _buildTopBar() {
-    return Row(
-      children: [
-        IconButton(
-          onPressed: () => Navigator.of(context).pop(),
-          icon: const Icon(
-            Icons.arrow_back_ios_new_rounded,
-            color: AppColors.headingBlack,
-            size: 20,
-          ),
-          padding: EdgeInsets.zero,
-          constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
-        ),
-        const SizedBox(width: 4),
-        Expanded(
-          child: Text(
-            'Chats',
-            style: GoogleFonts.poppins(
-              color: AppColors.headingBlack,
-              fontSize: 18,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-        ),
-        PopupMenuButton<String>(
-          icon: const Icon(Icons.more_vert, color: AppColors.textSecondary, size: 22),
-          color: AppColors.cardWhite,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-          onSelected: (value) {
-            if (value == 'new_group') _openNewGroup();
-          },
-          itemBuilder: (context) => [
-            PopupMenuItem(
-              value: 'new_group',
-              child: Row(
-                children: [
-                  const Icon(Icons.group_add_outlined, color: AppColors.primaryRed, size: 20),
-                  const SizedBox(width: 12),
-                  Text(
-                    'New group',
-                    style: GoogleFonts.poppins(fontSize: 14, color: AppColors.headingBlack),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ],
     );
   }
 

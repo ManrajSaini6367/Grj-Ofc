@@ -1,13 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:grjoffice_apps/DayEndReport/activities.dart';
-import 'package:grjoffice_apps/Storescreens/store.dart';
-import 'package:grjoffice_apps/chatscreen/chatscreen.dart';
+import 'package:grjoffice_apps/attendancescreen/attendance_screen.dart';
+import 'package:grjoffice_apps/attendancescreen/contractor_attendance_screen.dart';
+import 'package:grjoffice_apps/LabourContractor/contractors.dart';
+import 'package:grjoffice_apps/SupplierList/suppliers.dart';
 import 'package:grjoffice_apps/core/app_colors.dart';
 import 'package:grjoffice_apps/drawer/app_end_drawer.dart';
 import 'package:grjoffice_apps/drawer/drawer.dart';
 import 'package:grjoffice_apps/navigation/app_navigation.dart';
-import 'package:grjoffice_apps/Purchasescreen/purchases.dart';
 import 'package:grjoffice_apps/core/preference.dart';
 import 'package:grjoffice_apps/models/site_model.dart';
 import 'package:grjoffice_apps/services/attendance_service.dart';
@@ -27,7 +28,6 @@ class _HomePageState extends State<HomePage> {
   final AttendanceService _attendance = AttendanceService.instance;
   final LocationService _location = LocationService.instance;
 
-  int _selectedDrawerIndex = 0;
   String _selectedSite = '';
   bool _isProcessingPunch = false;
   bool _isLoadingSites = true;
@@ -183,11 +183,8 @@ class _HomePageState extends State<HomePage> {
       key: _scaffoldKey,
       backgroundColor: AppColors.backgroundGray,
       drawer: AppDrawer(
-        selectedIndex: _selectedDrawerIndex,
-        onItemTap: (index) {
-          setState(() => _selectedDrawerIndex = index);
-          navigateFromDrawer(context, index);
-        },
+        selectedIndex: DrawerIndex.dashboard,
+        onItemTap: (index) => navigateFromDrawer(context, index),
       ),
       endDrawer: const AppEndDrawer(),
       body: SafeArea(
@@ -375,7 +372,7 @@ class _HomePageState extends State<HomePage> {
             icon: Icons.chat_bubble_outline,
             title: 'Chats',
             subtitle: 'Manage Chats',
-            onTap: () => pushInShell(context, const ChatScreen()),
+            onTap: () => navigateToMainTab(context, MainTab.chats),
           ),
         ),
         const SizedBox(width: 12),
@@ -384,11 +381,7 @@ class _HomePageState extends State<HomePage> {
             icon: Icons.history,
             title: 'Activity',
             subtitle: 'Check all activity',
-            onTap: () {
-              Navigator.of(context).push(
-                MaterialPageRoute(builder: (_) => const ActivitiesScreen()),
-              );
-            },
+            onTap: () => pushInShell(context, const ActivitiesScreen()),
           ),
         ),
       ],
@@ -467,18 +460,19 @@ class _HomePageState extends State<HomePage> {
   Widget _buildOperationCard(_OperationItem item, int index) {
     return GestureDetector(
       onTap: () {
-        if (index == 0) {
-          navigateToMainTab(context, 2);
-        } else if (index == 1) {
-          navigateToMainTab(context, 3);
-        } else if (index == 2) {
-          Navigator.of(context).push(
-            MaterialPageRoute(builder: (_) => const StoreScreen()),
-          );
-        } else if (index == 3) {
-          Navigator.of(context).push(
-            MaterialPageRoute(builder: (_) => const PurchasesScreen()),
-          );
+        switch (index) {
+          case 0:
+            pushInShell(context, const SuppliersScreen(isActive: true));
+          case 1:
+            pushInShell(context, const ContractorsScreen(isActive: true));
+          case 2:
+            navigateToMainTab(context, MainTab.store);
+          case 3:
+            navigateToMainTab(context, MainTab.purchase);
+          case 4:
+            pushInShell(context, const AttendanceScreen());
+          case 5:
+            pushInShell(context, const ContractorAttendanceScreen());
         }
       },
       child: Container(

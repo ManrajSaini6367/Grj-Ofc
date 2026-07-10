@@ -1,13 +1,26 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:grjoffice_apps/core/app_colors.dart';
+import 'package:grjoffice_apps/core/app_navigator.dart';
 import 'package:grjoffice_apps/core/preference.dart';
 import 'package:grjoffice_apps/navigation/app_navigation.dart';
 import 'package:grjoffice_apps/profilescreen/contractor.dart';
+import 'package:grjoffice_apps/profilescreen/edit_profile_screen.dart';
+import 'package:grjoffice_apps/profilescreen/notifications_screen.dart';
 import 'package:grjoffice_apps/services/api_auth.dart';
 
 class AppEndDrawer extends StatelessWidget {
   const AppEndDrawer({super.key});
+
+  /// Close the drawer, then run [action] with a still-mounted host context.
+  void _closeThen(BuildContext drawerContext, void Function(BuildContext host) action) {
+    Navigator.of(drawerContext).pop();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final host = appNavigatorKey.currentContext;
+      if (host == null || !host.mounted) return;
+      action(host);
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -39,25 +52,37 @@ class AppEndDrawer extends StatelessWidget {
                 _buildMenuItem(
                   icon: Icons.person_outline,
                   title: 'Profile',
-                  onTap: (context) {
-                    Navigator.of(context).pop();
-                    navigateToMainTab(context, 4);
-                  },
+                  onTap: (ctx) => _closeThen(ctx, (host) {
+                    navigateToMainTab(host, MainTab.profile);
+                  }),
+                ),
+                _buildMenuItem(
+                  icon: Icons.edit_outlined,
+                  title: 'Edit Profile',
+                  onTap: (ctx) => _closeThen(ctx, (host) {
+                    pushInShell(host, const EditProfileScreen());
+                  }),
+                ),
+                _buildMenuItem(
+                  icon: Icons.notifications_outlined,
+                  title: 'Notifications',
+                  onTap: (ctx) => _closeThen(ctx, (host) {
+                    pushInShell(host, const NotificationsScreen());
+                  }),
                 ),
                 _buildMenuItem(
                   icon: Icons.lock_outline,
                   title: 'Change Password',
-                  onTap: (context) {
-                    Navigator.of(context).pop();
-                    pushInShell(context, const Contractor());
-                  },
+                  onTap: (ctx) => _closeThen(ctx, (host) {
+                    pushInShell(host, const Contractor());
+                  }),
                 ),
                 Divider(height: 1, color: AppColors.borderGray.withValues(alpha: 0.5)),
                 _buildMenuItem(
                   icon: Icons.logout_rounded,
                   title: 'Logout',
                   isDestructive: true,
-                  onTap: (context) => _confirmAndLogout(context),
+                  onTap: (ctx) => _confirmAndLogout(ctx),
                 ),
               ],
             ),
@@ -120,7 +145,11 @@ class AppEndDrawer extends StatelessWidget {
     if (confirmed != true || !context.mounted) return;
 
     Navigator.of(context).pop();
-    await logoutApi(context);
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      final host = appNavigatorKey.currentContext;
+      if (host == null || !host.mounted) return;
+      await logoutApi(host);
+    });
   }
 
   Widget _buildHeader() {

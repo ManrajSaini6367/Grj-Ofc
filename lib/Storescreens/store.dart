@@ -5,8 +5,10 @@ import 'package:grjoffice_apps/drawer/drawer.dart';
 import 'package:grjoffice_apps/Itemsscreen/item.dart';
 import 'package:grjoffice_apps/Itemsscreen/item_history_screen.dart';
 import 'package:grjoffice_apps/core/app_colors.dart';
+import 'package:grjoffice_apps/models/item_model.dart';
 import 'package:grjoffice_apps/navigation/app_navigation.dart';
-import 'package:grjoffice_apps/widgets/app_logo.dart';
+import 'package:grjoffice_apps/services/api_auth.dart';
+import 'package:grjoffice_apps/widgets/app_top_bar.dart';
 import 'package:grjoffice_apps/widgets/item_thumbnail.dart';
 
 enum _StockFilter { all, inStock, lowStock }
@@ -31,10 +33,8 @@ class _StoreScreenState extends State<StoreScreen> {
   final _searchController = TextEditingController();
   String _searchQuery = '';
   _StockFilter _stockFilter = _StockFilter.all;
-
-  List<InventoryItem> get _storeItems {
-    return kMockItems.where((item) => item.status == ItemStatus.published).toList();
-  }
+  List<InventoryItem> _storeItems = [];
+  bool _isLoading = true;
 
   @override
   void initState() {
@@ -42,6 +42,32 @@ class _StoreScreenState extends State<StoreScreen> {
     _searchController.addListener(() {
       setState(() => _searchQuery = _searchController.text.trim().toLowerCase());
     });
+    WidgetsBinding.instance.addPostFrameCallback((_) => _loadItems());
+  }
+
+  Future<void> _loadItems() async {
+    final apiItems = await itemsApi(context, perPage: 50, status: 'published');
+    if (!mounted) return;
+    setState(() {
+      _storeItems = apiItems?.map(_toInventoryItem).toList() ?? [];
+      _isLoading = false;
+    });
+  }
+
+  InventoryItem _toInventoryItem(ItemModel model) {
+    return InventoryItem(
+      id: model.id.toString(),
+      name: model.displayName,
+      sku: model.sku ?? '-',
+      unit: model.unit,
+      status: model.status == 'published'
+          ? ItemStatus.published
+          : ItemStatus.unpublished,
+      directPurchase: model.purchase == 1,
+      dayReport: model.dayReport == 1,
+      consumable: model.consumable == 1,
+      balance: int.tryParse(model.balance ?? '') ?? 0,
+    );
   }
 
   @override
@@ -57,7 +83,7 @@ class _StoreScreenState extends State<StoreScreen> {
     return 20;
   }
 
-  double _balance(InventoryItem item) => getItemStockBalance(item.id);
+  double _balance(InventoryItem item) => item.balance.toDouble();
 
   bool _isLowStock(double balance) => balance > 0 && balance <= _lowStockThreshold;
 
@@ -102,182 +128,68 @@ class _StoreScreenState extends State<StoreScreen> {
     return Scaffold(
       key: _scaffoldKey,
       backgroundColor: AppColors.backgroundGray,
-      drawer: AppDrawer(selectedIndex: 6, onItemTap: _onDrawerItemTap),
+      drawer: AppDrawer(selectedIndex: DrawerIndex.store, onItemTap: _onDrawerItemTap),
       endDrawer: const AppEndDrawer(),
-      body: Column(
-        children: [
-          _buildHeroHeader(hPad),
-          Expanded(
-            child: CustomScrollView(
-              slivers: [
-                SliverToBoxAdapter(
-                  child: Padding(
-                    padding: EdgeInsets.fromLTRB(hPad, 16, hPad, 0),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        _buildStatsRow(),
-                        const SizedBox(height: 16),
-                        _buildToolbar(),
-                        const SizedBox(height: 12),
-                        _buildFilterChips(),
-                        const SizedBox(height: 16),
-                        _buildSectionHeader(items.length),
-                      ],
-                    ),
-                  ),
-                ),
-                if (items.isEmpty)
-                  SliverFillRemaining(hasScrollBody: false, child: _buildEmptyState())
-                else
-                  SliverPadding(
-                    padding: EdgeInsets.fromLTRB(hPad, 0, hPad, 20),
-                    sliver: SliverLayoutBuilder(
-                      builder: (context, constraints) {
-                        final crossAxisCount = constraints.crossAxisExtent >= 600 ? 3 : 2;
-                        return SliverGrid(
-                          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                            crossAxisCount: crossAxisCount,
-                            mainAxisSpacing: 12,
-                            crossAxisSpacing: 12,
-                            childAspectRatio: 0.70,
-                          ),
-                          delegate: SliverChildBuilderDelegate(
-                            (context, index) => _buildStoreCard(items[index]),
-                            childCount: items.length,
-                          ),
-                        );
-                      },
-                    ),
-                  ),
-              ],
+      body: SafeArea(
+        child: Column(
+          children: [
+            AppTopBar.tab(
+              title: 'Store',
+              scaffoldKey: _scaffoldKey,
+              horizontalPadding: hPad,
             ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildHeroHeader(double hPad) {
-    return Container(
-      decoration: const BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [Color(0xFF8B1D1D), Color(0xFF5C1212)],
-        ),
-        borderRadius: BorderRadius.vertical(bottom: Radius.circular(24)),
-        boxShadow: [
-          BoxShadow(color: Color(0x338B1D1D), blurRadius: 16, offset: Offset(0, 6)),
-        ],
-      ),
-      child: SafeArea(
-        bottom: false,
-        child: Padding(
-          padding: EdgeInsets.fromLTRB(hPad, 8, hPad, 22),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  _headerIconButton(Icons.menu_rounded, () => _scaffoldKey.currentState?.openDrawer()),
-                  const Spacer(),
-                  // const AppLogo(size: 34),
-                  const Spacer(),
-                  _headerIconButton(Icons.person_outline_rounded, () => _scaffoldKey.currentState?.openEndDrawer()),
-                ],
-              ),
-              const SizedBox(height: 18),
-              Row(
-                children: [
-                  Container(
-                    width: 52,
-                    height: 52,
-                    padding: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(14),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withValues(alpha: 0.12),
-                          blurRadius: 8,
-                          offset: const Offset(0, 2),
-                        ),
-                      ],
-                    ),
-                    child: const AppLogo(size: 44, showBorder: true),
-                  ),
-                  const SizedBox(width: 14),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Site Store',
-                          style: GoogleFonts.poppins(
-                            color: Colors.white.withValues(alpha: 0.85),
-                            fontSize: 13,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                        Text(
-                          'Inventory Overview',
-                          style: GoogleFonts.poppins(
-                            color: Colors.white,
-                            fontSize: 22,
-                            fontWeight: FontWeight.w700,
-                            height: 1.15,
-                          ),
-                        ),
-                      ],
+            Expanded(
+              child: _isLoading
+                  ? const Center(
+                      child: CircularProgressIndicator(color: AppColors.primaryRed),
+                    )
+                  : CustomScrollView(
+                slivers: [
+                  SliverToBoxAdapter(
+                    child: Padding(
+                      padding: EdgeInsets.fromLTRB(hPad, 16, hPad, 0),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          _buildStatsRow(),
+                          const SizedBox(height: 16),
+                          _buildToolbar(),
+                          const SizedBox(height: 12),
+                          _buildFilterChips(),
+                          const SizedBox(height: 16),
+                          _buildSectionHeader(items.length),
+                        ],
+                      ),
                     ),
                   ),
+                  if (items.isEmpty)
+                    SliverFillRemaining(hasScrollBody: false, child: _buildEmptyState())
+                  else
+                    SliverPadding(
+                      padding: EdgeInsets.fromLTRB(hPad, 0, hPad, 20),
+                      sliver: SliverLayoutBuilder(
+                        builder: (context, constraints) {
+                          final crossAxisCount = constraints.crossAxisExtent >= 600 ? 3 : 2;
+                          return SliverGrid(
+                            gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                              crossAxisCount: crossAxisCount,
+                              mainAxisSpacing: 12,
+                              crossAxisSpacing: 12,
+                              childAspectRatio: 0.68,
+                            ),
+                            delegate: SliverChildBuilderDelegate(
+                              (context, index) => _buildStoreCard(items[index]),
+                              childCount: items.length,
+                            ),
+                          );
+                        },
+                      ),
+                    ),
                 ],
               ),
-              const SizedBox(height: 14),
-              Wrap(
-                spacing: 8,
-                runSpacing: 6,
-                children: [
-                  _heroChip('${_storeItems.length} items'),
-                  _heroChip('$_inStockCount in stock'),
-                  if (_lowStockCount > 0) _heroChip('$_lowStockCount low stock'),
-                ],
-              ),
-            ],
-          ),
+            ),
+          ],
         ),
-      ),
-    );
-  }
-
-  Widget _headerIconButton(IconData icon, VoidCallback? onTap) {
-    return Material(
-      color: Colors.white.withValues(alpha: 0.14),
-      borderRadius: BorderRadius.circular(12),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(12),
-        child: SizedBox(
-          width: 40,
-          height: 40,
-          child: Icon(icon, color: Colors.white, size: 20),
-        ),
-      ),
-    );
-  }
-
-  Widget _heroChip(String label) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-      decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.12),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.2)),
-      ),
-      child: Text(
-        label,
-        style: GoogleFonts.poppins(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w500),
       ),
     );
   }

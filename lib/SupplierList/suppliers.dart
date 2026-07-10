@@ -9,7 +9,7 @@ import 'package:grjoffice_apps/services/api_auth.dart';
 import 'package:grjoffice_apps/SupplierList/add_supplier_screen.dart';
 import 'package:grjoffice_apps/SupplierList/supplier.dart';
 import 'package:grjoffice_apps/SupplierList/view_supplier_screen.dart';
-import 'package:grjoffice_apps/widgets/app_logo.dart';
+import 'package:grjoffice_apps/widgets/app_top_bar.dart';
 
 class SuppliersScreen extends StatefulWidget {
   const SuppliersScreen({super.key, this.isActive = false});
@@ -34,7 +34,7 @@ class _SuppliersScreenState extends State<SuppliersScreen> {
     _searchController.addListener(() {
       setState(() => _searchQuery = _searchController.text.trim().toLowerCase());
     });
-    if (widget.isActive) _scheduleInitialLoad();
+    _scheduleInitialLoad();
   }
 
   @override
@@ -118,18 +118,17 @@ class _SuppliersScreenState extends State<SuppliersScreen> {
       key: _scaffoldKey,
       backgroundColor: AppColors.backgroundGray,
       drawer: AppDrawer(
-        selectedIndex: 3,
+        selectedIndex: DrawerIndex.suppliers,
         onItemTap: _onDrawerItemTap,
       ),
       endDrawer: const AppEndDrawer(),
       body: SafeArea(
         child: Column(
           children: [
-            Container(
-              width: double.infinity,
-              padding: EdgeInsets.fromLTRB(hPad, 10, hPad, 10),
-              color: AppColors.cardWhite,
-              child: _buildTopBar(),
+            AppTopBar.shell(
+              title: 'Supplier List',
+              scaffoldKey: _scaffoldKey,
+              horizontalPadding: hPad,
             ),
             Expanded(
               child: _isLoading
@@ -164,45 +163,6 @@ class _SuppliersScreenState extends State<SuppliersScreen> {
 
   void _onDrawerItemTap(int index) {
     navigateFromDrawer(context, index);
-  }
-
-  Widget _buildTopBar() {
-    return Row(
-      children: [
-        GestureDetector(
-          onTap: () => _scaffoldKey.currentState?.openDrawer(),
-          child: const AppLogo(size: 38),
-        ),
-        const SizedBox(width: 10),
-        Expanded(
-          child: Text(
-            'Supplier List',
-            style: GoogleFonts.poppins(
-              color: AppColors.headingBlack,
-              fontSize: 18,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-        ),
-        GestureDetector(
-          onTap: () => _scaffoldKey.currentState?.openEndDrawer(),
-          child: Container(
-            width: 38,
-            height: 38,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: AppColors.iconBgGray,
-              border: Border.all(color: AppColors.borderGray),
-            ),
-            child: const Icon(
-              Icons.person_outline,
-              color: AppColors.textSecondary,
-              size: 20,
-            ),
-          ),
-        ),
-      ],
-    );
   }
 
   void _openCreateSupplier() async {

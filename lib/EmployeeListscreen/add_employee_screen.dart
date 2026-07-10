@@ -3,7 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:grjoffice_apps/core/app_colors.dart';
 import 'package:grjoffice_apps/EmployeeListscreen/employee.dart';
 import 'package:grjoffice_apps/services/api_auth.dart';
-import 'package:grjoffice_apps/widgets/app_logo.dart';
+import 'package:grjoffice_apps/widgets/app_top_bar.dart';
 
 class AddEmployeeScreen extends StatefulWidget {
   const AddEmployeeScreen({super.key, this.employee});
@@ -197,11 +197,10 @@ class _AddEmployeeScreenState extends State<AddEmployeeScreen> {
       body: SafeArea(
         child: Column(
           children: [
-            Container(
-              width: double.infinity,
-              padding: EdgeInsets.fromLTRB(hPad, 10, hPad, 10),
-              color: AppColors.cardWhite,
-              child: _buildTopBar(),
+            AppTopBar.page(
+              title: widget.isEditing ? 'Edit Employee' : 'Add Employee',
+              onBack: () => Navigator.of(context).pop(),
+              horizontalPadding: hPad,
             ),
             Expanded(
               child: SingleChildScrollView(
@@ -239,33 +238,6 @@ class _AddEmployeeScreenState extends State<AddEmployeeScreen> {
     if (width < 360) return 14;
     if (width < 600) return 18;
     return 20;
-  }
-
-  Widget _buildTopBar() {
-    return Row(
-      children: [
-        IconButton(
-          onPressed: () => Navigator.of(context).pop(),
-          icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 18),
-          color: AppColors.textDark,
-          padding: EdgeInsets.zero,
-          constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
-        ),
-        const SizedBox(width: 8),
-        const AppLogo(size: 36),
-        const SizedBox(width: 10),
-        Expanded(
-          child: Text(
-            widget.isEditing ? 'Edit Employee' : 'Add Employee',
-            style: GoogleFonts.poppins(
-              color: AppColors.headingBlack,
-              fontSize: 18,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-        ),
-      ],
-    );
   }
 
   Widget _buildHeader() {

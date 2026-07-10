@@ -3,6 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:grjoffice_apps/chatscreen/models/chat_models.dart';
 import 'package:grjoffice_apps/chatscreen/select_participants_screen.dart';
 import 'package:grjoffice_apps/chatscreen/services/chat_service.dart';
+import 'package:grjoffice_apps/widgets/app_top_bar.dart';
 import 'package:grjoffice_apps/chatscreen/widgets/chat_avatar.dart';
 import 'package:grjoffice_apps/core/app_colors.dart';
 
@@ -149,12 +150,18 @@ class _GroupInfoScreenState extends State<GroupInfoScreen> {
     final thread = _thread;
     if (thread == null || !thread.isGroup) {
       return Scaffold(
-        appBar: AppBar(
-          backgroundColor: AppColors.cardWhite,
-          foregroundColor: AppColors.headingBlack,
-          elevation: 0,
+        backgroundColor: AppColors.backgroundGray,
+        body: SafeArea(
+          child: Column(
+            children: [
+              AppTopBar.page(
+                title: 'Group info',
+                onBack: () => Navigator.pop(context),
+              ),
+              const Expanded(child: Center(child: Text('Group not found'))),
+            ],
+          ),
         ),
-        body: const Center(child: Text('Group not found')),
       );
     }
 
@@ -164,119 +171,122 @@ class _GroupInfoScreenState extends State<GroupInfoScreen> {
 
     return Scaffold(
       backgroundColor: AppColors.backgroundGray,
-      appBar: AppBar(
-        backgroundColor: AppColors.cardWhite,
-        foregroundColor: AppColors.headingBlack,
-        elevation: 0,
-        title: Text(
-          'Group info',
-          style: GoogleFonts.poppins(fontWeight: FontWeight.w700, fontSize: 17),
+      body: SafeArea(
+        child: Column(
+          children: [
+            AppTopBar.page(
+              title: 'Group info',
+              onBack: () => Navigator.pop(context),
+            ),
+            Expanded(
+              child: ListView(
+                children: [
+                  const SizedBox(height: 20),
+                  Center(
+                    child: ChatAvatar(
+                      user: null,
+                      isGroup: true,
+                      groupLabel: thread.title,
+                      groupColor: thread.groupColor,
+                      radius: 40,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  Center(
+                    child: Text(
+                      thread.title,
+                      style: GoogleFonts.poppins(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w700,
+                        color: AppColors.headingBlack,
+                      ),
+                    ),
+                  ),
+                  if (thread.description?.isNotEmpty == true) ...[
+                    const SizedBox(height: 6),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 32),
+                      child: Text(
+                        thread.description!,
+                        textAlign: TextAlign.center,
+                        style: GoogleFonts.poppins(fontSize: 13, color: AppColors.textSecondary),
+                      ),
+                    ),
+                  ],
+                  const SizedBox(height: 6),
+                  Center(
+                    child: Text(
+                      'Group · ${thread.participantIds.length} members · $online online',
+                      style: GoogleFonts.poppins(fontSize: 12, color: AppColors.textSecondary),
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                  _actionTile(
+                    icon: Icons.person_add_outlined,
+                    label: 'Add members',
+                    onTap: _addMembers,
+                  ),
+                  const SizedBox(height: 12),
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+                    child: Text(
+                      '${members.length} MEMBERS',
+                      style: GoogleFonts.poppins(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: 0.6,
+                        color: AppColors.textSecondary,
+                      ),
+                    ),
+                  ),
+                  ...members.map((member) {
+                    final isMe = member.id == _service.currentUserId;
+                    final isMemberAdmin = thread.adminId == member.id;
+                    return Material(
+                      color: AppColors.cardWhite,
+                      child: ListTile(
+                        leading: ChatAvatar(user: member, showOnlineDot: true, radius: 20),
+                        title: Text(
+                          isMe ? '${member.name} (You)' : member.name,
+                          style: GoogleFonts.poppins(fontSize: 14, fontWeight: FontWeight.w500),
+                        ),
+                        subtitle: Text(
+                          isMemberAdmin
+                              ? 'Group admin'
+                              : (member.isOnline ? 'online' : 'offline'),
+                          style: GoogleFonts.poppins(fontSize: 12, color: AppColors.textSecondary),
+                        ),
+                        trailing: isAdmin && !isMe
+                            ? IconButton(
+                                icon: const Icon(Icons.remove_circle_outline, color: AppColors.primaryRed),
+                                onPressed: () => _removeMember(member),
+                              )
+                            : null,
+                      ),
+                    );
+                  }),
+                  const SizedBox(height: 16),
+                  _actionTile(
+                    icon: Icons.logout_rounded,
+                    label: 'Leave group',
+                    color: AppColors.primaryRed,
+                    onTap: _leaveGroup,
+                  ),
+                  if (isAdmin) ...[
+                    const SizedBox(height: 8),
+                    _actionTile(
+                      icon: Icons.delete_outline,
+                      label: 'Delete group',
+                      color: AppColors.primaryRed,
+                      onTap: _deleteGroup,
+                    ),
+                  ],
+                  const SizedBox(height: 24),
+                ],
+              ),
+            ),
+          ],
         ),
-      ),
-      body: ListView(
-        children: [
-          const SizedBox(height: 20),
-          Center(
-            child: ChatAvatar(
-              user: null,
-              isGroup: true,
-              groupLabel: thread.title,
-              groupColor: thread.groupColor,
-              radius: 40,
-            ),
-          ),
-          const SizedBox(height: 12),
-          Center(
-            child: Text(
-              thread.title,
-              style: GoogleFonts.poppins(
-                fontSize: 18,
-                fontWeight: FontWeight.w700,
-                color: AppColors.headingBlack,
-              ),
-            ),
-          ),
-          if (thread.description?.isNotEmpty == true) ...[
-            const SizedBox(height: 6),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 32),
-              child: Text(
-                thread.description!,
-                textAlign: TextAlign.center,
-                style: GoogleFonts.poppins(fontSize: 13, color: AppColors.textSecondary),
-              ),
-            ),
-          ],
-          const SizedBox(height: 6),
-          Center(
-            child: Text(
-              'Group · ${thread.participantIds.length} members · $online online',
-              style: GoogleFonts.poppins(fontSize: 12, color: AppColors.textSecondary),
-            ),
-          ),
-          const SizedBox(height: 20),
-          _actionTile(
-            icon: Icons.person_add_outlined,
-            label: 'Add members',
-            onTap: _addMembers,
-          ),
-          const SizedBox(height: 12),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
-            child: Text(
-              '${members.length} MEMBERS',
-              style: GoogleFonts.poppins(
-                fontSize: 11,
-                fontWeight: FontWeight.w700,
-                letterSpacing: 0.6,
-                color: AppColors.textSecondary,
-              ),
-            ),
-          ),
-          ...members.map((member) {
-            final isMe = member.id == _service.currentUserId;
-            final isMemberAdmin = thread.adminId == member.id;
-            return Material(
-              color: AppColors.cardWhite,
-              child: ListTile(
-                leading: ChatAvatar(user: member, showOnlineDot: true, radius: 20),
-                title: Text(
-                  isMe ? '${member.name} (You)' : member.name,
-                  style: GoogleFonts.poppins(fontSize: 14, fontWeight: FontWeight.w500),
-                ),
-                subtitle: Text(
-                  isMemberAdmin
-                      ? 'Group admin'
-                      : (member.isOnline ? 'online' : 'offline'),
-                  style: GoogleFonts.poppins(fontSize: 12, color: AppColors.textSecondary),
-                ),
-                trailing: isAdmin && !isMe
-                    ? IconButton(
-                        icon: const Icon(Icons.remove_circle_outline, color: AppColors.primaryRed),
-                        onPressed: () => _removeMember(member),
-                      )
-                    : null,
-              ),
-            );
-          }),
-          const SizedBox(height: 16),
-          _actionTile(
-            icon: Icons.logout_rounded,
-            label: 'Leave group',
-            color: AppColors.primaryRed,
-            onTap: _leaveGroup,
-          ),
-          if (isAdmin) ...[
-            const SizedBox(height: 8),
-            _actionTile(
-              icon: Icons.delete_outline,
-              label: 'Delete group',
-              color: AppColors.primaryRed,
-              onTap: _deleteGroup,
-            ),
-          ],
-          const SizedBox(height: 24),
-        ],
       ),
     );
   }

@@ -5,7 +5,7 @@ import 'package:grjoffice_apps/drawer/app_end_drawer.dart';
 import 'package:grjoffice_apps/drawer/drawer.dart';
 import 'package:grjoffice_apps/core/app_colors.dart';
 import 'package:grjoffice_apps/navigation/app_navigation.dart';
-import 'package:grjoffice_apps/widgets/app_logo.dart';
+import 'package:grjoffice_apps/widgets/app_top_bar.dart';
 
 class ActivitiesScreen extends StatefulWidget {
   const ActivitiesScreen({super.key});
@@ -95,160 +95,58 @@ class _ActivitiesScreenState extends State<ActivitiesScreen> {
     return Scaffold(
       key: _scaffoldKey,
       backgroundColor: AppColors.backgroundGray,
-      drawer: AppDrawer(selectedIndex: 0, onItemTap: _onDrawerItemTap),
+      drawer: AppDrawer(selectedIndex: DrawerIndex.dayEndReport, onItemTap: _onDrawerItemTap),
       endDrawer: const AppEndDrawer(),
-      body: Column(
-        children: [
-          _buildHeroHeader(hPad),
-          Expanded(
-            child: CustomScrollView(
-              slivers: [
-                SliverToBoxAdapter(
-                  child: Padding(
-                    padding: EdgeInsets.fromLTRB(hPad, 16, hPad, 0),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        _buildStatsRow(),
-                        const SizedBox(height: 16),
-                        _buildToolbar(),
-                        const SizedBox(height: 12),
-                        _buildFilterChips(),
-                        if (_hasActiveFilters) ...[
-                          const SizedBox(height: 10),
-                          _buildClearFilters(),
+      body: SafeArea(
+        child: Column(
+          children: [
+            AppTopBar.shell(
+              title: 'Day End Report',
+              scaffoldKey: _scaffoldKey,
+              horizontalPadding: hPad,
+            ),
+            Expanded(
+              child: CustomScrollView(
+                slivers: [
+                  SliverToBoxAdapter(
+                    child: Padding(
+                      padding: EdgeInsets.fromLTRB(hPad, 16, hPad, 0),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          _buildStatsRow(),
+                          const SizedBox(height: 16),
+                          _buildToolbar(),
+                          const SizedBox(height: 12),
+                          _buildFilterChips(),
+                          if (_hasActiveFilters) ...[
+                            const SizedBox(height: 10),
+                            _buildClearFilters(),
+                          ],
+                          const SizedBox(height: 16),
+                          _buildSectionHeader(items.length),
                         ],
-                        const SizedBox(height: 16),
-                        _buildSectionHeader(items.length),
-                      ],
-                    ),
-                  ),
-                ),
-                if (items.isEmpty)
-                  SliverFillRemaining(hasScrollBody: false, child: _buildEmptyState())
-                else
-                  SliverPadding(
-                    padding: EdgeInsets.fromLTRB(hPad, 0, hPad, 20),
-                    sliver: SliverList(
-                      delegate: SliverChildBuilderDelegate(
-                        (context, index) => _buildActivityCard(items[index], index == items.length - 1),
-                        childCount: items.length,
                       ),
                     ),
                   ),
-              ],
+                  if (items.isEmpty)
+                    SliverFillRemaining(hasScrollBody: false, child: _buildEmptyState())
+                  else
+                    SliverPadding(
+                      padding: EdgeInsets.fromLTRB(hPad, 0, hPad, 20),
+                      sliver: SliverList(
+                        delegate: SliverChildBuilderDelegate(
+                          (context, index) => _buildActivityCard(items[index], index == items.length - 1),
+                          childCount: items.length,
+                        ),
+                      ),
+                    ),
+                ],
+              ),
             ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildHeroHeader(double hPad) {
-    return Container(
-      decoration: const BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [Color(0xFF8B1D1D), Color(0xFF5C1212)],
-        ),
-        borderRadius: BorderRadius.vertical(bottom: Radius.circular(24)),
-        boxShadow: [
-          BoxShadow(color: Color(0x338B1D1D), blurRadius: 16, offset: Offset(0, 6)),
-        ],
-      ),
-      child: SafeArea(
-        bottom: false,
-        child: Padding(
-          padding: EdgeInsets.fromLTRB(hPad, 8, hPad, 22),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  _headerIconButton(Icons.arrow_back_ios_new_rounded, () => Navigator.pop(context)),
-                  const Spacer(),
-                  const AppLogo(size: 34),
-                  const Spacer(),
-                  _headerIconButton(Icons.menu_rounded, () => _scaffoldKey.currentState?.openDrawer()),
-                ],
-              ),
-              const SizedBox(height: 18),
-              Row(
-                children: [
-                  Container(
-                    width: 52,
-                    height: 52,
-                    decoration: BoxDecoration(
-                      color: Colors.white.withValues(alpha: 0.14),
-                      borderRadius: BorderRadius.circular(14),
-                      border: Border.all(color: Colors.white.withValues(alpha: 0.22)),
-                    ),
-                    child: const Icon(Icons.history_rounded, color: Colors.white, size: 26),
-                  ),
-                  const SizedBox(width: 14),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Activity Feed',
-                          style: GoogleFonts.poppins(
-                            color: Colors.white.withValues(alpha: 0.85),
-                            fontSize: 13,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                        Text(
-                          'Activity List',
-                          style: GoogleFonts.poppins(
-                            color: Colors.white,
-                            fontSize: 22,
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 12),
-              Wrap(
-                spacing: 8,
-                runSpacing: 6,
-                children: [
-                  _heroChip('${_activities.length} total'),
-                  _heroChip('$_todayCount today'),
-                ],
-              ),
-            ],
-          ),
+          ],
         ),
       ),
-    );
-  }
-
-  Widget _headerIconButton(IconData icon, VoidCallback onTap) {
-    return Material(
-      color: Colors.white.withValues(alpha: 0.14),
-      borderRadius: BorderRadius.circular(12),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(12),
-        child: SizedBox(width: 40, height: 40, child: Icon(icon, color: Colors.white, size: 18)),
-      ),
-    );
-  }
-
-  Widget _heroChip(String label) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-      decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.12),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.2)),
-      ),
-      child: Text(label, style: GoogleFonts.poppins(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w500)),
     );
   }
 

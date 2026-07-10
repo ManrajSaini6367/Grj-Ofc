@@ -1,9 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:grjoffice_apps/core/app_colors.dart';
-import 'package:grjoffice_apps/drawer/app_end_drawer.dart';
 import 'package:grjoffice_apps/navigation/app_navigation.dart';
-import 'package:grjoffice_apps/widgets/app_logo.dart';
+import 'package:grjoffice_apps/widgets/app_top_bar.dart';
 
 class Contractor extends StatefulWidget {
   const Contractor({super.key});
@@ -13,7 +12,6 @@ class Contractor extends StatefulWidget {
 }
 
 class _ContractorState extends State<Contractor> {
-  final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
   final _currentPasswordController = TextEditingController();
   final _newPasswordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
@@ -21,6 +19,7 @@ class _ContractorState extends State<Contractor> {
   bool _obscureCurrent = true;
   bool _obscureNew = true;
   bool _obscureConfirm = true;
+  bool _isSaving = false;
 
   @override
   void dispose() {
@@ -39,33 +38,21 @@ class _ContractorState extends State<Contractor> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      key: _scaffoldKey,
       backgroundColor: AppColors.backgroundGray,
-      endDrawer: const AppEndDrawer(),
       body: SafeArea(
         child: Column(
           children: [
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.fromLTRB(20, 12, 20, 12),
-              decoration: BoxDecoration(
-                color: AppColors.backgroundGray,
-                border: Border(
-                  bottom: BorderSide(
-                    color: AppColors.borderGray.withValues(alpha: 0.4),
-                  ),
-                ),
-              ),
-              child: _buildTopBar(),
+            AppTopBar.page(
+              title: 'Change Password',
+              useShellPop: true,
+              horizontalPadding: 20,
             ),
             Expanded(
               child: SingleChildScrollView(
-                padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
+                padding: const EdgeInsets.fromLTRB(20, 20, 20, 24),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    _buildBackLink(),
-                    const SizedBox(height: 16),
                     _buildHeader(),
                     const SizedBox(height: 24),
                     _buildPasswordField(
@@ -107,65 +94,48 @@ class _ContractorState extends State<Contractor> {
     );
   }
 
-  Widget _buildTopBar() {
-    return Row(
-      children: [
-        const AppLogo(size: 40),
-        Expanded(
-          child: Text(
-            'Change Password',
-            textAlign: TextAlign.center,
-            style: GoogleFonts.poppins(
-              color: AppColors.headingBlack,
-              fontSize: 18,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-        ),
-        const SizedBox(width: 40),
-        GestureDetector(
-          onTap: () => _scaffoldKey.currentState?.openEndDrawer(),
-          child: Container(
-            width: 40,
-            height: 40,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: AppColors.iconBgGray,
-              border: Border.all(color: AppColors.borderGray),
-            ),
-            child: Icon(Icons.person_outline, color: AppColors.textSecondary, size: 22),
-          ),
-        ),
-      ],
-    );
+  void _goBack() {
+    popShellRoute(context);
   }
 
-  Widget _buildBackLink() {
-    return InkWell(
-      onTap: () {
-        if (Navigator.of(context).canPop()) {
-          Navigator.of(context).pop();
-        } else {
-          navigateToMainTab(context, 4);
-        }
-      },
-      borderRadius: BorderRadius.circular(6),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 4),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(Icons.arrow_back_ios_new_rounded, size: 14, color: AppColors.textSecondary),
-            const SizedBox(width: 6),
-            Text(
-              'Return to Profile',
-              style: GoogleFonts.poppins(
-                color: AppColors.textSecondary,
-                fontSize: 13,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-          ],
+  Future<void> _updatePassword() async {
+    final current = _currentPasswordController.text.trim();
+    final next = _newPasswordController.text;
+    final confirm = _confirmPasswordController.text;
+
+    if (current.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Enter your current password.', style: GoogleFonts.poppins())),
+      );
+      return;
+    }
+    if (!_hasMinLength || !_hasUppercase || !_hasDigit || !_hasSpecial) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'New password does not meet all requirements.',
+            style: GoogleFonts.poppins(),
+          ),
+        ),
+      );
+      return;
+    }
+    if (next != confirm) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('New passwords do not match.', style: GoogleFonts.poppins())),
+      );
+      return;
+    }
+
+    setState(() => _isSaving = true);
+    await Future<void>.delayed(const Duration(milliseconds: 400));
+    if (!mounted) return;
+    setState(() => _isSaving = false);
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          'Password change is not available yet. Please contact your admin.',
+          style: GoogleFonts.poppins(),
         ),
       ),
     );
@@ -313,21 +283,28 @@ class _ContractorState extends State<Contractor> {
       width: double.infinity,
       height: 50,
       child: ElevatedButton(
-        onPressed: () {},
+        onPressed: _isSaving ? null : _updatePassword,
         style: ElevatedButton.styleFrom(
           backgroundColor: AppColors.primaryRed,
           foregroundColor: AppColors.white,
+          disabledBackgroundColor: AppColors.primaryRed.withValues(alpha: 0.6),
           elevation: 0,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
         ),
-        child: Text(
-          'UPDATE PASSWORD',
-          style: GoogleFonts.poppins(
-            fontSize: 14,
-            fontWeight: FontWeight.w700,
-            letterSpacing: 0.6,
-          ),
-        ),
+        child: _isSaving
+            ? const SizedBox(
+                width: 22,
+                height: 22,
+                child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.white),
+              )
+            : Text(
+                'UPDATE PASSWORD',
+                style: GoogleFonts.poppins(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: 0.6,
+                ),
+              ),
       ),
     );
   }
@@ -337,7 +314,7 @@ class _ContractorState extends State<Contractor> {
       color: AppColors.operationsCardBg,
       borderRadius: BorderRadius.circular(10),
       child: InkWell(
-        onTap: () => Navigator.of(context).pop(),
+        onTap: _goBack,
         borderRadius: BorderRadius.circular(10),
         child: Container(
           width: double.infinity,

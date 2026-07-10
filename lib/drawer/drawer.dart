@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:grjoffice_apps/core/app_colors.dart';
 import 'package:grjoffice_apps/core/preference.dart';
-import 'package:grjoffice_apps/loginpage/loginpage.dart';
 import 'package:grjoffice_apps/services/api_auth.dart';
 import 'package:grjoffice_apps/widgets/app_logo.dart';
 
@@ -35,7 +34,8 @@ class AppDrawer extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final drawerWidth = MediaQuery.sizeOf(context).width * 0.82;
+    final screenWidth = MediaQuery.sizeOf(context).width;
+    final drawerWidth = (screenWidth * 0.72).clamp(240.0, 300.0);
 
     return Drawer(
       width: drawerWidth,
@@ -47,6 +47,7 @@ class AppDrawer extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             _buildHeader(),
+            Divider(height: 1, color: AppColors.borderGray.withValues(alpha: 0.5)),
             Expanded(
               child: ListView.builder(
                 padding: const EdgeInsets.symmetric(vertical: 8),
@@ -135,6 +136,11 @@ class AppDrawer extends StatelessWidget {
                       ),
                     ),
                   ),
+                  Icon(
+                    Icons.chevron_right_rounded,
+                    size: 20,
+                    color: isSelected ? AppColors.primaryRed : AppColors.textSecondary,
+                  ),
                 ],
               ),
             ),
@@ -192,12 +198,9 @@ class AppDrawer extends StatelessWidget {
           ),
           const SizedBox(height: 16),
           InkWell(
-            onTap: () {
+            onTap: () async {
               Navigator.of(context).pop();
-              Navigator.of(context).pushAndRemoveUntil(
-                MaterialPageRoute(builder: (_) => const LoginPage()),
-                (route) => false,
-              );
+              await logoutApi(context);
             },
             borderRadius: BorderRadius.circular(8),
             child: Padding(

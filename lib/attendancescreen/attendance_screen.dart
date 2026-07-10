@@ -5,6 +5,7 @@ import 'package:grjoffice_apps/drawer/drawer.dart';
 import 'package:grjoffice_apps/drawer/app_end_drawer.dart';
 import 'package:grjoffice_apps/models/attendance_model.dart';
 import 'package:grjoffice_apps/navigation/app_navigation.dart';
+import 'package:grjoffice_apps/widgets/app_top_bar.dart';
 import 'package:intl/intl.dart';
 
 class AttendanceScreen extends StatefulWidget {
@@ -103,27 +104,54 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
   @override
   Widget build(BuildContext context) {
     final filteredList = _filteredAttendances;
+    final hPad = _hPad(context);
 
     return Scaffold(
       key: _scaffoldKey,
       backgroundColor: AppColors.backgroundGray,
       drawer: AppDrawer(
-        selectedIndex: 10, // Employee Attendances
+        selectedIndex: DrawerIndex.employeeAttendances,
         onItemTap: _onDrawerItemTap,
       ),
       endDrawer: const AppEndDrawer(),
       body: SafeArea(
         child: Column(
           children: [
-            _buildAppBar(),
-            _buildDateSelector(),
+            AppTopBar.shell(
+              title: 'Employee Attendances',
+              scaffoldKey: _scaffoldKey,
+              horizontalPadding: hPad,
+            ),
+            Padding(
+              padding: EdgeInsets.fromLTRB(hPad, 12, hPad, 0),
+              child: Container(
+                height: 44,
+                decoration: BoxDecoration(
+                  color: AppColors.cardWhite,
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: AppColors.borderGray.withValues(alpha: 0.5)),
+                ),
+                child: TextField(
+                  onChanged: (value) => setState(() => _searchQuery = value),
+                  style: GoogleFonts.poppins(fontSize: 14),
+                  decoration: InputDecoration(
+                    hintText: 'Search employees...',
+                    hintStyle: GoogleFonts.poppins(color: AppColors.textSecondary, fontSize: 13),
+                    prefixIcon: const Icon(Icons.search_rounded, color: AppColors.textSecondary, size: 20),
+                    border: InputBorder.none,
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                  ),
+                ),
+              ),
+            ),
+            _buildDateSelector(hPad),
             _buildFilterChips(),
             _buildSummaryCards(),
             Expanded(
               child: filteredList.isEmpty
                   ? _buildEmptyState()
                   : ListView.builder(
-                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                      padding: EdgeInsets.symmetric(horizontal: hPad, vertical: 8),
                       itemCount: filteredList.length,
                       itemBuilder: (context, index) {
                         return _buildAttendanceCard(filteredList[index]);
@@ -136,69 +164,16 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
     );
   }
 
-  Widget _buildAppBar() {
-    return Container(
-      color: Colors.white,
-      padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
-      child: Column(
-        children: [
-          Row(
-            children: [
-              IconButton(
-                onPressed: () => _scaffoldKey.currentState?.openDrawer(),
-                icon: const Icon(Icons.menu_rounded, color: AppColors.headingBlack, size: 28),
-                padding: EdgeInsets.zero,
-                constraints: const BoxConstraints(minWidth: 40, minHeight: 40),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Text(
-                  'Employee Attendances',
-                  style: GoogleFonts.poppins(
-                    fontSize: 18,
-                    fontWeight: FontWeight.w700,
-                    color: AppColors.headingBlack,
-                  ),
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-              IconButton(
-                onPressed: () => _scaffoldKey.currentState?.openEndDrawer(),
-                icon: const Icon(Icons.person_outline_rounded, color: AppColors.headingBlack, size: 28),
-                padding: EdgeInsets.zero,
-                constraints: const BoxConstraints(minWidth: 40, minHeight: 40),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          // Search Bar
-          Container(
-            height: 44,
-            decoration: BoxDecoration(
-              color: AppColors.backgroundGray,
-              borderRadius: BorderRadius.circular(10),
-            ),
-            child: TextField(
-              onChanged: (value) => setState(() => _searchQuery = value),
-              style: GoogleFonts.poppins(fontSize: 14),
-              decoration: InputDecoration(
-                hintText: 'Search employees...',
-                hintStyle: GoogleFonts.poppins(color: AppColors.textSecondary, fontSize: 13),
-                prefixIcon: const Icon(Icons.search_rounded, color: AppColors.textSecondary, size: 20),
-                border: InputBorder.none,
-                contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
+  double _hPad(BuildContext context) {
+    final width = MediaQuery.sizeOf(context).width;
+    if (width < 360) return 14;
+    if (width < 600) return 18;
+    return 20;
   }
 
-  Widget _buildDateSelector() {
-    return Container(
-      color: Colors.white,
-      padding: const EdgeInsets.fromLTRB(14, 0, 14, 12),
+  Widget _buildDateSelector(double hPad) {
+    return Padding(
+      padding: EdgeInsets.fromLTRB(hPad, 12, hPad, 0),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
@@ -216,21 +191,14 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               decoration: BoxDecoration(
-                color: Colors.white,
+                color: AppColors.cardWhite,
                 borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: AppColors.borderGray.withOpacity(0.5)),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.02),
-                    blurRadius: 4,
-                    offset: const Offset(0, 2),
-                  ),
-                ],
+                border: Border.all(color: AppColors.borderGray.withValues(alpha: 0.5)),
               ),
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Icon(Icons.calendar_today_outlined, size: 16, color: AppColors.primaryRed),
+                  const Icon(Icons.calendar_today_outlined, size: 16, color: AppColors.primaryRed),
                   const SizedBox(width: 8),
                   Text(
                     _formatDate(_selectedDate),
@@ -241,7 +209,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
                     ),
                   ),
                   const SizedBox(width: 4),
-                  Icon(Icons.arrow_drop_down, size: 20, color: AppColors.textSecondary),
+                  const Icon(Icons.arrow_drop_down, size: 20, color: AppColors.textSecondary),
                 ],
               ),
             ),
@@ -283,7 +251,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
                 duration: const Duration(milliseconds: 200),
                 padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
                 decoration: BoxDecoration(
-                  color: isSelected ? const Color(0xFF6366F1) : Colors.grey.shade100,
+                  color: isSelected ? AppColors.primaryRed : Colors.grey.shade100,
                   borderRadius: BorderRadius.circular(20),
                   border: Border.all(
                     color: isSelected ? Colors.transparent : Colors.grey.shade200.withOpacity(0.5),

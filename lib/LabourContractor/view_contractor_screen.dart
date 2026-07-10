@@ -4,7 +4,7 @@ import 'package:grjoffice_apps/LabourContractor/labour_contractor.dart';
 import 'package:grjoffice_apps/core/app_colors.dart';
 import 'package:grjoffice_apps/models/getcontractor.dart';
 import 'package:grjoffice_apps/services/api_auth.dart';
-import 'package:grjoffice_apps/widgets/app_logo.dart';
+import 'package:grjoffice_apps/widgets/app_top_bar.dart';
 
 class ViewContractorScreen extends StatefulWidget {
   const ViewContractorScreen({super.key, required this.contractor});
@@ -52,13 +52,6 @@ class _ViewContractorScreenState extends State<ViewContractorScreen> {
     return '₹${value.toStringAsFixed(0)}';
   }
 
-  bool get _isPublished {
-    if (_detail != null) return _detail!.isPublished;
-    return widget.contractor.status == ContractorStatus.published;
-  }
-
-  String get _name => _text(_detail?.name, fallback: widget.contractor.name);
-
   String get _mobile => _text(_detail?.mobile, fallback: widget.contractor.mobile);
 
   double _hPad(BuildContext context) {
@@ -76,173 +69,78 @@ class _ViewContractorScreenState extends State<ViewContractorScreen> {
 
     return Scaffold(
       backgroundColor: AppColors.backgroundGray,
-      body: Column(
-        children: [
-          _buildHeroHeader(hPad),
-          Expanded(
-            child: _isLoading
-                ? const Center(child: CircularProgressIndicator(color: AppColors.primaryRed))
-                : SingleChildScrollView(
-                    padding: EdgeInsets.fromLTRB(hPad, 16, hPad, 24),
-                    child: Center(
-                      child: ConstrainedBox(
-                        constraints: const BoxConstraints(maxWidth: 640),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.stretch,
-                          children: [
-                            _buildQuickStats(d, c),
-                            const SizedBox(height: 16),
-                            _buildSection(
-                              title: 'Contact',
-                              icon: Icons.phone_in_talk_outlined,
-                              children: [
-                                _infoTile(Icons.phone_outlined, 'Mobile', _mobile),
-                                _infoTile(
-                                  Icons.location_on_outlined,
-                                  'Address',
-                                  _text(d?.address, fallback: c.address),
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 14),
-                            _buildSection(
-                              title: 'Daily Rates',
-                              icon: Icons.payments_outlined,
-                              children: [
-                                _infoTile(Icons.engineering_outlined, 'Mason / Day', _rate(d?.masonRateValue ?? 0, c.masonRatePerDay)),
-                                _infoTile(Icons.construction_outlined, 'Beldar / Day', _rate(d?.beldarRateValue ?? 0, c.beldarRatePerDay)),
-                                _infoTile(Icons.work_outline, 'Coolie / Day', _rate(d?.coolieRateValue ?? 0, c.coolieRatePerDay)),
-                              ],
-                            ),
-                            const SizedBox(height: 14),
-                            _buildSection(
-                              title: 'Overtime Rates (per hour)',
-                              icon: Icons.access_time_outlined,
-                              children: [
-                                _infoTile(Icons.engineering_outlined, 'Mason OT', _rate(d?.masonOverRateValue ?? 0, c.masonOtRatePerHour)),
-                                _infoTile(Icons.construction_outlined, 'Beldar OT', _rate(d?.beldarOverRateValue ?? 0, c.beldarOtRatePerHour)),
-                                _infoTile(Icons.work_outline, 'Coolie OT', _rate(d?.coolieOverRateValue ?? 0, c.coolieOtRatePerHour)),
-                              ],
-                            ),
-                            if (d?.site?.name != null) ...[
-                              const SizedBox(height: 14),
+      body: SafeArea(
+        child: Column(
+          children: [
+            AppTopBar.page(
+              title: 'Contractor Details',
+              onBack: () => Navigator.pop(context),
+              horizontalPadding: hPad,
+            ),
+            Expanded(
+              child: _isLoading
+                  ? const Center(child: CircularProgressIndicator(color: AppColors.primaryRed))
+                  : SingleChildScrollView(
+                      padding: EdgeInsets.fromLTRB(hPad, 16, hPad, 24),
+                      child: Center(
+                        child: ConstrainedBox(
+                          constraints: const BoxConstraints(maxWidth: 640),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              _buildQuickStats(d, c),
+                              const SizedBox(height: 16),
                               _buildSection(
-                                title: 'Site',
-                                icon: Icons.apartment_outlined,
+                                title: 'Contact',
+                                icon: Icons.phone_in_talk_outlined,
                                 children: [
-                                  _infoTile(Icons.business_outlined, 'Site Name', _text(d?.site?.name)),
-                                  _infoTile(Icons.map_outlined, 'Site Address', _text(d?.site?.address)),
+                                  _infoTile(Icons.phone_outlined, 'Mobile', _mobile),
+                                  _infoTile(
+                                    Icons.location_on_outlined,
+                                    'Address',
+                                    _text(d?.address, fallback: c.address),
+                                  ),
                                 ],
                               ),
+                              const SizedBox(height: 14),
+                              _buildSection(
+                                title: 'Daily Rates',
+                                icon: Icons.payments_outlined,
+                                children: [
+                                  _infoTile(Icons.engineering_outlined, 'Mason / Day', _rate(d?.masonRateValue ?? 0, c.masonRatePerDay)),
+                                  _infoTile(Icons.construction_outlined, 'Beldar / Day', _rate(d?.beldarRateValue ?? 0, c.beldarRatePerDay)),
+                                  _infoTile(Icons.work_outline, 'Coolie / Day', _rate(d?.coolieRateValue ?? 0, c.coolieRatePerDay)),
+                                ],
+                              ),
+                              const SizedBox(height: 14),
+                              _buildSection(
+                                title: 'Overtime Rates (per hour)',
+                                icon: Icons.access_time_outlined,
+                                children: [
+                                  _infoTile(Icons.engineering_outlined, 'Mason OT', _rate(d?.masonOverRateValue ?? 0, c.masonOtRatePerHour)),
+                                  _infoTile(Icons.construction_outlined, 'Beldar OT', _rate(d?.beldarOverRateValue ?? 0, c.beldarOtRatePerHour)),
+                                  _infoTile(Icons.work_outline, 'Coolie OT', _rate(d?.coolieOverRateValue ?? 0, c.coolieOtRatePerHour)),
+                                ],
+                              ),
+                              if (d?.site?.name != null) ...[
+                                const SizedBox(height: 14),
+                                _buildSection(
+                                  title: 'Site',
+                                  icon: Icons.apartment_outlined,
+                                  children: [
+                                    _infoTile(Icons.business_outlined, 'Site Name', _text(d?.site?.name)),
+                                    _infoTile(Icons.map_outlined, 'Site Address', _text(d?.site?.address)),
+                                  ],
+                                ),
+                              ],
                             ],
-                          ],
+                          ),
                         ),
                       ),
                     ),
-                  ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildHeroHeader(double hPad) {
-    return Container(
-      decoration: const BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [Color(0xFF8B1D1D), Color(0xFF6B1515)],
+            ),
+          ],
         ),
-        borderRadius: BorderRadius.vertical(bottom: Radius.circular(24)),
-        boxShadow: [
-          BoxShadow(color: Color(0x338B1D1D), blurRadius: 16, offset: Offset(0, 6)),
-        ],
-      ),
-      child: SafeArea(
-        bottom: false,
-        child: Padding(
-          padding: EdgeInsets.fromLTRB(hPad, 8, hPad, 28),
-          child: Column(
-            children: [
-              Row(
-                children: [
-                  _headerBtn(Icons.arrow_back_ios_new_rounded, () => Navigator.pop(context)),
-                  const Spacer(),
-                  const AppLogo(size: 34),
-                  const Spacer(),
-                  const SizedBox(width: 40),
-                ],
-              ),
-              const SizedBox(height: 20),
-              Container(
-                width: 80,
-                height: 80,
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(18),
-                  color: Colors.white.withValues(alpha: 0.15),
-                  border: Border.all(color: Colors.white.withValues(alpha: 0.35), width: 2),
-                ),
-                child: const Icon(Icons.groups_outlined, color: Colors.white, size: 36),
-              ),
-              const SizedBox(height: 14),
-              Text(
-                _isLoading ? widget.contractor.name : _name,
-                textAlign: TextAlign.center,
-                style: GoogleFonts.poppins(
-                  color: Colors.white,
-                  fontSize: 22,
-                  fontWeight: FontWeight.w700,
-                  height: 1.2,
-                ),
-              ),
-              const SizedBox(height: 6),
-              Text(
-                _isLoading ? widget.contractor.mobile : _mobile,
-                style: GoogleFonts.poppins(color: Colors.white.withValues(alpha: 0.85), fontSize: 14),
-              ),
-              if (!_isLoading) ...[
-                const SizedBox(height: 14),
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  alignment: WrapAlignment.center,
-                  children: [
-                    _heroChip('ID: ${widget.contractor.id}'),
-                    _heroChip(_isPublished ? 'PUBLISHED' : 'UNPUBLISHED'),
-                  ],
-                ),
-              ],
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _headerBtn(IconData icon, VoidCallback onTap) {
-    return Material(
-      color: Colors.white.withValues(alpha: 0.15),
-      borderRadius: BorderRadius.circular(12),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(12),
-        child: SizedBox(width: 40, height: 40, child: Icon(icon, color: Colors.white, size: 18)),
-      ),
-    );
-  }
-
-  Widget _heroChip(String label) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
-      decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.12),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.22)),
-      ),
-      child: Text(
-        label,
-        style: GoogleFonts.poppins(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w500),
       ),
     );
   }

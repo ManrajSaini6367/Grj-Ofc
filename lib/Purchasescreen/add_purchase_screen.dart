@@ -4,7 +4,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:grjoffice_apps/core/app_colors.dart';
 import 'package:grjoffice_apps/Purchasescreen/purchase.dart';
 import 'package:grjoffice_apps/SupplierList/supplier.dart';
-import 'package:grjoffice_apps/widgets/app_logo.dart';
+import 'package:grjoffice_apps/widgets/app_top_bar.dart';
 
 class AddPurchaseScreen extends StatefulWidget {
   const AddPurchaseScreen({super.key});
@@ -247,16 +247,29 @@ class _AddPurchaseScreenState extends State<AddPurchaseScreen> {
   Widget build(BuildContext context) {
     final hPad = _hPad(context);
 
-    return Scaffold(
+    return PopScope(
+      canPop: _step == 0,
+      onPopInvokedWithResult: (didPop, result) {
+        if (didPop) return;
+        if (_step == 1) {
+          setState(() => _step = 0);
+        }
+      },
+      child: Scaffold(
       backgroundColor: AppColors.backgroundGray,
       body: SafeArea(
         child: Column(
           children: [
-            Container(
-              width: double.infinity,
-              padding: EdgeInsets.fromLTRB(hPad, 10, hPad, 10),
-              color: AppColors.cardWhite,
-              child: _buildTopBar(),
+            AppTopBar.page(
+              title: _stepTitle,
+              onBack: () {
+                if (_step == 1) {
+                  setState(() => _step = 0);
+                } else {
+                  Navigator.pop(context);
+                }
+              },
+              horizontalPadding: hPad,
             ),
             Expanded(
               child: SingleChildScrollView(
@@ -272,6 +285,7 @@ class _AddPurchaseScreenState extends State<AddPurchaseScreen> {
           ],
         ),
       ),
+    ),
     );
   }
 
@@ -286,35 +300,6 @@ class _AddPurchaseScreenState extends State<AddPurchaseScreen> {
     if (_step == 0) return 'Create Purchase';
     if (_isDirectPurchase) return 'Information Purchase';
     return 'Step 1 — Information Purchase';
-  }
-
-  Widget _buildTopBar() {
-    return Row(
-      children: [
-        IconButton(
-          onPressed: () {
-            if (_step == 1) {
-              setState(() => _step = 0);
-            } else {
-              Navigator.pop(context);
-            }
-          },
-          icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 18),
-          color: AppColors.textDark,
-          padding: EdgeInsets.zero,
-          constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
-        ),
-        const SizedBox(width: 8),
-        const AppLogo(size: 36),
-        const SizedBox(width: 10),
-        Expanded(
-          child: Text(
-            _stepTitle,
-            style: GoogleFonts.poppins(fontSize: 18, fontWeight: FontWeight.w700),
-          ),
-        ),
-      ],
-    );
   }
 
   Widget _buildStepChoose() {

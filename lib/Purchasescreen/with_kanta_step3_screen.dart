@@ -4,7 +4,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:grjoffice_apps/core/app_colors.dart';
 import 'package:grjoffice_apps/Purchasescreen/purchase.dart';
 import 'package:grjoffice_apps/SupplierList/supplier.dart';
-import 'package:grjoffice_apps/widgets/app_logo.dart';
+import 'package:grjoffice_apps/widgets/app_top_bar.dart';
 
 class WithKantaStep3Screen extends StatefulWidget {
   const WithKantaStep3Screen({super.key, required this.purchase});
@@ -141,30 +141,10 @@ class _WithKantaStep3ScreenState extends State<WithKantaStep3Screen> {
       body: SafeArea(
         child: Column(
           children: [
-            Container(
-              width: double.infinity,
-              padding: EdgeInsets.fromLTRB(hPad, 10, hPad, 10),
-              color: AppColors.cardWhite,
-              child: Row(
-                children: [
-                  IconButton(
-                    onPressed: () => Navigator.pop(context),
-                    icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 18),
-                    color: AppColors.textDark,
-                    padding: EdgeInsets.zero,
-                    constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
-                  ),
-                  const SizedBox(width: 8),
-                  const AppLogo(size: 36),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Text(
-                      'Step 3 — Information Purchase',
-                      style: GoogleFonts.poppins(fontSize: 18, fontWeight: FontWeight.w700),
-                    ),
-                  ),
-                ],
-              ),
+            AppTopBar.page(
+              title: 'Step 3 — Information Purchase',
+              onBack: () => Navigator.pop(context),
+              horizontalPadding: hPad,
             ),
             Expanded(
               child: SingleChildScrollView(

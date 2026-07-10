@@ -131,7 +131,15 @@ class _LoginPageState extends State<LoginPage> {
             children: [
               _buildFieldLabel('PASSWORD'),
               GestureDetector(
-                onTap: () {},
+                onTap: () {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text(
+                        'Please contact your admin to reset the password.',
+                      ),
+                    ),
+                  );
+                },
                 child: Text(
                   'Forgot Password?',
                   style: TextStyle(
@@ -349,7 +357,7 @@ class _LoginPageState extends State<LoginPage> {
 
   Widget _buildCopyright() {
     return Text(
-      '© 2024 HIGHPOINT CONTRACTING - ALL RIGHTS RESERVED.',
+      '© 2026 GRJ OFFICE - ALL RIGHTS RESERVED.',
       textAlign: TextAlign.center,
       style: TextStyle(
         color: AppColors.textSecondary,

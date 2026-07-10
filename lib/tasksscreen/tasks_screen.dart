@@ -6,6 +6,7 @@ import 'package:grjoffice_apps/drawer/app_end_drawer.dart';
 import 'package:grjoffice_apps/models/task_model.dart';
 import 'package:grjoffice_apps/navigation/app_navigation.dart';
 import 'package:grjoffice_apps/tasksscreen/add_task_screen.dart';
+import 'package:grjoffice_apps/widgets/app_top_bar.dart';
 
 class TasksScreen extends StatefulWidget {
   const TasksScreen({super.key});
@@ -170,6 +171,11 @@ class _TasksScreenState extends State<TasksScreen> {
     return '$dayStr $monthStr ${date.year}';
   }
 
+  String _todayLabel() {
+    final now = DateTime.now();
+    return 'Today, ${now.day} ${_monthName(now.month)}';
+  }
+
   // Toggle Search Text Field
   void _toggleSearch() {
     setState(() {
@@ -189,78 +195,55 @@ class _TasksScreenState extends State<TasksScreen> {
     return Scaffold(
       key: _scaffoldKey,
       backgroundColor: AppColors.backgroundGray,
-      drawer: AppDrawer(selectedIndex: 8, onItemTap: _onDrawerItemTap),
+      drawer: AppDrawer(selectedIndex: DrawerIndex.tasks, onItemTap: _onDrawerItemTap),
       endDrawer: const AppEndDrawer(),
-      appBar: AppBar(
-        elevation: 0,
-        backgroundColor: AppColors.backgroundGray,
-        leading: IconButton(
-          icon: const Icon(Icons.menu_rounded, color: AppColors.headingBlack),
-          onPressed: () => _scaffoldKey.currentState?.openDrawer(),
-        ),
-        title: _isSearching
-            ? Container(
-                height: 40,
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(20),
-                  border: Border.all(color: AppColors.borderGray.withOpacity(0.5)),
-                ),
-                child: TextField(
-                  controller: _searchController,
-                  autofocus: true,
-                  style: GoogleFonts.poppins(fontSize: 14, color: AppColors.headingBlack),
-                  decoration: InputDecoration(
-                    hintText: 'Search tasks...',
-                    hintStyle: GoogleFonts.poppins(color: AppColors.textSecondary, fontSize: 13),
-                    prefixIcon: const Icon(Icons.search_rounded, color: AppColors.textSecondary, size: 18),
-                    border: InputBorder.none,
-                    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                  ),
-                  onChanged: (val) {
-                    setState(() {
-                      _searchQuery = val;
-                    });
-                  },
-                ),
-              )
-            : InkWell(
-                onTap: _showListSelector,
-                borderRadius: BorderRadius.circular(8),
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        'My Tasks',
-                        style: GoogleFonts.poppins(
-                          color: AppColors.headingBlack,
-                          fontWeight: FontWeight.w600,
-                          fontSize: 17,
-                        ),
-                      ),
-                      const SizedBox(width: 4),
-                      const Icon(Icons.keyboard_arrow_down_rounded, color: AppColors.headingBlack, size: 18),
-                    ],
-                  ),
-                ),
-              ),
-        centerTitle: true,
-        actions: [
-          IconButton(
-            icon: Icon(
-              _isSearching ? Icons.close_rounded : Icons.search_rounded,
-              color: AppColors.headingBlack,
-            ),
-            onPressed: _toggleSearch,
-          ),
-        ],
-      ),
       body: SafeArea(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
+            AppTopBar.shell(
+              title: 'Tasks',
+              scaffoldKey: _scaffoldKey,
+              horizontalPadding: hPad,
+              actions: [
+                IconButton(
+                  icon: Icon(
+                    _isSearching ? Icons.close_rounded : Icons.search_rounded,
+                    color: AppColors.headingBlack,
+                  ),
+                  onPressed: _toggleSearch,
+                ),
+              ],
+            ),
+            if (_isSearching)
+              Padding(
+                padding: EdgeInsets.fromLTRB(hPad, 0, hPad, 8),
+                child: Container(
+                  height: 40,
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(color: AppColors.borderGray.withOpacity(0.5)),
+                  ),
+                  child: TextField(
+                    controller: _searchController,
+                    autofocus: true,
+                    style: GoogleFonts.poppins(fontSize: 14, color: AppColors.headingBlack),
+                    decoration: InputDecoration(
+                      hintText: 'Search tasks...',
+                      hintStyle: GoogleFonts.poppins(color: AppColors.textSecondary, fontSize: 13),
+                      prefixIcon: const Icon(Icons.search_rounded, color: AppColors.textSecondary, size: 18),
+                      border: InputBorder.none,
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    ),
+                    onChanged: (val) {
+                      setState(() {
+                        _searchQuery = val;
+                      });
+                    },
+                  ),
+                ),
+              ),
             // Filter Chips Bar
             _buildFilterChips(),
             
@@ -274,7 +257,7 @@ class _TasksScreenState extends State<TasksScreen> {
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   Text(
-                    'Today, 4 July',
+                    _todayLabel(),
                     style: GoogleFonts.poppins(
                       fontSize: 16,
                       fontWeight: FontWeight.w700,
@@ -332,7 +315,7 @@ class _TasksScreenState extends State<TasksScreen> {
             _addNewTask(newTask);
           }
         },
-        backgroundColor: const Color(0xFF6366F1), // Indigo color
+        backgroundColor: AppColors.primaryRed,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         elevation: 4,
         child: const Icon(Icons.add, color: Colors.white, size: 28),
@@ -382,7 +365,7 @@ class _TasksScreenState extends State<TasksScreen> {
                 duration: const Duration(milliseconds: 200),
                 padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
                 decoration: BoxDecoration(
-                  color: isSelected ? const Color(0xFF6366F1) : Colors.grey.shade100,
+                  color: isSelected ? AppColors.primaryRed : Colors.grey.shade100,
                   borderRadius: BorderRadius.circular(20),
                   border: Border.all(
                     color: isSelected ? Colors.transparent : Colors.grey.shade200.withOpacity(0.5),
@@ -612,12 +595,16 @@ class _TasksScreenState extends State<TasksScreen> {
                             color: isCompleted ? AppColors.textSecondary : Colors.grey.shade500
                           ),
                           const SizedBox(width: 4),
-                          Text(
-                            task.projectName,
-                            style: GoogleFonts.poppins(
-                              fontSize: 12,
-                              fontWeight: FontWeight.w500,
-                              color: Colors.grey.shade500,
+                          Expanded(
+                            child: Text(
+                              task.projectName,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: GoogleFonts.poppins(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w500,
+                                color: Colors.grey.shade500,
+                              ),
                             ),
                           ),
                         ],
@@ -946,7 +933,7 @@ class _TasksScreenState extends State<TasksScreen> {
                       style: GoogleFonts.poppins(fontSize: 13.5, color: AppColors.textDark),
                     ),
                     value: _sortAscending,
-                    activeColor: const Color(0xFF6366F1),
+                    activeColor: AppColors.primaryRed,
                     onChanged: (val) {
                       setModalState(() {
                         _sortAscending = val;
@@ -971,13 +958,13 @@ class _TasksScreenState extends State<TasksScreen> {
     return RadioListTile<String>(
       title: Row(
         children: [
-          Icon(icon, size: 18, color: isSelected ? const Color(0xFF6366F1) : AppColors.textSecondary),
+          Icon(icon, size: 18, color: isSelected ? AppColors.primaryRed : AppColors.textSecondary),
           const SizedBox(width: 10),
           Text(
             label,
             style: GoogleFonts.poppins(
               fontSize: 13.5, 
-              color: isSelected ? const Color(0xFF6366F1) : AppColors.textDark,
+              color: isSelected ? AppColors.primaryRed : AppColors.textDark,
               fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
             ),
           ),
@@ -985,7 +972,7 @@ class _TasksScreenState extends State<TasksScreen> {
       ),
       value: value,
       groupValue: _sortBy,
-      activeColor: const Color(0xFF6366F1),
+      activeColor: AppColors.primaryRed,
       onChanged: (val) {
         if (val != null) {
           setModalState(() {
@@ -996,65 +983,6 @@ class _TasksScreenState extends State<TasksScreen> {
           });
           Navigator.pop(context);
         }
-      },
-    );
-  }
-
-  // Top list type selector
-  void _showListSelector() {
-    showModalBottomSheet<void>(
-      context: context,
-      backgroundColor: Colors.white,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (context) {
-        return SafeArea(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Padding(
-                padding: const EdgeInsets.symmetric(vertical: 16),
-                child: Text(
-                  'Switch Task View',
-                  style: GoogleFonts.poppins(
-                    fontSize: 15,
-                    fontWeight: FontWeight.bold,
-                    color: AppColors.headingBlack,
-                  ),
-                ),
-              ),
-              const Divider(height: 1),
-              ListTile(
-                leading: const Icon(Icons.person_rounded, color: Color(0xFF6366F1)),
-                title: Text('My Tasks', style: GoogleFonts.poppins(fontSize: 14, fontWeight: FontWeight.w600)),
-                trailing: const Icon(Icons.check_rounded, color: Color(0xFF6366F1)),
-                onTap: () => Navigator.pop(context),
-              ),
-              ListTile(
-                leading: const Icon(Icons.groups_rounded, color: AppColors.textSecondary),
-                title: Text('Project Tasks', style: GoogleFonts.poppins(fontSize: 14)),
-                onTap: () {
-                  Navigator.pop(context);
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Project Tasks view is not implemented yet.')),
-                  );
-                },
-              ),
-              ListTile(
-                leading: const Icon(Icons.share_rounded, color: AppColors.textSecondary),
-                title: Text('Shared Tasks', style: GoogleFonts.poppins(fontSize: 14)),
-                onTap: () {
-                  Navigator.pop(context);
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Shared Tasks view is not implemented yet.')),
-                  );
-                },
-              ),
-              const SizedBox(height: 12),
-            ],
-          ),
-        );
       },
     );
   }
