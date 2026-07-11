@@ -63,8 +63,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
     });
   }
 
-  Future<void> _loadProfile() async {
-    setState(() => _isLoading = true);
+  Future<void> _loadProfile({bool showLoader = true}) async {
+    if (showLoader) setState(() => _isLoading = true);
     final profile = await profileApi(context);
     if (!mounted) return;
     setState(() {
@@ -107,9 +107,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   ? const Center(
                       child: CircularProgressIndicator(color: AppColors.primaryRed),
                     )
-                  : LayoutBuilder(
+                  : RefreshIndicator(
+                      color: AppColors.primaryRed,
+                      onRefresh: () => _loadProfile(showLoader: false),
+                      child: LayoutBuilder(
                 builder: (context, constraints) {
                   return SingleChildScrollView(
+                    physics: const AlwaysScrollableScrollPhysics(),
                     padding: EdgeInsets.fromLTRB(hPad, 12, hPad, 16),
                     child: Center(
                       child: ConstrainedBox(
@@ -133,6 +137,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   );
                 },
               ),
+                  ),
             ),
           ],
         ),

@@ -35,7 +35,8 @@ class _ItemsScreenState extends State<ItemsScreen> {
     WidgetsBinding.instance.addPostFrameCallback((_) => _loadItems());
   }
 
-  Future<void> _loadItems() async {
+  Future<void> _loadItems({bool showLoader = true}) async {
+    if (showLoader && mounted) setState(() => _isLoading = true);
     final apiItems = await itemsApi(context, perPage: 50);
     if (!mounted) return;
     setState(() {
@@ -106,7 +107,11 @@ class _ItemsScreenState extends State<ItemsScreen> {
                   ? const Center(
                       child: CircularProgressIndicator(color: AppColors.primaryRed),
                     )
-                  : SingleChildScrollView(
+                  : RefreshIndicator(
+                      color: AppColors.primaryRed,
+                      onRefresh: () => _loadItems(showLoader: false),
+                      child: SingleChildScrollView(
+                physics: const AlwaysScrollableScrollPhysics(),
                 padding: EdgeInsets.fromLTRB(hPad, 16, hPad, 16),
                 child: Center(
                   child: ConstrainedBox(
@@ -125,6 +130,7 @@ class _ItemsScreenState extends State<ItemsScreen> {
                   ),
                 ),
               ),
+                  ),
             ),
           ],
         ),

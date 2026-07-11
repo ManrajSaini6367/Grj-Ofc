@@ -44,26 +44,28 @@ class ItemHistoryListData {
   final ItemHistoryPagination? pagination;
   final ItemHistoryItemInfo? item;
 
-  factory ItemHistoryListData.fromJson(Map<String, dynamic> json) =>
-      ItemHistoryListData(
-        items: json['items'] == null
-            ? null
-            : List<ItemHistoryRecord>.from(
-                (json['items'] as List).whereType<Map>().map(
-                      (x) => ItemHistoryRecord.fromJson(
-                        Map<String, dynamic>.from(x),
-                      ),
+  factory ItemHistoryListData.fromJson(Map<String, dynamic> json) {
+    final rawItems = json['items'] ?? json['histories'] ?? json['transactions'];
+    return ItemHistoryListData(
+      items: rawItems is! List
+          ? null
+          : List<ItemHistoryRecord>.from(
+              rawItems.whereType<Map>().map(
+                    (x) => ItemHistoryRecord.fromJson(
+                      Map<String, dynamic>.from(x),
                     ),
-              ),
-        pagination: json['pagination'] is Map<String, dynamic>
-            ? ItemHistoryPagination.fromJson(
-                json['pagination'] as Map<String, dynamic>,
-              )
-            : null,
-        item: json['item'] is Map<String, dynamic>
-            ? ItemHistoryItemInfo.fromJson(json['item'] as Map<String, dynamic>)
-            : null,
-      );
+                  ),
+            ),
+      pagination: json['pagination'] is Map<String, dynamic>
+          ? ItemHistoryPagination.fromJson(
+              json['pagination'] as Map<String, dynamic>,
+            )
+          : null,
+      item: json['item'] is Map<String, dynamic>
+          ? ItemHistoryItemInfo.fromJson(json['item'] as Map<String, dynamic>)
+          : null,
+    );
+  }
 
   Map<String, dynamic> toJson() => {
         if (items != null) 'items': items!.map((x) => x.toJson()).toList(),
@@ -103,13 +105,15 @@ class ItemHistoryRecord {
       );
 
   ItemTransaction toTransaction({required String fallbackUnit}) {
-    final typeValue = type?.toLowerCase() ?? '';
+    final typeValue = type?.toLowerCase().trim() ?? '';
+    final isDebit = typeValue == 'debit' ||
+        typeValue == 'out' ||
+        typeValue == 'issue' ||
+        typeValue == 'issued';
     return ItemTransaction(
       qty: qty ?? 0,
       unit: (unit != null && unit!.isNotEmpty) ? unit! : fallbackUnit,
-      type: typeValue == 'debit'
-          ? ItemTransactionType.debit
-          : ItemTransactionType.credit,
+      type: isDebit ? ItemTransactionType.debit : ItemTransactionType.credit,
       issueTo: issueTo?.isNotEmpty == true ? issueTo : null,
       remark: remark?.isNotEmpty == true ? remark : null,
       dateTime: createdAt ?? DateTime.now(),

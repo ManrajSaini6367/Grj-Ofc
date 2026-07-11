@@ -3,8 +3,10 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:grjoffice_apps/core/app_colors.dart';
 import 'package:grjoffice_apps/drawer/drawer.dart';
 import 'package:grjoffice_apps/drawer/app_end_drawer.dart';
+import 'package:grjoffice_apps/attendancescreen/view_attendance_screen.dart';
 import 'package:grjoffice_apps/models/attendance_model.dart';
 import 'package:grjoffice_apps/navigation/app_navigation.dart';
+import 'package:grjoffice_apps/services/api_auth.dart';
 import 'package:grjoffice_apps/widgets/app_top_bar.dart';
 import 'package:intl/intl.dart';
 
@@ -17,47 +19,100 @@ class AttendanceScreen extends StatefulWidget {
 
 class _AttendanceScreenState extends State<AttendanceScreen> {
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
-  
+  final _searchController = TextEditingController();
+
   String _searchQuery = '';
   String _selectedFilter = 'All'; // 'All', 'Present', 'Absent', 'Leave'
   DateTime _selectedDate = DateTime.now();
-
   List<Attendance> _attendances = [];
+  AttendancesSummary? _summary;
+  bool _isLoading = true;
+  int _searchToken = 0;
 
   @override
   void initState() {
     super.initState();
-    // Load mock data
-    _attendances = List.from(kMockAttendances);
+    WidgetsBinding.instance.addPostFrameCallback((_) => _loadAttendances());
   }
 
-  // Stats computation
-  int get _totalCount => _attendances.length;
-  int get _presentCount => _attendances.where((a) => a.status == AttendanceStatus.present).length;
-  int get _absentCount => _attendances.where((a) => a.status == AttendanceStatus.absent).length;
-  int get _leaveCount => _attendances.where((a) => a.status == AttendanceStatus.leave).length;
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  String get _apiDate => DateFormat('yyyy-MM-dd').format(_selectedDate);
+
+  String? get _apiStatus {
+    return switch (_selectedFilter) {
+      'Present' => 'present',
+      'Absent' => 'absent',
+      'Leave' => 'leave',
+      _ => null,
+    };
+  }
+
+  int get _totalCount => _summary?.total ?? _attendances.length;
+  int get _presentCount =>
+      _summary?.present ??
+      _attendances.where((a) => a.status == AttendanceStatus.present).length;
+  int get _absentCount =>
+      _summary?.absent ??
+      _attendances.where((a) => a.status == AttendanceStatus.absent).length;
+  int get _leaveCount =>
+      _summary?.leave ??
+      _attendances.where((a) => a.status == AttendanceStatus.leave).length;
 
   List<Attendance> get _filteredAttendances {
-    List<Attendance> filtered = _attendances;
+    if (_searchQuery.isEmpty) return _attendances;
+    final query = _searchQuery.toLowerCase();
+    return _attendances
+        .where((a) => a.employeeName.toLowerCase().contains(query))
+        .toList();
+  }
 
-    // Apply Tab Filter
-    if (_selectedFilter == 'Present') {
-      filtered = filtered.where((a) => a.status == AttendanceStatus.present).toList();
-    } else if (_selectedFilter == 'Absent') {
-      filtered = filtered.where((a) => a.status == AttendanceStatus.absent).toList();
-    } else if (_selectedFilter == 'Leave') {
-      filtered = filtered.where((a) => a.status == AttendanceStatus.leave).toList();
+  Future<void> _loadAttendances({bool showLoader = true}) async {
+    if (showLoader && mounted) {
+      setState(() => _isLoading = true);
     }
 
-    // Apply Search Query
-    if (_searchQuery.isNotEmpty) {
-      final query = _searchQuery.toLowerCase();
-      filtered = filtered.where((a) => 
-        a.employeeName.toLowerCase().contains(query)
-      ).toList();
-    }
+    final response = await getAttendancesApi(
+      context,
+      date: _apiDate,
+      status: _apiStatus,
+      search: _searchQuery,
+      perPage: 50,
+    );
 
-    return filtered;
+    if (!mounted) return;
+    setState(() {
+      _attendances = response?.data?.items ?? [];
+      _summary = response?.data?.summary;
+      _isLoading = false;
+    });
+  }
+
+  Future<void> _onSearchChanged(String value) async {
+    final next = value.trim();
+    setState(() => _searchQuery = next);
+
+    final token = ++_searchToken;
+    await Future<void>.delayed(const Duration(milliseconds: 350));
+    if (!mounted || token != _searchToken) return;
+
+    final response = await getAttendancesApi(
+      context,
+      date: _apiDate,
+      status: _apiStatus,
+      search: next,
+      perPage: 50,
+    );
+    if (!mounted || token != _searchToken) return;
+
+    setState(() {
+      _attendances = response?.data?.items ?? [];
+      _summary = response?.data?.summary;
+    });
   }
 
   void _onDrawerItemTap(int index) {
@@ -84,19 +139,28 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
       },
     );
 
-    if (picked != null) {
-      setState(() {
-        _selectedDate = picked;
-        // In a real app, you would fetch new data for this date here
-      });
-    }
+    if (picked == null || !mounted) return;
+    setState(() => _selectedDate = picked);
+    await _loadAttendances();
   }
 
   String _formatDate(DateTime date) {
     return DateFormat('dd MMM yyyy').format(date);
   }
 
-  String _formatTime(DateTime? time) {
+  String _formatTime(DateTime? time, {String? label}) {
+    if (label != null && label.trim().isNotEmpty) {
+      try {
+        final parts = label.trim().split(':');
+        if (parts.length >= 2) {
+          final hour = int.tryParse(parts[0]) ?? 0;
+          final minute = int.tryParse(parts[1]) ?? 0;
+          final period = hour >= 12 ? 'PM' : 'AM';
+          final h12 = hour % 12 == 0 ? 12 : hour % 12;
+          return '${h12.toString().padLeft(2, '0')}:${minute.toString().padLeft(2, '0')} $period';
+        }
+      } catch (_) {}
+    }
     if (time == null) return '--:--';
     return DateFormat('hh:mm a').format(time);
   }
@@ -132,7 +196,8 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
                   border: Border.all(color: AppColors.borderGray.withValues(alpha: 0.5)),
                 ),
                 child: TextField(
-                  onChanged: (value) => setState(() => _searchQuery = value),
+                  controller: _searchController,
+                  onChanged: _onSearchChanged,
                   style: GoogleFonts.poppins(fontSize: 14),
                   decoration: InputDecoration(
                     hintText: 'Search employees...',
@@ -148,15 +213,24 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
             _buildFilterChips(),
             _buildSummaryCards(),
             Expanded(
-              child: filteredList.isEmpty
-                  ? _buildEmptyState()
-                  : ListView.builder(
-                      padding: EdgeInsets.symmetric(horizontal: hPad, vertical: 8),
-                      itemCount: filteredList.length,
-                      itemBuilder: (context, index) {
-                        return _buildAttendanceCard(filteredList[index]);
-                      },
-                    ),
+              child: _isLoading
+                  ? const Center(
+                      child: CircularProgressIndicator(color: AppColors.primaryRed),
+                    )
+                  : filteredList.isEmpty
+                      ? _buildEmptyState()
+                      : RefreshIndicator(
+                          color: AppColors.primaryRed,
+                          onRefresh: () => _loadAttendances(showLoader: false),
+                          child: ListView.builder(
+                            physics: const AlwaysScrollableScrollPhysics(),
+                            padding: EdgeInsets.symmetric(horizontal: hPad, vertical: 8),
+                            itemCount: filteredList.length,
+                            itemBuilder: (context, index) {
+                              return _buildAttendanceCard(filteredList[index]);
+                            },
+                          ),
+                        ),
             ),
           ],
         ),
@@ -242,9 +316,8 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
             padding: const EdgeInsets.symmetric(horizontal: 4),
             child: InkWell(
               onTap: () {
-                setState(() {
-                  _selectedFilter = chip.label;
-                });
+                setState(() => _selectedFilter = chip.label);
+                _loadAttendances();
               },
               borderRadius: BorderRadius.circular(20),
               child: AnimatedContainer(
@@ -407,7 +480,10 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
         break;
     }
 
-    return Container(
+    return InkWell(
+      onTap: () => _openAttendanceDetails(att),
+      borderRadius: BorderRadius.circular(16),
+      child: Container(
       margin: const EdgeInsets.only(bottom: 12),
       decoration: BoxDecoration(
         color: Colors.white,
@@ -430,9 +506,11 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
                   radius: 22,
                   backgroundColor: AppColors.backgroundGray,
                   backgroundImage: att.employeeAvatarUrl != null ? NetworkImage(att.employeeAvatarUrl!) : null,
-                  child: att.employeeAvatarUrl == null
+                  child: att.employeeAvatarUrl == null || att.employeeName.trim().isEmpty
                       ? Text(
-                          att.employeeName.substring(0, 1).toUpperCase(),
+                          att.employeeName.trim().isEmpty
+                              ? '?'
+                              : att.employeeName.trim().substring(0, 1).toUpperCase(),
                           style: GoogleFonts.poppins(fontWeight: FontWeight.bold, color: AppColors.textDark),
                         )
                       : null,
@@ -468,10 +546,9 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
                     ],
                   ),
                 ),
-                // Actions (e.g. edit)
                 IconButton(
-                  icon: const Icon(Icons.more_vert_rounded, color: AppColors.textSecondary),
-                  onPressed: () {},
+                  icon: const Icon(Icons.chevron_right_rounded, color: AppColors.textSecondary),
+                  onPressed: () => _openAttendanceDetails(att),
                 ),
               ],
             ),
@@ -487,9 +564,19 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceAround,
                   children: [
-                    _buildTimeColumn('Punch In', _formatTime(att.punchInTime), Icons.login_rounded, const Color(0xFF3B82F6)),
+                    _buildTimeColumn(
+                      'Punch In',
+                      _formatTime(att.punchInTime, label: att.punchInTimeLabel),
+                      Icons.login_rounded,
+                      const Color(0xFF3B82F6),
+                    ),
                     Container(width: 1, height: 30, color: AppColors.borderGray),
-                    _buildTimeColumn('Punch Out', _formatTime(att.punchOutTime), Icons.logout_rounded, const Color(0xFFF59E0B)),
+                    _buildTimeColumn(
+                      'Punch Out',
+                      _formatTime(att.punchOutTime, label: att.punchOutTimeLabel),
+                      Icons.logout_rounded,
+                      const Color(0xFFF59E0B),
+                    ),
                     Container(width: 1, height: 30, color: AppColors.borderGray),
                     _buildTimeColumn('Total Hrs', att.totalHours, Icons.timer_outlined, const Color(0xFF8B5CF6)),
                   ],
@@ -498,6 +585,15 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
             ]
           ],
         ),
+      ),
+    ),
+    );
+  }
+
+  Future<void> _openAttendanceDetails(Attendance attendance) async {
+    await Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => ViewAttendanceScreen(attendance: attendance),
       ),
     );
   }

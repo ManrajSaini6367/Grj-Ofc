@@ -54,8 +54,8 @@ class _SuppliersScreenState extends State<SuppliersScreen> {
     });
   }
 
-  Future<void> _loadSuppliers() async {
-    if (!_isLoading) setState(() => _isLoading = true);
+  Future<void> _loadSuppliers({bool showLoader = true}) async {
+    if (showLoader && !_isLoading) setState(() => _isLoading = true);
     await Future<void>.delayed(Duration.zero);
     if (!mounted) return;
     final response = await getSuppliersApi(context);
@@ -135,7 +135,11 @@ class _SuppliersScreenState extends State<SuppliersScreen> {
                   ? const Center(
                       child: CircularProgressIndicator(color: AppColors.primaryRed),
                     )
-                  : SingleChildScrollView(
+                  : RefreshIndicator(
+                      color: AppColors.primaryRed,
+                      onRefresh: () => _loadSuppliers(showLoader: false),
+                      child: SingleChildScrollView(
+                physics: const AlwaysScrollableScrollPhysics(),
                 padding: EdgeInsets.fromLTRB(hPad, 16, hPad, 16),
                 child: Center(
                   child: ConstrainedBox(
@@ -154,6 +158,7 @@ class _SuppliersScreenState extends State<SuppliersScreen> {
                   ),
                 ),
               ),
+                  ),
             ),
           ],
         ),

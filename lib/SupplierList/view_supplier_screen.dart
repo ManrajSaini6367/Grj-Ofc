@@ -80,7 +80,11 @@ class _ViewSupplierScreenState extends State<ViewSupplierScreen> {
             Expanded(
               child: _isLoading
                   ? const Center(child: CircularProgressIndicator(color: AppColors.primaryRed))
-                  : SingleChildScrollView(
+                  : RefreshIndicator(
+                      color: AppColors.primaryRed,
+                      onRefresh: _loadSupplier,
+                      child: SingleChildScrollView(
+                      physics: const AlwaysScrollableScrollPhysics(),
                       padding: EdgeInsets.fromLTRB(hPad, 16, hPad, 24),
                       child: Center(
                         child: ConstrainedBox(
@@ -143,6 +147,7 @@ class _ViewSupplierScreenState extends State<ViewSupplierScreen> {
                         ),
                       ),
                     ),
+                  ),
             ),
           ],
         ),

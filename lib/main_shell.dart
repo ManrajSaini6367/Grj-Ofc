@@ -21,7 +21,10 @@ class MainShell extends StatefulWidget {
 
 class _MainShellState extends State<MainShell> {
   late int _selectedIndex = widget.initialIndex;
+  final List<int> _tabVersions = List<int>.filled(5, 0);
   final GlobalKey<NavigatorState> _shellNavigatorKey = GlobalKey<NavigatorState>();
+
+  int get _activeTabVersion => _tabVersions[_selectedIndex];
 
   @override
   void initState() {
@@ -36,16 +39,21 @@ class _MainShellState extends State<MainShell> {
     }
   }
 
+  void _activateTab(int index, {bool reload = true}) {
+    setState(() {
+      _selectedIndex = index;
+      if (reload) _tabVersions[index]++;
+    });
+  }
+
   void _switchTab(int index) {
     if (_selectedIndex == index) return;
-    setState(() => _selectedIndex = index);
+    _activateTab(index);
   }
 
   void _onTabSelected(int index) {
     _shellNavigatorKey.currentState?.popUntil((route) => route.isFirst);
-    if (_selectedIndex != index) {
-      setState(() => _selectedIndex = index);
-    }
+    _activateTab(index);
   }
 
   Future<void> _handleSystemBack() async {
@@ -67,6 +75,7 @@ class _MainShellState extends State<MainShell> {
   Widget build(BuildContext context) {
     return AppShellScope(
       currentIndex: _selectedIndex,
+      tabVersion: _activeTabVersion,
       switchToTab: _switchTab,
       shellNavigatorKey: _shellNavigatorKey,
       child: PopScope(
@@ -102,17 +111,18 @@ class _ShellTabStack extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final index = AppShellScope.of(context).currentIndex;
-    return IndexedStack(
-      index: index,
-      sizing: StackFit.expand,
-      children: [
-        const HomePage(),
-        const ChatScreen(),
-        const PurchasesScreen(),
-        const StoreScreen(),
-        ProfileScreen(isActive: index == 4),
-      ],
+    final scope = AppShellScope.of(context);
+    final index = scope.currentIndex;
+
+    return KeyedSubtree(
+      key: ValueKey('shell-tab-$index-${scope.tabVersion}'),
+      child: switch (index) {
+        0 => const HomePage(),
+        1 => const ChatScreen(),
+        2 => const PurchasesScreen(),
+        3 => const StoreScreen(),
+        _ => const ProfileScreen(isActive: true),
+      },
     );
   }
 }

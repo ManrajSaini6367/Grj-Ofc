@@ -85,6 +85,7 @@ class Task {
   final Color? customColor;
   final DateTime? startDate;
   final String? description;
+  final int unreadCount;
   final DateTime? createdAt;
   final DateTime? updatedAt;
 
@@ -104,6 +105,7 @@ class Task {
     this.customColor,
     this.startDate,
     this.description,
+    this.unreadCount = 0,
     this.createdAt,
     this.updatedAt,
   });
@@ -126,6 +128,7 @@ class Task {
       assigneeAvatarUrl: json['assignee_avatar_url']?.toString(),
       startDate: _parseDate(json['start_date']),
       description: json['description']?.toString(),
+      unreadCount: json['unread_count'] as int? ?? 0,
       createdAt: _parseDateTime(json['created_at']),
       updatedAt: _parseDateTime(json['updated_at']),
     );
@@ -147,6 +150,7 @@ class Task {
       'level': level ?? priority.apiValue,
       'assignee_name': assigneeName,
       'assignee_avatar_url': assigneeAvatarUrl,
+      'unread_count': unreadCount,
       'created_at': createdAt?.toIso8601String(),
       'updated_at': updatedAt?.toIso8601String(),
     };
@@ -168,6 +172,7 @@ class Task {
     Color? customColor,
     DateTime? startDate,
     String? description,
+    int? unreadCount,
     DateTime? createdAt,
     DateTime? updatedAt,
   }) {
@@ -187,6 +192,7 @@ class Task {
       customColor: customColor ?? this.customColor,
       startDate: startDate ?? this.startDate,
       description: description ?? this.description,
+      unreadCount: unreadCount ?? this.unreadCount,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
     );
@@ -217,6 +223,7 @@ class TaskSummary {
     required this.onProgress,
     required this.inPending,
     required this.completed,
+    this.unreadMessages = 0,
   });
 
   final int total;
@@ -224,6 +231,7 @@ class TaskSummary {
   final int onProgress;
   final int inPending;
   final int completed;
+  final int unreadMessages;
 
   factory TaskSummary.fromJson(Map<String, dynamic>? json) {
     if (json == null) {
@@ -241,6 +249,7 @@ class TaskSummary {
       onProgress: json['on_progress'] as int? ?? 0,
       inPending: json['in_pending'] as int? ?? 0,
       completed: json['completed'] as int? ?? 0,
+      unreadMessages: json['unread_messages'] as int? ?? 0,
     );
   }
 
@@ -251,6 +260,7 @@ class TaskSummary {
       'on_progress': onProgress,
       'in_pending': inPending,
       'completed': completed,
+      'unread_messages': unreadMessages,
     };
   }
 }

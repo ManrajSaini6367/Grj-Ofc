@@ -45,7 +45,8 @@ class _StoreScreenState extends State<StoreScreen> {
     WidgetsBinding.instance.addPostFrameCallback((_) => _loadItems());
   }
 
-  Future<void> _loadItems() async {
+  Future<void> _loadItems({bool showLoader = true}) async {
+    if (showLoader && mounted) setState(() => _isLoading = true);
     final apiItems = await itemsApi(context, perPage: 50, status: 'published');
     if (!mounted) return;
     setState(() {
@@ -143,7 +144,11 @@ class _StoreScreenState extends State<StoreScreen> {
                   ? const Center(
                       child: CircularProgressIndicator(color: AppColors.primaryRed),
                     )
-                  : CustomScrollView(
+                  : RefreshIndicator(
+                      color: AppColors.primaryRed,
+                      onRefresh: () => _loadItems(showLoader: false),
+                      child: CustomScrollView(
+                physics: const AlwaysScrollableScrollPhysics(),
                 slivers: [
                   SliverToBoxAdapter(
                     child: Padding(
@@ -175,7 +180,7 @@ class _StoreScreenState extends State<StoreScreen> {
                               crossAxisCount: crossAxisCount,
                               mainAxisSpacing: 12,
                               crossAxisSpacing: 12,
-                              childAspectRatio: 0.68,
+                              childAspectRatio: 0.62,
                             ),
                             delegate: SliverChildBuilderDelegate(
                               (context, index) => _buildStoreCard(items[index]),
@@ -187,6 +192,7 @@ class _StoreScreenState extends State<StoreScreen> {
                     ),
                 ],
               ),
+                  ),
             ),
           ],
         ),
@@ -412,13 +418,7 @@ class _StoreScreenState extends State<StoreScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Row(
-                          children: [
-                            _stockBadge(level, accent, accentBg),
-                            const Spacer(),
-                            Icon(Icons.history_rounded, size: 18, color: AppColors.textSecondary.withValues(alpha: 0.7)),
-                          ],
-                        ),
+                        _stockBadge(level, accent, accentBg),
                         const SizedBox(height: 6),
                         Row(
                           crossAxisAlignment: CrossAxisAlignment.end,
@@ -478,7 +478,7 @@ class _StoreScreenState extends State<StoreScreen> {
                             ),
                           ),
                         ),
-                        const SizedBox(height: 6),
+                        const SizedBox(height: 4),
                         Row(
                           children: [
                             Icon(Icons.qr_code_2_rounded, size: 13, color: AppColors.textSecondary),
@@ -491,28 +491,40 @@ class _StoreScreenState extends State<StoreScreen> {
                                 style: GoogleFonts.poppins(fontSize: 11, color: AppColors.textSecondary),
                               ),
                             ),
-                            const SizedBox(width: 4),
-                            Flexible(
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Flexible(
-                                    child: Text(
-                                      'View history',
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                      style: GoogleFonts.poppins(
-                                        fontSize: 11,
-                                        fontWeight: FontWeight.w600,
-                                        color: AppColors.primaryRed,
-                                      ),
-                                    ),
-                                  ),
-                                  const Icon(Icons.chevron_right_rounded, size: 16, color: AppColors.primaryRed),
-                                ],
-                              ),
-                            ),
                           ],
+                        ),
+                        const SizedBox(height: 8),
+                        SizedBox(
+                          width: double.infinity,
+                          height: 32,
+                          child: TextButton(
+                            onPressed: () => _openHistory(item),
+                            style: TextButton.styleFrom(
+                              backgroundColor: AppColors.primaryRed.withValues(alpha: 0.1),
+                              foregroundColor: AppColors.primaryRed,
+                              elevation: 0,
+                              padding: const EdgeInsets.symmetric(horizontal: 8),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                            ),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Text(
+                                  'View history',
+                                  style: GoogleFonts.poppins(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w600,
+                                    color: AppColors.primaryRed,
+                                  ),
+                                ),
+                                const SizedBox(width: 2),
+                                const Icon(Icons.chevron_right_rounded, size: 16),
+                              ],
+                            ),
+                          ),
                         ),
                       ],
                     ),

@@ -44,8 +44,8 @@ class _ExpensesScreenState extends State<ExpensesScreen> {
     }
   }
 
-  Future<void> _loadExpenses() async {
-    setState(() => _isLoading = true);
+  Future<void> _loadExpenses({bool showLoader = true}) async {
+    if (showLoader) setState(() => _isLoading = true);
 
     final response = await getExpensesApi(
       context,
@@ -114,7 +114,11 @@ class _ExpensesScreenState extends State<ExpensesScreen> {
                   ? const Center(
                       child: CircularProgressIndicator(color: AppColors.primaryRed),
                     )
-                  : ListView(
+                  : RefreshIndicator(
+                      color: AppColors.primaryRed,
+                      onRefresh: () => _loadExpenses(showLoader: false),
+                      child: ListView(
+                      physics: const AlwaysScrollableScrollPhysics(),
                       padding: EdgeInsets.fromLTRB(hPad, 16, hPad, 24),
                       children: [
                         _buildTotalCard(),
@@ -161,6 +165,7 @@ class _ExpensesScreenState extends State<ExpensesScreen> {
                           ),
                       ],
                     ),
+                  ),
             ),
           ],
         ),

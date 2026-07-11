@@ -5,6 +5,7 @@ import 'package:grjoffice_apps/Itemsscreen/item.dart';
 import 'package:grjoffice_apps/models/itemhistorymodal.dart';
 import 'package:grjoffice_apps/services/api_auth.dart';
 import 'package:grjoffice_apps/widgets/app_top_bar.dart';
+import 'package:grjoffice_apps/widgets/item_thumbnail.dart';
 
 class ItemHistoryScreen extends StatefulWidget {
   const ItemHistoryScreen({super.key, required this.item});
@@ -22,14 +23,10 @@ class _ItemHistoryScreenState extends State<ItemHistoryScreen> {
   static const _debitBg = Color(0xFFFEF2F2);
 
   final _searchController = TextEditingController();
-  final _qtyController = TextEditingController(text: '1');
-  final _issueToController = TextEditingController();
-  final _remarkController = TextEditingController();
   String _searchQuery = '';
   List<ItemTransaction> _transactions = [];
   bool _isLoading = true;
   ItemHistoryItemInfo? _apiItem;
-  DateTime _selectedDateTime = DateTime.now();
 
   ItemTransactionType? _typeFilter;
   String? _issueToFilter;
@@ -44,7 +41,7 @@ class _ItemHistoryScreenState extends State<ItemHistoryScreen> {
     WidgetsBinding.instance.addPostFrameCallback((_) => _loadHistory());
   }
 
-  Future<void> _loadHistory() async {
+  Future<void> _loadHistory({bool showLoader = true}) async {
     final itemId = int.tryParse(widget.item.id);
     if (itemId == null) {
       if (!mounted) return;
@@ -52,24 +49,36 @@ class _ItemHistoryScreenState extends State<ItemHistoryScreen> {
       return;
     }
 
+    if (showLoader) setState(() => _isLoading = true);
+
     final response = await itemHistoryApi(context, itemId: itemId);
     if (!mounted) return;
 
     final records = response?.data?.items ?? [];
+    final mapped = records
+        .map(
+          (record) => record.toTransaction(
+            fallbackUnit: response?.data?.item?.unit ?? widget.item.unit,
+          ),
+        )
+        .toList()
+      ..sort((a, b) => b.dateTime.compareTo(a.dateTime));
+
     setState(() {
       _apiItem = response?.data?.item;
-      _transactions = records
-          .map(
-            (record) => record.toTransaction(
-              fallbackUnit: _apiItem?.unit ?? widget.item.unit,
-            ),
-          )
-          .toList();
+      _transactions = mapped;
       _isLoading = false;
     });
   }
 
-  String get _displayUnit => _apiItem?.unit ?? widget.item.unit;
+  String get _displayName =>
+      (_apiItem?.name?.trim().isNotEmpty == true) ? _apiItem!.name!.trim() : widget.item.name;
+
+  String get _displaySku =>
+      (_apiItem?.sku?.trim().isNotEmpty == true) ? _apiItem!.sku!.trim() : widget.item.sku;
+
+  String get _displayUnit =>
+      (_apiItem?.unit?.trim().isNotEmpty == true) ? _apiItem!.unit!.trim() : widget.item.unit;
 
   double get _stockBalance {
     final fromApi = double.tryParse(_apiItem?.balance ?? '');
@@ -83,9 +92,6 @@ class _ItemHistoryScreenState extends State<ItemHistoryScreen> {
   @override
   void dispose() {
     _searchController.dispose();
-    _qtyController.dispose();
-    _issueToController.dispose();
-    _remarkController.dispose();
     super.dispose();
   }
 
@@ -123,8 +129,6 @@ class _ItemHistoryScreenState extends State<ItemHistoryScreen> {
   double get _totalDebit => _filteredTransactions
       .where((tx) => tx.type == ItemTransactionType.debit)
       .fold(0, (sum, tx) => sum + tx.qty);
-
-  double get _netBalance => _stockBalance;
 
   bool _matchesDateFilter(DateTime dateTime) {
     final now = DateTime.now();
@@ -177,7 +181,10 @@ class _ItemHistoryScreenState extends State<ItemHistoryScreen> {
   }
 
   String _formatDate(DateTime dt) {
-    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    const months = [
+      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+    ];
     return '${dt.day.toString().padLeft(2, '0')} ${months[dt.month - 1]} ${dt.year}';
   }
 
@@ -188,106 +195,8 @@ class _ItemHistoryScreenState extends State<ItemHistoryScreen> {
   }
 
   String _formatQty(double qty) {
-    return qty == qty.roundToDouble() ? qty.toInt().toString() : qty.toString();
-  }
-
-  String _formatDateInput(DateTime dt) {
-    final m = dt.month.toString().padLeft(2, '0');
-    final d = dt.day.toString().padLeft(2, '0');
-    final h = dt.hour.toString().padLeft(2, '0');
-    final min = dt.minute.toString().padLeft(2, '0');
-    return '$m / $d / ${dt.year}, $h:$min';
-  }
-
-  double? _parseQty() {
-    final value = double.tryParse(_qtyController.text.trim());
-    if (value == null || value <= 0) return null;
-    return value;
-  }
-
-  void _adjustQty(double delta) {
-    final current = _parseQty() ?? 0;
-    final next = (current + delta).clamp(1, 999999).toDouble();
-    _qtyController.text = _formatQty(next);
-    setState(() {});
-  }
-
-  Future<void> _pickDateTime() async {
-    final date = await showDatePicker(
-      context: context,
-      initialDate: _selectedDateTime,
-      firstDate: DateTime(2020),
-      lastDate: DateTime(2100),
-      builder: (context, child) {
-        return Theme(
-          data: Theme.of(context).copyWith(
-            colorScheme: ColorScheme.light(
-              primary: AppColors.primaryRed,
-              onPrimary: AppColors.white,
-            ),
-          ),
-          child: child!,
-        );
-      },
-    );
-    if (date == null || !mounted) return;
-
-    final time = await showTimePicker(
-      context: context,
-      initialTime: TimeOfDay.fromDateTime(_selectedDateTime),
-      builder: (context, child) {
-        return Theme(
-          data: Theme.of(context).copyWith(
-            colorScheme: ColorScheme.light(
-              primary: AppColors.primaryRed,
-              onPrimary: AppColors.white,
-            ),
-          ),
-          child: child!,
-        );
-      },
-    );
-    if (time == null || !mounted) return;
-
-    setState(() {
-      _selectedDateTime = DateTime(date.year, date.month, date.day, time.hour, time.minute);
-    });
-  }
-
-  void _saveEntry() {
-    final qty = _parseQty();
-    if (qty == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please enter a valid quantity.')),
-      );
-      return;
-    }
-
-    final issueTo = _issueToController.text.trim();
-    final remark = _remarkController.text.trim();
-    final isCredit = issueTo.isEmpty && remark.isEmpty;
-
-    setState(() {
-      _transactions.insert(
-        0,
-        ItemTransaction(
-          qty: qty,
-          unit: widget.item.unit,
-          type: isCredit ? ItemTransactionType.credit : ItemTransactionType.debit,
-          issueTo: issueTo.isEmpty ? null : issueTo,
-          remark: remark.isEmpty ? null : remark,
-          dateTime: _selectedDateTime,
-        ),
-      );
-      _qtyController.text = '1';
-      _issueToController.clear();
-      _remarkController.clear();
-      _selectedDateTime = DateTime.now();
-    });
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Transaction saved successfully.')),
-    );
+    if (qty == qty.roundToDouble()) return qty.toInt().toString();
+    return qty.toStringAsFixed(2).replaceFirst(RegExp(r'\.?0+$'), '');
   }
 
   @override
@@ -305,65 +214,177 @@ class _ItemHistoryScreenState extends State<ItemHistoryScreen> {
               title: 'Item History',
               onBack: () => Navigator.pop(context),
               horizontalPadding: hPad,
-              actions: [
-                IconButton(
-                  onPressed: _showFilterSheet,
-                  icon: Badge(
-                    isLabelVisible: _hasActiveFilters,
-                    smallSize: 8,
-                    child: const Icon(Icons.filter_list_rounded, color: AppColors.headingBlack),
-                  ),
-                ),
-              ],
             ),
             Expanded(
               child: _isLoading
                   ? const Center(
                       child: CircularProgressIndicator(color: AppColors.primaryRed),
                     )
-                  : CustomScrollView(
-              slivers: [
-                SliverToBoxAdapter(
-                  child: Padding(
-                    padding: EdgeInsets.fromLTRB(hPad, 16, hPad, 0),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        _buildStatsRow(),
-                        const SizedBox(height: 16),
-                        _buildToolbar(),
-                        if (_hasActiveFilters) ...[
-                          const SizedBox(height: 10),
-                          _buildActiveFilterChips(),
+                  : RefreshIndicator(
+                      color: AppColors.primaryRed,
+                      onRefresh: () => _loadHistory(showLoader: false),
+                      child: CustomScrollView(
+                        physics: const AlwaysScrollableScrollPhysics(),
+                        slivers: [
+                          SliverToBoxAdapter(
+                            child: Padding(
+                              padding: EdgeInsets.fromLTRB(hPad, 16, hPad, 0),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.stretch,
+                                children: [
+                                  _buildItemHeader(),
+                                  const SizedBox(height: 14),
+                                  _buildStatsRow(),
+                                  const SizedBox(height: 14),
+                                  _buildToolbar(),
+                                  if (_hasActiveFilters) ...[
+                                    const SizedBox(height: 10),
+                                    _buildActiveFilterChips(),
+                                  ],
+                                  const SizedBox(height: 16),
+                                  _buildResultsHeader(rows.length),
+                                  const SizedBox(height: 10),
+                                ],
+                              ),
+                            ),
+                          ),
+                          if (rows.isEmpty)
+                            SliverFillRemaining(
+                              hasScrollBody: false,
+                              child: _buildEmptyState(),
+                            )
+                          else
+                            SliverPadding(
+                              padding: EdgeInsets.fromLTRB(hPad, 0, hPad, 24),
+                              sliver: SliverList(
+                                delegate: SliverChildBuilderDelegate(
+                                  (context, index) => _buildTransactionCard(rows[index]),
+                                  childCount: rows.length,
+                                ),
+                              ),
+                            ),
                         ],
-                        const SizedBox(height: 16),
-                        _buildEntryForm(),
-                        const SizedBox(height: 16),
-                        _buildResultsHeader(rows.length),
-                      ],
-                    ),
-                  ),
-                ),
-                if (rows.isEmpty)
-                  SliverFillRemaining(
-                    hasScrollBody: false,
-                    child: _buildEmptyState(),
-                  )
-                else
-                  SliverPadding(
-                    padding: EdgeInsets.fromLTRB(hPad, 0, hPad, 20),
-                    sliver: SliverList(
-                      delegate: SliverChildBuilderDelegate(
-                        (context, index) => _buildTransactionCard(rows[index], index),
-                        childCount: rows.length,
                       ),
                     ),
-                  ),
-              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildItemHeader() {
+    return Container(
+      decoration: BoxDecoration(
+        color: AppColors.cardWhite,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: AppColors.borderGray.withValues(alpha: 0.35)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.04),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(14),
+        child: Row(
+          children: [
+            SizedBox(
+              width: 88,
+              height: 88,
+              child: ItemThumbnail(
+                item: widget.item,
+                height: 88,
+                borderRadius: BorderRadius.zero,
+              ),
+            ),
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(12, 12, 12, 12),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      _displayName,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: GoogleFonts.poppins(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w700,
+                        color: AppColors.headingBlack,
+                        height: 1.25,
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    Row(
+                      children: [
+                        Icon(Icons.qr_code_2_rounded, size: 14, color: AppColors.textSecondary),
+                        const SizedBox(width: 4),
+                        Expanded(
+                          child: Text(
+                            _displaySku,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: GoogleFonts.poppins(
+                              fontSize: 12,
+                              color: AppColors.textSecondary,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 6,
+                      children: [
+                        _infoChip(Icons.straighten_rounded, formatStoreUnit(_displayUnit)),
+                        _infoChip(
+                          Icons.inventory_2_outlined,
+                          '${_formatQty(_stockBalance)} ${formatStoreUnit(_displayUnit)}',
+                          color: AppColors.primaryRed,
+                          bg: AppColors.primaryRed.withValues(alpha: 0.08),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _infoChip(
+    IconData icon,
+    String label, {
+    Color color = AppColors.textDark,
+    Color bg = AppColors.operationsCardBg,
+  }) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: bg,
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 13, color: color),
+          const SizedBox(width: 4),
+          Text(
+            label,
+            style: GoogleFonts.poppins(
+              fontSize: 11,
+              fontWeight: FontWeight.w600,
+              color: color,
             ),
           ),
         ],
-        ),
       ),
     );
   }
@@ -396,7 +417,7 @@ class _ItemHistoryScreenState extends State<ItemHistoryScreen> {
         Expanded(
           child: _statCard(
             label: 'Balance',
-            value: _formatQty(_netBalance),
+            value: _formatQty(_stockBalance),
             unit: _displayUnit,
             icon: Icons.account_balance_wallet_outlined,
             color: AppColors.primaryRed,
@@ -441,252 +462,39 @@ class _ItemHistoryScreenState extends State<ItemHistoryScreen> {
           const SizedBox(height: 10),
           Text(
             label,
-            style: GoogleFonts.poppins(fontSize: 11, color: AppColors.textSecondary, fontWeight: FontWeight.w500),
+            style: GoogleFonts.poppins(
+              fontSize: 11,
+              color: AppColors.textSecondary,
+              fontWeight: FontWeight.w500,
+            ),
           ),
           const SizedBox(height: 2),
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              Flexible(
-                child: Text(
-                  value,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: GoogleFonts.poppins(fontSize: 18, fontWeight: FontWeight.w700, color: color, height: 1),
-                ),
-              ),
-              const SizedBox(width: 2),
-              Text(
-                unit,
-                style: GoogleFonts.poppins(fontSize: 10, color: AppColors.textSecondary),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildEntryForm() {
-    return Container(
-      decoration: BoxDecoration(
-        color: AppColors.cardWhite,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: AppColors.borderGray.withValues(alpha: 0.4)),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.04),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      padding: const EdgeInsets.all(14),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Text(
-            'Add Transaction',
-            style: GoogleFonts.poppins(fontSize: 15, fontWeight: FontWeight.w700, color: AppColors.headingBlack),
-          ),
-          const SizedBox(height: 14),
-          LayoutBuilder(
-            builder: (context, constraints) {
-              final isWide = constraints.maxWidth >= 560;
-              if (isWide) {
-                return Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Expanded(child: _buildQtyField()),
-                        const SizedBox(width: 10),
-                        Expanded(child: _buildDateField()),
-                        const SizedBox(width: 10),
-                        Expanded(child: _buildIssueToField()),
-                        const SizedBox(width: 10),
-                        Expanded(child: _buildRemarkField()),
-                      ],
-                    ),
-                    const SizedBox(height: 14),
-                    _buildSaveButton(alignStart: true),
-                  ],
-                );
-              }
-              return Column(
-                children: [
-                  Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Expanded(child: _buildQtyField()),
-                      const SizedBox(width: 10),
-                      Expanded(child: _buildDateField()),
-                    ],
-                  ),
-                  const SizedBox(height: 12),
-                  Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Expanded(child: _buildIssueToField()),
-                      const SizedBox(width: 10),
-                      Expanded(child: _buildRemarkField()),
-                    ],
-                  ),
-                  const SizedBox(height: 14),
-                  _buildSaveButton(),
-                ],
-              );
-            },
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _entryLabel(String label) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 6),
-      child: Text(
-        label,
-        style: GoogleFonts.poppins(fontSize: 13, fontWeight: FontWeight.w600, color: AppColors.headingBlack),
-      ),
-    );
-  }
-
-  InputDecoration _entryDecoration({String? hint, Widget? suffixIcon}) {
-    return InputDecoration(
-      hintText: hint,
-      hintStyle: GoogleFonts.poppins(color: AppColors.inputHint, fontSize: 13),
-      filled: true,
-      fillColor: AppColors.cardWhite,
-      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-      suffixIcon: suffixIcon,
-      border: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(8),
-        borderSide: BorderSide(color: AppColors.borderGray.withValues(alpha: 0.8)),
-      ),
-      enabledBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(8),
-        borderSide: BorderSide(color: AppColors.borderGray.withValues(alpha: 0.8)),
-      ),
-      focusedBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(8),
-        borderSide: const BorderSide(color: AppColors.selectionBlue, width: 1.5),
-      ),
-    );
-  }
-
-  Widget _buildQtyField() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        _entryLabel('Qty'),
-        TextField(
-          controller: _qtyController,
-          keyboardType: const TextInputType.numberWithOptions(decimal: true),
-          style: GoogleFonts.poppins(fontSize: 14),
-          decoration: _entryDecoration(
-            hint: 'Qty',
-            suffixIcon: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            alignment: Alignment.centerLeft,
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.end,
               children: [
-                SizedBox(
-                  height: 20,
-                  width: 28,
-                  child: IconButton(
-                    padding: EdgeInsets.zero,
-                    iconSize: 16,
-                    onPressed: () => _adjustQty(1),
-                    icon: const Icon(Icons.keyboard_arrow_up_rounded, color: AppColors.textSecondary),
+                Text(
+                  value,
+                  style: GoogleFonts.poppins(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w700,
+                    color: color,
+                    height: 1,
                   ),
                 ),
-                SizedBox(
-                  height: 20,
-                  width: 28,
-                  child: IconButton(
-                    padding: EdgeInsets.zero,
-                    iconSize: 16,
-                    onPressed: () => _adjustQty(-1),
-                    icon: const Icon(Icons.keyboard_arrow_down_rounded, color: AppColors.textSecondary),
-                  ),
+                const SizedBox(width: 3),
+                Text(
+                  formatStoreUnit(unit),
+                  style: GoogleFonts.poppins(fontSize: 10, color: AppColors.textSecondary),
                 ),
               ],
             ),
           ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildDateField() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        _entryLabel('Date'),
-        InkWell(
-          onTap: _pickDateTime,
-          borderRadius: BorderRadius.circular(8),
-          child: InputDecorator(
-            decoration: _entryDecoration(
-              suffixIcon: const Icon(Icons.calendar_today_outlined, size: 18, color: AppColors.textSecondary),
-            ),
-            child: Text(
-              _formatDateInput(_selectedDateTime),
-              style: GoogleFonts.poppins(fontSize: 13, color: AppColors.textDark),
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildIssueToField() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        _entryLabel('Issue To'),
-        TextField(
-          controller: _issueToController,
-          style: GoogleFonts.poppins(fontSize: 14),
-          decoration: _entryDecoration(hint: 'Issue To'),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildRemarkField() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        _entryLabel('description'),
-        TextField(
-          controller: _remarkController,
-          style: GoogleFonts.poppins(fontSize: 14),
-          decoration: _entryDecoration(hint: 'Remark'),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildSaveButton({bool alignStart = false}) {
-    final button = SizedBox(
-      height: 44,
-      width: alignStart ? 140 : double.infinity,
-      child: ElevatedButton.icon(
-        onPressed: _saveEntry,
-        icon: const Icon(Icons.task_alt_rounded, size: 18),
-        label: Text('Save', style: GoogleFonts.poppins(fontSize: 14, fontWeight: FontWeight.w600)),
-        style: ElevatedButton.styleFrom(
-          backgroundColor: AppColors.selectionBlue,
-          foregroundColor: AppColors.white,
-          elevation: 0,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-        ),
+        ],
       ),
     );
-
-    return alignStart ? button : button;
   }
 
   Widget _buildToolbar() {
@@ -753,10 +561,14 @@ class _ItemHistoryScreenState extends State<ItemHistoryScreen> {
                         : AppColors.borderGray.withValues(alpha: 0.4),
                   ),
                 ),
-                child: Icon(
-                  Icons.tune_rounded,
-                  size: 22,
-                  color: _hasActiveFilters ? AppColors.primaryRed : AppColors.textDark,
+                child: Badge(
+                  isLabelVisible: _hasActiveFilters,
+                  smallSize: 8,
+                  child: Icon(
+                    Icons.tune_rounded,
+                    size: 22,
+                    color: _hasActiveFilters ? AppColors.primaryRed : AppColors.textDark,
+                  ),
                 ),
               ),
             ),
@@ -771,7 +583,11 @@ class _ItemHistoryScreenState extends State<ItemHistoryScreen> {
       children: [
         Text(
           'Transactions',
-          style: GoogleFonts.poppins(fontSize: 16, fontWeight: FontWeight.w700, color: AppColors.headingBlack),
+          style: GoogleFonts.poppins(
+            fontSize: 16,
+            fontWeight: FontWeight.w700,
+            color: AppColors.headingBlack,
+          ),
         ),
         const SizedBox(width: 8),
         Container(
@@ -782,14 +598,18 @@ class _ItemHistoryScreenState extends State<ItemHistoryScreen> {
           ),
           child: Text(
             '$count',
-            style: GoogleFonts.poppins(fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.primaryRed),
+            style: GoogleFonts.poppins(
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+              color: AppColors.primaryRed,
+            ),
           ),
         ),
       ],
     );
   }
 
-  Widget _buildTransactionCard(ItemTransaction tx, int index) {
+  Widget _buildTransactionCard(ItemTransaction tx) {
     final isCredit = tx.type == ItemTransactionType.credit;
     final accent = isCredit ? _creditColor : _debitColor;
     final accentBg = isCredit ? _creditBg : _debitBg;
@@ -865,8 +685,11 @@ class _ItemHistoryScreenState extends State<ItemHistoryScreen> {
                                 ),
                               ),
                               Text(
-                                tx.unit,
-                                style: GoogleFonts.poppins(fontSize: 12, color: AppColors.textSecondary),
+                                formatStoreUnit(tx.unit),
+                                style: GoogleFonts.poppins(
+                                  fontSize: 12,
+                                  color: AppColors.textSecondary,
+                                ),
                               ),
                             ],
                           ),
@@ -931,7 +754,11 @@ class _ItemHistoryScreenState extends State<ItemHistoryScreen> {
         const SizedBox(width: 6),
         Text(
           '$label: ',
-          style: GoogleFonts.poppins(fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.textDark),
+          style: GoogleFonts.poppins(
+            fontSize: 12,
+            fontWeight: FontWeight.w600,
+            color: AppColors.textDark,
+          ),
         ),
         Expanded(
           child: Text(
@@ -954,9 +781,15 @@ class _ItemHistoryScreenState extends State<ItemHistoryScreen> {
             () => setState(() => _typeFilter = null),
           ),
         if (_issueToFilter != null)
-          _activeFilterChip('Issue To: $_issueToFilter', () => setState(() => _issueToFilter = null)),
+          _activeFilterChip(
+            'Issue To: $_issueToFilter',
+            () => setState(() => _issueToFilter = null),
+          ),
         if (_dateFilter != _HistoryDateFilter.all)
-          _activeFilterChip(_dateFilter.label, () => setState(() => _dateFilter = _HistoryDateFilter.all)),
+          _activeFilterChip(
+            _dateFilter.label,
+            () => setState(() => _dateFilter = _HistoryDateFilter.all),
+          ),
         GestureDetector(
           onTap: _clearFilters,
           child: Container(
@@ -967,7 +800,11 @@ class _ItemHistoryScreenState extends State<ItemHistoryScreen> {
             ),
             child: Text(
               'Clear all',
-              style: GoogleFonts.poppins(color: AppColors.primaryRed, fontSize: 12, fontWeight: FontWeight.w600),
+              style: GoogleFonts.poppins(
+                color: AppColors.primaryRed,
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+              ),
             ),
           ),
         ),
@@ -1045,10 +882,19 @@ class _ItemHistoryScreenState extends State<ItemHistoryScreen> {
                           ),
                         ),
                         if (_hasActiveFilters)
-                          TextButton(onPressed: () {
-                            _clearFilters();
-                            Navigator.pop(context);
-                          }, child: Text('Clear', style: GoogleFonts.poppins(color: AppColors.primaryRed, fontWeight: FontWeight.w600))),
+                          TextButton(
+                            onPressed: () {
+                              _clearFilters();
+                              Navigator.pop(context);
+                            },
+                            child: Text(
+                              'Clear',
+                              style: GoogleFonts.poppins(
+                                color: AppColors.primaryRed,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ),
                       ],
                     ),
                     const SizedBox(height: 20),
@@ -1067,12 +913,18 @@ class _ItemHistoryScreenState extends State<ItemHistoryScreen> {
                       }),
                     ]),
                     const SizedBox(height: 16),
-                    _filterSection('Date Range', Icons.date_range_rounded, [
-                      ..._HistoryDateFilter.values.map((filter) => _filterChip(filter.label, _dateFilter == filter, () {
-                        setState(() => _dateFilter = filter);
-                        Navigator.pop(context);
-                      })),
-                    ]),
+                    _filterSection(
+                      'Date Range',
+                      Icons.date_range_rounded,
+                      _HistoryDateFilter.values
+                          .map(
+                            (filter) => _filterChip(filter.label, _dateFilter == filter, () {
+                              setState(() => _dateFilter = filter);
+                              Navigator.pop(context);
+                            }),
+                          )
+                          .toList(),
+                    ),
                     if (_issueToOptions.isNotEmpty) ...[
                       const SizedBox(height: 16),
                       _filterSection('Issue To', Icons.person_outline_rounded, [
@@ -1080,10 +932,12 @@ class _ItemHistoryScreenState extends State<ItemHistoryScreen> {
                           setState(() => _issueToFilter = null);
                           Navigator.pop(context);
                         }),
-                        ..._issueToOptions.map((issueTo) => _filterChip(issueTo, _issueToFilter == issueTo, () {
-                          setState(() => _issueToFilter = issueTo);
-                          Navigator.pop(context);
-                        })),
+                        ..._issueToOptions.map(
+                          (issueTo) => _filterChip(issueTo, _issueToFilter == issueTo, () {
+                            setState(() => _issueToFilter = issueTo);
+                            Navigator.pop(context);
+                          }),
+                        ),
                       ]),
                     ],
                   ],
@@ -1112,7 +966,11 @@ class _ItemHistoryScreenState extends State<ItemHistoryScreen> {
               const SizedBox(width: 8),
               Text(
                 title,
-                style: GoogleFonts.poppins(fontSize: 13, fontWeight: FontWeight.w600, color: AppColors.headingBlack),
+                style: GoogleFonts.poppins(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.headingBlack,
+                ),
               ),
             ],
           ),
@@ -1139,7 +997,9 @@ class _ItemHistoryScreenState extends State<ItemHistoryScreen> {
       checkmarkColor: AppColors.primaryRed,
       backgroundColor: AppColors.cardWhite,
       side: BorderSide(
-        color: selected ? AppColors.primaryRed.withValues(alpha: 0.4) : AppColors.borderGray.withValues(alpha: 0.5),
+        color: selected
+            ? AppColors.primaryRed.withValues(alpha: 0.4)
+            : AppColors.borderGray.withValues(alpha: 0.5),
       ),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
     );
@@ -1154,7 +1014,7 @@ class _ItemHistoryScreenState extends State<ItemHistoryScreen> {
           Container(
             width: 80,
             height: 80,
-            decoration: BoxDecoration(
+            decoration: const BoxDecoration(
               color: AppColors.operationsCardBg,
               shape: BoxShape.circle,
             ),
@@ -1167,7 +1027,11 @@ class _ItemHistoryScreenState extends State<ItemHistoryScreen> {
           const SizedBox(height: 16),
           Text(
             _hasNoHistory ? 'No history yet' : 'No transactions found',
-            style: GoogleFonts.poppins(fontSize: 16, fontWeight: FontWeight.w600, color: AppColors.headingBlack),
+            style: GoogleFonts.poppins(
+              fontSize: 16,
+              fontWeight: FontWeight.w600,
+              color: AppColors.headingBlack,
+            ),
           ),
           const SizedBox(height: 6),
           Text(
@@ -1186,7 +1050,10 @@ class _ItemHistoryScreenState extends State<ItemHistoryScreen> {
               },
               child: Text(
                 'Reset filters',
-                style: GoogleFonts.poppins(color: AppColors.primaryRed, fontWeight: FontWeight.w600),
+                style: GoogleFonts.poppins(
+                  color: AppColors.primaryRed,
+                  fontWeight: FontWeight.w600,
+                ),
               ),
             ),
           ],
@@ -1197,13 +1064,12 @@ class _ItemHistoryScreenState extends State<ItemHistoryScreen> {
 }
 
 enum _HistoryDateFilter {
-  all('All'),
+  all('All Time'),
   today('Today'),
-  last7('Last 7 days'),
-  last30('Last 30 days'),
-  thisMonth('This month');
+  last7('Last 7 Days'),
+  last30('Last 30 Days'),
+  thisMonth('This Month');
 
   const _HistoryDateFilter(this.label);
-
   final String label;
 }

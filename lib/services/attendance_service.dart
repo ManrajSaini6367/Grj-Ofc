@@ -1,8 +1,10 @@
 import 'package:flutter/foundation.dart';
 import 'package:grjoffice_apps/core/app_date_time.dart';
+import 'package:grjoffice_apps/models/attendance_model.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 /// Manages punch in/out state and working duration with local persistence.
+/// Syncs with [TodayAttendanceStatus] from the API when available.
 class AttendanceService extends ChangeNotifier {
   AttendanceService._();
 
@@ -16,16 +18,28 @@ class AttendanceService extends ChangeNotifier {
   static const _keyLastPunchInMs = 'attendance_last_punch_in_ms';
 
   bool _isPunchedIn = false;
+  bool _canPunchIn = true;
+  bool _canPunchOut = false;
   DateTime? _punchInTime;
+  DateTime? _punchOutTime;
   Duration _todayTotal = Duration.zero;
   DateTime? _lastPunchOutTime;
   DateTime? _lastPunchInTime;
+  Attendance? _todayAttendance;
+  String? _todayDate;
+  bool _loadedFromApi = false;
 
   bool get isPunchedIn => _isPunchedIn;
+  bool get canPunchIn => _canPunchIn;
+  bool get canPunchOut => _canPunchOut;
   DateTime? get punchInTime => _punchInTime;
+  DateTime? get punchOutTime => _punchOutTime;
   DateTime? get lastPunchOutTime => _lastPunchOutTime;
   DateTime? get lastPunchInTime => _lastPunchInTime;
   Duration get todayTotal => _todayTotal;
+  Attendance? get todayAttendance => _todayAttendance;
+  String? get todayDate => _todayDate;
+  bool get loadedFromApi => _loadedFromApi;
 
   Duration get elapsedDuration {
     final now = AppDateTime.now();
@@ -47,9 +61,15 @@ class AttendanceService extends ChangeNotifier {
     if (storedDate != todayKey) {
       _todayTotal = Duration.zero;
       _isPunchedIn = false;
+      _canPunchIn = true;
+      _canPunchOut = false;
       _punchInTime = null;
+      _punchOutTime = null;
       _lastPunchOutTime = null;
       _lastPunchInTime = null;
+      _todayAttendance = null;
+      _todayDate = null;
+      _loadedFromApi = false;
       await _save(prefs, todayKey);
       notifyListeners();
       return;
@@ -57,21 +77,64 @@ class AttendanceService extends ChangeNotifier {
 
     _todayTotal = Duration(milliseconds: prefs.getInt(_keyTotalMs) ?? 0);
     _isPunchedIn = prefs.getBool(_keyPunchedIn) ?? false;
+    _canPunchIn = !_isPunchedIn;
+    _canPunchOut = _isPunchedIn;
     final punchInMs = prefs.getInt(_keyPunchInMs);
     _punchInTime =
         punchInMs != null ? AppDateTime.fromEpoch(punchInMs) : null;
     final punchOutMs = prefs.getInt(_keyLastPunchOutMs);
     _lastPunchOutTime =
         punchOutMs != null ? AppDateTime.fromEpoch(punchOutMs) : null;
+    _punchOutTime = _lastPunchOutTime;
     final lastPunchInMs = prefs.getInt(_keyLastPunchInMs);
     _lastPunchInTime =
         lastPunchInMs != null ? AppDateTime.fromEpoch(lastPunchInMs) : null;
 
     if (_isPunchedIn && _punchInTime == null) {
       _isPunchedIn = false;
+      _canPunchIn = true;
+      _canPunchOut = false;
       await _save(prefs, todayKey);
     }
 
+    notifyListeners();
+  }
+
+  /// Applies server "today status" and persists the synced state locally.
+  Future<void> applyTodayStatus(TodayAttendanceStatus status) async {
+    _loadedFromApi = true;
+    _todayDate = status.date;
+    _isPunchedIn = status.isPunchedIn;
+    _canPunchIn = status.canPunchIn;
+    _canPunchOut = status.canPunchOut;
+    _todayAttendance = status.attendance;
+
+    final attendance = status.attendance;
+    if (attendance != null) {
+      _punchInTime = attendance.punchInTime;
+      _punchOutTime = attendance.punchOutTime;
+      _lastPunchInTime = attendance.punchInTime;
+      _lastPunchOutTime = attendance.punchOutTime;
+
+      if (attendance.totalMinutes > 0) {
+        _todayTotal = Duration(minutes: attendance.totalMinutes);
+      } else if (attendance.punchInTime != null &&
+          attendance.punchOutTime != null) {
+        _todayTotal =
+            attendance.punchOutTime!.difference(attendance.punchInTime!);
+      } else if (!_isPunchedIn) {
+        // Keep existing total if still punched in and no completed session.
+      }
+    } else {
+      _punchInTime = null;
+      _punchOutTime = null;
+    }
+
+    if (_isPunchedIn && _punchInTime == null) {
+      _punchInTime = AppDateTime.now();
+    }
+
+    await _persist();
     notifyListeners();
   }
 
@@ -80,7 +143,10 @@ class AttendanceService extends ChangeNotifier {
 
     final now = AppDateTime.now();
     _isPunchedIn = true;
+    _canPunchIn = false;
+    _canPunchOut = true;
     _punchInTime = now;
+    _punchOutTime = null;
     await _persist();
     notifyListeners();
   }
@@ -92,7 +158,10 @@ class AttendanceService extends ChangeNotifier {
     _todayTotal += now.difference(_punchInTime!);
     _lastPunchInTime = _punchInTime;
     _lastPunchOutTime = now;
+    _punchOutTime = now;
     _isPunchedIn = false;
+    _canPunchIn = true;
+    _canPunchOut = false;
     _punchInTime = null;
     await _persist();
     notifyListeners();

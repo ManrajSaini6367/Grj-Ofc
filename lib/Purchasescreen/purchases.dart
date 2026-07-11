@@ -67,8 +67,8 @@ class _PurchasesScreenState extends State<PurchasesScreen> {
 
   String? get _apiStatus => null;
 
-  Future<void> _loadPurchases() async {
-    setState(() => _isLoading = true);
+  Future<void> _loadPurchases({bool showLoader = true}) async {
+    if (showLoader) setState(() => _isLoading = true);
 
     final response = await getPurchasesApi(
       context,
@@ -229,12 +229,18 @@ class _PurchasesScreenState extends State<PurchasesScreen> {
                   ? const Center(
                       child: CircularProgressIndicator(color: AppColors.primaryRed),
                     )
-                  : rows.isEmpty
-                      ? _buildEmptyState()
-                      : RefreshIndicator(
+                  : RefreshIndicator(
                           color: AppColors.primaryRed,
-                          onRefresh: _loadPurchases,
-                          child: SingleChildScrollView(
+                          onRefresh: () => _loadPurchases(showLoader: false),
+                          child: rows.isEmpty
+                              ? ListView(
+                                  physics: const AlwaysScrollableScrollPhysics(),
+                                  children: [
+                                    SizedBox(height: MediaQuery.sizeOf(context).height * 0.15),
+                                    _buildEmptyState(),
+                                  ],
+                                )
+                              : SingleChildScrollView(
                             physics: const AlwaysScrollableScrollPhysics(),
                             padding: EdgeInsets.fromLTRB(hPad, 0, hPad, 16),
                             child: Center(

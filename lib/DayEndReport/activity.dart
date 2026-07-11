@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:grjoffice_apps/models/pagination_model.dart';
 
 enum ActivityType {
   employee,
@@ -12,6 +13,34 @@ enum ActivityType {
   system,
 }
 
+extension ActivityTypeApi on ActivityType {
+  String get apiValue => name;
+
+  static ActivityType fromApi(String? value) {
+    switch (value?.toLowerCase().trim()) {
+      case 'employee':
+        return ActivityType.employee;
+      case 'supplier':
+        return ActivityType.supplier;
+      case 'contractor':
+        return ActivityType.contractor;
+      case 'item':
+        return ActivityType.item;
+      case 'store':
+        return ActivityType.store;
+      case 'purchase':
+        return ActivityType.purchase;
+      case 'attendance':
+        return ActivityType.attendance;
+      case 'expense':
+        return ActivityType.expense;
+      case 'system':
+      default:
+        return ActivityType.system;
+    }
+  }
+}
+
 class ActivityEntry {
   const ActivityEntry({
     required this.id,
@@ -20,110 +49,146 @@ class ActivityEntry {
     required this.performedBy,
     required this.type,
     required this.dateTime,
+    this.performedById,
+    this.siteId,
     this.site,
+    this.subjectType,
+    this.subjectId,
+    this.createdAt,
   });
 
   final String id;
   final String title;
   final String description;
   final String performedBy;
+  final int? performedById;
   final ActivityType type;
-  final DateTime dateTime;
+  final int? siteId;
   final String? site;
+  final String? subjectType;
+  final int? subjectId;
+  final DateTime dateTime;
+  final DateTime? createdAt;
+
+  factory ActivityEntry.fromJson(Map<String, dynamic> json) {
+    return ActivityEntry(
+      id: (json['id'] ?? '').toString(),
+      title: json['title']?.toString() ?? '',
+      description: json['description']?.toString() ?? '',
+      performedBy: json['performed_by']?.toString() ?? '',
+      performedById: json['performed_by_id'] as int?,
+      type: ActivityTypeApi.fromApi(json['type']?.toString()),
+      siteId: json['site_id'] as int?,
+      site: json['site']?.toString(),
+      subjectType: json['subject_type']?.toString(),
+      subjectId: json['subject_id'] as int?,
+      dateTime: _parseDate(json['date_time']) ??
+          _parseDate(json['created_at']) ??
+          DateTime.now(),
+      createdAt: _parseDate(json['created_at']),
+    );
+  }
+
+  Map<String, dynamic> toJson() => {
+        'id': int.tryParse(id) ?? id,
+        'title': title,
+        'description': description,
+        'type': type.apiValue,
+        'performed_by': performedBy,
+        'performed_by_id': performedById,
+        'site_id': siteId,
+        'site': site,
+        'subject_type': subjectType,
+        'subject_id': subjectId,
+        'date_time': dateTime.toIso8601String(),
+        'created_at': createdAt?.toIso8601String(),
+      };
 }
 
-final kMockActivities = [
-  ActivityEntry(
-    id: 'ACT-001',
-    title: 'Item stock updated',
-    description: '10 Bag OPC Cement credited to store inventory.',
-    performedBy: 'Store Keeper',
-    type: ActivityType.store,
-    dateTime: DateTime(2026, 6, 17, 12, 52),
-    site: 'River Crossing',
-  ),
-  ActivityEntry(
-    id: 'ACT-002',
-    title: 'Employee punched in',
-    description: 'Rajesh Kumar punched in at Site A.',
-    performedBy: 'Rajesh Kumar',
-    type: ActivityType.attendance,
-    dateTime: DateTime(2026, 6, 17, 9, 15),
-    site: 'River Crossing',
-  ),
-  ActivityEntry(
-    id: 'ACT-003',
-    title: 'New contractor added',
-    description: 'Rajesh Labour Contractors published with mason rate ₹850/day.',
-    performedBy: 'Admin User',
-    type: ActivityType.contractor,
-    dateTime: DateTime(2026, 6, 17, 8, 40),
-    site: 'Skyline Towers',
-  ),
-  ActivityEntry(
-    id: 'ACT-004',
-    title: 'Supplier updated',
-    description: 'Sharma Building Supplies materials list updated.',
-    performedBy: 'Site Manager',
-    type: ActivityType.supplier,
-    dateTime: DateTime(2026, 6, 16, 17, 20),
-    site: 'River Crossing',
-  ),
-  ActivityEntry(
-    id: 'ACT-005',
-    title: 'Item issued from store',
-    description: '5 Nos RASSI BUNDLE debited — Issue To: Used, Remark: Site work.',
-    performedBy: 'Store Keeper',
-    type: ActivityType.store,
-    dateTime: DateTime(2026, 6, 16, 14, 30),
-    site: 'River Crossing',
-  ),
-  ActivityEntry(
-    id: 'ACT-006',
-    title: 'New employee created',
-    description: 'Priya Sharma added as Site Engineer at River Crossing.',
-    performedBy: 'HR Admin',
-    type: ActivityType.employee,
-    dateTime: DateTime(2026, 6, 16, 11, 0),
-    site: 'River Crossing',
-  ),
-  ActivityEntry(
-    id: 'ACT-007',
-    title: 'Purchase order raised',
-    description: 'PO #PO-2406 for 50 Bag cement from Sharma Building Supplies.',
-    performedBy: 'Purchase Officer',
-    type: ActivityType.purchase,
-    dateTime: DateTime(2026, 6, 15, 16, 45),
-    site: 'Skyline Towers',
-  ),
-  ActivityEntry(
-    id: 'ACT-008',
-    title: 'Item published',
-    description: 'TMT Steel 12mm marked as published in item master.',
-    performedBy: 'Admin User',
-    type: ActivityType.item,
-    dateTime: DateTime(2026, 6, 15, 10, 10),
-    site: 'All Sites',
-  ),
-  ActivityEntry(
-    id: 'ACT-009',
-    title: 'Expense recorded',
-    description: 'Transport expense ₹2,400 logged under site logistics.',
-    performedBy: 'Accounts Team',
-    type: ActivityType.expense,
-    dateTime: DateTime(2026, 6, 14, 18, 5),
-    site: 'River Crossing',
-  ),
-  ActivityEntry(
-    id: 'ACT-010',
-    title: 'Day end report submitted',
-    description: 'Daily progress and labour report submitted for review.',
-    performedBy: 'Site Manager',
-    type: ActivityType.system,
-    dateTime: DateTime(2026, 6, 14, 19, 30),
-    site: 'River Crossing',
-  ),
-];
+class ActivitySummary {
+  const ActivitySummary({
+    this.total = 0,
+    this.today = 0,
+    this.byType = const {},
+  });
+
+  final int total;
+  final int today;
+  final Map<String, int> byType;
+
+  factory ActivitySummary.fromJson(Map<String, dynamic>? json) {
+    if (json == null) return const ActivitySummary();
+    final rawByType = json['by_type'];
+    final byType = <String, int>{};
+    if (rawByType is Map) {
+      rawByType.forEach((key, value) {
+        if (value is num) byType[key.toString()] = value.toInt();
+      });
+    }
+    return ActivitySummary(
+      total: json['total'] as int? ?? 0,
+      today: json['today'] as int? ?? 0,
+      byType: byType,
+    );
+  }
+}
+
+class ActivitiesListData {
+  const ActivitiesListData({
+    this.items = const [],
+    this.pagination,
+    this.summary,
+  });
+
+  final List<ActivityEntry> items;
+  final PaginationModel? pagination;
+  final ActivitySummary? summary;
+
+  factory ActivitiesListData.fromJson(Map<String, dynamic> json) {
+    final rawItems = json['items'];
+    return ActivitiesListData(
+      items: rawItems is List
+          ? rawItems
+              .whereType<Map>()
+              .map((e) => ActivityEntry.fromJson(Map<String, dynamic>.from(e)))
+              .toList()
+          : const [],
+      pagination: json['pagination'] is Map<String, dynamic>
+          ? PaginationModel.fromJson(json['pagination'] as Map<String, dynamic>)
+          : null,
+      summary: json['summary'] is Map<String, dynamic>
+          ? ActivitySummary.fromJson(json['summary'] as Map<String, dynamic>)
+          : null,
+    );
+  }
+}
+
+class ActivitiesListResponse {
+  const ActivitiesListResponse({
+    this.success,
+    this.message,
+    this.data,
+  });
+
+  final bool? success;
+  final String? message;
+  final ActivitiesListData? data;
+
+  factory ActivitiesListResponse.fromJson(Map<String, dynamic> json) {
+    return ActivitiesListResponse(
+      success: json['success'] as bool?,
+      message: json['message']?.toString(),
+      data: json['data'] is Map<String, dynamic>
+          ? ActivitiesListData.fromJson(json['data'] as Map<String, dynamic>)
+          : null,
+    );
+  }
+}
+
+DateTime? _parseDate(dynamic value) {
+  if (value == null) return null;
+  return DateTime.tryParse(value.toString());
+}
 
 String activityTypeLabel(ActivityType type) {
   return switch (type) {

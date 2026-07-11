@@ -72,6 +72,15 @@ class _HomePageState extends State<HomePage> {
 
   Future<void> _bootstrap() async {
     await _attendance.load();
+    if (mounted) {
+      final todayStatus = await getTodayAttendanceApi(
+        context,
+        showErrors: false,
+      );
+      if (todayStatus != null) {
+        await _attendance.applyTodayStatus(todayStatus);
+      }
+    }
     await _loadSites();
     final granted = await _location.initialize();
     if (_attendance.isPunchedIn && granted) {
@@ -135,7 +144,7 @@ class _HomePageState extends State<HomePage> {
   }
 
   Future<void> _handlePunchIn() async {
-    if (_isProcessingPunch || _attendance.isPunchedIn) return;
+    if (_isProcessingPunch || !_attendance.canPunchIn) return;
     setState(() => _isProcessingPunch = true);
 
     final granted = await _location.initialize();
@@ -147,32 +156,83 @@ class _HomePageState extends State<HomePage> {
       return;
     }
 
-    await _attendance.punchIn();
-    await _location.getCurrentLocation(reason: 'PUNCH IN location');
+    final position = await _location.getCurrentLocation(reason: 'PUNCH IN location');
+    if (position == null) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Unable to fetch current location. Try again.')),
+        );
+        setState(() => _isProcessingPunch = false);
+      }
+      return;
+    }
+
+    final result = await punchInApi(
+      context,
+      latitude: position.latitude,
+      longitude: position.longitude,
+    );
+
+    if (!mounted) return;
+
+    if (result == null) {
+      setState(() => _isProcessingPunch = false);
+      return;
+    }
+
+    await _attendance.applyTodayStatus(result.toTodayStatus());
     await _location.startTracking();
 
-    if (mounted) {
-      setState(() => _isProcessingPunch = false);
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Punched in successfully.')),
-      );
-    }
+    setState(() => _isProcessingPunch = false);
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(result.message ?? 'Punched in successfully.')),
+    );
   }
 
   Future<void> _handlePunchOut() async {
-    if (_isProcessingPunch || !_attendance.isPunchedIn) return;
+    if (_isProcessingPunch || !_attendance.canPunchOut) return;
     setState(() => _isProcessingPunch = true);
 
-    await _attendance.punchOut();
-    await _location.getCurrentLocation(reason: 'PUNCH OUT location');
+    final granted = await _location.initialize();
+    if (!granted && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Location permission is required to punch out.')),
+      );
+      setState(() => _isProcessingPunch = false);
+      return;
+    }
+
+    final position = await _location.getCurrentLocation(reason: 'PUNCH OUT location');
+    if (position == null) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Unable to fetch current location. Try again.')),
+        );
+        setState(() => _isProcessingPunch = false);
+      }
+      return;
+    }
+
+    final result = await punchOutApi(
+      context,
+      latitude: position.latitude,
+      longitude: position.longitude,
+    );
+
+    if (!mounted) return;
+
+    if (result == null) {
+      setState(() => _isProcessingPunch = false);
+      return;
+    }
+
+    await _attendance.applyTodayStatus(result.toTodayStatus());
     await _location.stopTracking();
 
-    if (mounted) {
-      setState(() => _isProcessingPunch = false);
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Punched out successfully.')),
-      );
-    }
+    setState(() => _isProcessingPunch = false);
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(result.message ?? 'Punched out successfully.')),
+    );
   }
 
   @override
@@ -204,9 +264,13 @@ class _HomePageState extends State<HomePage> {
               child: _buildTopBar(),
             ),
             Expanded(
-              child: LayoutBuilder(
+              child: RefreshIndicator(
+                color: AppColors.primaryRed,
+                onRefresh: _bootstrap,
+                child: LayoutBuilder(
                 builder: (context, constraints) {
                   return SingleChildScrollView(
+                    physics: const AlwaysScrollableScrollPhysics(),
                     padding: EdgeInsets.fromLTRB(hPad, 16, hPad, 24),
                     child: Center(
                       child: ConstrainedBox(
@@ -239,6 +303,7 @@ class _HomePageState extends State<HomePage> {
                     ),
                   );
                 },
+              ),
               ),
             ),
           ],
@@ -336,6 +401,10 @@ class _HomePageState extends State<HomePage> {
     if (selected != null && selected != _selectedSite) {
       await _saveSelectedSite(selected);
       if (mounted) setState(() => _selectedSite = selected);
+      final todayStatus = await getTodayAttendanceApi(context, showErrors: false);
+      if (todayStatus != null) {
+        await _attendance.applyTodayStatus(todayStatus);
+      }
     }
   }
 
@@ -621,11 +690,15 @@ class _AttendanceCardState extends State<_AttendanceCard> {
   }
 
   Widget _buildPunchButton(bool isPunchedIn) {
+    final canAct = isPunchedIn
+        ? widget.attendance.canPunchOut
+        : widget.attendance.canPunchIn;
+
     return SizedBox(
       width: 122,
       height: 46,
       child: ElevatedButton(
-        onPressed: widget.isProcessingPunch
+        onPressed: widget.isProcessingPunch || !canAct
             ? null
             : (isPunchedIn ? widget.onPunchOut : widget.onPunchIn),
         style: ElevatedButton.styleFrom(
@@ -655,7 +728,10 @@ class _AttendanceCardState extends State<_AttendanceCard> {
 
   @override
   Widget build(BuildContext context) {
-    final isPunchedIn = widget.attendance.isPunchedIn;
+    final attendance = widget.attendance;
+    final isPunchedIn = attendance.isPunchedIn;
+    final punchIn = attendance.punchInTime;
+    final today = attendance.todayAttendance;
 
     return Container(
       width: double.infinity,
@@ -672,9 +748,35 @@ class _AttendanceCardState extends State<_AttendanceCard> {
           ),
         ],
       ),
-      child: Align(
-        alignment: Alignment.centerRight,
-        child: _buildPunchButton(isPunchedIn),
+      child: Row(
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  isPunchedIn ? 'Currently Punched In' : 'Ready to Punch In',
+                  style: GoogleFonts.poppins(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.headingBlack,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  isPunchedIn && punchIn != null
+                      ? 'Since ${AttendanceService.formatTime(punchIn)}'
+                      : (today?.totalHours ?? 'Tap to start your shift'),
+                  style: GoogleFonts.poppins(
+                    fontSize: 12,
+                    color: AppColors.textSecondary,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          _buildPunchButton(isPunchedIn),
+        ],
       ),
     );
   }

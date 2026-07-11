@@ -7,12 +7,15 @@ class AppShellScope extends InheritedWidget {
   const AppShellScope({
     super.key,
     required this.currentIndex,
+    required this.tabVersion,
     required this.switchToTab,
     required this.shellNavigatorKey,
     required super.child,
   });
 
   final int currentIndex;
+  /// Bumps on every bottom-tab tap so the active tab remounts and reloads.
+  final int tabVersion;
   final ValueChanged<int> switchToTab;
   final GlobalKey<NavigatorState> shellNavigatorKey;
 
@@ -29,6 +32,7 @@ class AppShellScope extends InheritedWidget {
   @override
   bool updateShouldNotify(AppShellScope oldWidget) {
     return oldWidget.currentIndex != currentIndex ||
+        oldWidget.tabVersion != tabVersion ||
         oldWidget.shellNavigatorKey != shellNavigatorKey;
   }
 }

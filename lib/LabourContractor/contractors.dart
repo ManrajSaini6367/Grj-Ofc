@@ -54,8 +54,8 @@ class _ContractorsScreenState extends State<ContractorsScreen> {
     });
   }
 
-  Future<void> _loadContractors() async {
-    if (!_isLoading) setState(() => _isLoading = true);
+  Future<void> _loadContractors({bool showLoader = true}) async {
+    if (showLoader && !_isLoading) setState(() => _isLoading = true);
     await Future<void>.delayed(Duration.zero);
     if (!mounted) return;
     final response = await getContractorListApi(context);
@@ -130,7 +130,11 @@ class _ContractorsScreenState extends State<ContractorsScreen> {
                   ? const Center(
                       child: CircularProgressIndicator(color: AppColors.primaryRed),
                     )
-                  : SingleChildScrollView(
+                  : RefreshIndicator(
+                      color: AppColors.primaryRed,
+                      onRefresh: () => _loadContractors(showLoader: false),
+                      child: SingleChildScrollView(
+                physics: const AlwaysScrollableScrollPhysics(),
                 padding: EdgeInsets.fromLTRB(hPad, 16, hPad, 16),
                 child: Center(
                   child: ConstrainedBox(
@@ -149,6 +153,7 @@ class _ContractorsScreenState extends State<ContractorsScreen> {
                   ),
                 ),
               ),
+                  ),
             ),
           ],
         ),

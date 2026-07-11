@@ -7,6 +7,7 @@ import 'package:grjoffice_apps/models/task_model.dart';
 import 'package:grjoffice_apps/navigation/app_navigation.dart';
 import 'package:grjoffice_apps/services/api_auth.dart';
 import 'package:grjoffice_apps/tasksscreen/add_task_screen.dart';
+import 'package:grjoffice_apps/tasksscreen/task_messages_screen.dart';
 import 'package:grjoffice_apps/tasksscreen/view_task_screen.dart';
 import 'package:grjoffice_apps/widgets/app_top_bar.dart';
 
@@ -45,8 +46,8 @@ class _TasksScreenState extends State<TasksScreen> {
     super.dispose();
   }
 
-  Future<void> _loadTasks() async {
-    setState(() => _isLoading = true);
+  Future<void> _loadTasks({bool showLoader = true}) async {
+    if (showLoader) setState(() => _isLoading = true);
 
     final sortBy = switch (_sortBy) {
       'priority' => 'priority',
@@ -412,15 +413,26 @@ class _TasksScreenState extends State<TasksScreen> {
                   ? const Center(
                       child: CircularProgressIndicator(color: AppColors.primaryRed),
                     )
-                  : tasksList.isEmpty
-                      ? _buildEmptyState()
-                      : ListView.builder(
-                          padding: EdgeInsets.fromLTRB(hPad, 4, hPad, 80),
-                          itemCount: tasksList.length,
-                          itemBuilder: (context, index) {
-                            return _buildTaskCard(tasksList[index]);
-                          },
-                        ),
+                  : RefreshIndicator(
+                      color: AppColors.primaryRed,
+                      onRefresh: () => _loadTasks(showLoader: false),
+                      child: tasksList.isEmpty
+                          ? ListView(
+                              physics: const AlwaysScrollableScrollPhysics(),
+                              children: [
+                                SizedBox(height: MediaQuery.sizeOf(context).height * 0.2),
+                                _buildEmptyState(),
+                              ],
+                            )
+                          : ListView.builder(
+                              physics: const AlwaysScrollableScrollPhysics(),
+                              padding: EdgeInsets.fromLTRB(hPad, 4, hPad, 80),
+                              itemCount: tasksList.length,
+                              itemBuilder: (context, index) {
+                                return _buildTaskCard(tasksList[index]);
+                              },
+                            ),
+                    ),
             ),
           ],
         ),
@@ -759,7 +771,7 @@ class _TasksScreenState extends State<TasksScreen> {
                   ),
                 ),
                 
-                // Priority Badge and Action Menu
+                // Priority Badge, messages and Action Menu
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
@@ -777,34 +789,41 @@ class _TasksScreenState extends State<TasksScreen> {
                         ),
                       ],
                     ),
-                    const SizedBox(height: 12),
-                    
-                    // Assignee Avatar
-                    CircleAvatar(
-                      radius: 15,
-                      backgroundColor: Colors.grey.shade100,
-                      child: ClipOval(
-                        child: Image.network(
-                          task.assigneeAvatarUrl ?? '',
-                          width: 30,
-                          height: 30,
-                          fit: BoxFit.cover,
-                          errorBuilder: (context, error, stackTrace) {
-                            return Container(
-                              color: const Color(0xFFECEFF1),
-                              alignment: Alignment.center,
-                              child: Text(
-                                task.assigneeName.isNotEmpty ? task.assigneeName[0].toUpperCase() : '?',
-                                style: GoogleFonts.poppins(
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.bold,
-                                  color: Colors.blueGrey,
-                                ),
-                              ),
-                            );
-                          },
+                    const SizedBox(height: 8),
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        _buildMessageIcon(task),
+                        const SizedBox(width: 8),
+                        CircleAvatar(
+                          radius: 15,
+                          backgroundColor: Colors.grey.shade100,
+                          child: ClipOval(
+                            child: Image.network(
+                              task.assigneeAvatarUrl ?? '',
+                              width: 30,
+                              height: 30,
+                              fit: BoxFit.cover,
+                              errorBuilder: (context, error, stackTrace) {
+                                return Container(
+                                  color: const Color(0xFFECEFF1),
+                                  alignment: Alignment.center,
+                                  child: Text(
+                                    task.assigneeName.isNotEmpty
+                                        ? task.assigneeName[0].toUpperCase()
+                                        : '?',
+                                    style: GoogleFonts.poppins(
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.bold,
+                                      color: Colors.blueGrey,
+                                    ),
+                                  ),
+                                );
+                              },
+                            ),
+                          ),
                         ),
-                      ),
+                      ],
                     ),
                   ],
                 ),
@@ -815,6 +834,48 @@ class _TasksScreenState extends State<TasksScreen> {
       ),
       ),
     );
+  }
+
+  Widget _buildMessageIcon(Task task) {
+    final unread = task.unreadCount;
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: () => _openTaskMessages(task),
+        borderRadius: BorderRadius.circular(20),
+        child: Padding(
+          padding: const EdgeInsets.all(4),
+          child: Badge(
+            isLabelVisible: unread > 0,
+            label: Text(
+              unread > 99 ? '99+' : '$unread',
+              style: const TextStyle(fontSize: 9, fontWeight: FontWeight.w700),
+            ),
+            child: Icon(
+              unread > 0 ? Icons.chat_bubble_rounded : Icons.chat_bubble_outline_rounded,
+              size: 20,
+              color: unread > 0 ? AppColors.primaryRed : AppColors.textSecondary,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _openTaskMessages(Task task) async {
+    final result = await Navigator.of(context).push<int>(
+      MaterialPageRoute(builder: (_) => TaskMessagesScreen(task: task)),
+    );
+    if (!mounted) return;
+
+    final index = _tasks.indexWhere((t) => t.id == task.id);
+    if (index < 0) return;
+
+    setState(() {
+      _tasks[index] = _tasks[index].copyWith(
+        unreadCount: result ?? 0,
+      );
+    });
   }
 
   Future<void> _openTask(Task task) async {
@@ -1019,6 +1080,14 @@ class _TasksScreenState extends State<TasksScreen> {
                         },
                       ),
                       const Divider(height: 1),
+                      ListTile(
+                        leading: const Icon(Icons.chat_bubble_outline_rounded, color: AppColors.primaryRed),
+                        title: Text('Messages', style: GoogleFonts.poppins(fontSize: 13.5)),
+                        onTap: () {
+                          Navigator.pop(context);
+                          _openTaskMessages(task);
+                        },
+                      ),
                       ListTile(
                         leading: const Icon(Icons.edit_outlined, color: AppColors.headingBlack),
                         title: Text('Edit Task', style: GoogleFonts.poppins(fontSize: 13.5)),

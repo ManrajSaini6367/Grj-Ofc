@@ -4,6 +4,7 @@ import 'package:grjoffice_apps/core/app_colors.dart';
 import 'package:grjoffice_apps/models/task_model.dart';
 import 'package:grjoffice_apps/services/api_auth.dart';
 import 'package:grjoffice_apps/tasksscreen/add_task_screen.dart';
+import 'package:grjoffice_apps/tasksscreen/task_messages_screen.dart';
 import 'package:grjoffice_apps/widgets/app_top_bar.dart';
 
 class ViewTaskScreen extends StatefulWidget {
@@ -19,10 +20,12 @@ class _ViewTaskScreenState extends State<ViewTaskScreen> {
   bool _isLoading = true;
   Task? _detail;
   bool _didUpdate = false;
+  int _unreadCount = 0;
 
   @override
   void initState() {
     super.initState();
+    _unreadCount = widget.task.unreadCount;
     WidgetsBinding.instance.addPostFrameCallback((_) => _loadTask());
   }
 
@@ -41,7 +44,21 @@ class _ViewTaskScreenState extends State<ViewTaskScreen> {
     if (!mounted) return;
     setState(() {
       _detail = task ?? widget.task;
+      _unreadCount = (task ?? widget.task).unreadCount;
       _isLoading = false;
+    });
+  }
+
+  Future<void> _openMessages() async {
+    final result = await Navigator.of(context).push<int>(
+      MaterialPageRoute(builder: (_) => TaskMessagesScreen(task: _task)),
+    );
+    if (!mounted || result == null) return;
+    setState(() {
+      _unreadCount = result;
+      final current = _task;
+      _detail = current.copyWith(unreadCount: result);
+      _didUpdate = true;
     });
   }
 
@@ -206,6 +223,17 @@ class _ViewTaskScreenState extends State<ViewTaskScreen> {
               horizontalPadding: hPad,
               actions: [
                 IconButton(
+                  onPressed: _isLoading ? null : _openMessages,
+                  icon: Badge(
+                    isLabelVisible: _unreadCount > 0,
+                    label: Text(
+                      _unreadCount > 99 ? '99+' : '$_unreadCount',
+                      style: const TextStyle(fontSize: 10),
+                    ),
+                    child: const Icon(Icons.chat_bubble_outline_rounded, color: AppColors.headingBlack),
+                  ),
+                ),
+                IconButton(
                   onPressed: _isLoading ? null : _editTask,
                   icon: const Icon(Icons.edit_outlined, color: AppColors.headingBlack),
                 ),
@@ -220,7 +248,11 @@ class _ViewTaskScreenState extends State<ViewTaskScreen> {
                   ? const Center(
                       child: CircularProgressIndicator(color: AppColors.primaryRed),
                     )
-                  : SingleChildScrollView(
+                  : RefreshIndicator(
+                      color: AppColors.primaryRed,
+                      onRefresh: _loadTask,
+                      child: SingleChildScrollView(
+                      physics: const AlwaysScrollableScrollPhysics(),
                       padding: EdgeInsets.fromLTRB(hPad, 16, hPad, 24),
                       child: Center(
                         child: ConstrainedBox(
@@ -229,6 +261,8 @@ class _ViewTaskScreenState extends State<ViewTaskScreen> {
                             crossAxisAlignment: CrossAxisAlignment.stretch,
                             children: [
                               _buildHeader(task),
+                              const SizedBox(height: 12),
+                              _buildMessagesButton(),
                               const SizedBox(height: 16),
                               _buildQuickStats(task),
                               const SizedBox(height: 16),
@@ -289,6 +323,7 @@ class _ViewTaskScreenState extends State<ViewTaskScreen> {
                         ),
                       ),
                     ),
+                  ),
             ),
           ],
         ),
@@ -339,6 +374,84 @@ class _ViewTaskScreenState extends State<ViewTaskScreen> {
             ],
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildMessagesButton() {
+    return Material(
+      color: AppColors.cardWhite,
+      borderRadius: BorderRadius.circular(14),
+      child: InkWell(
+        onTap: _isLoading ? null : _openMessages,
+        borderRadius: BorderRadius.circular(14),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: AppColors.borderGray.withValues(alpha: 0.45)),
+          ),
+          child: Row(
+            children: [
+              Container(
+                width: 40,
+                height: 40,
+                decoration: BoxDecoration(
+                  color: AppColors.primaryRed.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: const Icon(
+                  Icons.chat_bubble_outline_rounded,
+                  color: AppColors.primaryRed,
+                  size: 20,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Task Messages',
+                      style: GoogleFonts.poppins(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w700,
+                        color: AppColors.headingBlack,
+                      ),
+                    ),
+                    Text(
+                      _unreadCount > 0
+                          ? '$_unreadCount unread message${_unreadCount == 1 ? '' : 's'}'
+                          : 'Chat about this task',
+                      style: GoogleFonts.poppins(
+                        fontSize: 12,
+                        color: AppColors.textSecondary,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              if (_unreadCount > 0)
+                Container(
+                  margin: const EdgeInsets.only(right: 8),
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: AppColors.primaryRed,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Text(
+                    '$_unreadCount',
+                    style: GoogleFonts.poppins(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w700,
+                      color: Colors.white,
+                    ),
+                  ),
+                ),
+              const Icon(Icons.chevron_right_rounded, color: AppColors.textSecondary),
+            ],
+          ),
+        ),
       ),
     );
   }

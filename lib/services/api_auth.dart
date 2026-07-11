@@ -22,10 +22,13 @@ import 'package:grjoffice_apps/models/listcontractor.dart';
 import 'package:grjoffice_apps/models/login_model.dart';
 import 'package:grjoffice_apps/models/site_model.dart';
 import 'package:grjoffice_apps/models/sites_response_model.dart';
+import 'package:grjoffice_apps/DayEndReport/activity.dart';
 import 'package:grjoffice_apps/models/task_model.dart';
+import 'package:grjoffice_apps/models/task_message_model.dart';
 import 'package:grjoffice_apps/models/user_model.dart';
 import 'package:grjoffice_apps/Expensescreen/expense.dart';
 import 'package:grjoffice_apps/Purchasescreen/purchase.dart';
+import 'package:grjoffice_apps/models/attendance_model.dart';
 import 'package:grjoffice_apps/models/viewemployeeprofile.dart';
 import 'package:grjoffice_apps/SupplierList/supplier.dart';
 import 'package:grjoffice_apps/utils/app_helpers.dart';
@@ -2203,6 +2206,362 @@ Future<bool> deleteTaskApi(BuildContext context, int taskId) async {
   }
 }
 
+//getactivitiesapi
+Future<ActivitiesListResponse?> getActivitiesApi(
+  BuildContext context, {
+  int? siteId,
+  String type = 'all',
+  String period = 'all',
+  String search = '',
+  int perPage = 20,
+}) async {
+  try {
+    final resolvedSiteId = siteId ?? selectedSiteId();
+    if (resolvedSiteId == null) {
+      if (context.mounted) {
+        message(context, 'Please select a site first.');
+      }
+      return null;
+    }
+
+    final queryParams = <String, String>{
+      'site_id': resolvedSiteId.toString(),
+      'type': type.trim().isEmpty ? 'all' : type.trim(),
+      'period': period.trim().isEmpty ? 'all' : period.trim(),
+      'per_page': perPage.toString(),
+    };
+    if (search.trim().isNotEmpty) {
+      queryParams['search'] = search.trim();
+    }
+
+    final uri = Uri.parse('$baseUrl/api/v1/activities').replace(
+      queryParameters: queryParams,
+    );
+
+    print('[getActivitiesApi] GET $uri');
+
+    final response = await http
+        .get(uri, headers: authHeaders)
+        .timeout(const Duration(seconds: 30));
+
+    print('[getActivitiesApi] statusCode: ${response.statusCode}');
+    print('[getActivitiesApi] response body: ${response.body}');
+
+    final decoded = decodeApiJson(response.body);
+    final apiMessage = decoded?['message']?.toString();
+
+    if (response.statusCode == 200 &&
+        decoded != null &&
+        decoded['success'] == true) {
+      return ActivitiesListResponse.fromJson(decoded);
+    }
+
+    if (!context.mounted) return null;
+    message(context, apiMessage ?? 'Failed to load activities.');
+    return null;
+  } on TimeoutException {
+    print('[getActivitiesApi] request timed out');
+    if (!context.mounted) return null;
+    message(context, 'Request timed out. Please try again.');
+    return null;
+  } catch (e, stack) {
+    print('[getActivitiesApi] error: $e');
+    print('[getActivitiesApi] stack: $stack');
+    if (!context.mounted) return null;
+    message(context, 'Something went wrong');
+    return null;
+  }
+}
+
+//getactivityapi
+Future<ActivityEntry?> getActivityApi(
+  BuildContext context,
+  int activityId, {
+  int? siteId,
+}) async {
+  try {
+    final resolvedSiteId = siteId ?? selectedSiteId();
+    if (resolvedSiteId == null) {
+      if (context.mounted) {
+        message(context, 'Please select a site first.');
+      }
+      return null;
+    }
+
+    final uri = Uri.parse('$baseUrl/api/v1/activities/$activityId').replace(
+      queryParameters: {'site_id': resolvedSiteId.toString()},
+    );
+
+    print('[getActivityApi] GET $uri');
+
+    final response = await http
+        .get(uri, headers: authHeaders)
+        .timeout(const Duration(seconds: 30));
+
+    print('[getActivityApi] statusCode: ${response.statusCode}');
+    print('[getActivityApi] response body: ${response.body}');
+
+    final decoded = decodeApiJson(response.body);
+    final apiMessage = decoded?['message']?.toString();
+
+    if (response.statusCode == 200 &&
+        decoded != null &&
+        decoded['success'] == true &&
+        decoded['data'] is Map<String, dynamic>) {
+      return ActivityEntry.fromJson(decoded['data'] as Map<String, dynamic>);
+    }
+
+    if (!context.mounted) return null;
+    message(context, apiMessage ?? 'Failed to load activity.');
+    return null;
+  } on TimeoutException {
+    print('[getActivityApi] request timed out');
+    if (!context.mounted) return null;
+    message(context, 'Request timed out. Please try again.');
+    return null;
+  } catch (e, stack) {
+    print('[getActivityApi] error: $e');
+    print('[getActivityApi] stack: $stack');
+    if (!context.mounted) return null;
+    message(context, 'Something went wrong');
+    return null;
+  }
+}
+
+//gettaskmessagesapi
+Future<TaskMessagesListResponse?> getTaskMessagesApi(
+  BuildContext context,
+  int taskId, {
+  int perPage = 50,
+}) async {
+  try {
+    final uri = Uri.parse('$baseUrl/api/v1/tasks/$taskId/messages').replace(
+      queryParameters: {'per_page': perPage.toString()},
+    );
+
+    print('[getTaskMessagesApi] GET $uri');
+
+    final response = await http
+        .get(uri, headers: authHeaders)
+        .timeout(const Duration(seconds: 30));
+
+    print('[getTaskMessagesApi] statusCode: ${response.statusCode}');
+    print('[getTaskMessagesApi] response body: ${response.body}');
+
+    final decoded = decodeApiJson(response.body);
+    final apiMessage = decoded?['message']?.toString();
+
+    if (response.statusCode == 200 &&
+        decoded != null &&
+        decoded['success'] == true) {
+      return TaskMessagesListResponse.fromJson(decoded);
+    }
+
+    if (!context.mounted) return null;
+    message(context, apiMessage ?? 'Failed to load messages.');
+    return null;
+  } on TimeoutException {
+    print('[getTaskMessagesApi] request timed out');
+    if (!context.mounted) return null;
+    message(context, 'Request timed out. Please try again.');
+    return null;
+  } catch (e, stack) {
+    print('[getTaskMessagesApi] error: $e');
+    print('[getTaskMessagesApi] stack: $stack');
+    if (!context.mounted) return null;
+    message(context, 'Something went wrong');
+    return null;
+  }
+}
+
+//sendtaskmessageapi
+Future<TaskMessage?> sendTaskMessageApi(
+  BuildContext context,
+  int taskId, {
+  required String messageText,
+  int? receiverId,
+}) async {
+  try {
+    final url = '$baseUrl/api/v1/tasks/$taskId/messages';
+    final body = <String, dynamic>{
+      'message': messageText.trim(),
+      'receiver_id': receiverId,
+    };
+
+    print('[sendTaskMessageApi] POST $url');
+    print('[sendTaskMessageApi] body: $body');
+
+    final response = await http
+        .post(
+          Uri.parse(url),
+          headers: authHeaders,
+          body: jsonEncode(body),
+        )
+        .timeout(const Duration(seconds: 30));
+
+    print('[sendTaskMessageApi] statusCode: ${response.statusCode}');
+    print('[sendTaskMessageApi] response body: ${response.body}');
+
+    final decoded = decodeApiJson(response.body);
+    final apiMessage = decoded?['message']?.toString();
+
+    if ((response.statusCode == 201 || response.statusCode == 200) &&
+        decoded != null &&
+        decoded['success'] == true &&
+        decoded['data'] is Map<String, dynamic>) {
+      return TaskMessage.fromJson(decoded['data'] as Map<String, dynamic>);
+    }
+
+    if (!context.mounted) return null;
+    message(context, apiMessage ?? 'Failed to send message.');
+    return null;
+  } on TimeoutException {
+    print('[sendTaskMessageApi] request timed out');
+    if (!context.mounted) return null;
+    message(context, 'Request timed out. Please try again.');
+    return null;
+  } catch (e, stack) {
+    print('[sendTaskMessageApi] error: $e');
+    print('[sendTaskMessageApi] stack: $stack');
+    if (!context.mounted) return null;
+    message(context, 'Something went wrong');
+    return null;
+  }
+}
+
+//markalltaskmessagesreadapi
+Future<bool> markAllTaskMessagesReadApi(
+  BuildContext context,
+  int taskId, {
+  bool showErrors = true,
+}) async {
+  try {
+    final url = '$baseUrl/api/v1/tasks/$taskId/messages/mark-read';
+
+    print('[markAllTaskMessagesReadApi] POST $url');
+
+    final response = await http
+        .post(Uri.parse(url), headers: authHeaders)
+        .timeout(const Duration(seconds: 30));
+
+    print('[markAllTaskMessagesReadApi] statusCode: ${response.statusCode}');
+    print('[markAllTaskMessagesReadApi] response body: ${response.body}');
+
+    final decoded = decodeApiJson(response.body);
+    final apiMessage = decoded?['message']?.toString();
+
+    if (response.statusCode == 200 &&
+        decoded != null &&
+        decoded['success'] == true) {
+      return true;
+    }
+
+    if (!showErrors || !context.mounted) return false;
+    message(context, apiMessage ?? 'Failed to mark messages as read.');
+    return false;
+  } on TimeoutException {
+    print('[markAllTaskMessagesReadApi] request timed out');
+    if (!showErrors || !context.mounted) return false;
+    message(context, 'Request timed out. Please try again.');
+    return false;
+  } catch (e, stack) {
+    print('[markAllTaskMessagesReadApi] error: $e');
+    print('[markAllTaskMessagesReadApi] stack: $stack');
+    if (!showErrors || !context.mounted) return false;
+    message(context, 'Something went wrong');
+    return false;
+  }
+}
+
+//marktaskmessagereadapi
+Future<bool> markTaskMessageReadApi(
+  BuildContext context,
+  int taskId,
+  int messageId, {
+  bool showErrors = true,
+}) async {
+  try {
+    final url = '$baseUrl/api/v1/tasks/$taskId/messages/$messageId/read';
+
+    print('[markTaskMessageReadApi] POST $url');
+
+    final response = await http
+        .post(Uri.parse(url), headers: authHeaders)
+        .timeout(const Duration(seconds: 30));
+
+    print('[markTaskMessageReadApi] statusCode: ${response.statusCode}');
+    print('[markTaskMessageReadApi] response body: ${response.body}');
+
+    final decoded = decodeApiJson(response.body);
+    final apiMessage = decoded?['message']?.toString();
+
+    if (response.statusCode == 200 &&
+        decoded != null &&
+        decoded['success'] == true) {
+      return true;
+    }
+
+    if (!showErrors || !context.mounted) return false;
+    message(context, apiMessage ?? 'Failed to mark message as read.');
+    return false;
+  } on TimeoutException {
+    print('[markTaskMessageReadApi] request timed out');
+    if (!showErrors || !context.mounted) return false;
+    message(context, 'Request timed out. Please try again.');
+    return false;
+  } catch (e, stack) {
+    print('[markTaskMessageReadApi] error: $e');
+    print('[markTaskMessageReadApi] stack: $stack');
+    if (!showErrors || !context.mounted) return false;
+    message(context, 'Something went wrong');
+    return false;
+  }
+}
+
+//deletetaskmessageapi
+Future<bool> deleteTaskMessageApi(
+  BuildContext context,
+  int taskId,
+  int messageId,
+) async {
+  try {
+    final url = '$baseUrl/api/v1/tasks/$taskId/messages/$messageId';
+
+    print('[deleteTaskMessageApi] DELETE $url');
+
+    final response = await http
+        .delete(Uri.parse(url), headers: authHeaders)
+        .timeout(const Duration(seconds: 30));
+
+    print('[deleteTaskMessageApi] statusCode: ${response.statusCode}');
+    print('[deleteTaskMessageApi] response body: ${response.body}');
+
+    final decoded = decodeApiJson(response.body);
+    final apiMessage = decoded?['message']?.toString();
+
+    if (response.statusCode == 200 &&
+        decoded != null &&
+        decoded['success'] == true) {
+      return true;
+    }
+
+    if (!context.mounted) return false;
+    message(context, apiMessage ?? 'Failed to delete message.');
+    return false;
+  } on TimeoutException {
+    print('[deleteTaskMessageApi] request timed out');
+    if (!context.mounted) return false;
+    message(context, 'Request timed out. Please try again.');
+    return false;
+  } catch (e, stack) {
+    print('[deleteTaskMessageApi] error: $e');
+    print('[deleteTaskMessageApi] stack: $stack');
+    if (!context.mounted) return false;
+    message(context, 'Something went wrong');
+    return false;
+  }
+}
+
 //getexpensesapi
 Future<ExpensesListResponse?> getExpensesApi(
   BuildContext context, {
@@ -2725,6 +3084,339 @@ Future<bool> deletePurchaseApi(BuildContext context, int purchaseId) async {
     if (!context.mounted) return false;
     message(context, 'Something went wrong');
     return false;
+  }
+}
+
+//getattendancesapi
+Future<AttendancesListResponse?> getAttendancesApi(
+  BuildContext context, {
+  int? siteId,
+  String? date,
+  String? status,
+  String search = '',
+  int perPage = 50,
+}) async {
+  try {
+    final resolvedSiteId = siteId ?? selectedSiteId();
+    if (resolvedSiteId == null) {
+      if (context.mounted) {
+        message(context, 'Please select a site first.');
+      }
+      return null;
+    }
+
+    final queryParams = <String, String>{
+      'site_id': resolvedSiteId.toString(),
+      'per_page': perPage.toString(),
+      'date': date?.trim() ?? '',
+      'status': status?.trim() ?? '',
+      'search': search.trim(),
+    };
+
+    final uri = Uri.parse('$baseUrl/api/v1/attendances').replace(
+      queryParameters: queryParams,
+    );
+
+    print('[getAttendancesApi] GET $uri');
+
+    final response = await http
+        .get(uri, headers: authHeaders)
+        .timeout(const Duration(seconds: 30));
+
+    print('[getAttendancesApi] statusCode: ${response.statusCode}');
+    print('[getAttendancesApi] response body: ${response.body}');
+
+    final decoded = decodeApiJson(response.body);
+    final apiMessage = decoded?['message']?.toString();
+
+    if (response.statusCode == 200 &&
+        decoded != null &&
+        decoded['success'] == true) {
+      return AttendancesListResponse.fromJson(decoded);
+    }
+
+    if (!context.mounted) return null;
+    message(context, apiMessage ?? 'Failed to load attendances.');
+    return null;
+  } on TimeoutException {
+    print('[getAttendancesApi] request timed out');
+    if (!context.mounted) return null;
+    message(context, 'Request timed out. Please try again.');
+    return null;
+  } catch (e, stack) {
+    print('[getAttendancesApi] error: $e');
+    print('[getAttendancesApi] stack: $stack');
+    if (!context.mounted) return null;
+    message(context, 'Something went wrong');
+    return null;
+  }
+}
+
+//gettodayattendanceapi
+Future<TodayAttendanceStatus?> getTodayAttendanceApi(
+  BuildContext context, {
+  int? siteId,
+  bool showErrors = true,
+}) async {
+  try {
+    final resolvedSiteId = siteId ?? selectedSiteId();
+    if (resolvedSiteId == null) {
+      if (showErrors && context.mounted) {
+        message(context, 'Please select a site first.');
+      }
+      return null;
+    }
+
+    final uri = Uri.parse('$baseUrl/api/v1/attendances/today').replace(
+      queryParameters: {
+        'site_id': resolvedSiteId.toString(),
+      },
+    );
+
+    print('[getTodayAttendanceApi] GET $uri');
+
+    final response = await http
+        .get(uri, headers: authHeaders)
+        .timeout(const Duration(seconds: 30));
+
+    print('[getTodayAttendanceApi] statusCode: ${response.statusCode}');
+    print('[getTodayAttendanceApi] response body: ${response.body}');
+
+    final decoded = decodeApiJson(response.body);
+    final apiMessage = decoded?['message']?.toString();
+
+    if (response.statusCode == 200 &&
+        decoded != null &&
+        decoded['success'] == true) {
+      final data = decoded['data'];
+      if (data is Map<String, dynamic>) {
+        return TodayAttendanceStatus.fromJson(data);
+      }
+      if (data is Map) {
+        return TodayAttendanceStatus.fromJson(Map<String, dynamic>.from(data));
+      }
+      return null;
+    }
+
+    if (showErrors && context.mounted) {
+      message(context, apiMessage ?? 'Failed to load today attendance.');
+    }
+    return null;
+  } on TimeoutException {
+    print('[getTodayAttendanceApi] request timed out');
+    if (showErrors && context.mounted) {
+      message(context, 'Request timed out. Please try again.');
+    }
+    return null;
+  } catch (e, stack) {
+    print('[getTodayAttendanceApi] error: $e');
+    print('[getTodayAttendanceApi] stack: $stack');
+    if (showErrors && context.mounted) {
+      message(context, 'Something went wrong');
+    }
+    return null;
+  }
+}
+
+//punchinapi — POST /attendances/punch-in (no employer_image)
+Future<PunchActionResult?> punchInApi(
+  BuildContext context, {
+  required double latitude,
+  required double longitude,
+  int? siteId,
+}) async {
+  try {
+    final resolvedSiteId = siteId ?? selectedSiteId();
+    if (resolvedSiteId == null) {
+      if (context.mounted) {
+        message(context, 'Please select a site first.');
+      }
+      return null;
+    }
+
+    final url = '$baseUrl/api/v1/attendances/punch-in';
+    final fields = <String, String>{
+      'site_id': resolvedSiteId.toString(),
+      'latitude': latitude.toString(),
+      'longitude': longitude.toString(),
+    };
+
+    print('[punchInApi] POST $url');
+    print('[punchInApi] fields: $fields');
+
+    final response = await _sendMultipart(
+      Uri.parse(url),
+      fields: fields,
+    );
+
+    print('[punchInApi] statusCode: ${response.statusCode}');
+    print('[punchInApi] response body: ${response.body}');
+
+    final decoded = decodeApiJson(response.body);
+    final apiMessage = decoded?['message']?.toString();
+
+    if ((response.statusCode == 200 || response.statusCode == 201) &&
+        decoded != null &&
+        decoded['success'] == true) {
+      final data = decoded['data'];
+      PunchActionResult? result;
+      if (data is Map<String, dynamic>) {
+        result = PunchActionResult.fromJson(data);
+      } else if (data is Map) {
+        result = PunchActionResult.fromJson(Map<String, dynamic>.from(data));
+      }
+      if (result != null) {
+        return PunchActionResult(
+          isPunchedIn: result.isPunchedIn,
+          attendance: result.attendance,
+          latitude: result.latitude,
+          longitude: result.longitude,
+          message: apiMessage,
+        );
+      }
+      return null;
+    }
+
+    if (!context.mounted) return null;
+    message(context, apiMessage ?? 'Failed to punch in.');
+    return null;
+  } on TimeoutException {
+    print('[punchInApi] request timed out');
+    if (!context.mounted) return null;
+    message(context, 'Request timed out. Please try again.');
+    return null;
+  } catch (e, stack) {
+    print('[punchInApi] error: $e');
+    print('[punchInApi] stack: $stack');
+    if (!context.mounted) return null;
+    message(context, 'Something went wrong');
+    return null;
+  }
+}
+
+//punchoutapi — POST /attendances/punch-out (JSON)
+Future<PunchActionResult?> punchOutApi(
+  BuildContext context, {
+  required double latitude,
+  required double longitude,
+  int? siteId,
+}) async {
+  try {
+    final resolvedSiteId = siteId ?? selectedSiteId();
+    if (resolvedSiteId == null) {
+      if (context.mounted) {
+        message(context, 'Please select a site first.');
+      }
+      return null;
+    }
+
+    final url = '$baseUrl/api/v1/attendances/punch-out';
+    final body = <String, dynamic>{
+      'site_id': resolvedSiteId,
+      'latitude': latitude.toString(),
+      'longitude': longitude.toString(),
+    };
+
+    print('[punchOutApi] POST $url');
+    print('[punchOutApi] body: $body');
+
+    final response = await http
+        .post(
+          Uri.parse(url),
+          headers: authHeaders,
+          body: jsonEncode(body),
+        )
+        .timeout(const Duration(seconds: 30));
+
+    print('[punchOutApi] statusCode: ${response.statusCode}');
+    print('[punchOutApi] response body: ${response.body}');
+
+    final decoded = decodeApiJson(response.body);
+    final apiMessage = decoded?['message']?.toString();
+
+    if ((response.statusCode == 200 || response.statusCode == 201) &&
+        decoded != null &&
+        decoded['success'] == true) {
+      final data = decoded['data'];
+      PunchActionResult? result;
+      if (data is Map<String, dynamic>) {
+        result = PunchActionResult.fromJson(data);
+      } else if (data is Map) {
+        result = PunchActionResult.fromJson(Map<String, dynamic>.from(data));
+      }
+      if (result != null) {
+        return PunchActionResult(
+          isPunchedIn: result.isPunchedIn,
+          attendance: result.attendance,
+          latitude: result.latitude,
+          longitude: result.longitude,
+          message: apiMessage,
+        );
+      }
+      return null;
+    }
+
+    if (!context.mounted) return null;
+    message(context, apiMessage ?? 'Failed to punch out.');
+    return null;
+  } on TimeoutException {
+    print('[punchOutApi] request timed out');
+    if (!context.mounted) return null;
+    message(context, 'Request timed out. Please try again.');
+    return null;
+  } catch (e, stack) {
+    print('[punchOutApi] error: $e');
+    print('[punchOutApi] stack: $stack');
+    if (!context.mounted) return null;
+    message(context, 'Something went wrong');
+    return null;
+  }
+}
+
+//getattendanceapi
+Future<Attendance?> getAttendanceApi(BuildContext context, int attendanceId) async {
+  try {
+    final url = '$baseUrl/api/v1/attendances/$attendanceId';
+
+    print('[getAttendanceApi] GET $url');
+
+    final response = await http
+        .get(Uri.parse(url), headers: authHeaders)
+        .timeout(const Duration(seconds: 30));
+
+    print('[getAttendanceApi] statusCode: ${response.statusCode}');
+    print('[getAttendanceApi] response body: ${response.body}');
+
+    final decoded = decodeApiJson(response.body);
+    final apiMessage = decoded?['message']?.toString();
+
+    if (response.statusCode == 200 &&
+        decoded != null &&
+        decoded['success'] == true) {
+      final data = decoded['data'];
+      if (data is Map<String, dynamic>) {
+        return Attendance.fromJson(data);
+      }
+      if (data is Map) {
+        return Attendance.fromJson(Map<String, dynamic>.from(data));
+      }
+      return null;
+    }
+
+    if (!context.mounted) return null;
+    message(context, apiMessage ?? 'Failed to load attendance.');
+    return null;
+  } on TimeoutException {
+    print('[getAttendanceApi] request timed out');
+    if (!context.mounted) return null;
+    message(context, 'Request timed out. Please try again.');
+    return null;
+  } catch (e, stack) {
+    print('[getAttendanceApi] error: $e');
+    print('[getAttendanceApi] stack: $stack');
+    if (!context.mounted) return null;
+    message(context, 'Something went wrong');
+    return null;
   }
 }
 

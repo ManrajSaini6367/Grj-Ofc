@@ -61,8 +61,8 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
     });
   }
 
-  Future<void> _loadEmployees() async {
-    if (!_isLoading) setState(() => _isLoading = true);
+  Future<void> _loadEmployees({bool showLoader = true}) async {
+    if (showLoader && !_isLoading) setState(() => _isLoading = true);
     await Future<void>.delayed(Duration.zero);
     if (!mounted) return;
     final response = await getEmployeesApi(
@@ -160,9 +160,13 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
                   ? const Center(
                       child: CircularProgressIndicator(color: AppColors.primaryRed),
                     )
-                  : LayoutBuilder(
+                  : RefreshIndicator(
+                      color: AppColors.primaryRed,
+                      onRefresh: () => _loadEmployees(showLoader: false),
+                      child: LayoutBuilder(
                       builder: (context, constraints) {
                         return SingleChildScrollView(
+                          physics: const AlwaysScrollableScrollPhysics(),
                           padding: EdgeInsets.fromLTRB(hPad, 16, hPad, 16),
                           child: Center(
                             child: ConstrainedBox(
@@ -184,6 +188,7 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
                           ),
                         );
                       },
+                    ),
                     ),
             ),
           ],
