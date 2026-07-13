@@ -451,7 +451,7 @@ const kPurchaseItemOptions = [
   'TMT 10 mm',
 ];
 
-const kKantaSlipOptions = ['Without Kanta', 'With Kanta', 'Other'];
+const kKantaSlipOptions = ['Without Kanta', 'With Kanta'];
 
 const kMaterialUnits = ['NOS', 'Bag', 'KG', 'MT', 'CUM', 'Litre'];
 

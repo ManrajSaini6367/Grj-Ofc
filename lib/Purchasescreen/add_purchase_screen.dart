@@ -6,7 +6,6 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:grjoffice_apps/core/app_colors.dart';
 import 'package:grjoffice_apps/Purchasescreen/purchase.dart';
-import 'package:grjoffice_apps/models/getsupplierlist.dart';
 import 'package:grjoffice_apps/models/item_model.dart';
 import 'package:grjoffice_apps/services/api_auth.dart';
 import 'package:grjoffice_apps/widgets/app_top_bar.dart';
@@ -42,6 +41,9 @@ class _AddPurchaseScreenState extends State<AddPurchaseScreen> {
   List<ItemModel> _items = [];
   List<({int id, String name})> _suppliers = [];
   bool _loadingLookups = true;
+  bool _loadingSuppliers = false;
+  /// true = last load was /suppliers/by-item; false = old /suppliers list
+  bool _suppliersFilteredByItem = false;
 
   @override
   void initState() {
@@ -51,23 +53,63 @@ class _AddPurchaseScreenState extends State<AddPurchaseScreen> {
   }
 
   Future<void> _loadLookups() async {
-    final itemsFuture = itemsApi(context, perPage: 50);
-    final suppliersFuture = getSuppliersApi(context, perPage: 100);
-
-    final results = await Future.wait([itemsFuture, suppliersFuture]);
-
+    final itemsResult = await itemsApi(context, perPage: 50);
     if (!mounted) return;
-
-    final itemsResult = results[0] as List<ItemModel>?;
-    final suppliersResult = results[1] as Getsupplierlistdata?;
 
     setState(() {
       _items = itemsResult ?? [];
-      _suppliers = (suppliersResult?.data?.items ?? [])
-          .where((s) => s.id != null && s.name != null)
-          .map((s) => (id: s.id!, name: s.name!))
-          .toList();
       _loadingLookups = false;
+    });
+  }
+
+  Future<void> _onItemSelected(ItemModel item) async {
+    setState(() {
+      _selectedItem = item;
+      _selectedSupplierId = null;
+      _selectedSupplierName = null;
+      _suppliers = [];
+      _suppliersFilteredByItem = true;
+      _loadingSuppliers = true;
+    });
+
+    final response = await getSuppliersByItemApi(
+      context,
+      itemId: item.id,
+      perPage: 100,
+    );
+    if (!mounted) return;
+    if (_selectedItem?.id != item.id) return;
+
+    setState(() {
+      _suppliers = (response?.data?.items ?? [])
+          .where((s) => s.id != null && (s.name ?? '').trim().isNotEmpty)
+          .map((s) => (id: s.id!, name: s.name!.trim()))
+          .toList();
+      _loadingSuppliers = false;
+    });
+  }
+
+  Future<void> _onKantaOptionSelected(PurchaseFlowType flowType) async {
+    setState(() {
+      _flowType = flowType;
+      _selectedSupplierId = null;
+      _selectedSupplierName = null;
+      _suppliers = [];
+      _suppliersFilteredByItem = false;
+      _loadingSuppliers = true;
+    });
+
+    // With/Without Kanta are not items — use old full suppliers API.
+    final response = await getSuppliersApi(context, perPage: 100);
+    if (!mounted) return;
+    if (_flowType != flowType) return;
+
+    setState(() {
+      _suppliers = (response?.data?.items ?? [])
+          .where((s) => s.id != null && (s.name ?? '').trim().isNotEmpty)
+          .map((s) => (id: s.id!, name: s.name!.trim()))
+          .toList();
+      _loadingSuppliers = false;
     });
   }
 
@@ -223,12 +265,27 @@ class _AddPurchaseScreenState extends State<AddPurchaseScreen> {
   }
 
   Future<void> _pickSupplier() async {
+    if (_selectedItem == null && _flowType == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Please choose an item or kanta option first.',
+            style: GoogleFonts.poppins(),
+          ),
+        ),
+      );
+      return;
+    }
+
     final picked = await showModalBottomSheet<({int id, String name})>(
       context: context,
       backgroundColor: Colors.transparent,
       isScrollControlled: true,
       builder: (context) {
-        return _SupplierSearchSheet(initialSuppliers: _suppliers);
+        return _SupplierSearchSheet(
+          itemId: _suppliersFilteredByItem ? _selectedItem?.id : null,
+          initialSuppliers: _suppliers,
+        );
       },
     );
 
@@ -379,7 +436,16 @@ class _AddPurchaseScreenState extends State<AddPurchaseScreen> {
         const SizedBox(height: 20),
         if (_loadingLookups)
           const Center(child: CircularProgressIndicator())
-        else
+        else ...[
+          Text(
+            'Material',
+            style: GoogleFonts.poppins(
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+              color: AppColors.textSecondary,
+            ),
+          ),
+          const SizedBox(height: 10),
           Wrap(
             spacing: 10,
             runSpacing: 10,
@@ -394,29 +460,51 @@ class _AddPurchaseScreenState extends State<AddPurchaseScreen> {
                   (item) => _choiceChip(
                     item.displayName,
                     _selectedItem?.id == item.id,
-                    () => setState(() => _selectedItem = item),
+                    () => _onItemSelected(item),
                   ),
                 ),
-              ...kKantaSlipOptions.map((option) {
-                final selected = switch (option) {
-                  'With Kanta' => _flowType == PurchaseFlowType.withKanta,
-                  'Without Kanta' => _flowType == PurchaseFlowType.withoutKanta,
-                  _ => _flowType == PurchaseFlowType.direct,
-                };
-                return _choiceChip(
-                  option,
-                  selected,
-                  () => setState(() {
-                    _flowType = switch (option) {
-                      'With Kanta' => PurchaseFlowType.withKanta,
-                      'Without Kanta' => PurchaseFlowType.withoutKanta,
-                      _ => PurchaseFlowType.direct,
-                    };
-                  }),
-                );
-              }),
             ],
           ),
+          const SizedBox(height: 18),
+          Text(
+            'Kanta slip',
+            style: GoogleFonts.poppins(
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+              color: AppColors.textSecondary,
+            ),
+          ),
+          const SizedBox(height: 10),
+          Wrap(
+            spacing: 10,
+            runSpacing: 10,
+            children: kKantaSlipOptions.map((option) {
+              final selected = switch (option) {
+                'With Kanta' => _flowType == PurchaseFlowType.withKanta,
+                _ => _flowType == PurchaseFlowType.withoutKanta,
+              };
+              return _choiceChip(
+                option,
+                selected,
+                () => _onKantaOptionSelected(
+                  option == 'With Kanta'
+                      ? PurchaseFlowType.withKanta
+                      : PurchaseFlowType.withoutKanta,
+                ),
+              );
+            }).toList(),
+          ),
+        ],
+        if (_loadingSuppliers) ...[
+          const SizedBox(height: 16),
+          const Center(
+            child: SizedBox(
+              width: 22,
+              height: 22,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            ),
+          ),
+        ],
         const SizedBox(height: 28),
         Align(
           alignment: Alignment.centerLeft,
@@ -945,15 +1033,40 @@ class _AddPurchaseScreenState extends State<AddPurchaseScreen> {
               ),
             const SizedBox(height: 8),
             InkWell(
-              onTap: _loadingLookups ? null : _pickSupplier,
+              onTap: (_loadingLookups || _loadingSuppliers || (_selectedItem == null && _flowType == null))
+                  ? null
+                  : _pickSupplier,
               borderRadius: BorderRadius.circular(6),
               child: InputDecorator(
-                decoration: _inputDecoration(hint: 'Search & select supplier').copyWith(
+                decoration: _inputDecoration(
+                  hint: _loadingSuppliers
+                      ? 'Loading suppliers...'
+                      : (_selectedItem == null && _flowType == null)
+                          ? 'Choose item or kanta option first'
+                          : 'Search & select supplier',
+                ).copyWith(
                   errorText: field.errorText,
-                  suffixIcon: const Icon(Icons.search, size: 20, color: AppColors.textSecondary),
+                  suffixIcon: _loadingSuppliers
+                      ? const Padding(
+                          padding: EdgeInsets.all(12),
+                          child: SizedBox(
+                            width: 16,
+                            height: 16,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: AppColors.primaryRed,
+                            ),
+                          ),
+                        )
+                      : const Icon(Icons.search, size: 20, color: AppColors.textSecondary),
                 ),
                 child: Text(
-                  selectedName ?? 'Search & select supplier',
+                  selectedName ??
+                      (_loadingSuppliers
+                          ? 'Loading suppliers...'
+                          : (_selectedItem == null && _flowType == null)
+                              ? 'Choose item or kanta option first'
+                              : 'Search & select supplier'),
                   style: GoogleFonts.poppins(
                     fontSize: 13,
                     color: selectedName == null ? AppColors.inputHint : AppColors.textDark,
@@ -1013,8 +1126,13 @@ class _AddPurchaseScreenState extends State<AddPurchaseScreen> {
 }
 
 class _SupplierSearchSheet extends StatefulWidget {
-  const _SupplierSearchSheet({required this.initialSuppliers});
+  const _SupplierSearchSheet({
+    this.itemId,
+    required this.initialSuppliers,
+  });
 
+  /// When set, search uses /suppliers/by-item. Otherwise old /suppliers list.
+  final int? itemId;
   final List<({int id, String name})> initialSuppliers;
 
   @override
@@ -1059,7 +1177,18 @@ class _SupplierSearchSheetState extends State<_SupplierSearchSheet> {
         .where((s) => s.name.toLowerCase().contains(keyword.toLowerCase()))
         .toList();
 
-    final response = await getSuppliersApi(context, search: keyword, perPage: 50);
+    final response = widget.itemId != null
+        ? await getSuppliersByItemApi(
+            context,
+            itemId: widget.itemId!,
+            search: keyword,
+            perPage: 50,
+          )
+        : await getSuppliersApi(
+            context,
+            search: keyword,
+            perPage: 50,
+          );
     if (!mounted || token != _searchToken) return;
 
     final apiResults = (response?.data?.items ?? [])

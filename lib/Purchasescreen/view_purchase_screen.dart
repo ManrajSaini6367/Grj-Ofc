@@ -117,7 +117,7 @@ class _ViewPurchaseScreenState extends State<ViewPurchaseScreen> {
   }
 
   String _flowLabel(Purchase purchase) {
-    if (purchase.isDirectPurchase) return 'Direct / Other';
+    if (purchase.isDirectPurchase) return 'Direct';
     if (purchase.isWithKanta) return 'With Kanta';
     return 'Without Kanta';
   }
@@ -207,9 +207,9 @@ class _ViewPurchaseScreenState extends State<ViewPurchaseScreen> {
                                       Icons.receipt_long_outlined,
                                       'Kanta Slip',
                                       purchase.isDirectPurchase
-                                          ? 'Other'
+                                          ? 'Direct'
                                           : purchase.hasKantaSlip
-                                              ? 'Yes'
+                                              ? 'Yes' 
                                               : 'No',
                                     ),
                                     _infoTile(Icons.notes_outlined, 'Remark', _text(purchase.remark)),

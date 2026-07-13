@@ -938,7 +938,7 @@ class _PurchasesScreenState extends State<PurchasesScreen> {
                 const SizedBox(height: 6),
                 _buildMetaRow(
                   Icons.description_outlined,
-                  'Kanta Slip: ${purchase.isDirectPurchase ? 'Other' : purchase.hasKantaSlip ? 'Yes' : 'No'}',
+                  'Kanta Slip: ${purchase.isDirectPurchase ? 'Direct' : purchase.hasKantaSlip ? 'Yes' : 'No'}',
                 ),
                 if ((purchase.remark ?? '').isNotEmpty) ...[
                   const SizedBox(height: 6),

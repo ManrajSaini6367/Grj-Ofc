@@ -718,6 +718,70 @@ Future<Getsupplierlistdata?> getSuppliersApi(
     return null;
   }
 }
+
+/// Suppliers linked to a specific item for the current site.
+/// GET /api/v1/suppliers/by-item?site_id=&item_id=
+Future<Getsupplierlistdata?> getSuppliersByItemApi(
+  BuildContext context, {
+  required int itemId,
+  int? siteId,
+  String search = '',
+  String status = 'published',
+  int perPage = 50,
+}) async {
+  try {
+    final resolvedSiteId = siteId ?? selectedSiteId();
+    if (resolvedSiteId == null) {
+      return null;
+    }
+
+    final queryParams = <String, String>{
+      'site_id': resolvedSiteId.toString(),
+      'item_id': itemId.toString(),
+      'status': status,
+      'per_page': perPage.toString(),
+    };
+    if (search.trim().isNotEmpty) {
+      queryParams['search'] = search.trim();
+    }
+
+    final uri = Uri.parse('$baseUrl/api/v1/suppliers/by-item').replace(
+      queryParameters: queryParams,
+    );
+
+    print('[getSuppliersByItemApi] GET $uri');
+
+    final response = await http
+        .get(uri, headers: authHeaders)
+        .timeout(const Duration(seconds: 30));
+
+    print('[getSuppliersByItemApi] statusCode: ${response.statusCode}');
+    print('[getSuppliersByItemApi] response body: ${response.body}');
+
+    final decoded = decodeApiJson(response.body);
+    final apiMessage = decoded?['message']?.toString();
+
+    if (response.statusCode == 200 && decoded != null && decoded['success'] == true) {
+      return Getsupplierlistdata.fromJson(decoded);
+    }
+
+    if (!context.mounted) return null;
+    message(context, apiMessage ?? 'Failed to load suppliers.');
+    return null;
+  } on TimeoutException {
+    print('[getSuppliersByItemApi] request timed out');
+    if (!context.mounted) return null;
+    message(context, 'Request timed out. Please try again.');
+    return null;
+  } catch (e, stack) {
+    print('[getSuppliersByItemApi] error: $e');
+    print('[getSuppliersByItemApi] stack: $stack');
+    if (!context.mounted) return null;
+    message(context, 'Something went wrong');
+    return null;
+  }
+}
+
 //updatesupplierapi
 Future<Supplier?> updateSupplierApi(
   BuildContext context, {
