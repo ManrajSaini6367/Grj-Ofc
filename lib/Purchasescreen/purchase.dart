@@ -1,3 +1,5 @@
+import 'package:grjoffice_apps/models/item_model.dart';
+
 enum PurchaseStatus { pending, approved, received, cancelled }
 
 enum WithoutKantaStage { initial, completed }
@@ -453,7 +455,12 @@ const kPurchaseItemOptions = [
 
 const kKantaSlipOptions = ['Without Kanta', 'With Kanta'];
 
-const kMaterialUnits = ['NOS', 'Bag', 'KG', 'MT', 'CUM', 'Litre'];
+const kMaterialUnits = ['Ton', 'NOS', 'Bag', 'KG', 'MT', 'CUM', 'Litre', 'Box', 'Roll', 'Set', 'Sq.Ft'];
+
+String unitFromMaterial(ItemModel? item, {String fallback = 'Ton'}) {
+  final unit = item?.unit.trim() ?? '';
+  return unit.isEmpty ? fallback : unit;
+}
 
 String get kPurchaseItemOptionsTitle => kPurchaseItemOptions.join(' / ');
 

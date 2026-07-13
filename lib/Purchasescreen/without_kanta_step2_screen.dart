@@ -3,11 +3,11 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:image_picker/image_picker.dart';
 import 'package:grjoffice_apps/core/app_colors.dart';
 import 'package:grjoffice_apps/Purchasescreen/purchase.dart';
 import 'package:grjoffice_apps/models/item_model.dart';
 import 'package:grjoffice_apps/services/api_auth.dart';
+import 'package:grjoffice_apps/services/image_pick_helper.dart';
 import 'package:grjoffice_apps/widgets/app_top_bar.dart';
 
 class WithoutKantaStep2Screen extends StatefulWidget {
@@ -19,17 +19,25 @@ class WithoutKantaStep2Screen extends StatefulWidget {
   State<WithoutKantaStep2Screen> createState() => _WithoutKantaStep2ScreenState();
 }
 
+class _MaterialLine {
+  _MaterialLine({String? qtyText, this.unit = 'Ton'})
+      : qty = TextEditingController(text: qtyText ?? '');
+
+  ItemModel? item;
+  final TextEditingController qty;
+  String unit;
+
+  void dispose() => qty.dispose();
+}
+
 class _WithoutKantaStep2ScreenState extends State<WithoutKantaStep2Screen> {
+  static const _addGreen = Color(0xFF22C55E);
+
   final _formKey = GlobalKey<FormState>();
   final _invoiceController = TextEditingController();
   final _remarkController = TextEditingController();
-  final _qty1Controller = TextEditingController();
-  final _qty2Controller = TextEditingController();
-  final _unit1Controller = TextEditingController(text: 'NOS');
-  final _unit2Controller = TextEditingController(text: 'NOS');
+  final List<_MaterialLine> _lines = [];
 
-  ItemModel? _selectedItem1;
-  ItemModel? _selectedItem2;
   File? _unloadingImageFile;
   bool _isSaving = false;
 
@@ -43,13 +51,17 @@ class _WithoutKantaStep2ScreenState extends State<WithoutKantaStep2Screen> {
     _invoiceController.text = p.invoiceNo == '—' ? '' : p.invoiceNo;
     _remarkController.text = p.remark ?? '';
 
-    if (p.materials.isNotEmpty) {
-      if (p.materials[0].qty != null) _qty1Controller.text = _formatQty(p.materials[0].qty!);
-      _unit1Controller.text = p.materials[0].unit;
-    }
-    if (p.materials.length > 1) {
-      if (p.materials[1].qty != null) _qty2Controller.text = _formatQty(p.materials[1].qty!);
-      _unit2Controller.text = p.materials[1].unit;
+    if (p.materials.isEmpty) {
+      _lines.add(_MaterialLine());
+    } else {
+      for (final m in p.materials) {
+        _lines.add(
+          _MaterialLine(
+            qtyText: m.qty != null ? _formatQty(m.qty!) : null,
+            unit: m.unit.trim().isEmpty ? 'Ton' : m.unit.trim(),
+          ),
+        );
+      }
     }
 
     _loadItems();
@@ -76,17 +88,17 @@ class _WithoutKantaStep2ScreenState extends State<WithoutKantaStep2Screen> {
 
   void _prefillItems() {
     final p = widget.purchase;
-    if (p.materials.isNotEmpty && p.materials[0].itemId != null) {
-      _selectedItem1 = _items.cast<ItemModel?>().firstWhere(
-            (it) => it?.id == p.materials[0].itemId,
+    for (var i = 0; i < p.materials.length && i < _lines.length; i++) {
+      final material = p.materials[i];
+      if (material.itemId == null) continue;
+      final matched = _items.cast<ItemModel?>().firstWhere(
+            (it) => it?.id == material.itemId,
             orElse: () => null,
           );
-    }
-    if (p.materials.length > 1 && p.materials[1].itemId != null) {
-      _selectedItem2 = _items.cast<ItemModel?>().firstWhere(
-            (it) => it?.id == p.materials[1].itemId,
-            orElse: () => null,
-          );
+      _lines[i].item = matched;
+      if (matched != null && material.unit.trim().isEmpty) {
+        _lines[i].unit = unitFromMaterial(matched);
+      }
     }
   }
 
@@ -94,23 +106,30 @@ class _WithoutKantaStep2ScreenState extends State<WithoutKantaStep2Screen> {
   void dispose() {
     _invoiceController.dispose();
     _remarkController.dispose();
-    _qty1Controller.dispose();
-    _qty2Controller.dispose();
-    _unit1Controller.dispose();
-    _unit2Controller.dispose();
+    for (final line in _lines) {
+      line.dispose();
+    }
     super.dispose();
   }
 
   String _formatQty(double qty) =>
       qty == qty.roundToDouble() ? qty.toInt().toString() : qty.toString();
 
+  void _addMaterialLine() {
+    setState(() => _lines.add(_MaterialLine()));
+  }
+
+  void _removeMaterialLine(int index) {
+    if (_lines.length <= 1) return;
+    setState(() {
+      _lines.removeAt(index).dispose();
+    });
+  }
+
   Future<void> _pickUnloadingImage() async {
-    final picker = ImagePicker();
-    XFile? picked = await picker.pickImage(source: ImageSource.camera);
-    picked ??= await picker.pickImage(source: ImageSource.gallery);
-    if (picked != null) {
-      setState(() => _unloadingImageFile = File(picked!.path));
-    }
+    final picked = await pickPurchaseImage(context);
+    if (picked == null || !mounted) return;
+    setState(() => _unloadingImageFile = File(picked.path));
   }
 
   Future<void> _submit() async {
@@ -123,19 +142,18 @@ class _WithoutKantaStep2ScreenState extends State<WithoutKantaStep2Screen> {
     }
 
     final materials = <PurchaseMaterialPayload>[];
-    void addMaterial(ItemModel? item, TextEditingController qty, TextEditingController unit) {
-      if (item == null) return;
-      final qtyVal = double.tryParse(qty.text.trim());
-      if (qtyVal == null) return;
-      materials.add(PurchaseMaterialPayload(
-        itemId: item.id,
-        qty: qtyVal,
-        unit: unit.text.trim().isEmpty ? 'NOS' : unit.text.trim(),
-      ));
+    for (final line in _lines) {
+      if (line.item == null) continue;
+      final qtyVal = double.tryParse(line.qty.text.trim());
+      if (qtyVal == null || qtyVal <= 0) continue;
+      materials.add(
+        PurchaseMaterialPayload(
+          itemId: line.item!.id,
+          qty: qtyVal,
+          unit: line.unit.trim().isEmpty ? 'Ton' : line.unit.trim(),
+        ),
+      );
     }
-
-    addMaterial(_selectedItem1, _qty1Controller, _unit1Controller);
-    addMaterial(_selectedItem2, _qty2Controller, _unit2Controller);
 
     if (materials.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -240,7 +258,13 @@ class _WithoutKantaStep2ScreenState extends State<WithoutKantaStep2Screen> {
               children: [
                 Expanded(child: _buildReadOnlyField(label: 'Supplier', value: widget.purchase.supplierName)),
                 const SizedBox(width: 12),
-                Expanded(child: _buildTextField(label: 'Invoice No', controller: _invoiceController, hint: 'Invoice no')),
+                Expanded(
+                  child: _buildTextField(
+                    label: 'Invoice No',
+                    controller: _invoiceController,
+                    hint: 'Invoice no',
+                  ),
+                ),
               ],
             )
           else ...[
@@ -251,23 +275,32 @@ class _WithoutKantaStep2ScreenState extends State<WithoutKantaStep2Screen> {
           const SizedBox(height: 20),
           if (_loadingItems)
             const Center(child: Padding(padding: EdgeInsets.all(16), child: CircularProgressIndicator()))
-          else if (isWide)
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Expanded(child: _buildMaterialGroup(1, _selectedItem1, _qty1Controller, _unit1Controller,
-                    onItemChanged: (v) => setState(() => _selectedItem1 = v))),
-                const SizedBox(width: 12),
-                Expanded(child: _buildMaterialGroup(2, _selectedItem2, _qty2Controller, _unit2Controller,
-                    onItemChanged: (v) => setState(() => _selectedItem2 = v))),
-              ],
-            )
           else ...[
-            _buildMaterialGroup(1, _selectedItem1, _qty1Controller, _unit1Controller,
-                onItemChanged: (v) => setState(() => _selectedItem1 = v)),
-            const SizedBox(height: 16),
-            _buildMaterialGroup(2, _selectedItem2, _qty2Controller, _unit2Controller,
-                onItemChanged: (v) => setState(() => _selectedItem2 = v)),
+            ...List.generate(_lines.length, (index) {
+              return Padding(
+                padding: EdgeInsets.only(bottom: index < _lines.length - 1 ? 16 : 0),
+                child: _buildMaterialRow(index, isWide: isWide),
+              );
+            }),
+            const SizedBox(height: 12),
+            Align(
+              alignment: Alignment.centerLeft,
+              child: SizedBox(
+                height: 40,
+                child: ElevatedButton.icon(
+                  onPressed: _addMaterialLine,
+                  icon: const Icon(Icons.add, size: 18),
+                  label: Text('Add Material', style: GoogleFonts.poppins(fontSize: 13, fontWeight: FontWeight.w600)),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: _addGreen,
+                    foregroundColor: AppColors.white,
+                    elevation: 0,
+                    padding: const EdgeInsets.symmetric(horizontal: 14),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+                  ),
+                ),
+              ),
+            ),
           ],
           const SizedBox(height: 20),
           if (isWide)
@@ -286,7 +319,8 @@ class _WithoutKantaStep2ScreenState extends State<WithoutKantaStep2Screen> {
           ],
           const SizedBox(height: 24),
           SizedBox(
-            height: 46,
+            width: double.infinity,
+            height: 48,
             child: ElevatedButton(
               onPressed: _isSaving ? null : _submit,
               style: ElevatedButton.styleFrom(
@@ -309,31 +343,96 @@ class _WithoutKantaStep2ScreenState extends State<WithoutKantaStep2Screen> {
     );
   }
 
-  Widget _buildMaterialGroup(
-    int index,
-    ItemModel? selectedItem,
-    TextEditingController qty,
-    TextEditingController unit, {
-    required ValueChanged<ItemModel?> onItemChanged,
-  }) {
+  Widget _buildMaterialRow(int index, {required bool isWide}) {
+    final line = _lines[index];
+    final units = List<String>.from(kMaterialUnits);
+    if (line.unit.isNotEmpty && !units.contains(line.unit)) {
+      units.insert(0, line.unit);
+    }
+
+    final materialField = _buildItemDropdown(
+      label: 'Material ${index + 1}',
+      selectedItem: line.item,
+      onChanged: (v) => setState(() {
+        line.item = v;
+        line.unit = unitFromMaterial(v);
+      }),
+    );
+    final qtyField = _buildTextField(
+      label: 'Qty',
+      controller: line.qty,
+      hint: 'qty',
+      keyboardType: const TextInputType.numberWithOptions(decimal: true),
+      inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d*'))],
+    );
+    final unitField = Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text('Unit', style: GoogleFonts.poppins(fontSize: 13, fontWeight: FontWeight.w600)),
+        const SizedBox(height: 8),
+        DropdownButtonFormField<String>(
+          value: units.contains(line.unit) ? line.unit : units.first,
+          isExpanded: true,
+          decoration: _fieldDecoration(hint: 'Select unit'),
+          items: units
+              .map(
+                (u) => DropdownMenuItem(
+                  value: u,
+                  child: Text(u, style: GoogleFonts.poppins(fontSize: 13)),
+                ),
+              )
+              .toList(),
+          onChanged: (v) {
+            if (v != null) setState(() => line.unit = v);
+          },
+        ),
+      ],
+    );
+
+    final removeBtn = _lines.length > 1
+        ? IconButton(
+            onPressed: () => _removeMaterialLine(index),
+            tooltip: 'Remove material',
+            icon: const Icon(Icons.remove_circle_outline, color: AppColors.primaryRed),
+          )
+        : null;
+
+    if (isWide) {
+      return Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Expanded(flex: 3, child: materialField),
+          const SizedBox(width: 12),
+          Expanded(child: qtyField),
+          const SizedBox(width: 12),
+          Expanded(child: unitField),
+          if (removeBtn != null) ...[
+            const SizedBox(width: 4),
+            Padding(padding: const EdgeInsets.only(top: 24), child: removeBtn),
+          ],
+        ],
+      );
+    }
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        _buildItemDropdown(label: 'Material $index', selectedItem: selectedItem, onChanged: onItemChanged),
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(child: materialField),
+            if (removeBtn != null) ...[
+              const SizedBox(width: 4),
+              Padding(padding: const EdgeInsets.only(top: 24), child: removeBtn),
+            ],
+          ],
+        ),
         const SizedBox(height: 12),
         Row(
           children: [
-            Expanded(
-              child: _buildTextField(
-                label: 'Qty',
-                controller: qty,
-                hint: 'qty',
-                keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d*'))],
-              ),
-            ),
+            Expanded(child: qtyField),
             const SizedBox(width: 12),
-            Expanded(child: _buildTextField(label: 'Unit', controller: unit, hint: 'NOS')),
+            Expanded(child: unitField),
           ],
         ),
       ],
@@ -355,10 +454,16 @@ class _WithoutKantaStep2ScreenState extends State<WithoutKantaStep2Screen> {
           decoration: _fieldDecoration(hint: 'Select item'),
           isExpanded: true,
           items: _items
-              .map((item) => DropdownMenuItem(
-                    value: item,
-                    child: Text(item.name, style: GoogleFonts.poppins(fontSize: 13), overflow: TextOverflow.ellipsis),
-                  ))
+              .map(
+                (item) => DropdownMenuItem(
+                  value: item,
+                  child: Text(
+                    item.displayName,
+                    style: GoogleFonts.poppins(fontSize: 13),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+              )
               .toList(),
           onChanged: onChanged,
         ),

@@ -2,10 +2,10 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:image_picker/image_picker.dart';
 import 'package:grjoffice_apps/core/app_colors.dart';
 import 'package:grjoffice_apps/Purchasescreen/purchase.dart';
 import 'package:grjoffice_apps/services/api_auth.dart';
+import 'package:grjoffice_apps/services/image_pick_helper.dart';
 import 'package:grjoffice_apps/widgets/app_top_bar.dart';
 
 class WithKantaStep2Screen extends StatefulWidget {
@@ -40,12 +40,9 @@ class _WithKantaStep2ScreenState extends State<WithKantaStep2Screen> {
   }
 
   Future<void> _pickUnloadingImage() async {
-    final picker = ImagePicker();
-    XFile? picked = await picker.pickImage(source: ImageSource.camera);
-    picked ??= await picker.pickImage(source: ImageSource.gallery);
-    if (picked != null) {
-      setState(() => _unloadingImageFile = File(picked!.path));
-    }
+    final picked = await pickPurchaseImage(context);
+    if (picked == null || !mounted) return;
+    setState(() => _unloadingImageFile = File(picked.path));
   }
 
   Future<void> _submit() async {
@@ -155,33 +152,30 @@ class _WithKantaStep2ScreenState extends State<WithKantaStep2Screen> {
                               _buildUnloadingImageField(),
                             ],
                             const SizedBox(height: 24),
-                            Align(
-                              alignment: Alignment.centerLeft,
-                              child: SizedBox(
-                                height: 44,
-                                child: ElevatedButton.icon(
-                                  onPressed: _isSaving ? null : _submit,
-                                  icon: _isSaving
-                                      ? const SizedBox(
-                                          width: 18,
-                                          height: 18,
-                                          child: CircularProgressIndicator(
-                                            strokeWidth: 2,
-                                            color: AppColors.white,
-                                          ),
-                                        )
-                                      : const Icon(Icons.assignment_outlined, size: 18),
-                                  label: Text(
-                                    'Save',
-                                    style: GoogleFonts.poppins(fontSize: 14, fontWeight: FontWeight.w600),
-                                  ),
-                                  style: ElevatedButton.styleFrom(
-                                    backgroundColor: _saveBlue,
-                                    foregroundColor: AppColors.white,
-                                    elevation: 0,
-                                    padding: const EdgeInsets.symmetric(horizontal: 20),
-                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
-                                  ),
+                            SizedBox(
+                              width: double.infinity,
+                              height: 48,
+                              child: ElevatedButton.icon(
+                                onPressed: _isSaving ? null : _submit,
+                                icon: _isSaving
+                                    ? const SizedBox(
+                                        width: 18,
+                                        height: 18,
+                                        child: CircularProgressIndicator(
+                                          strokeWidth: 2,
+                                          color: AppColors.white,
+                                        ),
+                                      )
+                                    : const Icon(Icons.assignment_outlined, size: 18),
+                                label: Text(
+                                  'Save',
+                                  style: GoogleFonts.poppins(fontSize: 14, fontWeight: FontWeight.w600),
+                                ),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: _saveBlue,
+                                  foregroundColor: AppColors.white,
+                                  elevation: 0,
+                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                                 ),
                               ),
                             ),

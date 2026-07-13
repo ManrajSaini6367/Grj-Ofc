@@ -3,11 +3,11 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:image_picker/image_picker.dart';
 import 'package:grjoffice_apps/core/app_colors.dart';
 import 'package:grjoffice_apps/Purchasescreen/purchase.dart';
 import 'package:grjoffice_apps/models/item_model.dart';
 import 'package:grjoffice_apps/services/api_auth.dart';
+import 'package:grjoffice_apps/services/image_pick_helper.dart';
 import 'package:grjoffice_apps/widgets/app_top_bar.dart';
 
 class AddPurchaseScreen extends StatefulWidget {
@@ -24,8 +24,8 @@ class _AddPurchaseScreenState extends State<AddPurchaseScreen> {
   final _formKey = GlobalKey<FormState>();
   final _vehicleNoController = TextEditingController();
   final _qtyController = TextEditingController();
-  final _unitController = TextEditingController(text: 'Ton');
   final _remarkController = TextEditingController();
+  String _unit = 'Ton';
 
   int _step = 0;
   ItemModel? _selectedItem;
@@ -63,8 +63,11 @@ class _AddPurchaseScreenState extends State<AddPurchaseScreen> {
   }
 
   Future<void> _onItemSelected(ItemModel item) async {
+    // Portal: picking a material = direct purchase (single step).
     setState(() {
       _selectedItem = item;
+      _flowType = PurchaseFlowType.direct;
+      _unit = unitFromMaterial(item);
       _selectedSupplierId = null;
       _selectedSupplierName = null;
       _suppliers = [];
@@ -78,7 +81,9 @@ class _AddPurchaseScreenState extends State<AddPurchaseScreen> {
       perPage: 100,
     );
     if (!mounted) return;
-    if (_selectedItem?.id != item.id) return;
+    if (_selectedItem?.id != item.id || _flowType != PurchaseFlowType.direct) {
+      return;
+    }
 
     setState(() {
       _suppliers = (response?.data?.items ?? [])
@@ -90,8 +95,10 @@ class _AddPurchaseScreenState extends State<AddPurchaseScreen> {
   }
 
   Future<void> _onKantaOptionSelected(PurchaseFlowType flowType) async {
+    // Portal: With/Without Kanta are mutually exclusive with material chips.
     setState(() {
       _flowType = flowType;
+      _selectedItem = null;
       _selectedSupplierId = null;
       _selectedSupplierName = null;
       _suppliers = [];
@@ -99,7 +106,7 @@ class _AddPurchaseScreenState extends State<AddPurchaseScreen> {
       _loadingSuppliers = true;
     });
 
-    // With/Without Kanta are not items — use old full suppliers API.
+    // With/Without Kanta are not items — use full suppliers API.
     final response = await getSuppliersApi(context, perPage: 100);
     if (!mounted) return;
     if (_flowType != flowType) return;
@@ -117,12 +124,16 @@ class _AddPurchaseScreenState extends State<AddPurchaseScreen> {
   void dispose() {
     _vehicleNoController.dispose();
     _qtyController.dispose();
-    _unitController.dispose();
     _remarkController.dispose();
     super.dispose();
   }
 
-  bool get _canProceedStep1 => _selectedItem != null && _flowType != null;
+  /// Portal: one chip only — material (direct) OR With/Without Kanta.
+  bool get _canProceedStep1 {
+    if (_flowType == PurchaseFlowType.direct) return _selectedItem != null;
+    return _flowType == PurchaseFlowType.withKanta ||
+        _flowType == PurchaseFlowType.withoutKanta;
+  }
 
   bool get _isWithoutKanta => _flowType == PurchaseFlowType.withoutKanta;
 
@@ -131,12 +142,19 @@ class _AddPurchaseScreenState extends State<AddPurchaseScreen> {
   List<ItemModel> get _chosenMaterials =>
       _materialLines.whereType<ItemModel>().toList();
 
+  String get _chooseTitle {
+    final names = _items.map((i) => i.displayName).where((n) => n.trim().isNotEmpty);
+    final parts = [...names, ...kKantaSlipOptions];
+    if (parts.isEmpty) return 'Choose Material / ${kKantaSlipOptions.join(' / ')}';
+    return 'Choose ${parts.join(' / ')}';
+  }
+
   void _goToNextStep() {
     if (!_canProceedStep1) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            'Please choose an item and kanta slip option.',
+            'Please choose a material, or With / Without Kanta.',
             style: GoogleFonts.poppins(),
           ),
         ),
@@ -148,8 +166,10 @@ class _AddPurchaseScreenState extends State<AddPurchaseScreen> {
       _step = 1;
       if (_isDirectPurchase) {
         _directMaterial = _selectedItem;
+        _unit = unitFromMaterial(_selectedItem);
       } else {
-        _materialLines = [_selectedItem];
+        // Materials are chosen later in With/Without Kanta step 1.
+        _materialLines = [null];
       }
     });
   }
@@ -231,7 +251,7 @@ class _AddPurchaseScreenState extends State<AddPurchaseScreen> {
 
     setState(() => _isSaving = true);
 
-    final unit = _unitController.text.trim().isEmpty ? 'Ton' : _unitController.text.trim();
+    final unit = _unit.trim().isEmpty ? 'Ton' : _unit.trim();
     final remark = _remarkController.text.trim();
 
     final purchase = await createPurchaseApi(
@@ -254,12 +274,10 @@ class _AddPurchaseScreenState extends State<AddPurchaseScreen> {
   }
 
   Future<void> _pickLoadingImage() async {
-    final picker = ImagePicker();
-    XFile? xfile = await picker.pickImage(source: ImageSource.camera);
-    xfile ??= await picker.pickImage(source: ImageSource.gallery);
+    final xfile = await pickPurchaseImage(context);
     if (xfile == null || !mounted) return;
     setState(() {
-      _loadingImageFile = File(xfile!.path);
+      _loadingImageFile = File(xfile.path);
       _loadingImageName = xfile.name;
     });
   }
@@ -425,7 +443,7 @@ class _AddPurchaseScreenState extends State<AddPurchaseScreen> {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         Text(
-          'Choose Material / ${kKantaSlipOptions.join(' / ')}',
+          _chooseTitle,
           style: GoogleFonts.poppins(
             fontSize: 15,
             fontWeight: FontWeight.w700,
@@ -436,65 +454,40 @@ class _AddPurchaseScreenState extends State<AddPurchaseScreen> {
         const SizedBox(height: 20),
         if (_loadingLookups)
           const Center(child: CircularProgressIndicator())
-        else ...[
-          Text(
-            'Material',
-            style: GoogleFonts.poppins(
-              fontSize: 13,
-              fontWeight: FontWeight.w600,
-              color: AppColors.textSecondary,
-            ),
-          ),
-          const SizedBox(height: 10),
+        else
           Wrap(
             spacing: 10,
             runSpacing: 10,
             children: [
-              if (_items.isEmpty)
+              if (_items.isEmpty && kKantaSlipOptions.isEmpty)
                 Text(
-                  'No items available.',
+                  'No options available.',
                   style: GoogleFonts.poppins(fontSize: 13, color: AppColors.textSecondary),
-                )
-              else
-                ..._items.map(
-                  (item) => _choiceChip(
-                    item.displayName,
-                    _selectedItem?.id == item.id,
-                    () => _onItemSelected(item),
-                  ),
                 ),
+              ..._items.map(
+                (item) => _choiceChip(
+                  item.displayName,
+                  _flowType == PurchaseFlowType.direct && _selectedItem?.id == item.id,
+                  () => _onItemSelected(item),
+                ),
+              ),
+              ...kKantaSlipOptions.map((option) {
+                final selected = switch (option) {
+                  'With Kanta' => _flowType == PurchaseFlowType.withKanta,
+                  _ => _flowType == PurchaseFlowType.withoutKanta,
+                };
+                return _choiceChip(
+                  option,
+                  selected,
+                  () => _onKantaOptionSelected(
+                    option == 'With Kanta'
+                        ? PurchaseFlowType.withKanta
+                        : PurchaseFlowType.withoutKanta,
+                  ),
+                );
+              }),
             ],
           ),
-          const SizedBox(height: 18),
-          Text(
-            'Kanta slip',
-            style: GoogleFonts.poppins(
-              fontSize: 13,
-              fontWeight: FontWeight.w600,
-              color: AppColors.textSecondary,
-            ),
-          ),
-          const SizedBox(height: 10),
-          Wrap(
-            spacing: 10,
-            runSpacing: 10,
-            children: kKantaSlipOptions.map((option) {
-              final selected = switch (option) {
-                'With Kanta' => _flowType == PurchaseFlowType.withKanta,
-                _ => _flowType == PurchaseFlowType.withoutKanta,
-              };
-              return _choiceChip(
-                option,
-                selected,
-                () => _onKantaOptionSelected(
-                  option == 'With Kanta'
-                      ? PurchaseFlowType.withKanta
-                      : PurchaseFlowType.withoutKanta,
-                ),
-              );
-            }).toList(),
-          ),
-        ],
         if (_loadingSuppliers) ...[
           const SizedBox(height: 16),
           const Center(
@@ -506,23 +499,20 @@ class _AddPurchaseScreenState extends State<AddPurchaseScreen> {
           ),
         ],
         const SizedBox(height: 28),
-        Align(
-          alignment: Alignment.centerLeft,
-          child: SizedBox(
-            height: 44,
-            child: ElevatedButton.icon(
-              onPressed: _canProceedStep1 ? _goToNextStep : null,
-              icon: const Icon(Icons.add, size: 20),
-              label: Text('Next', style: GoogleFonts.poppins(fontSize: 14, fontWeight: FontWeight.w600)),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: _nextGreen,
-                foregroundColor: AppColors.white,
-                disabledBackgroundColor: _nextGreen.withValues(alpha: 0.45),
-                disabledForegroundColor: AppColors.white.withValues(alpha: 0.85),
-                elevation: 0,
-                padding: const EdgeInsets.symmetric(horizontal: 20),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-              ),
+        SizedBox(
+          width: double.infinity,
+          height: 48,
+          child: ElevatedButton.icon(
+            onPressed: _canProceedStep1 ? _goToNextStep : null,
+            icon: const Icon(Icons.add, size: 20),
+            label: Text('Next', style: GoogleFonts.poppins(fontSize: 14, fontWeight: FontWeight.w600)),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: _nextGreen,
+              foregroundColor: AppColors.white,
+              disabledBackgroundColor: _nextGreen.withValues(alpha: 0.45),
+              disabledForegroundColor: AppColors.white.withValues(alpha: 0.85),
+              elevation: 0,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
             ),
           ),
         ),
@@ -630,27 +620,24 @@ class _AddPurchaseScreenState extends State<AddPurchaseScreen> {
             ],
           ),
           const SizedBox(height: 24),
-          Align(
-            alignment: Alignment.centerLeft,
-            child: SizedBox(
-              height: 44,
-              child: ElevatedButton.icon(
-                onPressed: _isSaving ? null : _submitDirectPurchase,
-                icon: _isSaving
-                    ? const SizedBox(
-                        width: 18,
-                        height: 18,
-                        child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.white),
-                      )
-                    : const Icon(Icons.assignment_outlined, size: 18),
-                label: Text('Save', style: GoogleFonts.poppins(fontSize: 14, fontWeight: FontWeight.w600)),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: _saveBlue,
-                  foregroundColor: AppColors.white,
-                  elevation: 0,
-                  padding: const EdgeInsets.symmetric(horizontal: 20),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
-                ),
+          SizedBox(
+            width: double.infinity,
+            height: 48,
+            child: ElevatedButton.icon(
+              onPressed: _isSaving ? null : _submitDirectPurchase,
+              icon: _isSaving
+                  ? const SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.white),
+                    )
+                  : const Icon(Icons.assignment_outlined, size: 18),
+              label: Text('Save', style: GoogleFonts.poppins(fontSize: 14, fontWeight: FontWeight.w600)),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: _saveBlue,
+                foregroundColor: AppColors.white,
+                elevation: 0,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
               ),
             ),
           ),
@@ -686,6 +673,7 @@ class _AddPurchaseScreenState extends State<AddPurchaseScreen> {
             _directMaterial = value != null
                 ? _items.where((i) => i.id == value).firstOrNull
                 : null;
+            _unit = unitFromMaterial(_directMaterial);
           }),
           validator: (value) => value == null ? 'Required' : null,
         ),
@@ -765,10 +753,36 @@ class _AddPurchaseScreenState extends State<AddPurchaseScreen> {
   }
 
   Widget _buildUnitField() {
-    return _buildTextField(
-      label: 'Unit',
-      controller: _unitController,
-      hint: 'Ton',
+    final units = List<String>.from(kMaterialUnits);
+    if (_unit.isNotEmpty && !units.contains(_unit)) {
+      units.insert(0, _unit);
+    }
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Unit',
+          style: GoogleFonts.poppins(fontSize: 13, fontWeight: FontWeight.w600, color: AppColors.textDark),
+        ),
+        const SizedBox(height: 8),
+        DropdownButtonFormField<String>(
+          value: units.contains(_unit) ? _unit : units.first,
+          isExpanded: true,
+          items: units
+              .map(
+                (u) => DropdownMenuItem(
+                  value: u,
+                  child: Text(u, style: GoogleFonts.poppins(fontSize: 14)),
+                ),
+              )
+              .toList(),
+          onChanged: (v) {
+            if (v != null) setState(() => _unit = v);
+          },
+          decoration: _inputDecoration(hint: 'Select unit'),
+          style: GoogleFonts.poppins(fontSize: 14, color: AppColors.textDark),
+        ),
+      ],
     );
   }
 
@@ -960,7 +974,8 @@ class _AddPurchaseScreenState extends State<AddPurchaseScreen> {
 
   Widget _buildSaveButton({required Future<void> Function() onPressed, String label = 'Save Purchase'}) {
     return SizedBox(
-      height: 46,
+      width: double.infinity,
+      height: 48,
       child: ElevatedButton(
         onPressed: _isSaving ? null : onPressed,
         style: ElevatedButton.styleFrom(

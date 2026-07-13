@@ -3,11 +3,11 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:image_picker/image_picker.dart';
 import 'package:grjoffice_apps/core/app_colors.dart';
 import 'package:grjoffice_apps/Purchasescreen/purchase.dart';
 import 'package:grjoffice_apps/models/item_model.dart';
 import 'package:grjoffice_apps/services/api_auth.dart';
+import 'package:grjoffice_apps/services/image_pick_helper.dart';
 import 'package:grjoffice_apps/widgets/app_top_bar.dart';
 
 class WithKantaStep3Screen extends StatefulWidget {
@@ -19,17 +19,27 @@ class WithKantaStep3Screen extends StatefulWidget {
   State<WithKantaStep3Screen> createState() => _WithKantaStep3ScreenState();
 }
 
+class _KantaMaterialLine {
+  _KantaMaterialLine({String? qtyText, this.unit = 'Ton'})
+      : qty = TextEditingController(text: qtyText ?? '');
+
+  ItemModel? item;
+  final TextEditingController qty;
+  String unit;
+
+  void dispose() => qty.dispose();
+}
+
 class _WithKantaStep3ScreenState extends State<WithKantaStep3Screen> {
   static const _saveBlue = Color(0xFF2563EB);
+  static const _addGreen = Color(0xFF22C55E);
 
   final _formKey = GlobalKey<FormState>();
   final _invoiceController = TextEditingController();
   final _kantaNoController = TextEditingController();
-  final _qtyController = TextEditingController();
-  final _unitController = TextEditingController(text: 'NOS');
   final _remarkController = TextEditingController();
+  final List<_KantaMaterialLine> _lines = [];
 
-  ItemModel? _selectedItem;
   File? _kantaSlipImageFile;
   File? _vehicleAtKantaImageFile;
   bool _isSaving = false;
@@ -45,10 +55,20 @@ class _WithKantaStep3ScreenState extends State<WithKantaStep3Screen> {
     _kantaNoController.text = p.kantaNo ?? '';
     _remarkController.text = p.remark ?? '';
 
-    if (p.materials.isNotEmpty && p.materials.first.qty != null) {
-      final qty = p.materials.first.qty!;
-      _qtyController.text = qty == qty.roundToDouble() ? qty.toInt().toString() : qty.toString();
-      _unitController.text = p.materials.first.unit;
+    if (p.materials.isEmpty) {
+      _lines.add(_KantaMaterialLine());
+    } else {
+      for (final m in p.materials) {
+        final qty = m.qty;
+        _lines.add(
+          _KantaMaterialLine(
+            qtyText: qty == null
+                ? null
+                : (qty == qty.roundToDouble() ? qty.toInt().toString() : qty.toString()),
+            unit: m.unit.trim().isEmpty ? 'Ton' : m.unit.trim(),
+          ),
+        );
+      }
     }
 
     _loadItems();
@@ -60,7 +80,7 @@ class _WithKantaStep3ScreenState extends State<WithKantaStep3Screen> {
       setState(() {
         _items = cached;
         _loadingItems = false;
-        _prefillItem();
+        _prefillItems();
       });
       return;
     }
@@ -69,17 +89,23 @@ class _WithKantaStep3ScreenState extends State<WithKantaStep3Screen> {
     setState(() {
       _items = items ?? [];
       _loadingItems = false;
-      _prefillItem();
+      _prefillItems();
     });
   }
 
-  void _prefillItem() {
+  void _prefillItems() {
     final p = widget.purchase;
-    if (p.materials.isNotEmpty && p.materials.first.itemId != null) {
-      _selectedItem = _items.cast<ItemModel?>().firstWhere(
-            (it) => it?.id == p.materials.first.itemId,
+    for (var i = 0; i < p.materials.length && i < _lines.length; i++) {
+      final material = p.materials[i];
+      if (material.itemId == null) continue;
+      final matched = _items.cast<ItemModel?>().firstWhere(
+            (it) => it?.id == material.itemId,
             orElse: () => null,
           );
+      _lines[i].item = matched;
+      if (matched != null && material.unit.trim().isEmpty) {
+        _lines[i].unit = unitFromMaterial(matched);
+      }
     }
   }
 
@@ -87,25 +113,30 @@ class _WithKantaStep3ScreenState extends State<WithKantaStep3Screen> {
   void dispose() {
     _invoiceController.dispose();
     _kantaNoController.dispose();
-    _qtyController.dispose();
-    _unitController.dispose();
     _remarkController.dispose();
+    for (final line in _lines) {
+      line.dispose();
+    }
     super.dispose();
   }
 
+  void _addMaterialLine() => setState(() => _lines.add(_KantaMaterialLine()));
+
+  void _removeMaterialLine(int index) {
+    if (_lines.length <= 1) return;
+    setState(() => _lines.removeAt(index).dispose());
+  }
+
   Future<void> _pickImage({required bool isKantaSlip}) async {
-    final picker = ImagePicker();
-    XFile? picked = await picker.pickImage(source: ImageSource.camera);
-    picked ??= await picker.pickImage(source: ImageSource.gallery);
-    if (picked != null) {
-      setState(() {
-        if (isKantaSlip) {
-          _kantaSlipImageFile = File(picked!.path);
-        } else {
-          _vehicleAtKantaImageFile = File(picked!.path);
-        }
-      });
-    }
+    final picked = await pickPurchaseImage(context);
+    if (picked == null || !mounted) return;
+    setState(() {
+      if (isKantaSlip) {
+        _kantaSlipImageFile = File(picked.path);
+      } else {
+        _vehicleAtKantaImageFile = File(picked.path);
+      }
+    });
   }
 
   Future<void> _submit() async {
@@ -139,17 +170,23 @@ class _WithKantaStep3ScreenState extends State<WithKantaStep3Screen> {
       return;
     }
 
-    if (_selectedItem == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Please select a material.', style: GoogleFonts.poppins())),
+    final materials = <PurchaseMaterialPayload>[];
+    for (final line in _lines) {
+      if (line.item == null) continue;
+      final qtyVal = double.tryParse(line.qty.text.trim());
+      if (qtyVal == null || qtyVal <= 0) continue;
+      materials.add(
+        PurchaseMaterialPayload(
+          itemId: line.item!.id,
+          qty: qtyVal,
+          unit: line.unit.trim().isEmpty ? 'Ton' : line.unit.trim(),
+        ),
       );
-      return;
     }
 
-    final qtyVal = double.tryParse(_qtyController.text.trim());
-    if (qtyVal == null) {
+    if (materials.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Please enter a valid quantity.', style: GoogleFonts.poppins())),
+        SnackBar(content: Text('Please enter at least one material with qty.', style: GoogleFonts.poppins())),
       );
       return;
     }
@@ -162,9 +199,7 @@ class _WithKantaStep3ScreenState extends State<WithKantaStep3Screen> {
       return;
     }
 
-    final unit = _unitController.text.trim().isEmpty ? 'NOS' : _unitController.text.trim();
     final remark = _remarkController.text.trim();
-    final materials = [PurchaseMaterialPayload(itemId: _selectedItem!.id, qty: qtyVal, unit: unit)];
 
     setState(() => _isSaving = true);
     final updated = await purchaseStep3WithKantaApi(
@@ -227,7 +262,12 @@ class _WithKantaStep3ScreenState extends State<WithKantaStep3Screen> {
                               Row(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  Expanded(child: _buildReadOnlyField(label: 'Supplier', value: widget.purchase.supplierName)),
+                                  Expanded(
+                                    child: _buildReadOnlyField(
+                                      label: 'Supplier',
+                                      value: widget.purchase.supplierName,
+                                    ),
+                                  ),
                                   const SizedBox(width: 12),
                                   Expanded(
                                     child: _buildTextField(
@@ -237,11 +277,13 @@ class _WithKantaStep3ScreenState extends State<WithKantaStep3Screen> {
                                     ),
                                   ),
                                   const SizedBox(width: 12),
-                                  Expanded(child: _buildImagePickerField(
-                                    label: 'Kanta Slip Image',
-                                    file: _kantaSlipImageFile,
-                                    onPick: () => _pickImage(isKantaSlip: true),
-                                  )),
+                                  Expanded(
+                                    child: _buildImagePickerField(
+                                      label: 'Kanta Slip Image',
+                                      file: _kantaSlipImageFile,
+                                      onPick: () => _pickImage(isKantaSlip: true),
+                                    ),
+                                  ),
                                   const SizedBox(width: 12),
                                   Expanded(
                                     child: _buildTextField(
@@ -275,59 +317,40 @@ class _WithKantaStep3ScreenState extends State<WithKantaStep3Screen> {
                             ],
                             const SizedBox(height: 20),
                             if (_loadingItems)
-                              const Center(child: Padding(padding: EdgeInsets.all(16), child: CircularProgressIndicator()))
-                            else if (isWide)
-                              Row(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Expanded(child: _buildItemDropdown()),
-                                  const SizedBox(width: 12),
-                                  Expanded(
-                                    child: _buildTextField(
-                                      label: 'Qty',
-                                      controller: _qtyController,
-                                      hint: 'qty',
-                                      keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                                      inputFormatters: [
-                                        FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d*')),
-                                      ],
-                                    ),
-                                  ),
-                                  const SizedBox(width: 12),
-                                  Expanded(
-                                    child: _buildTextField(
-                                      label: 'Unit',
-                                      controller: _unitController,
-                                      hint: 'NOS',
-                                    ),
-                                  ),
-                                ],
+                              const Center(
+                                child: Padding(
+                                  padding: EdgeInsets.all(16),
+                                  child: CircularProgressIndicator(),
+                                ),
                               )
                             else ...[
-                              _buildItemDropdown(),
-                              const SizedBox(height: 16),
-                              Row(
-                                children: [
-                                  Expanded(
-                                    child: _buildTextField(
-                                      label: 'Qty',
-                                      controller: _qtyController,
-                                      hint: 'qty',
-                                      keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                                      inputFormatters: [
-                                        FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d*')),
-                                      ],
+                              ...List.generate(_lines.length, (index) {
+                                return Padding(
+                                  padding: EdgeInsets.only(bottom: index < _lines.length - 1 ? 16 : 0),
+                                  child: _buildMaterialRow(index, isWide: isWide),
+                                );
+                              }),
+                              const SizedBox(height: 12),
+                              Align(
+                                alignment: Alignment.centerLeft,
+                                child: SizedBox(
+                                  height: 40,
+                                  child: ElevatedButton.icon(
+                                    onPressed: _addMaterialLine,
+                                    icon: const Icon(Icons.add, size: 18),
+                                    label: Text(
+                                      'Add Material',
+                                      style: GoogleFonts.poppins(fontSize: 13, fontWeight: FontWeight.w600),
+                                    ),
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: _addGreen,
+                                      foregroundColor: AppColors.white,
+                                      elevation: 0,
+                                      padding: const EdgeInsets.symmetric(horizontal: 14),
+                                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
                                     ),
                                   ),
-                                  const SizedBox(width: 12),
-                                  Expanded(
-                                    child: _buildTextField(
-                                      label: 'Unit',
-                                      controller: _unitController,
-                                      hint: 'NOS',
-                                    ),
-                                  ),
-                                ],
+                                ),
                               ),
                             ],
                             const SizedBox(height: 20),
@@ -337,11 +360,13 @@ class _WithKantaStep3ScreenState extends State<WithKantaStep3Screen> {
                               Row(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  Expanded(child: _buildImagePickerField(
-                                    label: 'Vehicle at Kanta Image',
-                                    file: _vehicleAtKantaImageFile,
-                                    onPick: () => _pickImage(isKantaSlip: false),
-                                  )),
+                                  Expanded(
+                                    child: _buildImagePickerField(
+                                      label: 'Vehicle at Kanta Image',
+                                      file: _vehicleAtKantaImageFile,
+                                      onPick: () => _pickImage(isKantaSlip: false),
+                                    ),
+                                  ),
                                   const SizedBox(width: 12),
                                   Expanded(
                                     child: _buildTextField(
@@ -366,33 +391,30 @@ class _WithKantaStep3ScreenState extends State<WithKantaStep3Screen> {
                               ),
                             ],
                             const SizedBox(height: 24),
-                            Align(
-                              alignment: Alignment.centerLeft,
-                              child: SizedBox(
-                                height: 44,
-                                child: ElevatedButton.icon(
-                                  onPressed: _isSaving ? null : _submit,
-                                  icon: _isSaving
-                                      ? const SizedBox(
-                                          width: 18,
-                                          height: 18,
-                                          child: CircularProgressIndicator(
-                                            strokeWidth: 2,
-                                            color: AppColors.white,
-                                          ),
-                                        )
-                                      : const Icon(Icons.assignment_outlined, size: 18),
-                                  label: Text(
-                                    'Save',
-                                    style: GoogleFonts.poppins(fontSize: 14, fontWeight: FontWeight.w600),
-                                  ),
-                                  style: ElevatedButton.styleFrom(
-                                    backgroundColor: _saveBlue,
-                                    foregroundColor: AppColors.white,
-                                    elevation: 0,
-                                    padding: const EdgeInsets.symmetric(horizontal: 20),
-                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
-                                  ),
+                            SizedBox(
+                              width: double.infinity,
+                              height: 48,
+                              child: ElevatedButton.icon(
+                                onPressed: _isSaving ? null : _submit,
+                                icon: _isSaving
+                                    ? const SizedBox(
+                                        width: 18,
+                                        height: 18,
+                                        child: CircularProgressIndicator(
+                                          strokeWidth: 2,
+                                          color: AppColors.white,
+                                        ),
+                                      )
+                                    : const Icon(Icons.assignment_outlined, size: 18),
+                                label: Text(
+                                  'Save',
+                                  style: GoogleFonts.poppins(fontSize: 14, fontWeight: FontWeight.w600),
+                                ),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: _saveBlue,
+                                  foregroundColor: AppColors.white,
+                                  elevation: 0,
+                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                                 ),
                               ),
                             ),
@@ -410,23 +432,119 @@ class _WithKantaStep3ScreenState extends State<WithKantaStep3Screen> {
     );
   }
 
-  Widget _buildItemDropdown() {
-    return Column(
+  Widget _buildMaterialRow(int index, {required bool isWide}) {
+    final line = _lines[index];
+    final units = List<String>.from(kMaterialUnits);
+    if (line.unit.isNotEmpty && !units.contains(line.unit)) {
+      units.insert(0, line.unit);
+    }
+
+    final materialField = Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text('Material 1', style: GoogleFonts.poppins(fontSize: 13, fontWeight: FontWeight.w600)),
+        Text('Material ${index + 1}', style: GoogleFonts.poppins(fontSize: 13, fontWeight: FontWeight.w600)),
         const SizedBox(height: 8),
         DropdownButtonFormField<ItemModel>(
-          value: _selectedItem,
+          value: line.item,
           decoration: _fieldDecoration(hint: 'Select item'),
           isExpanded: true,
           items: _items
-              .map((item) => DropdownMenuItem(
-                    value: item,
-                    child: Text(item.name, style: GoogleFonts.poppins(fontSize: 13), overflow: TextOverflow.ellipsis),
-                  ))
+              .map(
+                (item) => DropdownMenuItem(
+                  value: item,
+                  child: Text(
+                    item.displayName,
+                    style: GoogleFonts.poppins(fontSize: 13),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+              )
               .toList(),
-          onChanged: (v) => setState(() => _selectedItem = v),
+          onChanged: (v) => setState(() {
+            line.item = v;
+            line.unit = unitFromMaterial(v);
+          }),
+        ),
+      ],
+    );
+
+    final qtyField = _buildTextField(
+      label: 'Qty',
+      controller: line.qty,
+      hint: 'qty',
+      keyboardType: const TextInputType.numberWithOptions(decimal: true),
+      inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d*'))],
+    );
+
+    final unitField = Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text('Unit', style: GoogleFonts.poppins(fontSize: 13, fontWeight: FontWeight.w600)),
+        const SizedBox(height: 8),
+        DropdownButtonFormField<String>(
+          value: units.contains(line.unit) ? line.unit : units.first,
+          isExpanded: true,
+          decoration: _fieldDecoration(hint: 'Select unit'),
+          items: units
+              .map(
+                (u) => DropdownMenuItem(
+                  value: u,
+                  child: Text(u, style: GoogleFonts.poppins(fontSize: 13)),
+                ),
+              )
+              .toList(),
+          onChanged: (v) {
+            if (v != null) setState(() => line.unit = v);
+          },
+        ),
+      ],
+    );
+
+    final removeBtn = _lines.length > 1
+        ? IconButton(
+            onPressed: () => _removeMaterialLine(index),
+            tooltip: 'Remove material',
+            icon: const Icon(Icons.remove_circle_outline, color: AppColors.primaryRed),
+          )
+        : null;
+
+    if (isWide) {
+      return Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Expanded(flex: 3, child: materialField),
+          const SizedBox(width: 12),
+          Expanded(child: qtyField),
+          const SizedBox(width: 12),
+          Expanded(child: unitField),
+          if (removeBtn != null) ...[
+            const SizedBox(width: 4),
+            Padding(padding: const EdgeInsets.only(top: 24), child: removeBtn),
+          ],
+        ],
+      );
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(child: materialField),
+            if (removeBtn != null) ...[
+              const SizedBox(width: 4),
+              Padding(padding: const EdgeInsets.only(top: 24), child: removeBtn),
+            ],
+          ],
+        ),
+        const SizedBox(height: 12),
+        Row(
+          children: [
+            Expanded(child: qtyField),
+            const SizedBox(width: 12),
+            Expanded(child: unitField),
+          ],
         ),
       ],
     );
