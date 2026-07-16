@@ -49,7 +49,19 @@ class _AddPurchaseScreenState extends State<AddPurchaseScreen> {
   void initState() {
     super.initState();
     _materialLines = [null];
-    WidgetsBinding.instance.addPostFrameCallback((_) => _loadLookups());
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _loadLookups();
+      _recoverLostCameraImage();
+    });
+  }
+
+  Future<void> _recoverLostCameraImage() async {
+    final file = await recoverLostPurchaseImage();
+    if (file == null || !mounted) return;
+    setState(() {
+      _loadingImageFile = file;
+      _loadingImageName = file.path.split(Platform.pathSeparator).last;
+    });
   }
 
   Future<void> _loadLookups() async {
@@ -274,11 +286,13 @@ class _AddPurchaseScreenState extends State<AddPurchaseScreen> {
   }
 
   Future<void> _pickLoadingImage() async {
-    final xfile = await pickPurchaseImage(context);
-    if (xfile == null || !mounted) return;
+    final file = await pickPurchaseImageFile(context);
+    if (!mounted) return;
+    if (file == null) return;
+
     setState(() {
-      _loadingImageFile = File(xfile.path);
-      _loadingImageName = xfile.name;
+      _loadingImageFile = file;
+      _loadingImageName = file.path.split(Platform.pathSeparator).last;
     });
   }
 
