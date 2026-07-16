@@ -376,6 +376,7 @@ Future<List<ItemModel>?> itemsApi(
         'search': search,
         'status': status,
         'per_page': perPage.toString(),
+        'purchase': '1',
       },
     );
     final response = await http.get(uri, headers: authHeaders);

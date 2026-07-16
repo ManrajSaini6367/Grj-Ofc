@@ -43,9 +43,9 @@ class ItemModel {
       createdAt: json['created_at']?.toString(),
       updatedAt: json['updated_at']?.toString(),
       balance: json['balance']?.toString(),
-      purchase: json['purchase'] as int?,
-      dayReport: json['day_report'] as int?,
-      consumable: json['consumable'] as int?,
+      purchase: _asInt(json['purchase']),
+      dayReport: _asInt(json['day_report']),
+      consumable: _asInt(json['consumable']),
       site: siteJson is Map<String, dynamic>
           ? SiteModel.fromJson(siteJson)
           : null,
@@ -84,4 +84,13 @@ class ItemModel {
     if (unit.isNotEmpty) return '$displayName ($unit)';
     return displayName;
   }
+
+  bool get isPurchaseEnabled => purchase == 1;
+}
+
+int? _asInt(dynamic value) {
+  if (value == null) return null;
+  if (value is int) return value;
+  if (value is num) return value.toInt();
+  return int.tryParse(value.toString());
 }

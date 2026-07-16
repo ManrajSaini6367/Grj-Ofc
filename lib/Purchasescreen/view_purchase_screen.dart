@@ -3,7 +3,9 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:grjoffice_apps/core/app_colors.dart';
 import 'package:grjoffice_apps/Purchasescreen/purchase.dart';
 import 'package:grjoffice_apps/services/api_auth.dart';
+import 'package:grjoffice_apps/services/purchase_image_download_service.dart';
 import 'package:grjoffice_apps/widgets/app_top_bar.dart';
+import 'package:http/http.dart' as http;
 
 class ViewPurchaseScreen extends StatefulWidget {
   const ViewPurchaseScreen({super.key, required this.purchase});
@@ -124,6 +126,18 @@ class _ViewPurchaseScreenState extends State<ViewPurchaseScreen> {
 
   bool _isNetworkImage(String? value) =>
       value != null && (value.startsWith('http://') || value.startsWith('https://'));
+
+  void _openFullImage(String label, String imageUrl) {
+    if (!_isNetworkImage(imageUrl)) return;
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => _PurchaseImageViewer(
+          title: label,
+          imageUrl: imageUrl,
+        ),
+      ),
+    );
+  }
 
   double _hPad(BuildContext context) {
     final width = MediaQuery.sizeOf(context).width;
@@ -429,30 +443,65 @@ class _ViewPurchaseScreenState extends State<ViewPurchaseScreen> {
               ),
             )
           else ...[
-            ClipRRect(
-              borderRadius: BorderRadius.circular(10),
-              child: AspectRatio(
-                aspectRatio: 16 / 9,
-                child: _isNetworkImage(image)
-                    ? Image.network(
-                        image,
-                        fit: BoxFit.cover,
-                        errorBuilder: (_, __, ___) => Container(
-                          color: AppColors.operationsCardBg,
-                          alignment: Alignment.center,
-                          child: Text(image, style: GoogleFonts.poppins(fontSize: 12)),
-                        ),
-                      )
-                    : Container(
-                        color: AppColors.operationsCardBg,
-                        alignment: Alignment.center,
-                        padding: const EdgeInsets.all(12),
-                        child: Text(
-                          image,
-                          textAlign: TextAlign.center,
-                          style: GoogleFonts.poppins(fontSize: 12, color: AppColors.textDark),
-                        ),
-                      ),
+            Material(
+              color: Colors.transparent,
+              child: InkWell(
+                onTap: _isNetworkImage(image) ? () => _openFullImage(label, image) : null,
+                borderRadius: BorderRadius.circular(10),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(10),
+                  child: AspectRatio(
+                    aspectRatio: 16 / 9,
+                    child: Stack(
+                      fit: StackFit.expand,
+                      children: [
+                        _isNetworkImage(image)
+                            ? Image.network(
+                                image,
+                                fit: BoxFit.cover,
+                                errorBuilder: (_, __, ___) => Container(
+                                  color: AppColors.operationsCardBg,
+                                  alignment: Alignment.center,
+                                  child: Text(image, style: GoogleFonts.poppins(fontSize: 12)),
+                                ),
+                              )
+                            : Container(
+                                color: AppColors.operationsCardBg,
+                                alignment: Alignment.center,
+                                padding: const EdgeInsets.all(12),
+                                child: Text(
+                                  image,
+                                  textAlign: TextAlign.center,
+                                  style: GoogleFonts.poppins(fontSize: 12, color: AppColors.textDark),
+                                ),
+                              ),
+                        if (_isNetworkImage(image))
+                          Positioned(
+                            right: 8,
+                            bottom: 8,
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                              decoration: BoxDecoration(
+                                color: Colors.black.withValues(alpha: 0.55),
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  const Icon(Icons.fullscreen, size: 14, color: AppColors.white),
+                                  const SizedBox(width: 4),
+                                  Text(
+                                    'View',
+                                    style: GoogleFonts.poppins(fontSize: 11, color: AppColors.white),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+                ),
               ),
             ),
             if (capturedAt != null) ...[
@@ -464,6 +513,138 @@ class _ViewPurchaseScreenState extends State<ViewPurchaseScreen> {
             ],
           ],
         ],
+      ),
+    );
+  }
+}
+
+class _PurchaseImageViewer extends StatefulWidget {
+  const _PurchaseImageViewer({
+    required this.title,
+    required this.imageUrl,
+  });
+
+  final String title;
+  final String imageUrl;
+
+  @override
+  State<_PurchaseImageViewer> createState() => _PurchaseImageViewerState();
+}
+
+class _PurchaseImageViewerState extends State<_PurchaseImageViewer> {
+  bool _downloading = false;
+
+  Future<void> _downloadImage() async {
+    if (_downloading) return;
+    setState(() => _downloading = true);
+
+    try {
+      final response = await http.get(Uri.parse(widget.imageUrl)).timeout(
+        const Duration(seconds: 45),
+      );
+      if (response.statusCode != 200 || response.bodyBytes.isEmpty) {
+        throw Exception('Download failed (${response.statusCode})');
+      }
+
+      final rawName = widget.imageUrl.split('/').last.split('?').first;
+      final safeName = rawName.isEmpty
+          ? 'purchase_${DateTime.now().millisecondsSinceEpoch}.jpg'
+          : rawName;
+
+      final savedPath = await PurchaseImageDownloadService.downloadToDownloadsFolder(
+        bytes: response.bodyBytes,
+        fileName: safeName,
+      );
+
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Saved to Downloads/GRJ_Purchases\n$savedPath',
+            style: GoogleFonts.poppins(fontSize: 12),
+          ),
+          duration: const Duration(seconds: 4),
+        ),
+      );
+    } catch (e) {
+      debugPrint('[PurchaseImageViewer] download error: $e');
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Failed to download image. Please try again.',
+            style: GoogleFonts.poppins(),
+          ),
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _downloading = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Colors.black,
+      appBar: AppBar(
+        backgroundColor: Colors.black,
+        foregroundColor: AppColors.white,
+        title: Text(
+          widget.title,
+          style: GoogleFonts.poppins(fontWeight: FontWeight.w600, fontSize: 16),
+        ),
+      ),
+      body: Center(
+        child: InteractiveViewer(
+          minScale: 0.8,
+          maxScale: 4,
+          child: Image.network(
+            widget.imageUrl,
+            fit: BoxFit.contain,
+            loadingBuilder: (context, child, progress) {
+              if (progress == null) return child;
+              return const Center(
+                child: CircularProgressIndicator(color: AppColors.white),
+              );
+            },
+            errorBuilder: (_, __, ___) => Text(
+              'Could not load image',
+              style: GoogleFonts.poppins(color: AppColors.white),
+            ),
+          ),
+        ),
+      ),
+      bottomNavigationBar: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+          child: SizedBox(
+            height: 48,
+            width: double.infinity,
+            child: ElevatedButton.icon(
+              onPressed: _downloading ? null : _downloadImage,
+              icon: _downloading
+                  ? const SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: AppColors.white,
+                      ),
+                    )
+                  : const Icon(Icons.download_rounded, size: 20),
+              label: Text(
+                _downloading ? 'Downloading...' : 'Download Image',
+                style: GoogleFonts.poppins(fontWeight: FontWeight.w600, fontSize: 14),
+              ),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.primaryRed,
+                foregroundColor: AppColors.white,
+                elevation: 0,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              ),
+            ),
+          ),
+        ),
       ),
     );
   }
