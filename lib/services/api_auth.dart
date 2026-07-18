@@ -18,6 +18,7 @@ import 'package:grjoffice_apps/models/getsupplierlist.dart';
 import 'package:grjoffice_apps/models/item_model.dart';
 import 'package:grjoffice_apps/models/itemhistorymodal.dart';
 import 'package:grjoffice_apps/models/items_response_model.dart';
+import 'package:grjoffice_apps/models/labourattendancereport.dart';
 import 'package:grjoffice_apps/models/listcontractor.dart';
 import 'package:grjoffice_apps/models/login_model.dart';
 import 'package:grjoffice_apps/models/site_model.dart';
@@ -662,6 +663,47 @@ Future<Getsuppilerdata?> getSupplierApi(BuildContext context, int supplierId) as
     return null;
   }
 }
+
+/// Maps a supplier detail response to [ItemModel]s for purchase material pickers.
+List<ItemModel> supplierMaterialsFromData(
+  SupplierData? data, {
+  List<ItemModel> catalog = const [],
+}) {
+  if (data == null) return const [];
+
+  final siteId = data.siteId ?? selectedSiteId() ?? 0;
+  final supplierItems = data.items ?? const <SupplierItem>[];
+  if (supplierItems.isNotEmpty) {
+    return supplierItems
+        .where((item) => item.id != null)
+        .map(
+          (item) => ItemModel(
+            id: item.id!,
+            siteId: siteId,
+            name: item.name ?? '',
+            unit: item.unit ?? '',
+            status: 'published',
+          ),
+        )
+        .toList();
+  }
+
+  final itemIds = data.itemIds ?? const <int>[];
+  if (itemIds.isEmpty || catalog.isEmpty) return const [];
+  final idSet = itemIds.toSet();
+  return catalog.where((item) => idSet.contains(item.id)).toList();
+}
+
+/// Loads materials assigned to a supplier (`GET /api/v1/suppliers/{id}`).
+Future<List<ItemModel>> loadSupplierMaterials(
+  BuildContext context,
+  int supplierId, {
+  List<ItemModel> catalog = const [],
+}) async {
+  final response = await getSupplierApi(context, supplierId);
+  return supplierMaterialsFromData(response?.data, catalog: catalog);
+}
+
 //getsupplierlistapi
 Future<Getsupplierlistdata?> getSuppliersApi(
   BuildContext context, {
@@ -3760,5 +3802,121 @@ Future<Purchase?> purchaseStep3WithKantaApi(
     if (!context.mounted) return null;
     message(context, 'Something went wrong');
     return null;
+  }
+}
+
+Future<Getlabourattendancereport?> getLabourAttendanceReportApi(
+  BuildContext context, {
+  required String siteId,
+  required String contractorId,
+  required String startDate,
+  required String endDate,
+}) async {
+  try {
+    final uri = Uri.parse('$baseUrl/api/v1/labour-attendances').replace(
+      queryParameters: {
+        'site_id': siteId,
+        'contractor_id': contractorId,
+        'start_date': startDate,
+        'end_date': endDate,
+      },
+    );
+
+    print('[getLabourAttendanceReportApi] GET $uri');
+
+    final response = await http
+        .get(uri, headers: authHeaders)
+        .timeout(const Duration(seconds: 30));
+
+    print('[getLabourAttendanceReportApi] statusCode: ${response.statusCode}');
+    print('[getLabourAttendanceReportApi] response body: ${response.body}');
+
+    final decoded = decodeApiJson(response.body);
+    final apiMessage = decoded?['message']?.toString();
+
+    if (response.statusCode == 200 && decoded != null) {
+      return Getlabourattendancereport.fromJson(decoded);
+    }
+
+    if (!context.mounted) return null;
+    message(context, apiMessage ?? 'Failed to load labour attendance report.');
+    return null;
+  } on TimeoutException {
+    print('[getLabourAttendanceReportApi] request timed out');
+    if (!context.mounted) return null;
+    message(context, 'Request timed out. Please try again.');
+    return null;
+  } catch (e, stack) {
+    print('[getLabourAttendanceReportApi] error: $e');
+    print('[getLabourAttendanceReportApi] stack: $stack');
+    if (!context.mounted) return null;
+    message(context, 'Something went wrong');
+    return null;
+  }
+}
+
+Future<bool> markLabourAttendanceApi(
+  BuildContext context, {
+  required int siteId,
+  required int contractorId,
+  required String date,
+  required int mason,
+  required int beldar,
+  required int coolie,
+  required int masonOver,
+  required int beldarOver,
+  required int coolieOver,
+}) async {
+  try {
+    final url = '$baseUrl/api/v1/labour-attendances';
+    final body = {
+      'site_id': siteId,
+      'contractor_id': contractorId,
+      'date': date,
+      'mason': mason,
+      'beldar': beldar,
+      'coolie': coolie,
+      'mason_over': masonOver,
+      'beldar_over': beldarOver,
+      'coolie_over': coolieOver,
+    };
+
+    print('[markLabourAttendanceApi] POST $url');
+    print('[markLabourAttendanceApi] body: $body');
+
+    final response = await http
+        .post(
+          Uri.parse(url),
+          headers: authHeaders,
+          body: jsonEncode(body),
+        )
+        .timeout(const Duration(seconds: 30));
+
+    print('[markLabourAttendanceApi] statusCode: ${response.statusCode}');
+    print('[markLabourAttendanceApi] response body: ${response.body}');
+
+    final decoded = decodeApiJson(response.body);
+    final apiMessage = decoded?['message']?.toString();
+
+    if (response.statusCode == 200 || response.statusCode == 201) {
+      if (decoded == null || decoded['success'] != false) {
+        return true;
+      }
+    }
+
+    if (!context.mounted) return false;
+    message(context, apiMessage ?? 'Failed to save labour attendance.');
+    return false;
+  } on TimeoutException {
+    print('[markLabourAttendanceApi] request timed out');
+    if (!context.mounted) return false;
+    message(context, 'Request timed out. Please try again.');
+    return false;
+  } catch (e, stack) {
+    print('[markLabourAttendanceApi] error: $e');
+    print('[markLabourAttendanceApi] stack: $stack');
+    if (!context.mounted) return false;
+    message(context, 'Something went wrong');
+    return false;
   }
 }

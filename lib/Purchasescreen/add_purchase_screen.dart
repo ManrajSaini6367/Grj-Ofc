@@ -40,8 +40,11 @@ class _AddPurchaseScreenState extends State<AddPurchaseScreen> {
 
   List<ItemModel> _items = [];
   List<({int id, String name})> _suppliers = [];
+  /// Materials assigned to the currently selected supplier.
+  List<ItemModel> _supplierMaterials = [];
   bool _loadingLookups = true;
   bool _loadingSuppliers = false;
+  bool _loadingSupplierMaterials = false;
   /// true = last load was /suppliers/by-item; false = old /suppliers list
   bool _suppliersFilteredByItem = false;
 
@@ -83,6 +86,7 @@ class _AddPurchaseScreenState extends State<AddPurchaseScreen> {
       _selectedSupplierId = null;
       _selectedSupplierName = null;
       _suppliers = [];
+      _supplierMaterials = [];
       _suppliersFilteredByItem = true;
       _loadingSuppliers = true;
     });
@@ -114,6 +118,7 @@ class _AddPurchaseScreenState extends State<AddPurchaseScreen> {
       _selectedSupplierId = null;
       _selectedSupplierName = null;
       _suppliers = [];
+      _supplierMaterials = [];
       _suppliersFilteredByItem = false;
       _loadingSuppliers = true;
     });
@@ -153,6 +158,9 @@ class _AddPurchaseScreenState extends State<AddPurchaseScreen> {
 
   List<ItemModel> get _chosenMaterials =>
       _materialLines.whereType<ItemModel>().toList();
+
+  /// Materials available for the selected supplier (empty until a supplier is chosen).
+  List<ItemModel> get _materialOptions => _supplierMaterials;
 
   String get _chooseTitle {
     final names = _items.map((i) => i.displayName).where((n) => n.trim().isNotEmpty);
@@ -328,10 +336,63 @@ class _AddPurchaseScreenState extends State<AddPurchaseScreen> {
       if (!_suppliers.any((s) => s.id == picked.id)) {
         _suppliers = [..._suppliers, picked];
       }
+      _loadingSupplierMaterials = true;
+      _supplierMaterials = [];
+    });
+
+    await _loadMaterialsForSupplier(picked.id);
+  }
+
+  Future<void> _loadMaterialsForSupplier(int supplierId) async {
+    final materials = await loadSupplierMaterials(
+      context,
+      supplierId,
+      catalog: _items,
+    );
+    if (!mounted) return;
+    if (_selectedSupplierId != supplierId) return;
+
+    setState(() {
+      _supplierMaterials = materials;
+      _loadingSupplierMaterials = false;
+
+      // Keep current material only if this supplier actually supplies it.
+      if (_directMaterial != null &&
+          !_supplierMaterials.any((m) => m.id == _directMaterial!.id)) {
+        _directMaterial = null;
+      } else if (_directMaterial != null) {
+        _directMaterial = _supplierMaterials.firstWhere(
+          (m) => m.id == _directMaterial!.id,
+        );
+        _unit = unitFromMaterial(_directMaterial);
+      }
+
+      _materialLines = _materialLines.map((line) {
+        if (line == null) return null;
+        return _supplierMaterials.cast<ItemModel?>().firstWhere(
+              (m) => m?.id == line.id,
+              orElse: () => null,
+            );
+      }).toList();
+      if (_materialLines.isEmpty) _materialLines = [null];
     });
   }
 
   Future<void> _pickMaterial(int index) async {
+    if (_selectedSupplierId == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Please select a supplier first.',
+            style: GoogleFonts.poppins(),
+          ),
+        ),
+      );
+      return;
+    }
+    if (_loadingSupplierMaterials) return;
+
+    final options = _materialOptions;
     final picked = await showModalBottomSheet<ItemModel>(
       context: context,
       backgroundColor: Colors.transparent,
@@ -355,16 +416,16 @@ class _AddPurchaseScreenState extends State<AddPurchaseScreen> {
                   style: GoogleFonts.poppins(fontSize: 16, fontWeight: FontWeight.w700),
                 ),
                 const SizedBox(height: 14),
-                if (_items.isEmpty)
+                if (options.isEmpty)
                   Text(
-                    'No items available.',
+                    'No materials assigned to this supplier.',
                     style: GoogleFonts.poppins(fontSize: 13, color: AppColors.textSecondary),
                   )
                 else
                   Wrap(
                     spacing: 10,
                     runSpacing: 10,
-                    children: _items.map((item) {
+                    children: options.map((item) {
                       final selected = _materialLines[index]?.id == item.id;
                       return _choiceChip(
                         item.displayName,
@@ -661,6 +722,12 @@ class _AddPurchaseScreenState extends State<AddPurchaseScreen> {
   }
 
   Widget _buildDirectMaterialField() {
+    final options = _materialOptions;
+    final selectedId = _directMaterial != null &&
+            options.any((m) => m.id == _directMaterial!.id)
+        ? _directMaterial!.id
+        : null;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -675,20 +742,32 @@ class _AddPurchaseScreenState extends State<AddPurchaseScreen> {
         ),
         const SizedBox(height: 8),
         DropdownButtonFormField<int>(
-          value: _directMaterial?.id,
-          decoration: _inputDecoration(hint: '-- Select an option --'),
-          items: _items
+          value: selectedId,
+          decoration: _inputDecoration(
+            hint: _selectedSupplierId == null
+                ? 'Select supplier first'
+                : _loadingSupplierMaterials
+                    ? 'Loading materials...'
+                    : options.isEmpty
+                        ? 'No materials for this supplier'
+                        : '-- Select an option --',
+          ),
+          items: options
               .map((item) => DropdownMenuItem(
                     value: item.id,
                     child: Text(item.displayName, style: GoogleFonts.poppins(fontSize: 13)),
                   ))
               .toList(),
-          onChanged: (value) => setState(() {
-            _directMaterial = value != null
-                ? _items.where((i) => i.id == value).firstOrNull
-                : null;
-            _unit = unitFromMaterial(_directMaterial);
-          }),
+          onChanged: (_selectedSupplierId == null ||
+                  _loadingSupplierMaterials ||
+                  options.isEmpty)
+              ? null
+              : (value) => setState(() {
+                    _directMaterial = value != null
+                        ? options.where((i) => i.id == value).firstOrNull
+                        : null;
+                    _unit = unitFromMaterial(_directMaterial);
+                  }),
           validator: (value) => value == null ? 'Required' : null,
         ),
       ],

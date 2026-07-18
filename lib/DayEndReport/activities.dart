@@ -248,13 +248,13 @@ class _ActivitiesScreenState extends State<ActivitiesScreen> {
     return Scaffold(
       key: _scaffoldKey,
       backgroundColor: AppColors.backgroundGray,
-      drawer: AppDrawer(selectedIndex: DrawerIndex.dayEndReport, onItemTap: _onDrawerItemTap),
+      drawer: AppDrawer(selectedIndex: -1, onItemTap: _onDrawerItemTap),
       endDrawer: const AppEndDrawer(),
       body: SafeArea(
         child: Column(
           children: [
             AppTopBar.shell(
-              title: 'Day End Report',
+              title: 'Activity',
               scaffoldKey: _scaffoldKey,
               horizontalPadding: hPad,
             ),

@@ -6,7 +6,7 @@ import 'package:grjoffice_apps/widgets/app_logo.dart';
 
 /// Shared white app bar used across the app.
 ///
-/// Layout: [leading] — centered [title] — [trailing / profile / actions]
+/// Layout: [leading] — [title] — [trailing / profile / actions]
 class AppTopBar extends StatelessWidget {
   const AppTopBar({
     super.key,
@@ -18,6 +18,8 @@ class AppTopBar extends StatelessWidget {
     this.showProfile = false,
     this.actions = const <Widget>[],
     this.horizontalPadding,
+    this.titleFontSize,
+    this.centerTitle = true,
   });
 
   /// Bottom-tab style: logo opens drawer, optional profile.
@@ -28,6 +30,8 @@ class AppTopBar extends StatelessWidget {
     bool showProfile = true,
     List<Widget> actions = const <Widget>[],
     double? horizontalPadding,
+    double? titleFontSize,
+    bool centerTitle = true,
   }) {
     return AppTopBar(
       key: key,
@@ -36,6 +40,8 @@ class AppTopBar extends StatelessWidget {
       showProfile: showProfile,
       actions: actions,
       horizontalPadding: horizontalPadding,
+      titleFontSize: titleFontSize,
+      centerTitle: centerTitle,
     );
   }
 
@@ -47,6 +53,8 @@ class AppTopBar extends StatelessWidget {
     bool showProfile = true,
     List<Widget> actions = const <Widget>[],
     double? horizontalPadding,
+    double? titleFontSize,
+    bool centerTitle = true,
   }) {
     return AppTopBar(
       key: key,
@@ -57,6 +65,8 @@ class AppTopBar extends StatelessWidget {
       showProfile: showProfile,
       actions: actions,
       horizontalPadding: horizontalPadding,
+      titleFontSize: titleFontSize,
+      centerTitle: centerTitle,
     );
   }
 
@@ -70,6 +80,8 @@ class AppTopBar extends StatelessWidget {
     GlobalKey<ScaffoldState>? scaffoldKey,
     List<Widget> actions = const <Widget>[],
     double? horizontalPadding,
+    double? titleFontSize,
+    bool centerTitle = true,
   }) {
     return AppTopBar(
       key: key,
@@ -81,6 +93,8 @@ class AppTopBar extends StatelessWidget {
       scaffoldKey: scaffoldKey,
       actions: actions,
       horizontalPadding: horizontalPadding,
+      titleFontSize: titleFontSize,
+      centerTitle: centerTitle,
     );
   }
 
@@ -92,6 +106,8 @@ class AppTopBar extends StatelessWidget {
   final bool showProfile;
   final List<Widget> actions;
   final double? horizontalPadding;
+  final double? titleFontSize;
+  final bool centerTitle;
 
   static const double barHeight = 40;
 
@@ -107,27 +123,25 @@ class AppTopBar extends StatelessWidget {
       color: AppColors.cardWhite,
       child: SizedBox(
         height: barHeight,
-        child: Stack(
-          alignment: Alignment.center,
+        child: Row(
           children: [
-            Text(
-              title,
-              textAlign: TextAlign.center,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: GoogleFonts.poppins(
-                color: AppColors.headingBlack,
-                fontSize: 18,
-                fontWeight: FontWeight.w700,
+            leading,
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                title,
+                textAlign: centerTitle ? TextAlign.center : TextAlign.left,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: GoogleFonts.poppins(
+                  color: AppColors.headingBlack,
+                  fontSize: titleFontSize ?? 18,
+                  fontWeight: FontWeight.w700,
+                ),
               ),
             ),
-            Row(
-              children: [
-                leading,
-                const Spacer(),
-                trailing,
-              ],
-            ),
+            const SizedBox(width: 8),
+            trailing,
           ],
         ),
       ),

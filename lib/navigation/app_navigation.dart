@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:grjoffice_apps/DayEndReport/activities.dart';
+import 'package:grjoffice_apps/DayEndReport/day_end_report_screen.dart';
 import 'package:grjoffice_apps/EmployeeListscreen/employees.dart';
 import 'package:grjoffice_apps/Expensescreen/expenses.dart';
 import 'package:grjoffice_apps/Itemsscreen/items.dart';
@@ -102,7 +102,7 @@ void navigateFromDrawer(BuildContext context, int drawerIndex) {
     case DrawerIndex.employees:
       pushInShell(context, const EmployeesScreen(isActive: true));
     case DrawerIndex.dayEndReport:
-      pushInShell(context, const ActivitiesScreen());
+      pushInShell(context, const DayEndReportScreen());
     case DrawerIndex.suppliers:
       pushInShell(context, const SuppliersScreen(isActive: true));
     case DrawerIndex.labourContractors:
