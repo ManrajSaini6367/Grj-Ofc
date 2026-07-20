@@ -12,7 +12,9 @@ import 'package:grjoffice_apps/drawer/drawer.dart';
 import 'package:grjoffice_apps/models/listcontractor.dart';
 import 'package:grjoffice_apps/navigation/app_navigation.dart';
 import 'package:grjoffice_apps/services/api_auth.dart';
+import 'package:grjoffice_apps/services/permission_service.dart';
 import 'package:grjoffice_apps/widgets/app_top_bar.dart';
+import 'package:grjoffice_apps/widgets/permission_gate.dart';
 
 enum _ContractorStatusFilter { all, published, unpublished }
 
@@ -915,24 +917,27 @@ class _ContractorsScreenState extends State<ContractorsScreen> {
   }
 
   Widget _buildCreateButton() {
-    return SizedBox(
-      height: 46,
-      child: ElevatedButton.icon(
-        onPressed: _openCreate,
-        icon: const Icon(Icons.groups_outlined, size: 20),
-        label: Text(
-          'Create Contractor',
-          style: GoogleFonts.poppins(
-            fontSize: 14,
-            fontWeight: FontWeight.w600,
+    return PermissionGate(
+      permission: AppPermissions.contractorsCreate,
+      child: SizedBox(
+        height: 46,
+        child: ElevatedButton.icon(
+          onPressed: _openCreate,
+          icon: const Icon(Icons.groups_outlined, size: 20),
+          label: Text(
+            'Create Contractor',
+            style: GoogleFonts.poppins(
+              fontSize: 14,
+              fontWeight: FontWeight.w600,
+            ),
           ),
-        ),
-        style: ElevatedButton.styleFrom(
-          backgroundColor: AppColors.primaryRed,
-          foregroundColor: AppColors.white,
-          elevation: 0,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(10),
+          style: ElevatedButton.styleFrom(
+            backgroundColor: AppColors.primaryRed,
+            foregroundColor: AppColors.white,
+            elevation: 0,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(10),
+            ),
           ),
         ),
       ),
@@ -1077,42 +1082,51 @@ class _ContractorsScreenState extends State<ContractorsScreen> {
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
             child: Row(
               children: [
-                InkWell(
-                  onTap: () => _openViewContractor(contractor),
-                  borderRadius: BorderRadius.circular(4),
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 2),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(
-                          'View Contractor',
-                          style: GoogleFonts.poppins(
-                            color: AppColors.primaryRed,
-                            fontSize: 13,
-                            fontWeight: FontWeight.w600,
+                PermissionGate(
+                  permission: AppPermissions.contractorsView,
+                  child: InkWell(
+                    onTap: () => _openViewContractor(contractor),
+                    borderRadius: BorderRadius.circular(4),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 2),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            'View Contractor',
+                            style: GoogleFonts.poppins(
+                              color: AppColors.primaryRed,
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600,
+                            ),
                           ),
-                        ),
-                        const SizedBox(width: 2),
-                        const Icon(
-                          Icons.chevron_right,
-                          color: AppColors.primaryRed,
-                          size: 18,
-                        ),
-                      ],
+                          const SizedBox(width: 2),
+                          const Icon(
+                            Icons.chevron_right,
+                            color: AppColors.primaryRed,
+                            size: 18,
+                          ),
+                        ],
+                      ),
                     ),
                   ),
                 ),
                 const Spacer(),
-                _buildCardActionIcon(
-                  icon: Icons.edit_outlined,
-                  tooltip: 'Edit Contractor',
-                  onTap: () => _editContractor(contractor),
+                PermissionGate(
+                  permission: AppPermissions.contractorsUpdate,
+                  child: _buildCardActionIcon(
+                    icon: Icons.edit_outlined,
+                    tooltip: 'Edit Contractor',
+                    onTap: () => _editContractor(contractor),
+                  ),
                 ),
-                _buildCardActionIcon(
-                  icon: Icons.delete_outline,
-                  tooltip: 'Delete',
-                  onTap: () => _confirmDelete(contractor),
+                PermissionGate(
+                  permission: AppPermissions.contractorsDelete,
+                  child: _buildCardActionIcon(
+                    icon: Icons.delete_outline,
+                    tooltip: 'Delete',
+                    onTap: () => _confirmDelete(contractor),
+                  ),
                 ),
               ],
             ),

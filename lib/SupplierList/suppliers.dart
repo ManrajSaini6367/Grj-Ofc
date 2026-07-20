@@ -8,10 +8,12 @@ import 'package:grjoffice_apps/drawer/drawer.dart';
 import 'package:grjoffice_apps/models/getsupplierlist.dart';
 import 'package:grjoffice_apps/navigation/app_navigation.dart';
 import 'package:grjoffice_apps/services/api_auth.dart';
+import 'package:grjoffice_apps/services/permission_service.dart';
 import 'package:grjoffice_apps/SupplierList/add_supplier_screen.dart';
 import 'package:grjoffice_apps/SupplierList/supplier.dart';
 import 'package:grjoffice_apps/SupplierList/view_supplier_screen.dart';
 import 'package:grjoffice_apps/widgets/app_top_bar.dart';
+import 'package:grjoffice_apps/widgets/permission_gate.dart';
 
 enum _SupplierStatusFilter { all, published, unpublished }
 
@@ -729,21 +731,24 @@ class _SuppliersScreenState extends State<SuppliersScreen> {
   }
 
   Widget _buildCreateSupplierButton() {
-    return SizedBox(
-      height: 46,
-      child: ElevatedButton.icon(
-        onPressed: _openCreateSupplier,
-        icon: const Icon(Icons.add_business_outlined, size: 20),
-        label: Text(
-          'Create Supplier',
-          style: GoogleFonts.poppins(fontSize: 14, fontWeight: FontWeight.w600),
-        ),
-        style: ElevatedButton.styleFrom(
-          backgroundColor: AppColors.primaryRed,
-          foregroundColor: AppColors.white,
-          elevation: 0,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(10),
+    return PermissionGate(
+      permission: AppPermissions.suppliersCreate,
+      child: SizedBox(
+        height: 46,
+        child: ElevatedButton.icon(
+          onPressed: _openCreateSupplier,
+          icon: const Icon(Icons.add_business_outlined, size: 20),
+          label: Text(
+            'Create Supplier',
+            style: GoogleFonts.poppins(fontSize: 14, fontWeight: FontWeight.w600),
+          ),
+          style: ElevatedButton.styleFrom(
+            backgroundColor: AppColors.primaryRed,
+            foregroundColor: AppColors.white,
+            elevation: 0,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(10),
+            ),
           ),
         ),
       ),
@@ -895,42 +900,51 @@ class _SuppliersScreenState extends State<SuppliersScreen> {
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
             child: Row(
               children: [
-                InkWell(
-                  onTap: () => _openViewSupplier(supplier),
-                  borderRadius: BorderRadius.circular(4),
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 2),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(
-                          'View Supplier',
-                          style: GoogleFonts.poppins(
-                            color: AppColors.primaryRed,
-                            fontSize: 13,
-                            fontWeight: FontWeight.w600,
+                PermissionGate(
+                  permission: AppPermissions.suppliersView,
+                  child: InkWell(
+                    onTap: () => _openViewSupplier(supplier),
+                    borderRadius: BorderRadius.circular(4),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 2),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            'View Supplier',
+                            style: GoogleFonts.poppins(
+                              color: AppColors.primaryRed,
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600,
+                            ),
                           ),
-                        ),
-                        const SizedBox(width: 2),
-                        const Icon(
-                          Icons.chevron_right,
-                          color: AppColors.primaryRed,
-                          size: 18,
-                        ),
-                      ],
+                          const SizedBox(width: 2),
+                          const Icon(
+                            Icons.chevron_right,
+                            color: AppColors.primaryRed,
+                            size: 18,
+                          ),
+                        ],
+                      ),
                     ),
                   ),
                 ),
                 const Spacer(),
-                _buildCardActionIcon(
-                  icon: Icons.edit_outlined,
-                  tooltip: 'Edit Supplier',
-                  onTap: () => _editSupplier(supplier),
+                PermissionGate(
+                  permission: AppPermissions.suppliersUpdate,
+                  child: _buildCardActionIcon(
+                    icon: Icons.edit_outlined,
+                    tooltip: 'Edit Supplier',
+                    onTap: () => _editSupplier(supplier),
+                  ),
                 ),
-                _buildCardActionIcon(
-                  icon: Icons.delete_outline,
-                  tooltip: 'Delete',
-                  onTap: () => _confirmDeleteSupplier(supplier),
+                PermissionGate(
+                  permission: AppPermissions.suppliersDelete,
+                  child: _buildCardActionIcon(
+                    icon: Icons.delete_outline,
+                    tooltip: 'Delete',
+                    onTap: () => _confirmDeleteSupplier(supplier),
+                  ),
                 ),
               ],
             ),

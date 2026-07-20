@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:grjoffice_apps/core/app_colors.dart';
+import 'package:grjoffice_apps/navigation/app_navigation.dart';
+import 'package:grjoffice_apps/services/permission_service.dart';
 
 /// Provides tab-switching from child screens inside [MainShell].
 class AppShellScope extends InheritedWidget {
@@ -14,6 +16,7 @@ class AppShellScope extends InheritedWidget {
   });
 
   final int currentIndex;
+
   /// Bumps on every bottom-tab tap so the active tab remounts and reloads.
   final int tabVersion;
   final ValueChanged<int> switchToTab;
@@ -47,25 +50,117 @@ class AppBottomNav extends StatelessWidget {
   final int selectedIndex;
   final ValueChanged<int> onTabSelected;
 
-  static const centerIndex = 2;
   static const _centerButtonSize = 58.0;
   static const _centerLift = 22.0;
 
-  static const _items = <_NavItem>[
-    _NavItem(Icons.grid_view_rounded, Icons.grid_view, 'Dashboard'),
-    _NavItem(Icons.chat_bubble_outline_rounded, Icons.chat_bubble_rounded, 'Chats'),
-    _NavItem(Icons.shopping_cart_outlined, Icons.shopping_cart, 'Purchase'),
-    _NavItem(Icons.storefront_outlined, Icons.storefront, 'Store'),
-    _NavItem(Icons.person_outline, Icons.person, 'Profile'),
+  static const _allItems = <_NavItem>[
+    _NavItem(
+      MainTab.dashboard,
+      Icons.grid_view_rounded,
+      Icons.grid_view,
+      'Dashboard',
+      anyOf: [],
+    ),
+    _NavItem(
+      MainTab.chats,
+      Icons.chat_bubble_outline_rounded,
+      Icons.chat_bubble_rounded,
+      'Chats',
+      anyOf: [],
+    ),
+    _NavItem(
+      MainTab.purchase,
+      Icons.shopping_cart_outlined,
+      Icons.shopping_cart,
+      'Purchase',
+      anyOf: [
+        AppPermissions.purchasesView,
+        AppPermissions.purchasesCreate,
+        AppPermissions.purchasesViewAll,
+      ],
+      isCenter: true,
+    ),
+    _NavItem(
+      MainTab.store,
+      Icons.storefront_outlined,
+      Icons.storefront,
+      'Store',
+      anyOf: [
+        AppPermissions.itemsView,
+        AppPermissions.itemsCreate,
+      ],
+    ),
+    _NavItem(
+      MainTab.profile,
+      Icons.person_outline,
+      Icons.person,
+      'Profile',
+      anyOf: [],
+    ),
   ];
+
+  /// Whether the given [MainTab] index is allowed for the current user.
+  static bool canAccessTab(int tabIndex) {
+    final item = _allItems.cast<_NavItem?>().firstWhere(
+          (e) => e!.tabIndex == tabIndex,
+          orElse: () => null,
+        );
+    if (item == null) return false;
+    if (item.anyOf.isEmpty) return true;
+    return PermissionService.instance.canAny(item.anyOf);
+  }
+
+  /// First allowed tab (fallback = Dashboard).
+  static int firstAllowedTab() {
+    for (final item in _allItems) {
+      if (item.anyOf.isEmpty ||
+          PermissionService.instance.canAny(item.anyOf)) {
+        return item.tabIndex;
+      }
+    }
+    return MainTab.dashboard;
+  }
+
+  List<_NavItem> get _visibleItems {
+    final perms = PermissionService.instance;
+    return _allItems.where((item) {
+      if (item.anyOf.isEmpty) return true;
+      return perms.canAny(item.anyOf);
+    }).toList();
+  }
 
   @override
   Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: PermissionService.instance,
+      builder: (context, _) {
+        final visible = _visibleItems;
+        final purchaseVisible =
+            visible.any((e) => e.tabIndex == MainTab.purchase);
+
+        if (purchaseVisible) {
+          return _buildWithCenterPurchase(context, visible);
+        }
+        return _buildEqualTabs(context, visible);
+      },
+    );
+  }
+
+  Widget _buildWithCenterPurchase(
+    BuildContext context,
+    List<_NavItem> visible,
+  ) {
     final width = MediaQuery.sizeOf(context).width;
     final showLabels = width >= 360;
     final bottomInset = MediaQuery.paddingOf(context).bottom;
     final barHeight = showLabels ? 64.0 : 58.0;
+    final sideItems =
+        visible.where((e) => e.tabIndex != MainTab.purchase).toList();
+    final purchaseItem =
+        visible.firstWhere((e) => e.tabIndex == MainTab.purchase);
 
+    // Keep left/right balance: dashboard+chats | purchase | store+profile
+    // When some sides are missing, still distribute evenly.
     return SizedBox(
       height: barHeight + _centerLift + bottomInset,
       child: Stack(
@@ -77,39 +172,33 @@ class AppBottomNav extends StatelessWidget {
             bottom: 0,
             child: Container(
               height: barHeight + bottomInset,
-              decoration: BoxDecoration(
-                color: AppColors.cardWhite,
-                borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.08),
-                    blurRadius: 16,
-                    offset: const Offset(0, -4),
-                  ),
-                ],
+              decoration: _barDecoration,
+              padding: EdgeInsets.only(
+                bottom: bottomInset > 0 ? bottomInset : 8,
+                top: 8,
               ),
-              padding: EdgeInsets.only(bottom: bottomInset > 0 ? bottomInset : 8, top: 8),
               child: Row(
-                children: List.generate(_items.length, (index) {
-                  if (index == centerIndex) {
-                    return const Expanded(child: SizedBox.shrink());
-                  }
-
-                  final item = _items[index];
-                  final selected = selectedIndex == index;
-
-                  return Expanded(
-                    child: GestureDetector(
-                      behavior: HitTestBehavior.opaque,
-                      onTap: () => onTabSelected(index),
-                      child: _SideTab(
+                children: [
+                  for (final item in sideItems.take((sideItems.length + 1) ~/ 2))
+                    Expanded(
+                      child: _SideTabButton(
                         item: item,
-                        selected: selected,
+                        selected: selectedIndex == item.tabIndex,
                         showLabel: showLabels,
+                        onTap: () => onTabSelected(item.tabIndex),
                       ),
                     ),
-                  );
-                }),
+                  const Expanded(child: SizedBox.shrink()),
+                  for (final item in sideItems.skip((sideItems.length + 1) ~/ 2))
+                    Expanded(
+                      child: _SideTabButton(
+                        item: item,
+                        selected: selectedIndex == item.tabIndex,
+                        showLabel: showLabels,
+                        onTap: () => onTabSelected(item.tabIndex),
+                      ),
+                    ),
+                ],
               ),
             ),
           ),
@@ -120,16 +209,86 @@ class AppBottomNav extends StatelessWidget {
             child: Center(
               child: GestureDetector(
                 behavior: HitTestBehavior.opaque,
-                onTap: () => onTabSelected(centerIndex),
+                onTap: () => onTabSelected(purchaseItem.tabIndex),
                 child: _CenterTab(
-                  item: _items[centerIndex],
-                  selected: selectedIndex == centerIndex,
+                  item: purchaseItem,
+                  selected: selectedIndex == purchaseItem.tabIndex,
                   showLabel: showLabels,
                 ),
               ),
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildEqualTabs(BuildContext context, List<_NavItem> visible) {
+    final width = MediaQuery.sizeOf(context).width;
+    final showLabels = width >= 360;
+    final bottomInset = MediaQuery.paddingOf(context).bottom;
+    final barHeight = showLabels ? 64.0 : 58.0;
+
+    return SizedBox(
+      height: barHeight + bottomInset,
+      child: Container(
+        decoration: _barDecoration,
+        padding: EdgeInsets.only(
+          bottom: bottomInset > 0 ? bottomInset : 8,
+          top: 8,
+        ),
+        child: Row(
+          children: [
+            for (final item in visible)
+              Expanded(
+                child: _SideTabButton(
+                  item: item,
+                  selected: selectedIndex == item.tabIndex,
+                  showLabel: showLabels,
+                  onTap: () => onTabSelected(item.tabIndex),
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  static final _barDecoration = BoxDecoration(
+    color: AppColors.cardWhite,
+    borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+    boxShadow: [
+      BoxShadow(
+        color: Colors.black.withValues(alpha: 0.08),
+        blurRadius: 16,
+        offset: const Offset(0, -4),
+      ),
+    ],
+  );
+}
+
+class _SideTabButton extends StatelessWidget {
+  const _SideTabButton({
+    required this.item,
+    required this.selected,
+    required this.showLabel,
+    required this.onTap,
+  });
+
+  final _NavItem item;
+  final bool selected;
+  final bool showLabel;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: onTap,
+      child: _SideTab(
+        item: item,
+        selected: selected,
+        showLabel: showLabel,
       ),
     );
   }
@@ -228,7 +387,8 @@ class _CenterTab extends StatelessWidget {
                 offset: const Offset(0, 4),
               ),
               BoxShadow(
-                color: AppColors.primaryRed.withValues(alpha: selected ? 0.38 : 0.22),
+                color: AppColors.primaryRed
+                    .withValues(alpha: selected ? 0.38 : 0.22),
                 blurRadius: selected ? 16 : 12,
                 offset: const Offset(0, 6),
               ),
@@ -251,7 +411,8 @@ class _CenterTab extends StatelessWidget {
             style: GoogleFonts.poppins(
               fontSize: 10,
               fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
-              color: selected ? AppColors.primaryRed : AppColors.textSecondary,
+              color:
+                  selected ? AppColors.primaryRed : AppColors.textSecondary,
               height: 1.1,
             ),
           ),
@@ -262,9 +423,21 @@ class _CenterTab extends StatelessWidget {
 }
 
 class _NavItem {
-  const _NavItem(this.icon, this.activeIcon, this.label);
+  const _NavItem(
+    this.tabIndex,
+    this.icon,
+    this.activeIcon,
+    this.label, {
+    required this.anyOf,
+    this.isCenter = false,
+  });
 
+  final int tabIndex;
   final IconData icon;
   final IconData activeIcon;
   final String label;
+
+  /// Empty = always visible.
+  final List<String> anyOf;
+  final bool isCenter;
 }

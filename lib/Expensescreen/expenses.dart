@@ -8,7 +8,9 @@ import 'package:grjoffice_apps/Expensescreen/expense.dart';
 import 'package:grjoffice_apps/Expensescreen/view_expense_screen.dart';
 import 'package:grjoffice_apps/navigation/app_navigation.dart';
 import 'package:grjoffice_apps/services/api_auth.dart';
+import 'package:grjoffice_apps/services/permission_service.dart';
 import 'package:grjoffice_apps/widgets/app_top_bar.dart';
+import 'package:grjoffice_apps/widgets/permission_gate.dart';
 
 class ExpensesScreen extends StatefulWidget {
   const ExpensesScreen({super.key});
@@ -94,16 +96,19 @@ class _ExpensesScreenState extends State<ExpensesScreen> {
               scaffoldKey: _scaffoldKey,
               horizontalPadding: hPad,
               actions: [
-                Material(
-                  color: AppColors.primaryRed,
-                  borderRadius: BorderRadius.circular(10),
-                  child: InkWell(
-                    onTap: _openAddExpense,
+                PermissionGate(
+                  permission: AppPermissions.expensesCreate,
+                  child: Material(
+                    color: AppColors.primaryRed,
                     borderRadius: BorderRadius.circular(10),
-                    child: const SizedBox(
-                      width: 38,
-                      height: 38,
-                      child: Icon(Icons.add, color: AppColors.white, size: 22),
+                    child: InkWell(
+                      onTap: _openAddExpense,
+                      borderRadius: BorderRadius.circular(10),
+                      child: const SizedBox(
+                        width: 38,
+                        height: 38,
+                        child: Icon(Icons.add, color: AppColors.white, size: 22),
+                      ),
                     ),
                   ),
                 ),

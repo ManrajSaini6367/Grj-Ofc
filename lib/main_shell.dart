@@ -1,11 +1,18 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:grjoffice_apps/chatscreen/chatscreen.dart';
 import 'package:grjoffice_apps/core/app_colors.dart';
 import 'package:grjoffice_apps/Purchasescreen/purchases.dart';
 import 'package:grjoffice_apps/dashboardscreen/homepage.dart';
+import 'package:grjoffice_apps/navigation/app_navigation.dart';
 import 'package:grjoffice_apps/profilescreen/profilescreen.dart';
 import 'package:grjoffice_apps/Storescreens/store.dart';
+import 'package:grjoffice_apps/services/permission_service.dart';
+import 'package:grjoffice_apps/services/api_auth.dart';
+import 'package:grjoffice_apps/services/user_session.dart';
+import 'package:grjoffice_apps/utils/app_helpers.dart';
 import 'package:grjoffice_apps/widgets/app_bottom_nav.dart';
 
 /// Root shell with a single persistent bottom navigation bar.
@@ -19,16 +26,37 @@ class MainShell extends StatefulWidget {
   State<MainShell> createState() => _MainShellState();
 }
 
-class _MainShellState extends State<MainShell> {
-  late int _selectedIndex = widget.initialIndex;
+class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
+  late int _selectedIndex;
   final List<int> _tabVersions = List<int>.filled(5, 0);
-  final GlobalKey<NavigatorState> _shellNavigatorKey = GlobalKey<NavigatorState>();
+  final GlobalKey<NavigatorState> _shellNavigatorKey =
+      GlobalKey<NavigatorState>();
+  Timer? _permissionPollTimer;
 
   int get _activeTabVersion => _tabVersions[_selectedIndex];
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
+
+    _selectedIndex = AppBottomNav.canAccessTab(widget.initialIndex)
+        ? widget.initialIndex
+        : AppBottomNav.firstAllowedTab();
+
+    PermissionService.instance.addListener(_onPermissionsChanged);
+
+    // Hydrate session from cache, then sync latest permissions.
+    final cached = cachedUser();
+    if (cached != null) {
+      UserSession.instance.setUser(cached);
+    }
+    unawaited(PermissionService.instance.refresh());
+    _permissionPollTimer = Timer.periodic(
+      const Duration(seconds: 45),
+      (_) => unawaited(PermissionService.instance.refreshIfStale()),
+    );
+
     final initialPush = widget.initialPush;
     if (initialPush != null) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -36,6 +64,30 @@ class _MainShellState extends State<MainShell> {
           MaterialPageRoute(builder: (_) => initialPush),
         );
       });
+    }
+  }
+
+  @override
+  void dispose() {
+    _permissionPollTimer?.cancel();
+    WidgetsBinding.instance.removeObserver(this);
+    PermissionService.instance.removeListener(_onPermissionsChanged);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      unawaited(PermissionService.instance.refresh());
+    }
+  }
+
+  void _onPermissionsChanged() {
+    if (!mounted) return;
+    if (AppBottomNav.canAccessTab(_selectedIndex)) return;
+    final fallback = AppBottomNav.firstAllowedTab();
+    if (fallback != _selectedIndex) {
+      _activateTab(fallback, reload: false);
     }
   }
 
@@ -47,11 +99,21 @@ class _MainShellState extends State<MainShell> {
   }
 
   void _switchTab(int index) {
+    if (!AppBottomNav.canAccessTab(index)) {
+      message(context, 'You do not have permission to access this');
+      return;
+    }
     if (_selectedIndex == index) return;
     _activateTab(index);
   }
 
   void _onTabSelected(int index) {
+    if (!AppBottomNav.canAccessTab(index)) {
+      message(context, 'You do not have permission to access this');
+      return;
+    }
+    // Soft refresh when switching tabs so role changes apply quickly.
+    unawaited(PermissionService.instance.refreshIfStale());
     _shellNavigatorKey.currentState?.popUntil((route) => route.isFirst);
     _activateTab(index);
   }
@@ -62,8 +124,6 @@ class _MainShellState extends State<MainShell> {
       SystemNavigator.pop();
       return;
     }
-    // Shell has a pushed screen — maybePop respects that screen's PopScope
-    // (e.g. Add Purchase step back) and will not exit the app.
     if (nav.canPop()) {
       await nav.maybePop();
       return;
@@ -79,7 +139,6 @@ class _MainShellState extends State<MainShell> {
       switchToTab: _switchTab,
       shellNavigatorKey: _shellNavigatorKey,
       child: PopScope(
-        // Always intercept; live nav.canPop() is checked in _handleSystemBack.
         canPop: false,
         onPopInvokedWithResult: (didPop, result) {
           if (didPop) return;
@@ -117,10 +176,10 @@ class _ShellTabStack extends StatelessWidget {
     return KeyedSubtree(
       key: ValueKey('shell-tab-$index-${scope.tabVersion}'),
       child: switch (index) {
-        0 => const HomePage(),
-        1 => const ChatScreen(),
-        2 => const PurchasesScreen(),
-        3 => const StoreScreen(),
+        MainTab.dashboard => const HomePage(),
+        MainTab.chats => const ChatScreen(),
+        MainTab.purchase => const PurchasesScreen(),
+        MainTab.store => const StoreScreen(),
         _ => const ProfileScreen(isActive: true),
       },
     );

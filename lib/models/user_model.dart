@@ -11,6 +11,7 @@ class UserModel {
     this.avatar,
     required this.status,
     required this.roles,
+    this.permissions = const [],
     this.dateOfJoin,
     this.dateOfSuspended,
     required this.attendanceAllow,
@@ -27,6 +28,7 @@ class UserModel {
   final String? avatar;
   final String status;
   final List<String> roles;
+  final List<String> permissions;
   final String? dateOfJoin;
   final String? dateOfSuspended;
   final bool attendanceAllow;
@@ -45,6 +47,10 @@ class UserModel {
       status: json['status']?.toString() ?? '',
       roles: (json['roles'] as List<dynamic>?)
               ?.map((role) => role.toString())
+              .toList() ??
+          const [],
+      permissions: (json['permissions'] as List<dynamic>?)
+              ?.map((p) => p.toString())
               .toList() ??
           const [],
       dateOfJoin: json['date_of_join']?.toString(),
@@ -80,6 +86,7 @@ class UserModel {
       'avatar': avatar,
       'status': status,
       'roles': roles,
+      'permissions': permissions,
       'date_of_join': dateOfJoin,
       'date_of_suspended': dateOfSuspended,
       'attendance_allow': attendanceAllow,
@@ -98,5 +105,41 @@ class UserModel {
     return normalized == 'published' ||
         normalized == 'active' ||
         normalized == '1';
+  }
+
+  UserModel copyWith({
+    int? id,
+    String? name,
+    String? firstName,
+    String? lastName,
+    String? email,
+    String? mobile,
+    int? siteId,
+    String? designation,
+    String? avatar,
+    String? status,
+    List<String>? roles,
+    List<String>? permissions,
+    String? dateOfJoin,
+    String? dateOfSuspended,
+    bool? attendanceAllow,
+  }) {
+    return UserModel(
+      id: id ?? this.id,
+      name: name ?? this.name,
+      firstName: firstName ?? this.firstName,
+      lastName: lastName ?? this.lastName,
+      email: email ?? this.email,
+      mobile: mobile ?? this.mobile,
+      siteId: siteId ?? this.siteId,
+      designation: designation ?? this.designation,
+      avatar: avatar ?? this.avatar,
+      status: status ?? this.status,
+      roles: roles ?? this.roles,
+      permissions: permissions ?? this.permissions,
+      dateOfJoin: dateOfJoin ?? this.dateOfJoin,
+      dateOfSuspended: dateOfSuspended ?? this.dateOfSuspended,
+      attendanceAllow: attendanceAllow ?? this.attendanceAllow,
+    );
   }
 }

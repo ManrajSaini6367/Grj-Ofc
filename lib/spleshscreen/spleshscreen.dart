@@ -7,6 +7,7 @@ import 'package:grjoffice_apps/loginpage/loginpage.dart';
 import 'package:grjoffice_apps/main_shell.dart';
 import 'package:grjoffice_apps/services/api_auth.dart';
 import 'package:grjoffice_apps/services/attendance_service.dart';
+import 'package:grjoffice_apps/services/permission_service.dart';
 import 'package:grjoffice_apps/widgets/app_logo.dart';
 
 class SplashScreen extends StatefulWidget {
@@ -37,6 +38,9 @@ class _SplashScreenState extends State<SplashScreen>
     _controller.forward();
 
     unawaited(AttendanceService.instance.load());
+    if (isLoggedIn) {
+      unawaited(PermissionService.instance.refresh());
+    }
     _navigationTimer = Timer(const Duration(milliseconds: 2800), _goToLogin);
   }
 

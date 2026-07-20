@@ -2,7 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:grjoffice_apps/core/app_colors.dart';
 import 'package:grjoffice_apps/core/preference.dart';
+import 'package:grjoffice_apps/navigation/app_navigation.dart';
 import 'package:grjoffice_apps/services/api_auth.dart';
+import 'package:grjoffice_apps/services/permission_service.dart';
+import 'package:grjoffice_apps/services/user_session.dart';
 import 'package:grjoffice_apps/widgets/app_logo.dart';
 
 class AppDrawer extends StatelessWidget {
@@ -15,22 +18,133 @@ class AppDrawer extends StatelessWidget {
   final int selectedIndex;
   final ValueChanged<int>? onItemTap;
 
-  static const _menuItems = [
-    _DrawerMenuItem(Icons.grid_view_rounded, 'Dashboard'),
-    _DrawerMenuItem(Icons.badge_outlined, 'Employee List'),
-    _DrawerMenuItem(Icons.event_note_outlined, 'Day End Report'),
-    _DrawerMenuItem(Icons.inventory_2_outlined, 'Supplier List'),
-    _DrawerMenuItem(Icons.groups_outlined, 'Labour Contractor'),
-    _DrawerMenuItem(Icons.category_outlined, 'Items'),
-    _DrawerMenuItem(Icons.storefront_outlined, 'Store'),
-    _DrawerMenuItem(Icons.account_balance_wallet_outlined, 'Expenses'),
-    _DrawerMenuItem(Icons.task_alt_outlined, 'Task'),
-    _DrawerMenuItem(Icons.shopping_cart_outlined, 'Purchase'),
-    _DrawerMenuItem(Icons.how_to_reg_outlined, 'Employee Attendances'),
-    _DrawerMenuItem(Icons.people_outline, 'Contractor Attendances'),
-    _DrawerMenuItem(Icons.admin_panel_settings_outlined, 'Roles'),
-    _DrawerMenuItem(Icons.assessment_outlined, 'Report'),
+  /// Each item keeps a fixed [DrawerIndex] so navigation stays correct
+  /// even when some rows are hidden by RBAC.
+  static const _menuItems = <_DrawerMenuItem>[
+    _DrawerMenuItem(
+      DrawerIndex.dashboard,
+      Icons.grid_view_rounded,
+      'Dashboard',
+      // Always visible when logged in.
+      anyOf: [],
+    ),
+    _DrawerMenuItem(
+      DrawerIndex.employees,
+      Icons.badge_outlined,
+      'Employee List',
+      anyOf: [AppPermissions.usersView, AppPermissions.usersCreate],
+    ),
+    _DrawerMenuItem(
+      DrawerIndex.dayEndReport,
+      Icons.event_note_outlined,
+      'Day End Report',
+      anyOf: [AppPermissions.viewDayReport],
+    ),
+    _DrawerMenuItem(
+      DrawerIndex.suppliers,
+      Icons.inventory_2_outlined,
+      'Supplier List',
+      anyOf: [AppPermissions.suppliersView],
+    ),
+    _DrawerMenuItem(
+      DrawerIndex.labourContractors,
+      Icons.groups_outlined,
+      'Labour Contractor',
+      anyOf: [AppPermissions.contractorsView],
+    ),
+    _DrawerMenuItem(
+      DrawerIndex.items,
+      Icons.category_outlined,
+      'Items',
+      anyOf: [AppPermissions.itemsView],
+    ),
+    _DrawerMenuItem(
+      DrawerIndex.store,
+      Icons.storefront_outlined,
+      'Store',
+      anyOf: [AppPermissions.itemsView],
+    ),
+    _DrawerMenuItem(
+      DrawerIndex.expenses,
+      Icons.account_balance_wallet_outlined,
+      'Expenses',
+      anyOf: [
+        AppPermissions.expensesCreate,
+        AppPermissions.expensesReport,
+      ],
+    ),
+    _DrawerMenuItem(
+      DrawerIndex.tasks,
+      Icons.task_alt_outlined,
+      'Task',
+      anyOf: [
+        AppPermissions.tasks1View,
+        AppPermissions.tasksCreate,
+        AppPermissions.tasks1Create,
+        AppPermissions.tasksUpdate,
+      ],
+    ),
+    _DrawerMenuItem(
+      DrawerIndex.purchase,
+      Icons.shopping_cart_outlined,
+      'Purchase',
+      anyOf: [
+        AppPermissions.purchasesView,
+        AppPermissions.purchasesCreate,
+        AppPermissions.purchasesViewAll,
+      ],
+    ),
+    _DrawerMenuItem(
+      DrawerIndex.employeeAttendances,
+      Icons.how_to_reg_outlined,
+      'Employee Attendances',
+      anyOf: [
+        AppPermissions.employerAttendancesView,
+        AppPermissions.employerAttendancesCreate,
+        AppPermissions.viewAttendances,
+      ],
+    ),
+    _DrawerMenuItem(
+      DrawerIndex.contractorAttendances,
+      Icons.people_outline,
+      'Contractor Attendances',
+      anyOf: [
+        AppPermissions.labourAttendancesView,
+        AppPermissions.labourAttendancesCreate,
+        AppPermissions.labourAttendancesReport,
+      ],
+    ),
+    _DrawerMenuItem(
+      DrawerIndex.roles,
+      Icons.admin_panel_settings_outlined,
+      'Roles',
+      anyOf: [
+        AppPermissions.usersView,
+        AppPermissions.usersCreate,
+        AppPermissions.usersBlock,
+      ],
+    ),
+    _DrawerMenuItem(
+      DrawerIndex.report,
+      Icons.assessment_outlined,
+      'Report',
+      anyOf: [
+        AppPermissions.viewMainReport,
+        AppPermissions.viewMainExcelReport,
+        AppPermissions.viewChallanReport,
+        AppPermissions.expensesReport,
+        AppPermissions.viewDayReport,
+      ],
+    ),
   ];
+
+  List<_DrawerMenuItem> get _visibleItems {
+    final perms = PermissionService.instance;
+    return _menuItems.where((item) {
+      if (item.anyOf.isEmpty) return true;
+      return perms.canAny(item.anyOf);
+    }).toList();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -43,32 +157,44 @@ class AppDrawer extends StatelessWidget {
       elevation: 8,
       shadowColor: Colors.black.withValues(alpha: 0.15),
       child: SafeArea(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            _buildHeader(),
-            Divider(height: 1, color: AppColors.borderGray.withValues(alpha: 0.5)),
-            Expanded(
-              child: ListView.builder(
-                padding: const EdgeInsets.symmetric(vertical: 8),
-                itemCount: _menuItems.length,
-                itemBuilder: (context, index) {
-                  final item = _menuItems[index];
-                  final isSelected = selectedIndex == index;
-                  return _buildMenuItem(
-                    context: context,
-                    item: item,
-                    isSelected: isSelected,
-                    onTap: () {
-                      Navigator.of(context).pop();
-                      onItemTap?.call(index);
+        child: AnimatedBuilder(
+          animation: Listenable.merge([
+            PermissionService.instance,
+            UserSession.instance,
+          ]),
+          builder: (context, _) {
+            final visible = _visibleItems;
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _buildHeader(),
+                Divider(
+                  height: 1,
+                  color: AppColors.borderGray.withValues(alpha: 0.5),
+                ),
+                Expanded(
+                  child: ListView.builder(
+                    padding: const EdgeInsets.symmetric(vertical: 8),
+                    itemCount: visible.length,
+                    itemBuilder: (context, index) {
+                      final item = visible[index];
+                      final isSelected = selectedIndex == item.drawerIndex;
+                      return _buildMenuItem(
+                        context: context,
+                        item: item,
+                        isSelected: isSelected,
+                        onTap: () {
+                          Navigator.of(context).pop();
+                          onItemTap?.call(item.drawerIndex);
+                        },
+                      );
                     },
-                  );
-                },
-              ),
-            ),
-            _buildFooter(context),
-          ],
+                  ),
+                ),
+                _buildFooter(context),
+              ],
+            );
+          },
         ),
       ),
     );
@@ -108,13 +234,15 @@ class AppDrawer extends StatelessWidget {
         color: Colors.transparent,
         child: InkWell(
           onTap: onTap,
-          borderRadius: const BorderRadius.horizontal(right: Radius.circular(24)),
+          borderRadius:
+              const BorderRadius.horizontal(right: Radius.circular(24)),
           child: Ink(
             decoration: BoxDecoration(
               color: isSelected
                   ? AppColors.primaryRed.withValues(alpha: 0.1)
                   : Colors.transparent,
-              borderRadius: const BorderRadius.horizontal(right: Radius.circular(24)),
+              borderRadius:
+                  const BorderRadius.horizontal(right: Radius.circular(24)),
             ),
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
@@ -123,23 +251,30 @@ class AppDrawer extends StatelessWidget {
                   Icon(
                     item.icon,
                     size: 22,
-                    color: isSelected ? AppColors.primaryRed : AppColors.headingBlack,
+                    color: isSelected
+                        ? AppColors.primaryRed
+                        : AppColors.headingBlack,
                   ),
                   const SizedBox(width: 14),
                   Expanded(
                     child: Text(
                       item.title,
                       style: GoogleFonts.poppins(
-                        color: isSelected ? AppColors.primaryRed : AppColors.headingBlack,
+                        color: isSelected
+                            ? AppColors.primaryRed
+                            : AppColors.headingBlack,
                         fontSize: 14,
-                        fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
+                        fontWeight:
+                            isSelected ? FontWeight.w600 : FontWeight.w500,
                       ),
                     ),
                   ),
                   Icon(
                     Icons.chevron_right_rounded,
                     size: 20,
-                    color: isSelected ? AppColors.primaryRed : AppColors.textSecondary,
+                    color: isSelected
+                        ? AppColors.primaryRed
+                        : AppColors.textSecondary,
                   ),
                 ],
               ),
@@ -151,7 +286,7 @@ class AppDrawer extends StatelessWidget {
   }
 
   Widget _buildFooter(BuildContext context) {
-    final user = cachedUser();
+    final user = UserSession.instance.user ?? cachedUser();
     final name = user?.name ?? Preference.pref.getString('name') ?? 'User';
     final department = user?.designation?.trim().isNotEmpty == true
         ? user!.designation!.trim()
@@ -167,7 +302,11 @@ class AppDrawer extends StatelessWidget {
               CircleAvatar(
                 radius: 22,
                 backgroundColor: AppColors.iconBgGray,
-                child: Icon(Icons.person, color: AppColors.textSecondary, size: 26),
+                child: Icon(
+                  Icons.person,
+                  color: AppColors.textSecondary,
+                  size: 26,
+                ),
               ),
               const SizedBox(width: 12),
               Expanded(
@@ -207,7 +346,11 @@ class AppDrawer extends StatelessWidget {
               padding: const EdgeInsets.symmetric(vertical: 8),
               child: Row(
                 children: [
-                  Icon(Icons.logout_rounded, color: AppColors.primaryRed, size: 22),
+                  Icon(
+                    Icons.logout_rounded,
+                    color: AppColors.primaryRed,
+                    size: 22,
+                  ),
                   const SizedBox(width: 10),
                   Text(
                     'Sign Out',
@@ -228,8 +371,17 @@ class AppDrawer extends StatelessWidget {
 }
 
 class _DrawerMenuItem {
-  const _DrawerMenuItem(this.icon, this.title);
+  const _DrawerMenuItem(
+    this.drawerIndex,
+    this.icon,
+    this.title, {
+    required this.anyOf,
+  });
 
+  final int drawerIndex;
   final IconData icon;
   final String title;
+
+  /// Empty = always show. Otherwise user must have at least one.
+  final List<String> anyOf;
 }

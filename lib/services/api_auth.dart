@@ -21,6 +21,7 @@ import 'package:grjoffice_apps/models/items_response_model.dart';
 import 'package:grjoffice_apps/models/labourattendancereport.dart';
 import 'package:grjoffice_apps/models/listcontractor.dart';
 import 'package:grjoffice_apps/models/login_model.dart';
+import 'package:grjoffice_apps/models/mypermission.dart';
 import 'package:grjoffice_apps/models/site_model.dart';
 import 'package:grjoffice_apps/models/sites_response_model.dart';
 import 'package:grjoffice_apps/DayEndReport/activity.dart';
@@ -32,6 +33,8 @@ import 'package:grjoffice_apps/Purchasescreen/purchase.dart';
 import 'package:grjoffice_apps/models/attendance_model.dart';
 import 'package:grjoffice_apps/models/viewemployeeprofile.dart';
 import 'package:grjoffice_apps/SupplierList/supplier.dart';
+import 'package:grjoffice_apps/services/permission_service.dart';
+import 'package:grjoffice_apps/services/user_session.dart';
 import 'package:grjoffice_apps/utils/app_helpers.dart';
 import 'package:http/http.dart' as http;
 
@@ -167,6 +170,7 @@ Future<void> _saveUser(UserModel user) async {
   await Preference.pref.setString('name', user.name);
   await Preference.pref.setString('user', jsonEncode(user.toJson()));
   await saveSiteIdFromUser(user);
+  UserSession.instance.setUser(user);
 }
 
 UserModel? cachedUser() {
@@ -257,6 +261,14 @@ Future logInApi(
           await Preference.pref.remove('rememberedLogin');
         }
 
+        // Clear previous role's permissions, apply login payload, then sync API.
+        await PermissionService.instance.clear();
+        await PermissionService.instance.apply(
+          permissions: loginData.user.permissions,
+          roles: loginData.user.roles,
+        );
+        await PermissionService.instance.refresh();
+
         if (!context.mounted) return;
         message(context, data['message'].toString());
         pushAndRevoveUntil(context, const MainShell());
@@ -289,6 +301,16 @@ Future<UserModel?> profileApi(BuildContext context) async {
       if (data['success'] == true) {
         final profile = UserModel.fromJson(data['data'] as Map<String, dynamic>);
         await _saveUser(profile);
+
+        // Keep RBAC in sync whenever profile/role is refreshed.
+        if (profile.permissions.isNotEmpty) {
+          await PermissionService.instance.apply(
+            permissions: profile.permissions,
+            roles: profile.roles,
+          );
+        }
+        await PermissionService.instance.refresh();
+
         return profile;
       } else {
         if (!context.mounted) return cachedUser();
@@ -530,6 +552,8 @@ Future<void> _clearSessionData() async {
   await Preference.pref.remove('site_id');
   await Preference.pref.remove('selectedSiteId');
   await Preference.pref.remove('selectedSiteName');
+  await PermissionService.instance.clear();
+  UserSession.instance.clear();
 }
 
 
@@ -3921,4 +3945,9 @@ Future<bool> markLabourAttendanceApi(
     message(context, 'Something went wrong');
     return false;
   }
+}
+
+
+Future<Mypermissionmodaldata?> getMyPermissionsApi() {
+  return PermissionService.instance.fetch();
 }

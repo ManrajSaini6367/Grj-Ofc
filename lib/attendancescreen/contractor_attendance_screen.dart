@@ -11,7 +11,9 @@ import 'package:grjoffice_apps/models/labourattendancereport.dart';
 import 'package:grjoffice_apps/models/listcontractor.dart';
 import 'package:grjoffice_apps/navigation/app_navigation.dart';
 import 'package:grjoffice_apps/services/api_auth.dart';
+import 'package:grjoffice_apps/services/permission_service.dart';
 import 'package:grjoffice_apps/widgets/app_top_bar.dart';
+import 'package:grjoffice_apps/widgets/permission_gate.dart';
 import 'package:intl/intl.dart';
 
 enum _DatePreset { today, thisWeek, thisMonth, custom }
@@ -475,43 +477,46 @@ class _ContractorAttendanceScreenState
               titleFontSize: 15,
               centerTitle: false,
               actions: [
-                Material(
-                  color: AppColors.primaryRed,
-                  borderRadius: BorderRadius.circular(10),
-                  elevation: 0,
-                  child: InkWell(
-                    onTap: () {
-                      Navigator.of(context).push(
-                        MaterialPageRoute(
-                          builder: (_) =>
-                              const AddContractorAttendanceScreen(),
-                        ),
-                      );
-                    },
+                PermissionGate(
+                  permission: AppPermissions.labourAttendancesCreate,
+                  child: Material(
+                    color: AppColors.primaryRed,
                     borderRadius: BorderRadius.circular(10),
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 10,
-                        vertical: 7,
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          const Icon(
-                            Icons.add_rounded,
-                            size: 16,
-                            color: AppColors.white,
+                    elevation: 0,
+                    child: InkWell(
+                      onTap: () {
+                        Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (_) =>
+                                const AddContractorAttendanceScreen(),
                           ),
-                          const SizedBox(width: 3),
-                          Text(
-                            'Add',
-                            style: GoogleFonts.poppins(
-                              fontSize: 12,
-                              fontWeight: FontWeight.w700,
+                        );
+                      },
+                      borderRadius: BorderRadius.circular(10),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 7,
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(
+                              Icons.add_rounded,
+                              size: 16,
                               color: AppColors.white,
                             ),
-                          ),
-                        ],
+                            const SizedBox(width: 3),
+                            Text(
+                              'Add',
+                              style: GoogleFonts.poppins(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w700,
+                                color: AppColors.white,
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
                     ),
                   ),

@@ -11,7 +11,9 @@ import 'package:grjoffice_apps/Purchasescreen/with_kanta_step2_screen.dart';
 import 'package:grjoffice_apps/Purchasescreen/with_kanta_step3_screen.dart';
 import 'package:grjoffice_apps/Purchasescreen/view_purchase_screen.dart';
 import 'package:grjoffice_apps/services/api_auth.dart';
+import 'package:grjoffice_apps/services/permission_service.dart';
 import 'package:grjoffice_apps/widgets/app_top_bar.dart';
+import 'package:grjoffice_apps/widgets/permission_gate.dart';
 
 class PurchasesScreen extends StatefulWidget {
   const PurchasesScreen({super.key});
@@ -826,17 +828,25 @@ class _PurchasesScreenState extends State<PurchasesScreen> {
   }
 
   Widget _buildCreateButton() {
-    return SizedBox(
-      height: 46,
-      child: ElevatedButton.icon(
-        onPressed: _openAddPurchase,
-        icon: const Icon(Icons.add_shopping_cart_outlined, size: 20),
-        label: Text('Create Purchase', style: GoogleFonts.poppins(fontSize: 14, fontWeight: FontWeight.w600)),
-        style: ElevatedButton.styleFrom(
-          backgroundColor: AppColors.primaryRed,
-          foregroundColor: AppColors.white,
-          elevation: 0,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+    return PermissionGate(
+      permission: AppPermissions.purchasesCreate,
+      child: SizedBox(
+        height: 46,
+        child: ElevatedButton.icon(
+          onPressed: _openAddPurchase,
+          icon: const Icon(Icons.add_shopping_cart_outlined, size: 20),
+          label: Text(
+            'Create Purchase',
+            style: GoogleFonts.poppins(fontSize: 14, fontWeight: FontWeight.w600),
+          ),
+          style: ElevatedButton.styleFrom(
+            backgroundColor: AppColors.primaryRed,
+            foregroundColor: AppColors.white,
+            elevation: 0,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(10),
+            ),
+          ),
         ),
       ),
     );

@@ -13,6 +13,7 @@ import 'package:grjoffice_apps/reportscreen/report_screen.dart';
 import 'package:grjoffice_apps/rolesscreen/roles_screen.dart';
 import 'package:grjoffice_apps/tasksscreen/tasks_screen.dart';
 import 'package:grjoffice_apps/widgets/app_bottom_nav.dart';
+import 'package:grjoffice_apps/utils/app_helpers.dart';
 
 /// Bottom tab indices in [MainShell].
 abstract final class MainTab {
@@ -69,6 +70,11 @@ void showComingSoon(BuildContext context, String label) {
 
 /// Switches tab when already inside [MainShell], otherwise opens [MainShell].
 void navigateToMainTab(BuildContext context, int index) {
+  if (!AppBottomNav.canAccessTab(index)) {
+    message(context, 'You do not have permission to access this');
+    return;
+  }
+
   final shell = AppShellScope.maybeOf(context);
   if (shell != null) {
     shell.shellNavigatorKey.currentState?.popUntil((route) => route.isFirst);

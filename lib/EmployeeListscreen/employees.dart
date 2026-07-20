@@ -11,7 +11,9 @@ import 'package:grjoffice_apps/EmployeeListscreen/viewemployeeprofile.dart';
 import 'package:grjoffice_apps/models/getemployeemodal.dart';
 import 'package:grjoffice_apps/navigation/app_navigation.dart';
 import 'package:grjoffice_apps/services/api_auth.dart';
+import 'package:grjoffice_apps/services/permission_service.dart';
 import 'package:grjoffice_apps/widgets/app_top_bar.dart';
+import 'package:grjoffice_apps/widgets/permission_gate.dart';
 
 enum _SortOption { nameAsc, nameDesc, idAsc }
 
@@ -213,24 +215,27 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
   }
 
   Widget _buildCreateEmployeeButton() {
-    return SizedBox(
-      height: 46,
-      child: ElevatedButton.icon(
-        onPressed: _openCreateEmployee,
-        icon: const Icon(Icons.person_add_outlined, size: 20),
-        label: Text(
-          'Create Employee',
-          style: GoogleFonts.poppins(
-            fontSize: 14,
-            fontWeight: FontWeight.w600,
+    return PermissionGate(
+      permission: AppPermissions.usersCreate,
+      child: SizedBox(
+        height: 46,
+        child: ElevatedButton.icon(
+          onPressed: _openCreateEmployee,
+          icon: const Icon(Icons.person_add_outlined, size: 20),
+          label: Text(
+            'Create Employee',
+            style: GoogleFonts.poppins(
+              fontSize: 14,
+              fontWeight: FontWeight.w600,
+            ),
           ),
-        ),
-        style: ElevatedButton.styleFrom(
-          backgroundColor: AppColors.primaryRed,
-          foregroundColor: AppColors.white,
-          elevation: 0,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(10),
+          style: ElevatedButton.styleFrom(
+            backgroundColor: AppColors.primaryRed,
+            foregroundColor: AppColors.white,
+            elevation: 0,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(10),
+            ),
           ),
         ),
       ),
@@ -475,10 +480,13 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
                   ),
                 ),
                 const Spacer(),
-                _buildCardActionIcon(
-                  icon: Icons.edit_outlined,
-                  tooltip: 'Edit Employee',
-                  onTap: () => _openEditEmployee(employee),
+                PermissionGate(
+                  permission: AppPermissions.usersCreate,
+                  child: _buildCardActionIcon(
+                    icon: Icons.edit_outlined,
+                    tooltip: 'Edit Employee',
+                    onTap: () => _openEditEmployee(employee),
+                  ),
                 ),
                 _buildCardActionIcon(
                   icon: Icons.event_note_outlined,
@@ -489,19 +497,28 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
                     );
                   },
                 ),
-                _buildCardActionIcon(
-                  icon: Icons.delete_outline,
-                  tooltip: 'Delete',
-                  onTap: () async {
-                    final deleted = await deleteEmployeeWithDialog(context, employee);
-                    if (!mounted || !deleted) return;
-                    setState(() {
-                      _employees.removeWhere((e) => e.employeeId == employee.employeeId);
-                    });
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text('${employee.name} deleted successfully.')),
-                    );
-                  },
+                PermissionGate(
+                  permission: AppPermissions.usersBlock,
+                  child: _buildCardActionIcon(
+                    icon: Icons.delete_outline,
+                    tooltip: 'Delete',
+                    onTap: () async {
+                      final deleted =
+                          await deleteEmployeeWithDialog(context, employee);
+                      if (!mounted || !deleted) return;
+                      setState(() {
+                        _employees.removeWhere(
+                          (e) => e.employeeId == employee.employeeId,
+                        );
+                      });
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content:
+                              Text('${employee.name} deleted successfully.'),
+                        ),
+                      );
+                    },
+                  ),
                 ),
               ],
             ),

@@ -9,8 +9,10 @@ import 'package:grjoffice_apps/Itemsscreen/item_history_screen.dart';
 import 'package:grjoffice_apps/models/item_model.dart';
 import 'package:grjoffice_apps/navigation/app_navigation.dart';
 import 'package:grjoffice_apps/services/api_auth.dart';
+import 'package:grjoffice_apps/services/permission_service.dart';
 import 'package:grjoffice_apps/widgets/app_top_bar.dart';
 import 'package:grjoffice_apps/widgets/item_thumbnail.dart';
+import 'package:grjoffice_apps/widgets/permission_gate.dart';
 
 class ItemsScreen extends StatefulWidget {
   const ItemsScreen({super.key});
@@ -224,20 +226,25 @@ class _ItemsScreenState extends State<ItemsScreen> {
   }
 
   Widget _buildCreateButton() {
-    return SizedBox(
-      height: 46,
-      child: ElevatedButton.icon(
-        onPressed: _openCreate,
-        icon: const Icon(Icons.add_box_outlined, size: 20),
-        label: Text(
-          'Create Item',
-          style: GoogleFonts.poppins(fontSize: 14, fontWeight: FontWeight.w600),
-        ),
-        style: ElevatedButton.styleFrom(
-          backgroundColor: AppColors.primaryRed,
-          foregroundColor: AppColors.white,
-          elevation: 0,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+    return PermissionGate(
+      permission: AppPermissions.itemsCreate,
+      child: SizedBox(
+        height: 46,
+        child: ElevatedButton.icon(
+          onPressed: _openCreate,
+          icon: const Icon(Icons.add_box_outlined, size: 20),
+          label: Text(
+            'Create Item',
+            style: GoogleFonts.poppins(fontSize: 14, fontWeight: FontWeight.w600),
+          ),
+          style: ElevatedButton.styleFrom(
+            backgroundColor: AppColors.primaryRed,
+            foregroundColor: AppColors.white,
+            elevation: 0,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(10),
+            ),
+          ),
         ),
       ),
     );
@@ -388,15 +395,21 @@ class _ItemsScreenState extends State<ItemsScreen> {
                   ),
                 ),
                 const Spacer(),
-                _buildCardActionIcon(
-                  icon: Icons.edit_outlined,
-                  tooltip: 'Edit',
-                  onTap: () => _editItem(item),
+                PermissionGate(
+                  permission: AppPermissions.itemsUpdate,
+                  child: _buildCardActionIcon(
+                    icon: Icons.edit_outlined,
+                    tooltip: 'Edit',
+                    onTap: () => _editItem(item),
+                  ),
                 ),
-                _buildCardActionIcon(
-                  icon: Icons.delete_outline,
-                  tooltip: 'Delete',
-                  onTap: () => _confirmDelete(item),
+                PermissionGate(
+                  permission: AppPermissions.itemsUpdate,
+                  child: _buildCardActionIcon(
+                    icon: Icons.delete_outline,
+                    tooltip: 'Delete',
+                    onTap: () => _confirmDelete(item),
+                  ),
                 ),
               ],
             ),

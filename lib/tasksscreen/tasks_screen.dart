@@ -6,10 +6,12 @@ import 'package:grjoffice_apps/drawer/app_end_drawer.dart';
 import 'package:grjoffice_apps/models/task_model.dart';
 import 'package:grjoffice_apps/navigation/app_navigation.dart';
 import 'package:grjoffice_apps/services/api_auth.dart';
+import 'package:grjoffice_apps/services/permission_service.dart';
 import 'package:grjoffice_apps/tasksscreen/add_task_screen.dart';
 import 'package:grjoffice_apps/tasksscreen/task_messages_screen.dart';
 import 'package:grjoffice_apps/tasksscreen/view_task_screen.dart';
 import 'package:grjoffice_apps/widgets/app_top_bar.dart';
+import 'package:grjoffice_apps/widgets/permission_gate.dart';
 
 class TasksScreen extends StatefulWidget {
   const TasksScreen({super.key});
@@ -437,23 +439,32 @@ class _TasksScreenState extends State<TasksScreen> {
           ],
         ),
       ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () async {
-          final newTask = await Navigator.push(
-            context,
-            MaterialPageRoute(builder: (context) => const AddTaskScreen()),
-          );
-          if (newTask != null && newTask is Task && mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text('Task "${newTask.title}" created successfully')),
+      floatingActionButton: PermissionGate(
+        anyOf: const [
+          AppPermissions.tasksCreate,
+          AppPermissions.tasks1Create,
+        ],
+        child: FloatingActionButton(
+          onPressed: () async {
+            final newTask = await Navigator.push(
+              context,
+              MaterialPageRoute(builder: (context) => const AddTaskScreen()),
             );
-            await _loadTasks();
-          }
-        },
-        backgroundColor: AppColors.primaryRed,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        elevation: 4,
-        child: const Icon(Icons.add, color: Colors.white, size: 28),
+            if (newTask != null && newTask is Task && mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text('Task "${newTask.title}" created successfully'),
+                ),
+              );
+              await _loadTasks();
+            }
+          },
+          backgroundColor: AppColors.primaryRed,
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          elevation: 4,
+          child: const Icon(Icons.add, color: Colors.white, size: 28),
+        ),
       ),
     );
   }

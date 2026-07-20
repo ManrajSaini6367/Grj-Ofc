@@ -10,6 +10,8 @@ import 'package:grjoffice_apps/drawer/app_end_drawer.dart';
 import 'package:grjoffice_apps/drawer/drawer.dart';
 import 'package:grjoffice_apps/models/user_model.dart';
 import 'package:grjoffice_apps/services/api_auth.dart';
+import 'package:grjoffice_apps/services/permission_service.dart';
+import 'package:grjoffice_apps/services/user_session.dart';
 import 'package:grjoffice_apps/widgets/app_top_bar.dart';
 
 class ProfileScreen extends StatefulWidget {
@@ -44,13 +46,33 @@ class _ProfileScreenState extends State<ProfileScreen> {
   @override
   void initState() {
     super.initState();
+    UserSession.instance.addListener(_onSessionChanged);
+    PermissionService.instance.addListener(_onSessionChanged);
     if (widget.isActive) _scheduleInitialLoad();
+  }
+
+  @override
+  void dispose() {
+    UserSession.instance.removeListener(_onSessionChanged);
+    PermissionService.instance.removeListener(_onSessionChanged);
+    super.dispose();
+  }
+
+  void _onSessionChanged() {
+    if (!mounted) return;
+    final sessionUser = UserSession.instance.user;
+    if (sessionUser != null) {
+      setState(() => _profile = sessionUser);
+    } else {
+      setState(() {});
+    }
   }
 
   @override
   void didUpdateWidget(ProfileScreen oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (widget.isActive && !oldWidget.isActive) {
+      _startedLoad = false;
       _scheduleInitialLoad();
     }
   }
@@ -68,16 +90,43 @@ class _ProfileScreenState extends State<ProfileScreen> {
     final profile = await profileApi(context);
     if (!mounted) return;
     setState(() {
-      _profile = profile ?? cachedUser();
+      _profile = profile ?? UserSession.instance.user ?? cachedUser();
       _isLoading = false;
     });
   }
 
-  String get _name => _profile?.name ?? Preference.pref.getString('name') ?? '-';
-  String get _email => _profile?.email ?? Preference.pref.getString('email') ?? '-';
-  String get _phone => _profile?.mobile ?? Preference.pref.getString('phone') ?? '-';
-  String get _role => _profile?.roleLabel ?? 'User';
-  String get _userId => _profile?.id.toString() ?? Preference.pref.getString('userId') ?? '-';
+  String get _name =>
+      _profile?.name ??
+      UserSession.instance.user?.name ??
+      Preference.pref.getString('name') ??
+      '-';
+  String get _email =>
+      _profile?.email ??
+      UserSession.instance.user?.email ??
+      Preference.pref.getString('email') ??
+      '-';
+  String get _phone =>
+      _profile?.mobile ??
+      UserSession.instance.user?.mobile ??
+      Preference.pref.getString('phone') ??
+      '-';
+  String get _role {
+    final fromPerms = PermissionService.instance.roles;
+    if (fromPerms.isNotEmpty) {
+      final role = fromPerms.first;
+      return role.isEmpty
+          ? 'User'
+          : role[0].toUpperCase() + role.substring(1);
+    }
+    return _profile?.roleLabel ??
+        UserSession.instance.user?.roleLabel ??
+        'User';
+  }
+  String get _userId =>
+      _profile?.id.toString() ??
+      UserSession.instance.user?.id.toString() ??
+      Preference.pref.getString('userId') ??
+      '-';
   String? get _designation => _profile?.designation;
   String get _avatarUrl => mediaUrl(_profile?.avatar);
 
