@@ -86,6 +86,8 @@ class ItemModel {
   }
 
   bool get isPurchaseEnabled => purchase == 1;
+
+  bool get isConsumable => consumable == 1;
 }
 
 int? _asInt(dynamic value) {

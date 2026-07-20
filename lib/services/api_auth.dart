@@ -358,6 +358,7 @@ Future<List<ItemModel>?> itemsApi(
   int? siteId,
   String search = '',
   String status = 'published',
+  String consumable = '0',
   int perPage = 15,
 }) async {
   try {
@@ -376,6 +377,7 @@ Future<List<ItemModel>?> itemsApi(
         'site_id': resolvedSiteId.toString(),
         'search': search,
         'status': status,
+        'consumable': consumable,
         'per_page': perPage.toString(),
         'purchase': '1',
       },

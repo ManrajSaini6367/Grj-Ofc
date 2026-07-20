@@ -14,6 +14,8 @@ import 'package:grjoffice_apps/services/api_auth.dart';
 import 'package:grjoffice_apps/widgets/app_top_bar.dart';
 import 'package:intl/intl.dart';
 
+enum _DatePreset { today, thisWeek, thisMonth, custom }
+
 class ContractorAttendanceScreen extends StatefulWidget {
   const ContractorAttendanceScreen({super.key});
 
@@ -34,12 +36,14 @@ class _ContractorAttendanceScreenState
   String? _selectedContractorId;
   DateTime? _startDate;
   DateTime? _endDate;
+  _DatePreset _datePreset = _DatePreset.thisMonth;
 
   bool _loadingContractors = true;
   bool _showSuggestions = false;
   bool _suppressSearchListener = false;
   bool _searching = false;
   bool _hasSearched = false;
+  bool _publishedOnly = false;
   List<_AttendanceDayRow> _rows = [];
   _AttendanceRates? _rates;
   Amounts? _apiTotals;
@@ -99,17 +103,64 @@ class _ContractorAttendanceScreenState
     return DateFormat('dd MMM yyyy').format(d);
   }
 
+  int get _activeFilterCount => _publishedOnly ? 1 : 0;
+
+  List<LabourContractor> _matchContractors(String query) {
+    final q = query.trim().toLowerCase();
+    if (q.isEmpty) return [];
+    return _contractors.where((c) {
+      if (_publishedOnly && c.status != ContractorStatus.published) {
+        return false;
+      }
+      final name = c.name.toLowerCase();
+      final mobile = c.mobile.toLowerCase().replaceAll(' ', '');
+      final qMobile = q.replaceAll(' ', '');
+      return name.contains(q) || mobile.contains(qMobile);
+    }).toList();
+  }
+
+  Future<void> _applyDatePreset(_DatePreset preset) async {
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    DateTime start;
+    DateTime end = today;
+
+    switch (preset) {
+      case _DatePreset.today:
+        start = today;
+      case _DatePreset.thisWeek:
+        start = today.subtract(Duration(days: today.weekday - 1));
+      case _DatePreset.thisMonth:
+        start = DateTime(today.year, today.month, 1);
+      case _DatePreset.custom:
+        setState(() => _datePreset = _DatePreset.custom);
+        return;
+    }
+
+    final shouldRefresh =
+        _hasSearched && _selectedContractor != null && !_searching;
+
+    setState(() {
+      _datePreset = preset;
+      _startDate = start;
+      _endDate = end;
+    });
+
+    if (shouldRefresh) {
+      await _onSearch();
+    }
+  }
+
   void _onSearchTextChanged() {
     if (_suppressSearchListener) return;
     _debounce?.cancel();
     _debounce = Timer(const Duration(milliseconds: 220), () {
       if (!mounted) return;
-      final q = _searchController.text.trim().toLowerCase();
+      final q = _searchController.text.trim();
       setState(() {
         if (q.isEmpty) {
           _suggestions = [];
           _showSuggestions = false;
-          // Typing cleared → drop previous selection.
           if (_selectedContractorId != null) {
             _selectedContractorId = null;
             _hasSearched = false;
@@ -119,9 +170,7 @@ class _ContractorAttendanceScreenState
             _apiAmounts = null;
           }
         } else {
-          _suggestions = _contractors
-              .where((c) => c.name.toLowerCase().contains(q))
-              .toList();
+          _suggestions = _matchContractors(q);
           _showSuggestions = true;
         }
       });
@@ -223,6 +272,7 @@ class _ContractorAttendanceScreenState
         _hasSearched && _selectedContractor != null && !_searching;
 
     setState(() {
+      _datePreset = _DatePreset.custom;
       if (isStart) {
         _startDate = DateTime(picked.year, picked.month, picked.day);
         if (_endDate != null && _endDate!.isBefore(_startDate!)) {
@@ -330,6 +380,7 @@ class _ContractorAttendanceScreenState
       _selectedContractorId = null;
       _suggestions = [];
       _showSuggestions = false;
+      _datePreset = _DatePreset.thisMonth;
       _startDate = DateTime(now.year, now.month, 1);
       _endDate = now;
       _hasSearched = false;
@@ -338,6 +389,7 @@ class _ContractorAttendanceScreenState
       _apiTotals = null;
       _apiAmounts = null;
       _searching = false;
+      _publishedOnly = false;
     });
     _setSearchText('');
     _searchFocus.unfocus();
@@ -470,7 +522,7 @@ class _ContractorAttendanceScreenState
               child: ListView(
                 padding: EdgeInsets.fromLTRB(hPad, 12, hPad, 28),
                 children: [
-                  _buildSearchField(),
+                  _buildSearchAndFilterRow(),
                   if (_showSuggestions) ...[
                     const SizedBox(height: 8),
                     _buildSuggestionsPanel(),
@@ -480,6 +532,8 @@ class _ContractorAttendanceScreenState
                     _buildSelectedChip(),
                   ],
                   const SizedBox(height: 14),
+                  _buildDatePresets(),
+                  const SizedBox(height: 10),
                   _buildDateSection(),
                   const SizedBox(height: 14),
                   _buildActionButtons(),
@@ -523,6 +577,16 @@ class _ContractorAttendanceScreenState
     );
   }
 
+  Widget _buildSearchAndFilterRow() {
+    return Row(
+      children: [
+        Expanded(child: _buildSearchField()),
+        const SizedBox(width: 10),
+        _buildOptionsButton(),
+      ],
+    );
+  }
+
   Widget _buildSearchField() {
     return Container(
       height: 48,
@@ -539,15 +603,13 @@ class _ContractorAttendanceScreenState
           final q = _searchController.text.trim();
           if (q.isNotEmpty) {
             setState(() {
-              _suggestions = _contractors
-                  .where((c) => c.name.toLowerCase().contains(q.toLowerCase()))
-                  .toList();
+              _suggestions = _matchContractors(q);
               _showSuggestions = true;
             });
           }
         },
         decoration: InputDecoration(
-          hintText: 'Search contractor…',
+          hintText: 'Search by name or mobile…',
           hintStyle: GoogleFonts.poppins(
             fontSize: 13,
             color: AppColors.inputHint,
@@ -655,15 +717,31 @@ class _ContractorAttendanceScreenState
                   ),
                   const SizedBox(width: 12),
                   Expanded(
-                    child: Text(
-                      c.name,
-                      style: GoogleFonts.poppins(
-                        fontSize: 13,
-                        fontWeight:
-                            selected ? FontWeight.w600 : FontWeight.w500,
-                        color: AppColors.headingBlack,
-                      ),
-                      overflow: TextOverflow.ellipsis,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          c.name,
+                          style: GoogleFonts.poppins(
+                            fontSize: 13,
+                            fontWeight:
+                                selected ? FontWeight.w600 : FontWeight.w500,
+                            color: AppColors.headingBlack,
+                          ),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        if (c.mobile.trim().isNotEmpty) ...[
+                          const SizedBox(height: 2),
+                          Text(
+                            c.mobile,
+                            style: GoogleFonts.poppins(
+                              fontSize: 11,
+                              color: AppColors.textSecondary,
+                            ),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ],
+                      ],
                     ),
                   ),
                   if (selected)
@@ -733,6 +811,253 @@ class _ContractorAttendanceScreenState
           ],
         ),
       ),
+    );
+  }
+
+  Widget _buildDatePresets() {
+    Widget chip(String label, _DatePreset preset) {
+      final selected = _datePreset == preset;
+      return FilterChip(
+        label: Text(
+          label,
+          style: GoogleFonts.poppins(
+            fontSize: 12,
+            fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
+            color: selected ? AppColors.primaryRed : AppColors.textDark,
+          ),
+        ),
+        selected: selected,
+        onSelected: (_) => _applyDatePreset(preset),
+        selectedColor: AppColors.primaryRed.withValues(alpha: 0.12),
+        checkmarkColor: AppColors.primaryRed,
+        backgroundColor: AppColors.cardWhite,
+        side: BorderSide(
+          color: selected
+              ? AppColors.primaryRed.withValues(alpha: 0.4)
+              : AppColors.borderGray.withValues(alpha: 0.5),
+        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+        visualDensity: VisualDensity.compact,
+      );
+    }
+
+    return Wrap(
+      spacing: 8,
+      runSpacing: 8,
+      children: [
+        chip('Today', _DatePreset.today),
+        chip('This Week', _DatePreset.thisWeek),
+        chip('This Month', _DatePreset.thisMonth),
+        chip('Custom', _DatePreset.custom),
+      ],
+    );
+  }
+
+  Widget _buildOptionsButton() {
+    final active = _publishedOnly;
+    return Material(
+      color: active ? AppColors.primaryRed : AppColors.cardWhite,
+      borderRadius: BorderRadius.circular(12),
+      child: InkWell(
+        onTap: _showFilterSheet,
+        borderRadius: BorderRadius.circular(12),
+        child: Container(
+          width: 48,
+          height: 48,
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: active
+                  ? AppColors.primaryRed
+                  : AppColors.borderGray.withValues(alpha: 0.6),
+            ),
+          ),
+          child: Stack(
+            clipBehavior: Clip.none,
+            children: [
+              Icon(
+                Icons.tune_rounded,
+                size: 20,
+                color: active ? AppColors.white : AppColors.textDark,
+              ),
+              if (_activeFilterCount > 0)
+                Positioned(
+                  right: -8,
+                  top: -8,
+                  child: Container(
+                    width: 16,
+                    height: 16,
+                    alignment: Alignment.center,
+                    decoration: BoxDecoration(
+                      color: AppColors.white,
+                      shape: BoxShape.circle,
+                      border: Border.all(
+                        color: AppColors.primaryRed,
+                        width: 1.2,
+                      ),
+                    ),
+                    child: Text(
+                      '$_activeFilterCount',
+                      style: GoogleFonts.poppins(
+                        fontSize: 9,
+                        fontWeight: FontWeight.w700,
+                        color: AppColors.primaryRed,
+                      ),
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _showFilterSheet() {
+    var draftPublishedOnly = _publishedOnly;
+
+    showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (sheetContext) {
+        return StatefulBuilder(
+          builder: (context, setSheetState) {
+            return Container(
+              margin: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+              decoration: BoxDecoration(
+                color: AppColors.cardWhite,
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: SafeArea(
+                top: false,
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 12, 20, 16),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Container(
+                        width: 40,
+                        height: 4,
+                        decoration: BoxDecoration(
+                          color: AppColors.borderGray,
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                      ),
+                      const SizedBox(height: 14),
+                      Align(
+                        alignment: Alignment.centerLeft,
+                        child: Text(
+                          'Attendance filters',
+                          style: GoogleFonts.poppins(
+                            fontSize: 17,
+                            fontWeight: FontWeight.w700,
+                            color: AppColors.headingBlack,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 14),
+                      Container(
+                        margin: const EdgeInsets.only(bottom: 10),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 6,
+                        ),
+                        decoration: BoxDecoration(
+                          color: AppColors.operationsCardBg,
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: SwitchListTile.adaptive(
+                          contentPadding: EdgeInsets.zero,
+                          title: Text(
+                            'Published contractors only',
+                            style: GoogleFonts.poppins(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600,
+                              color: AppColors.headingBlack,
+                            ),
+                          ),
+                          subtitle: Text(
+                            'Hide unpublished names in search results',
+                            style: GoogleFonts.poppins(
+                              fontSize: 11,
+                              color: AppColors.textSecondary,
+                            ),
+                          ),
+                          value: draftPublishedOnly,
+                          activeThumbColor: AppColors.primaryRed,
+                          onChanged: (v) =>
+                              setSheetState(() => draftPublishedOnly = v),
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: OutlinedButton(
+                              onPressed: () => Navigator.pop(sheetContext),
+                              style: OutlinedButton.styleFrom(
+                                minimumSize: const Size.fromHeight(46),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                              ),
+                              child: Text(
+                                'Cancel',
+                                style: GoogleFonts.poppins(
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: ElevatedButton(
+                              onPressed: () {
+                                final publishedChanged =
+                                    draftPublishedOnly != _publishedOnly;
+                                setState(() {
+                                  _publishedOnly = draftPublishedOnly;
+                                  if (publishedChanged &&
+                                      _searchController.text
+                                          .trim()
+                                          .isNotEmpty) {
+                                    _suggestions = _matchContractors(
+                                      _searchController.text,
+                                    );
+                                  }
+                                });
+                                Navigator.pop(sheetContext);
+                              },
+                              style: ElevatedButton.styleFrom(
+                                minimumSize: const Size.fromHeight(46),
+                                backgroundColor: AppColors.primaryRed,
+                                foregroundColor: AppColors.white,
+                                elevation: 0,
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                              ),
+                              child: Text(
+                                'Apply',
+                                style: GoogleFonts.poppins(
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            );
+          },
+        );
+      },
     );
   }
 
