@@ -135,14 +135,17 @@ class ChatThreadTile extends StatelessWidget {
 
   String _previewText(ChatMessage? last, ChatService service) {
     if (last == null) return 'No messages yet';
+    final body = last.hasMedia
+        ? (last.isVideo ? '🎥 Video' : '📷 Photo')
+        : last.text;
     if (thread.isGroup) {
       final sender = service.userById(last.senderId);
       final prefix = last.senderId == service.currentUserId
           ? 'You: '
           : '${sender?.name.split(' ').first ?? 'User'}: ';
-      return '$prefix${last.text}';
+      return '$prefix$body';
     }
-    if (last.senderId == service.currentUserId) return 'You: ${last.text}';
-    return last.text;
+    if (last.senderId == service.currentUserId) return 'You: $body';
+    return body;
   }
 }

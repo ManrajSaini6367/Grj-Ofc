@@ -106,6 +106,38 @@ class ChatService extends ChangeNotifier {
     _simulateReply(thread);
   }
 
+  Future<void> sendMediaMessage(
+    String threadId, {
+    required String mediaPath,
+    required bool isVideo,
+    Duration? duration,
+  }) async {
+    final thread = threadById(threadId);
+    if (thread == null) return;
+
+    final message = ChatMessage(
+      id: 'm_${DateTime.now().millisecondsSinceEpoch}',
+      threadId: threadId,
+      senderId: currentUserId,
+      text: isVideo ? 'Video' : 'Photo',
+      sentAt: DateTime.now(),
+      status: MessageDeliveryStatus.sending,
+      mediaPath: mediaPath,
+      isVideo: isVideo,
+      mediaDuration: duration,
+    );
+    thread.messages.add(message);
+    notifyListeners();
+
+    await Future<void>.delayed(const Duration(milliseconds: 350));
+    message.status = MessageDeliveryStatus.sent;
+    notifyListeners();
+
+    await Future<void>.delayed(const Duration(milliseconds: 500));
+    message.status = MessageDeliveryStatus.delivered;
+    notifyListeners();
+  }
+
   ChatThread createGroup({
     required String name,
     required List<int> memberIds,

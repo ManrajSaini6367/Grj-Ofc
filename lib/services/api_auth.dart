@@ -3876,7 +3876,7 @@ Future<Getlabourattendancereport?> getLabourAttendanceReportApi(
     print('[getLabourAttendanceReportApi] error: $e');
     print('[getLabourAttendanceReportApi] stack: $stack');
     if (!context.mounted) return null;
-    message(context, 'Something went wrong');
+    message(context, 'Something went wrong: $e');
     return null;
   }
 }

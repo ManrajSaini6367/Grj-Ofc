@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:grjoffice_apps/chatscreen/chat_camera_screen.dart';
 import 'package:grjoffice_apps/chatscreen/group_info_screen.dart';
 import 'package:grjoffice_apps/chatscreen/models/chat_models.dart';
 import 'package:grjoffice_apps/chatscreen/services/chat_service.dart';
@@ -22,12 +23,18 @@ class ConversationScreen extends StatefulWidget {
 class _ConversationScreenState extends State<ConversationScreen> {
   final _messageController = TextEditingController();
   final _scrollController = ScrollController();
+  final _focusNode = FocusNode();
   final _service = ChatService.instance;
+  bool _hasText = false;
 
   @override
   void initState() {
     super.initState();
     _service.addListener(_onChatUpdated);
+    _messageController.addListener(() {
+      final next = _messageController.text.trim().isNotEmpty;
+      if (next != _hasText) setState(() => _hasText = next);
+    });
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _service.markThreadRead(widget.threadId);
       _scrollToBottom();
@@ -39,6 +46,7 @@ class _ConversationScreenState extends State<ConversationScreen> {
     _service.removeListener(_onChatUpdated);
     _messageController.dispose();
     _scrollController.dispose();
+    _focusNode.dispose();
     super.dispose();
   }
 
@@ -69,6 +77,24 @@ class _ConversationScreenState extends State<ConversationScreen> {
     await _service.sendMessage(widget.threadId, text);
   }
 
+  Future<void> _openCamera() async {
+    _focusNode.unfocus();
+    final result = await Navigator.of(context).push<ChatCameraResult>(
+      MaterialPageRoute(
+        fullscreenDialog: true,
+        builder: (_) => const ChatCameraScreen(),
+      ),
+    );
+    if (result == null || !mounted) return;
+
+    await _service.sendMediaMessage(
+      widget.threadId,
+      mediaPath: result.file.path,
+      isVideo: result.isVideo,
+      duration: result.duration,
+    );
+  }
+
   void _openGroupInfo() {
     Navigator.of(context).push(
       MaterialPageRoute(
@@ -87,7 +113,10 @@ class _ConversationScreenState extends State<ConversationScreen> {
           backgroundColor: AppColors.cardWhite,
           foregroundColor: AppColors.headingBlack,
           elevation: 0,
-          title: Text('Chat', style: GoogleFonts.poppins(fontWeight: FontWeight.w600)),
+          title: Text(
+            'Chat',
+            style: GoogleFonts.poppins(fontWeight: FontWeight.w600),
+          ),
         ),
         body: const Center(child: Text('Conversation not found')),
       );
@@ -102,7 +131,8 @@ class _ConversationScreenState extends State<ConversationScreen> {
             ),
           );
 
-    final onlineCount = thread.isGroup ? _service.onlineMembersCount(thread) : 0;
+    final onlineCount =
+        thread.isGroup ? _service.onlineMembersCount(thread) : 0;
 
     final subtitle = thread.isGroup
         ? '$onlineCount of ${thread.participantIds.length} online'
@@ -180,7 +210,10 @@ class _ConversationScreenState extends State<ConversationScreen> {
           if (thread.isGroup)
             IconButton(
               onPressed: _openGroupInfo,
-              icon: const Icon(Icons.info_outline, color: AppColors.textSecondary),
+              icon: const Icon(
+                Icons.info_outline,
+                color: AppColors.textSecondary,
+              ),
             ),
         ],
       ),
@@ -212,7 +245,10 @@ class _ConversationScreenState extends State<ConversationScreen> {
                     padding: const EdgeInsets.symmetric(vertical: 8),
                     child: Center(
                       child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 6,
+                        ),
                         decoration: BoxDecoration(
                           color: AppColors.operationsCardBg,
                           borderRadius: BorderRadius.circular(12),
@@ -247,9 +283,9 @@ class _ConversationScreenState extends State<ConversationScreen> {
   Widget _buildComposer() {
     return Container(
       padding: EdgeInsets.fromLTRB(
-        12,
         10,
-        12,
+        10,
+        10,
         10 + MediaQuery.paddingOf(context).bottom,
       ),
       decoration: BoxDecoration(
@@ -259,32 +295,62 @@ class _ConversationScreenState extends State<ConversationScreen> {
         ),
       ),
       child: Row(
+        crossAxisAlignment: CrossAxisAlignment.end,
         children: [
           Expanded(
-            child: TextField(
-              controller: _messageController,
-              minLines: 1,
-              maxLines: 4,
-              textCapitalization: TextCapitalization.sentences,
-              style: GoogleFonts.poppins(fontSize: 14, color: AppColors.textDark),
-              decoration: InputDecoration(
-                hintText: 'Type a message',
-                hintStyle: GoogleFonts.poppins(
-                  color: AppColors.inputHint,
-                  fontSize: 14,
-                ),
-                filled: true,
-                fillColor: AppColors.operationsCardBg,
-                contentPadding: const EdgeInsets.symmetric(
-                  horizontal: 14,
-                  vertical: 10,
-                ),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(24),
-                  borderSide: BorderSide.none,
-                ),
+            child: Container(
+              decoration: BoxDecoration(
+                color: AppColors.operationsCardBg,
+                borderRadius: BorderRadius.circular(24),
               ),
-              onSubmitted: (_) => _send(),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  Expanded(
+                    child: TextField(
+                      controller: _messageController,
+                      focusNode: _focusNode,
+                      minLines: 1,
+                      maxLines: 5,
+                      textCapitalization: TextCapitalization.sentences,
+                      style: GoogleFonts.poppins(
+                        fontSize: 14,
+                        color: AppColors.textDark,
+                      ),
+                      decoration: InputDecoration(
+                        hintText: 'Type a message',
+                        hintStyle: GoogleFonts.poppins(
+                          color: AppColors.inputHint,
+                          fontSize: 14,
+                        ),
+                        filled: false,
+                        border: InputBorder.none,
+                        contentPadding: const EdgeInsets.fromLTRB(16, 12, 8, 12),
+                      ),
+                      onSubmitted: (_) => _send(),
+                    ),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.only(right: 4, bottom: 4),
+                    child: Material(
+                      color: Colors.transparent,
+                      child: InkWell(
+                        onTap: _openCamera,
+                        borderRadius: BorderRadius.circular(20),
+                        child: const SizedBox(
+                          width: 40,
+                          height: 40,
+                          child: Icon(
+                            Icons.photo_camera_rounded,
+                            color: AppColors.textSecondary,
+                            size: 22,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
           const SizedBox(width: 8),
@@ -292,12 +358,18 @@ class _ConversationScreenState extends State<ConversationScreen> {
             color: AppColors.primaryRed,
             borderRadius: BorderRadius.circular(24),
             child: InkWell(
-              onTap: _send,
+              onTap: _hasText ? _send : null,
               borderRadius: BorderRadius.circular(24),
-              child: const SizedBox(
+              child: SizedBox(
                 width: 46,
                 height: 46,
-                child: Icon(Icons.send_rounded, color: AppColors.white, size: 20),
+                child: Icon(
+                  Icons.send_rounded,
+                  color: _hasText
+                      ? AppColors.white
+                      : AppColors.white.withValues(alpha: 0.45),
+                  size: 20,
+                ),
               ),
             ),
           ),

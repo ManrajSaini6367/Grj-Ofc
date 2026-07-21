@@ -31,7 +31,9 @@
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>GRJ Office needs your location to verify attendance while you are working.</string>
 	<key>NSCameraUsageDescription</key>
-	<string>GRJ Office needs camera access to capture purchase vehicle and kanta slip photos.</string>
+	<string>GRJ Office needs camera access to capture photos and videos for chat and purchases.</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>GRJ Office needs microphone access to record videos in chat.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>GRJ Office needs photo library access to attach purchase images.</string>
 	<key>UIApplicationSceneManifest</key>

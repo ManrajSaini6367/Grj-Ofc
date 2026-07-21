@@ -37,6 +37,9 @@ class ChatMessage {
     required this.text,
     required this.sentAt,
     this.status = MessageDeliveryStatus.sent,
+    this.mediaPath,
+    this.isVideo = false,
+    this.mediaDuration,
   });
 
   final String id;
@@ -45,6 +48,11 @@ class ChatMessage {
   final String text;
   final DateTime sentAt;
   MessageDeliveryStatus status;
+  final String? mediaPath;
+  final bool isVideo;
+  final Duration? mediaDuration;
+
+  bool get hasMedia => mediaPath != null && mediaPath!.isNotEmpty;
 
   bool isMine(int currentUserId) => senderId == currentUserId;
 }
