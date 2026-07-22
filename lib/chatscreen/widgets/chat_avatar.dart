@@ -37,26 +37,33 @@ class ChatAvatar extends StatelessWidget {
 
     final fg = isGroup ? (groupColor ?? AppColors.primaryRed) : AppColors.primaryRed;
 
+    final avatarUrl = user?.avatarUrl;
+    final hasAvatar =
+        !isGroup && avatarUrl != null && avatarUrl.trim().isNotEmpty;
+
     return Stack(
       clipBehavior: Clip.none,
       children: [
         CircleAvatar(
           radius: radius,
           backgroundColor: bg,
-          child: isGroup
-              ? Icon(
-                  groupIcon ?? Icons.groups_rounded,
-                  color: fg,
-                  size: radius,
-                )
-              : Text(
-                  label,
-                  style: GoogleFonts.poppins(
-                    color: fg,
-                    fontSize: radius * 0.72,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
+          backgroundImage: hasAvatar ? NetworkImage(avatarUrl) : null,
+          child: hasAvatar
+              ? null
+              : (isGroup
+                  ? Icon(
+                      groupIcon ?? Icons.groups_rounded,
+                      color: fg,
+                      size: radius,
+                    )
+                  : Text(
+                      label,
+                      style: GoogleFonts.poppins(
+                        color: fg,
+                        fontSize: radius * 0.72,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    )),
         ),
         if (showOnlineDot && user?.isOnline == true)
           Positioned(

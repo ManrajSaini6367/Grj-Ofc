@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:grjoffice_apps/chatscreen/models/chat_models.dart';
@@ -27,10 +29,13 @@ class _SelectParticipantsScreenState extends State<SelectParticipantsScreen> {
   final _service = ChatService.instance;
   final Set<int> _selectedIds = {};
   String _query = '';
+  bool _submitting = false;
 
   @override
   void initState() {
     super.initState();
+    unawaited(_service.loadChatUsers());
+    _service.addListener(_onUpdated);
     _searchController.addListener(() {
       setState(() => _query = _searchController.text.trim().toLowerCase());
     });
@@ -38,8 +43,13 @@ class _SelectParticipantsScreenState extends State<SelectParticipantsScreen> {
 
   @override
   void dispose() {
+    _service.removeListener(_onUpdated);
     _searchController.dispose();
     super.dispose();
+  }
+
+  void _onUpdated() {
+    if (mounted) setState(() {});
   }
 
   List<ChatUser> get _users {
@@ -66,7 +76,7 @@ class _SelectParticipantsScreenState extends State<SelectParticipantsScreen> {
     });
   }
 
-  void _onNext() {
+  Future<void> _onNext() async {
     if (_selectedIds.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Select at least one participant.')),
@@ -74,12 +84,34 @@ class _SelectParticipantsScreenState extends State<SelectParticipantsScreen> {
       return;
     }
 
+    // ADD MEMBERS flow (from Group Info → Add members)
     if (widget.isAddMembers && widget.threadId != null) {
-      _service.addGroupMembers(widget.threadId!, _selectedIds.toList());
-      Navigator.of(context).pop(true);
+      if (_submitting) return;
+      setState(() => _submitting = true);
+
+      final result = await _service.addGroupMembersOnServer(
+        threadId: widget.threadId!,
+        memberIds: _selectedIds.toList(),
+      );
+
+      if (!mounted) return;
+      setState(() => _submitting = false);
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(result.message, style: GoogleFonts.poppins()),
+          backgroundColor: result.success ? null : AppColors.primaryRed,
+        ),
+      );
+
+      // Only go back on success so Group Info can refresh.
+      if (result.success) {
+        Navigator.of(context).pop(true);
+      }
       return;
     }
 
+    // NEW GROUP flow → next screen for name/description
     Navigator.of(context).push(
       MaterialPageRoute(
         builder: (_) => GroupDetailsScreen(
@@ -100,20 +132,31 @@ class _SelectParticipantsScreenState extends State<SelectParticipantsScreen> {
           children: [
             AppTopBar.page(
               title: widget.isAddMembers ? 'Add Members' : 'Add participants',
-              onBack: () => Navigator.pop(context),
+              onBack: _submitting ? null : () => Navigator.pop(context),
               actions: [
                 TextButton(
-                  onPressed: _selectedIds.isEmpty ? null : _onNext,
-                  child: Text(
-                    widget.isAddMembers ? 'Add' : 'Next',
-                    style: GoogleFonts.poppins(
-                      color: _selectedIds.isEmpty
-                          ? AppColors.textSecondary
-                          : AppColors.primaryRed,
-                      fontWeight: FontWeight.w700,
-                      fontSize: 14,
-                    ),
-                  ),
+                  onPressed: (_selectedIds.isEmpty || _submitting)
+                      ? null
+                      : _onNext,
+                  child: _submitting
+                      ? const SizedBox(
+                          width: 18,
+                          height: 18,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: AppColors.primaryRed,
+                          ),
+                        )
+                      : Text(
+                          widget.isAddMembers ? 'Add' : 'Next',
+                          style: GoogleFonts.poppins(
+                            color: _selectedIds.isEmpty
+                                ? AppColors.textSecondary
+                                : AppColors.primaryRed,
+                            fontWeight: FontWeight.w700,
+                            fontSize: 14,
+                          ),
+                        ),
                 ),
               ],
             ),

@@ -18,6 +18,9 @@ class GroupInfoScreen extends StatefulWidget {
 
 class _GroupInfoScreenState extends State<GroupInfoScreen> {
   final _service = ChatService.instance;
+  bool _deleting = false;
+  bool _leaving = false;
+  int? _removingMemberId;
 
   @override
   void initState() {
@@ -54,12 +57,17 @@ class _GroupInfoScreenState extends State<GroupInfoScreen> {
   }
 
   Future<void> _removeMember(ChatUser member) async {
+    if (_removingMemberId != null || _leaving || _deleting) return;
+
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
         backgroundColor: AppColors.cardWhite,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-        title: Text('Remove member?', style: GoogleFonts.poppins(fontWeight: FontWeight.w700)),
+        title: Text(
+          'Remove member?',
+          style: GoogleFonts.poppins(fontWeight: FontWeight.w700),
+        ),
         content: Text(
           'Remove ${member.name} from this group?',
           style: GoogleFonts.poppins(fontSize: 14),
@@ -67,27 +75,51 @@ class _GroupInfoScreenState extends State<GroupInfoScreen> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: Text('Cancel', style: GoogleFonts.poppins(color: AppColors.textSecondary)),
+            child: Text(
+              'Cancel',
+              style: GoogleFonts.poppins(color: AppColors.textSecondary),
+            ),
           ),
           TextButton(
             onPressed: () => Navigator.pop(context, true),
-            child: Text('Remove', style: GoogleFonts.poppins(color: AppColors.primaryRed)),
+            child: Text(
+              'Remove',
+              style: GoogleFonts.poppins(color: AppColors.primaryRed),
+            ),
           ),
         ],
       ),
     );
-    if (confirmed == true) {
-      _service.removeGroupMember(widget.threadId, member.id);
-    }
+    if (confirmed != true || !mounted) return;
+
+    setState(() => _removingMemberId = member.id);
+    final result = await _service.removeGroupMemberOnServer(
+      threadId: widget.threadId,
+      memberId: member.id,
+    );
+    if (!mounted) return;
+    setState(() => _removingMemberId = null);
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(result.message, style: GoogleFonts.poppins()),
+        backgroundColor: result.success ? null : AppColors.primaryRed,
+      ),
+    );
   }
 
   Future<void> _leaveGroup() async {
+    if (_leaving || _deleting) return;
+
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
         backgroundColor: AppColors.cardWhite,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-        title: Text('Leave group?', style: GoogleFonts.poppins(fontWeight: FontWeight.w700)),
+        title: Text(
+          'Leave group?',
+          style: GoogleFonts.poppins(fontWeight: FontWeight.w700),
+        ),
         content: Text(
           'You will no longer receive messages from this group.',
           style: GoogleFonts.poppins(fontSize: 14),
@@ -95,31 +127,52 @@ class _GroupInfoScreenState extends State<GroupInfoScreen> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: Text('Cancel', style: GoogleFonts.poppins(color: AppColors.textSecondary)),
+            child: Text(
+              'Cancel',
+              style: GoogleFonts.poppins(color: AppColors.textSecondary),
+            ),
           ),
           TextButton(
             onPressed: () => Navigator.pop(context, true),
-            child: Text('Leave', style: GoogleFonts.poppins(color: AppColors.primaryRed)),
+            child: Text(
+              'Leave',
+              style: GoogleFonts.poppins(color: AppColors.primaryRed),
+            ),
           ),
         ],
       ),
     );
     if (confirmed != true || !mounted) return;
 
-    final left = _service.leaveGroup(widget.threadId);
+    setState(() => _leaving = true);
+    final result = await _service.leaveGroupOnServer(widget.threadId);
     if (!mounted) return;
-    if (left) {
+    setState(() => _leaving = false);
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(result.message, style: GoogleFonts.poppins()),
+        backgroundColor: result.success ? null : AppColors.primaryRed,
+      ),
+    );
+
+    if (result.success) {
       Navigator.of(context).popUntil((route) => route.isFirst);
     }
   }
 
   Future<void> _deleteGroup() async {
+    if (_deleting) return;
+
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
         backgroundColor: AppColors.cardWhite,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-        title: Text('Delete group?', style: GoogleFonts.poppins(fontWeight: FontWeight.w700)),
+        title: Text(
+          'Delete group?',
+          style: GoogleFonts.poppins(fontWeight: FontWeight.w700),
+        ),
         content: Text(
           'This will permanently delete the group for all members.',
           style: GoogleFonts.poppins(fontSize: 14),
@@ -127,20 +180,37 @@ class _GroupInfoScreenState extends State<GroupInfoScreen> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: Text('Cancel', style: GoogleFonts.poppins(color: AppColors.textSecondary)),
+            child: Text(
+              'Cancel',
+              style: GoogleFonts.poppins(color: AppColors.textSecondary),
+            ),
           ),
           TextButton(
             onPressed: () => Navigator.pop(context, true),
-            child: Text('Delete', style: GoogleFonts.poppins(color: AppColors.primaryRed)),
+            child: Text(
+              'Delete',
+              style: GoogleFonts.poppins(color: AppColors.primaryRed),
+            ),
           ),
         ],
       ),
     );
     if (confirmed != true || !mounted) return;
 
-    final deleted = _service.deleteGroup(widget.threadId);
+    setState(() => _deleting = true);
+    final result = await _service.deleteGroupOnServer(widget.threadId);
     if (!mounted) return;
-    if (deleted) {
+    setState(() => _deleting = false);
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(result.message, style: GoogleFonts.poppins()),
+        backgroundColor:
+            result.success ? null : AppColors.primaryRed,
+      ),
+    );
+
+    if (result.success) {
       Navigator.of(context).popUntil((route) => route.isFirst);
     }
   }
@@ -257,10 +327,29 @@ class _GroupInfoScreenState extends State<GroupInfoScreen> {
                           style: GoogleFonts.poppins(fontSize: 12, color: AppColors.textSecondary),
                         ),
                         trailing: isAdmin && !isMe
-                            ? IconButton(
-                                icon: const Icon(Icons.remove_circle_outline, color: AppColors.primaryRed),
-                                onPressed: () => _removeMember(member),
-                              )
+                            ? (_removingMemberId == member.id
+                                ? const SizedBox(
+                                    width: 24,
+                                    height: 24,
+                                    child: Padding(
+                                      padding: EdgeInsets.all(4),
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                        color: AppColors.primaryRed,
+                                      ),
+                                    ),
+                                  )
+                                : IconButton(
+                                    icon: const Icon(
+                                      Icons.remove_circle_outline,
+                                      color: AppColors.primaryRed,
+                                    ),
+                                    onPressed: (_removingMemberId != null ||
+                                            _leaving ||
+                                            _deleting)
+                                        ? null
+                                        : () => _removeMember(member),
+                                  ))
                             : null,
                       ),
                     );
@@ -268,17 +357,17 @@ class _GroupInfoScreenState extends State<GroupInfoScreen> {
                   const SizedBox(height: 16),
                   _actionTile(
                     icon: Icons.logout_rounded,
-                    label: 'Leave group',
+                    label: _leaving ? 'Leaving…' : 'Leave group',
                     color: AppColors.primaryRed,
-                    onTap: _leaveGroup,
+                    onTap: (_leaving || _deleting) ? null : _leaveGroup,
                   ),
                   if (isAdmin) ...[
                     const SizedBox(height: 8),
                     _actionTile(
                       icon: Icons.delete_outline,
-                      label: 'Delete group',
+                      label: _deleting ? 'Deleting…' : 'Delete group',
                       color: AppColors.primaryRed,
-                      onTap: _deleteGroup,
+                      onTap: (_leaving || _deleting) ? null : _deleteGroup,
                     ),
                   ],
                   const SizedBox(height: 24),
@@ -294,12 +383,13 @@ class _GroupInfoScreenState extends State<GroupInfoScreen> {
   Widget _actionTile({
     required IconData icon,
     required String label,
-    required VoidCallback onTap,
+    required VoidCallback? onTap,
     Color? color,
   }) {
     return Material(
       color: AppColors.cardWhite,
       child: ListTile(
+        enabled: onTap != null,
         leading: Icon(icon, color: color ?? AppColors.primaryRed),
         title: Text(
           label,

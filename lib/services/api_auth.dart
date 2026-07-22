@@ -4,6 +4,9 @@ import 'dart:io';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:grjoffice_apps/chatmodalsclasses/getchatlistmodal.dart';
+import 'package:grjoffice_apps/chatmodalsclasses/getlistmessagesmodal.dart';
+import 'package:grjoffice_apps/chatmodalsclasses/threadchatmodal.dart';
 import 'package:grjoffice_apps/core/app_navigator.dart';
 import 'package:grjoffice_apps/core/api_config.dart';
 import 'package:grjoffice_apps/core/preference.dart';
@@ -3950,4 +3953,607 @@ Future<bool> markLabourAttendanceApi(
 
 Future<Mypermissionmodaldata?> getMyPermissionsApi() {
   return PermissionService.instance.fetch();
+}
+
+//getchatlistapi
+
+Future<Getchatlistmodaldata?> getChatListApi({
+  int perPage = 50,
+  String search = '',
+}) async {
+  try {
+    final token = Preference.pref.getString('token') ?? '';
+    if (token.isEmpty) {
+      debugPrint('Get Chat List API : missing token');
+      return null;
+    }
+
+    final uri = Uri.parse('$baseUrl/api/v1/chat/users').replace(
+      queryParameters: {
+        'per_page': '$perPage',
+        if (search.trim().isNotEmpty) 'search': search.trim(),
+      },
+    );
+
+    final response = await http.get(
+      uri,
+      headers: {
+        'Accept': 'application/json',
+        'Authorization': 'Bearer $token',
+      },
+    );
+
+    debugPrint('Get Chat List API : ${response.request?.url}');
+    debugPrint('Status Code : ${response.statusCode}');
+    debugPrint('Response : ${response.body}');
+
+    if (response.statusCode == 200) {
+      final jsonData = jsonDecode(response.body);
+      if (jsonData is Map<String, dynamic> && jsonData['success'] == true) {
+        return Getchatlistmodaldata.fromJson(jsonData);
+      }
+    }
+  } catch (e, st) {
+    debugPrint('Get Chat List API Error : $e\n$st');
+  }
+
+  return null;
+}
+
+
+//getchatthreadlistapi
+
+Future<Getchatthreadlistmodal?> getChatThreadListApi({
+  int perPage = 30,
+  String type = '',
+  String search = '',
+}) async {
+  try {
+    final token = Preference.pref.getString('token') ?? '';
+    if (token.isEmpty) {
+      debugPrint('Get Chat Thread List API : missing token');
+      return null;
+    }
+
+    final uri = Uri.parse('$baseUrl/api/v1/chat/threads').replace(
+      queryParameters: {
+        'per_page': '$perPage',
+        if (type.trim().isNotEmpty) 'type': type.trim(),
+        if (search.trim().isNotEmpty) 'search': search.trim(),
+      },
+    );
+
+    final response = await http.get(
+      uri,
+      headers: {
+        'Accept': 'application/json',
+        'Authorization': 'Bearer $token',
+      },
+    );
+
+    debugPrint('Get Chat Thread List API : ${response.request?.url}');
+    debugPrint('Status Code : ${response.statusCode}');
+    debugPrint('Response : ${response.body}');
+
+    if (response.statusCode == 200) {
+      final jsonData = jsonDecode(response.body);
+      if (jsonData is Map<String, dynamic> && jsonData['success'] == true) {
+        return Getchatthreadlistmodal.fromJson(jsonData);
+      }
+    }
+  } catch (e, st) {
+    debugPrint('Get Chat Thread List API Error : $e\n$st');
+  }
+
+  return null;
+}
+
+
+//creategroupchatapi
+
+class CreateGroupApiResult {
+  const CreateGroupApiResult({
+    required this.success,
+    required this.message,
+    this.data,
+  });
+
+  final bool success;
+  final String message;
+  final Map<String, dynamic>? data;
+}
+
+Future<CreateGroupApiResult> createGroupApi({
+  required String name,
+  required String description,
+  required List<int> memberIds,
+  required int groupAvatarColor,
+}) async {
+  final requestBody = {
+    'name': name,
+    'description': description,
+    'member_ids': memberIds,
+    'group_avatar_color': groupAvatarColor,
+  };
+
+  try {
+    final token = Preference.pref.getString('token') ?? '';
+    if (token.isEmpty) {
+      debugPrint('Create Group API : missing token');
+      return const CreateGroupApiResult(
+        success: false,
+        message: 'Not authenticated. Please login again.',
+      );
+    }
+
+    final uri = Uri.parse('$baseUrl/api/v1/chat/groups');
+    debugPrint('Create Group API Request URL : $uri');
+    debugPrint('Create Group API Request Body : ${jsonEncode(requestBody)}');
+
+    final response = await http.post(
+      uri,
+      headers: {
+        'Accept': 'application/json',
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $token',
+      },
+      body: jsonEncode(requestBody),
+    );
+
+    debugPrint('Create Group API Status Code : ${response.statusCode}');
+    debugPrint('Create Group API Response : ${response.body}');
+
+    Map<String, dynamic>? jsonData;
+    try {
+      final decoded = jsonDecode(response.body);
+      if (decoded is Map<String, dynamic>) jsonData = decoded;
+    } catch (_) {}
+
+    if (response.statusCode == 201 || response.statusCode == 200) {
+      if (jsonData?['success'] == true) {
+        final data = jsonData!['data'];
+        return CreateGroupApiResult(
+          success: true,
+          message: jsonData['message']?.toString() ?? 'Group created successfully.',
+          data: data is Map<String, dynamic>
+              ? data
+              : (data is Map ? Map<String, dynamic>.from(data) : null),
+        );
+      }
+      return CreateGroupApiResult(
+        success: false,
+        message: jsonData?['message']?.toString() ?? 'Failed to create group.',
+        data: jsonData,
+      );
+    }
+
+    return CreateGroupApiResult(
+      success: false,
+      message: jsonData?['message']?.toString() ??
+          'Failed to create group (${response.statusCode}).',
+      data: jsonData,
+    );
+  } catch (e, st) {
+    debugPrint('Create Group API Error : $e\n$st');
+    return const CreateGroupApiResult(
+      success: false,
+      message: 'Something went wrong. Please try again.',
+    );
+  }
+}
+
+//DELETEGROUPAPI
+
+class DeleteGroupApiResult {
+  const DeleteGroupApiResult({
+    required this.success,
+    required this.message,
+  });
+
+  final bool success;
+  final String message;
+}
+
+Future<DeleteGroupApiResult> deleteGroupApi({
+  required String chatThreadId,
+}) async {
+  try {
+    final token = Preference.pref.getString('token') ?? '';
+    if (token.isEmpty) {
+      debugPrint('Delete Group API : missing token');
+      return const DeleteGroupApiResult(
+        success: false,
+        message: 'Not authenticated. Please login again.',
+      );
+    }
+
+    final uri = Uri.parse('$baseUrl/api/v1/chat/groups/$chatThreadId');
+    debugPrint('Delete Group API Request URL : $uri');
+
+    final response = await http.delete(
+      uri,
+      headers: {
+        'Accept': 'application/json',
+        'Authorization': 'Bearer $token',
+      },
+    );
+
+    debugPrint('Delete Group API Status Code : ${response.statusCode}');
+    debugPrint('Delete Group API Response : ${response.body}');
+
+    Map<String, dynamic>? jsonData;
+    if (response.body.trim().isNotEmpty) {
+      try {
+        final decoded = jsonDecode(response.body);
+        if (decoded is Map<String, dynamic>) jsonData = decoded;
+      } catch (_) {}
+    }
+
+    final okStatus =
+        response.statusCode == 200 || response.statusCode == 204;
+    final okFlag = jsonData == null || jsonData['success'] == true;
+
+    if (okStatus && okFlag) {
+      return DeleteGroupApiResult(
+        success: true,
+        message: jsonData?['message']?.toString() ??
+            'Group deleted successfully.',
+      );
+    }
+
+    return DeleteGroupApiResult(
+      success: false,
+      message: jsonData?['message']?.toString() ??
+          'Failed to delete group (${response.statusCode}).',
+    );
+  } catch (e, st) {
+    debugPrint('Delete Group API Error : $e\n$st');
+    return const DeleteGroupApiResult(
+      success: false,
+      message: 'Something went wrong. Please try again.',
+    );
+  }
+}
+
+
+//LEAVEGROUPAPI
+
+class LeaveGroupApiResult {
+  const LeaveGroupApiResult({
+    required this.success,
+    required this.message,
+  });
+
+  final bool success;
+  final String message;
+}
+
+Future<LeaveGroupApiResult> leaveGroupApi({
+  required String chatThreadId,
+}) async {
+  try {
+    final token = Preference.pref.getString('token') ?? '';
+    if (token.isEmpty) {
+      debugPrint('Leave Group API : missing token');
+      return const LeaveGroupApiResult(
+        success: false,
+        message: 'Not authenticated. Please login again.',
+      );
+    }
+
+    final uri = Uri.parse('$baseUrl/api/v1/chat/groups/$chatThreadId/leave');
+    debugPrint('Leave Group API Request URL : $uri');
+
+    final response = await http.post(
+      uri,
+      headers: {
+        'Accept': 'application/json',
+        'Authorization': 'Bearer $token',
+      },
+    );
+
+    debugPrint('Leave Group API Status Code : ${response.statusCode}');
+    debugPrint('Leave Group API Response : ${response.body}');
+
+    Map<String, dynamic>? jsonData;
+    if (response.body.trim().isNotEmpty) {
+      try {
+        final decoded = jsonDecode(response.body);
+        if (decoded is Map<String, dynamic>) jsonData = decoded;
+      } catch (_) {}
+    }
+
+    final okStatus =
+        response.statusCode == 200 || response.statusCode == 201;
+    final okFlag = jsonData == null || jsonData['success'] == true;
+
+    if (okStatus && okFlag) {
+      return LeaveGroupApiResult(
+        success: true,
+        message:
+            jsonData?['message']?.toString() ?? 'Left group successfully.',
+      );
+    }
+
+    return LeaveGroupApiResult(
+      success: false,
+      message: jsonData?['message']?.toString() ??
+          'Failed to leave group (${response.statusCode}).',
+    );
+  } catch (e, st) {
+    debugPrint('Leave Group API Error : $e\n$st');
+    return const LeaveGroupApiResult(
+      success: false,
+      message: 'Something went wrong. Please try again.',
+    );
+  }
+}
+
+//REMOVEGROUPMEMBERAPI
+
+class RemoveGroupMemberApiResult {
+  const RemoveGroupMemberApiResult({
+    required this.success,
+    required this.message,
+  });
+
+  final bool success;
+  final String message;
+}
+
+Future<RemoveGroupMemberApiResult> removeGroupMemberApi({
+  required String chatThreadId,
+  required int memberId,
+}) async {
+  try {
+    final token = Preference.pref.getString('token') ?? '';
+    if (token.isEmpty) {
+      debugPrint('Remove Group Member API : missing token');
+      return const RemoveGroupMemberApiResult(
+        success: false,
+        message: 'Not authenticated. Please login again.',
+      );
+    }
+
+    final uri = Uri.parse(
+      '$baseUrl/api/v1/chat/groups/$chatThreadId/members/$memberId',
+    );
+    debugPrint('Remove Group Member API Request URL : $uri');
+
+    final response = await http.delete(
+      uri,
+      headers: {
+        'Accept': 'application/json',
+        'Authorization': 'Bearer $token',
+      },
+    );
+
+    debugPrint('Remove Group Member API Status Code : ${response.statusCode}');
+    debugPrint('Remove Group Member API Response : ${response.body}');
+
+    Map<String, dynamic>? jsonData;
+    if (response.body.trim().isNotEmpty) {
+      try {
+        final decoded = jsonDecode(response.body);
+        if (decoded is Map<String, dynamic>) jsonData = decoded;
+      } catch (_) {}
+    }
+
+    final okStatus =
+        response.statusCode == 200 || response.statusCode == 204;
+    final okFlag = jsonData == null || jsonData['success'] == true;
+
+    if (okStatus && okFlag) {
+      return RemoveGroupMemberApiResult(
+        success: true,
+        message: jsonData?['message']?.toString() ??
+            'Member removed successfully.',
+      );
+    }
+
+    return RemoveGroupMemberApiResult(
+      success: false,
+      message: jsonData?['message']?.toString() ??
+          'Failed to remove member (${response.statusCode}).',
+    );
+  } catch (e, st) {
+    debugPrint('Remove Group Member API Error : $e\n$st');
+    return const RemoveGroupMemberApiResult(
+      success: false,
+      message: 'Something went wrong. Please try again.',
+    );
+  }
+}
+
+//ADDGROUPMEMBERAPI
+
+class AddGroupMembersApiResult {
+  const AddGroupMembersApiResult({
+    required this.success,
+    required this.message,
+  });
+
+  final bool success;
+  final String message;
+}
+
+Future<AddGroupMembersApiResult> addGroupMembersApi({
+  required String chatThreadId,
+  required List<int> memberIds,
+}) async {
+  final requestBody = {
+    'member_ids': memberIds,
+  };
+
+  try {
+    final token = Preference.pref.getString('token') ?? '';
+    if (token.isEmpty) {
+      debugPrint('Add Group Members API : missing token');
+      return const AddGroupMembersApiResult(
+        success: false,
+        message: 'Not authenticated. Please login again.',
+      );
+    }
+
+    final uri = Uri.parse(
+      '$baseUrl/api/v1/chat/groups/$chatThreadId/members',
+    );
+    debugPrint('Add Group Members API Request URL : $uri');
+    debugPrint(
+      'Add Group Members API Request Body : ${jsonEncode(requestBody)}',
+    );
+
+    final response = await http.post(
+      uri,
+      headers: {
+        'Accept': 'application/json',
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $token',
+      },
+      body: jsonEncode(requestBody),
+    );
+
+    debugPrint('Add Group Members API Status Code : ${response.statusCode}');
+    debugPrint('Add Group Members API Response : ${response.body}');
+
+    Map<String, dynamic>? jsonData;
+    if (response.body.trim().isNotEmpty) {
+      try {
+        final decoded = jsonDecode(response.body);
+        if (decoded is Map<String, dynamic>) jsonData = decoded;
+      } catch (_) {}
+    }
+
+    final okStatus =
+        response.statusCode == 200 || response.statusCode == 201;
+    final okFlag = jsonData == null || jsonData['success'] == true;
+
+    if (okStatus && okFlag) {
+      return AddGroupMembersApiResult(
+        success: true,
+        message: jsonData?['message']?.toString() ??
+            'Members added successfully.',
+      );
+    }
+
+    return AddGroupMembersApiResult(
+      success: false,
+      message: jsonData?['message']?.toString() ??
+          'Failed to add members (${response.statusCode}).',
+    );
+  } catch (e, st) {
+    debugPrint('Add Group Members API Error : $e\n$st');
+    return const AddGroupMembersApiResult(
+      success: false,
+      message: 'Something went wrong. Please try again.',
+    );
+  }
+}
+
+//Markthreadreadapi 
+
+Future<bool> markThreadReadApi({
+  required String chatThreadId,
+}) async {
+  try {
+    final token = Preference.pref.getString('token') ?? '';
+
+    final response = await http.post(
+      Uri.parse('$baseUrl/api/v1/chat/threads/$chatThreadId/read'),
+      headers: {
+        'Accept': 'application/json',
+        'Authorization': 'Bearer $token',
+      },
+    );
+
+    debugPrint('Mark Thread Read API : ${response.request?.url}');
+    debugPrint('Status Code : ${response.statusCode}');
+    debugPrint('Response : ${response.body}');
+
+    final jsonData = jsonDecode(response.body);
+
+    if ((response.statusCode == 200 || response.statusCode == 201) &&
+        jsonData['success'] == true) {
+      return true;
+    }
+  } catch (e) {
+    debugPrint('Mark Thread Read API Error : $e');
+  }
+
+  return false;
+}
+
+//sendMessageApi
+
+Future<bool> sendMessageApi({
+  required String chatThreadId,
+  required String message,
+}) async {
+  try {
+    final token = Preference.pref.getString('token') ?? '';
+
+    final response = await http.post(
+      Uri.parse('$baseUrl/api/v1/chat/threads/$chatThreadId/messages'),
+      headers: {
+        'Accept': 'application/json',
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $token',
+      },
+      body: jsonEncode({
+        'text': message,
+      }),
+    );
+
+    debugPrint('Send Message API : ${response.request?.url}');
+    debugPrint('Status Code : ${response.statusCode}');
+    debugPrint('Response : ${response.body}');
+
+    final jsonData = jsonDecode(response.body);
+
+    if ((response.statusCode == 200 || response.statusCode == 201) &&
+        jsonData['success'] == true) {
+      return true;
+    }
+  } catch (e) {
+    debugPrint('Send Message API Error : $e');
+  }
+
+  return false;
+}
+
+
+//getlistmessagesapi
+Future<Getlistmessagemodal?> getListMessageApi({
+  required String chatThreadId,
+  int perPage = 50,
+}) async {
+  try {
+    final token = Preference.pref.getString('token') ?? '';
+    final url =
+        '$baseUrl/api/v1/chat/threads/$chatThreadId/messages?per_page=$perPage';
+
+    debugPrint('=========== Get List Messages API ===========');
+    debugPrint('URL : $url');
+
+    final response = await http.get(
+      Uri.parse(url),
+      headers: {
+        'Accept': 'application/json',
+        'Authorization': 'Bearer $token',
+      },
+    );
+
+    debugPrint('Status Code : ${response.statusCode}');
+    debugPrint('Response : ${response.body}');
+
+    if (response.statusCode == 200) {
+      final jsonData = jsonDecode(response.body);
+      if (jsonData is Map<String, dynamic>) {
+        return Getlistmessagemodal.fromJson(jsonData);
+      }
+    }
+  } catch (e) {
+    debugPrint('Get List Messages Exception : $e');
+  }
+  return null;
 }

@@ -35,8 +35,10 @@ class _ConversationScreenState extends State<ConversationScreen> {
       final next = _messageController.text.trim().isNotEmpty;
       if (next != _hasText) setState(() => _hasText = next);
     });
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _service.markThreadRead(widget.threadId);
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      await _service.loadMessages(widget.threadId);
+      if (!mounted) return;
+      await _service.markThreadRead(widget.threadId);
       _scrollToBottom();
     });
   }
@@ -220,7 +222,9 @@ class _ConversationScreenState extends State<ConversationScreen> {
       body: Column(
         children: [
           Expanded(
-            child: ListView.builder(
+            child: _service.isLoadingMessages && thread.messages.isEmpty
+                ? const Center(child: CircularProgressIndicator())
+                : ListView.builder(
               controller: _scrollController,
               padding: const EdgeInsets.fromLTRB(14, 12, 14, 8),
               itemCount: thread.messages.length + (thread.isTyping ? 1 : 0),

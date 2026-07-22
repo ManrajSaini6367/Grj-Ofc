@@ -21,6 +21,7 @@ class _GroupDetailsScreenState extends State<GroupDetailsScreen> {
   final _descriptionController = TextEditingController();
   final _service = ChatService.instance;
   Color _avatarColor = ChatService.groupAvatarOptions.first;
+  bool _creating = false;
 
   @override
   void dispose() {
@@ -30,6 +31,7 @@ class _GroupDetailsScreenState extends State<GroupDetailsScreen> {
   }
 
   void _pickAvatarColor() {
+    if (_creating) return;
     showModalBottomSheet<void>(
       context: context,
       backgroundColor: AppColors.cardWhite,
@@ -85,20 +87,53 @@ class _GroupDetailsScreenState extends State<GroupDetailsScreen> {
     );
   }
 
-  void _createGroup() {
+  Future<void> _createGroup() async {
     final name = _nameController.text.trim();
     if (name.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please enter a group name.')),
+        SnackBar(
+          content: Text(
+            'Please enter a group name.',
+            style: GoogleFonts.poppins(),
+          ),
+        ),
       );
       return;
     }
 
-    final thread = _service.createGroup(
+    if (_creating) return;
+    setState(() => _creating = true);
+
+    final result = await _service.createGroupOnServer(
       name: name,
       memberIds: widget.memberIds,
       description: _descriptionController.text,
       groupAvatarColor: _avatarColor.toARGB32(),
+    );
+
+    if (!mounted) return;
+    setState(() => _creating = false);
+
+    if (!result.success || result.thread == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            result.message,
+            style: GoogleFonts.poppins(),
+          ),
+          backgroundColor: AppColors.primaryRed,
+        ),
+      );
+      return;
+    }
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          result.message,
+          style: GoogleFonts.poppins(),
+        ),
+      ),
     );
 
     Navigator.of(context)
@@ -106,7 +141,7 @@ class _GroupDetailsScreenState extends State<GroupDetailsScreen> {
       ..pop()
       ..push(
         MaterialPageRoute(
-          builder: (_) => ConversationScreen(threadId: thread.id),
+          builder: (_) => ConversationScreen(threadId: result.thread!.id),
         ),
       );
   }
@@ -120,7 +155,7 @@ class _GroupDetailsScreenState extends State<GroupDetailsScreen> {
           children: [
             AppTopBar.page(
               title: 'New group',
-              onBack: () => Navigator.pop(context),
+              onBack: _creating ? null : () => Navigator.pop(context),
             ),
             Expanded(
               child: SingleChildScrollView(
@@ -128,7 +163,9 @@ class _GroupDetailsScreenState extends State<GroupDetailsScreen> {
                 child: Column(
                   children: [
                     GroupProfileAvatar(
-                      label: _nameController.text.isEmpty ? 'Group' : _nameController.text,
+                      label: _nameController.text.isEmpty
+                          ? 'Group'
+                          : _nameController.text,
                       color: _avatarColor,
                       radius: 56,
                       showCamera: true,
@@ -137,11 +174,15 @@ class _GroupDetailsScreenState extends State<GroupDetailsScreen> {
                     const SizedBox(height: 8),
                     Text(
                       'Tap to set group icon color',
-                      style: GoogleFonts.poppins(fontSize: 12, color: AppColors.textSecondary),
+                      style: GoogleFonts.poppins(
+                        fontSize: 12,
+                        color: AppColors.textSecondary,
+                      ),
                     ),
                     const SizedBox(height: 24),
                     TextField(
                       controller: _nameController,
+                      enabled: !_creating,
                       onChanged: (_) => setState(() {}),
                       style: GoogleFonts.poppins(fontSize: 14),
                       decoration: _inputDecoration('Group subject'),
@@ -149,10 +190,12 @@ class _GroupDetailsScreenState extends State<GroupDetailsScreen> {
                     const SizedBox(height: 14),
                     TextField(
                       controller: _descriptionController,
+                      enabled: !_creating,
                       minLines: 2,
                       maxLines: 3,
                       style: GoogleFonts.poppins(fontSize: 14),
-                      decoration: _inputDecoration('Group description (optional)'),
+                      decoration:
+                          _inputDecoration('Group description (optional)'),
                     ),
                     const SizedBox(height: 16),
                     Align(
@@ -170,22 +213,33 @@ class _GroupDetailsScreenState extends State<GroupDetailsScreen> {
                       height: 48,
                       width: double.infinity,
                       child: ElevatedButton(
-                        onPressed: _createGroup,
+                        onPressed: _creating ? null : _createGroup,
                         style: ElevatedButton.styleFrom(
                           backgroundColor: AppColors.primaryRed,
                           foregroundColor: AppColors.white,
+                          disabledBackgroundColor:
+                              AppColors.primaryRed.withValues(alpha: 0.6),
                           elevation: 0,
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(12),
                           ),
                         ),
-                        child: Text(
-                          'Create group',
-                          style: GoogleFonts.poppins(
-                            fontSize: 14,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
+                        child: _creating
+                            ? const SizedBox(
+                                width: 22,
+                                height: 22,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2.4,
+                                  color: Colors.white,
+                                ),
+                              )
+                            : Text(
+                                'Create group',
+                                style: GoogleFonts.poppins(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
                       ),
                     ),
                   ],
@@ -206,11 +260,15 @@ class _GroupDetailsScreenState extends State<GroupDetailsScreen> {
       fillColor: AppColors.cardWhite,
       border: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
-        borderSide: BorderSide(color: AppColors.borderGray.withValues(alpha: 0.6)),
+        borderSide: BorderSide(
+          color: AppColors.borderGray.withValues(alpha: 0.6),
+        ),
       ),
       enabledBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
-        borderSide: BorderSide(color: AppColors.borderGray.withValues(alpha: 0.6)),
+        borderSide: BorderSide(
+          color: AppColors.borderGray.withValues(alpha: 0.6),
+        ),
       ),
       focusedBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
