@@ -548,6 +548,7 @@ class _ViewTaskScreenState extends State<ViewTaskScreen> {
   }
 
   Widget _buildAssigneeRow(Task task) {
+    final avatar = mediaUrl(task.assigneeAvatarUrl);
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
       child: Row(
@@ -555,10 +556,8 @@ class _ViewTaskScreenState extends State<ViewTaskScreen> {
           CircleAvatar(
             radius: 18,
             backgroundColor: AppColors.iconBgGray,
-            backgroundImage: (task.assigneeAvatarUrl?.isNotEmpty == true)
-                ? NetworkImage(task.assigneeAvatarUrl!)
-                : null,
-            child: (task.assigneeAvatarUrl?.isNotEmpty == true)
+            backgroundImage: avatar.isNotEmpty ? NetworkImage(avatar) : null,
+            child: avatar.isNotEmpty
                 ? null
                 : const Icon(Icons.person, color: AppColors.textSecondary, size: 18),
           ),

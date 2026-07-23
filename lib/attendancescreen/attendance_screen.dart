@@ -480,6 +480,8 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
         break;
     }
 
+    final avatar = mediaUrl(att.employeeAvatarUrl);
+
     return InkWell(
       onTap: () => _openAttendanceDetails(att),
       borderRadius: BorderRadius.circular(16),
@@ -505,8 +507,9 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
                 CircleAvatar(
                   radius: 22,
                   backgroundColor: AppColors.backgroundGray,
-                  backgroundImage: att.employeeAvatarUrl != null ? NetworkImage(att.employeeAvatarUrl!) : null,
-                  child: att.employeeAvatarUrl == null || att.employeeName.trim().isEmpty
+                  backgroundImage:
+                      avatar.isNotEmpty ? NetworkImage(avatar) : null,
+                  child: avatar.isEmpty || att.employeeName.trim().isEmpty
                       ? Text(
                           att.employeeName.trim().isEmpty
                               ? '?'

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:grjoffice_apps/core/api_config.dart';
 import 'package:grjoffice_apps/models/pagination_model.dart';
 
 enum TaskStatus {
@@ -125,7 +126,10 @@ class Task {
       level: json['level']?.toString(),
       status: TaskStatusApi.fromApi(json['status']?.toString()),
       assigneeName: json['assignee_name']?.toString() ?? '',
-      assigneeAvatarUrl: json['assignee_avatar_url']?.toString(),
+      assigneeAvatarUrl: () {
+        final url = mediaUrl(json['assignee_avatar_url']?.toString());
+        return url.isEmpty ? null : url;
+      }(),
       startDate: _parseDate(json['start_date']),
       description: json['description']?.toString(),
       unreadCount: json['unread_count'] as int? ?? 0,

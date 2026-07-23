@@ -1,3 +1,5 @@
+import 'package:grjoffice_apps/core/api_config.dart';
+
 enum AttendanceStatus {
   present,
   absent,
@@ -68,7 +70,10 @@ class Attendance {
       siteName: json['site_name']?.toString(),
       userId: int.tryParse(json['user_id']?.toString() ?? ''),
       employeeName: (json['employee_name'] ?? '—').toString(),
-      employeeAvatarUrl: json['employee_avatar_url']?.toString(),
+      employeeAvatarUrl: () {
+        final url = mediaUrl(json['employee_avatar_url']?.toString());
+        return url.isEmpty ? null : url;
+      }(),
       date: DateTime.tryParse(json['date']?.toString() ?? '') ?? DateTime.now(),
       punchInTime: DateTime.tryParse(json['punch_in']?.toString() ?? ''),
       punchOutTime: DateTime.tryParse(json['punch_out']?.toString() ?? ''),

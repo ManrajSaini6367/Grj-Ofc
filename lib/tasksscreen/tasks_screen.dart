@@ -811,7 +811,7 @@ class _TasksScreenState extends State<TasksScreen> {
                           backgroundColor: Colors.grey.shade100,
                           child: ClipOval(
                             child: Image.network(
-                              task.assigneeAvatarUrl ?? '',
+                              mediaUrl(task.assigneeAvatarUrl),
                               width: 30,
                               height: 30,
                               fit: BoxFit.cover,

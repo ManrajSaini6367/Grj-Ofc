@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:grjoffice_apps/chatmodalsclasses/createopendirectmodal.dart';
 import 'package:grjoffice_apps/chatmodalsclasses/getchatlistmodal.dart';
 import 'package:grjoffice_apps/chatmodalsclasses/getlistmessagesmodal.dart';
+import 'package:grjoffice_apps/chatmodalsclasses/showthreadmodal.dart';
 import 'package:grjoffice_apps/chatmodalsclasses/threadchatmodal.dart';
 import 'package:grjoffice_apps/chatscreen/models/chat_models.dart';
 import 'package:grjoffice_apps/services/api_auth.dart';
@@ -108,9 +110,7 @@ class ChatService extends ChangeNotifier {
         _users[id] = ChatUser(
           id: id,
           name: (item.name ?? '').trim().isEmpty ? 'User' : item.name!.trim(),
-          avatarUrl: (item.avatarUrl ?? '').trim().isEmpty
-              ? null
-              : item.avatarUrl!.trim(),
+          avatarUrl: _resolveAvatar(item.avatarUrl),
           isOnline: item.isOnline ?? false,
           lastSeen: _parseLastSeen(item.lastSeen),
         );
@@ -143,9 +143,7 @@ class ChatService extends ChangeNotifier {
         _users[pid] = ChatUser(
           id: pid,
           name: (p.name ?? '').trim().isEmpty ? 'User' : p.name!.trim(),
-          avatarUrl: (p.avatarUrl ?? '').trim().isEmpty
-              ? null
-              : p.avatarUrl!.trim(),
+          avatarUrl: _resolveAvatar(p.avatarUrl),
           isOnline: p.isOnline ?? false,
           lastSeen: _parseLastSeen(p.lastSeen),
         );
@@ -170,7 +168,7 @@ class ChatService extends ChangeNotifier {
         );
       }
 
-      final avatar = item.avatarUrl?.toString().trim();
+      final avatar = _resolveAvatar(item.avatarUrl);
       _threads.add(
         ChatThread(
           id: threadId,
@@ -180,7 +178,7 @@ class ChatService extends ChangeNotifier {
               : item.title!.trim(),
           participantIds: List<int>.from(item.participantIds ?? const []),
           messages: messages,
-          avatarUrl: (avatar == null || avatar.isEmpty) ? null : avatar,
+          avatarUrl: avatar,
           description: item.description?.toString(),
           adminId: _asInt(item.adminId),
           groupAvatarColor: _parseColor(item.groupAvatarColor),
@@ -242,6 +240,11 @@ class ChatService extends ChangeNotifier {
     return DateTime.tryParse(raw);
   }
 
+  String? _resolveAvatar(dynamic value) {
+    final url = mediaUrl(value?.toString());
+    return url.isEmpty ? null : url;
+  }
+
   ChatUser? userById(int id) => _users[id];
 
   ChatThread? threadById(String id) {
@@ -289,6 +292,71 @@ class ChatService extends ChangeNotifier {
 
     // Call API in background
     await markThreadReadApi(chatThreadId: threadId);
+  }
+
+  /// Loads single thread details (title, members, admin, etc.).
+  Future<void> loadThreadDetails(String threadId) async {
+    try {
+      final result = await showThreadApi(threadId);
+      if (result == null || result.success != true || result.data == null) {
+        return;
+      }
+      _applyShowThread(result.data!);
+      notifyListeners();
+    } catch (e) {
+      debugPrint('[ChatService] loadThreadDetails error: $e');
+    }
+  }
+
+  void _applyShowThread(ShowThreadData item) {
+    final threadId = (item.id ?? '').trim();
+    if (threadId.isEmpty) return;
+
+    for (final p in item.participants ?? const <ShowThreadParticipant>[]) {
+      final pid = p.id;
+      if (pid == null) continue;
+      _users[pid] = ChatUser(
+        id: pid,
+        name: (p.name ?? '').trim().isEmpty ? 'User' : p.name!.trim(),
+        avatarUrl: _resolveAvatar(p.avatarUrl),
+        isOnline: p.isOnline ?? false,
+        lastSeen: _parseLastSeen(p.lastSeen),
+      );
+    }
+
+    final isGroup = (item.type ?? '').toLowerCase() == 'group';
+    final title = (item.title ?? '').trim().isEmpty
+        ? (isGroup ? 'Group' : 'Chat')
+        : item.title!.trim();
+    final avatar = _resolveAvatar(item.avatarUrl);
+    final participantIds = List<int>.from(item.participantIds ?? const []);
+
+    final existing = threadById(threadId);
+    if (existing != null) {
+      existing.title = title;
+      existing.participantIds = participantIds;
+      existing.avatarUrl = avatar;
+      existing.description = item.description?.toString();
+      existing.adminId = _asInt(item.adminId);
+      existing.groupAvatarColor = _parseColor(item.groupAvatarColor);
+      existing.unreadCount = item.unreadCount ?? existing.unreadCount;
+      return;
+    }
+
+    _threads.add(
+      ChatThread(
+        id: threadId,
+        type: isGroup ? ChatThreadType.group : ChatThreadType.direct,
+        title: title,
+        participantIds: participantIds,
+        messages: [],
+        avatarUrl: avatar,
+        description: item.description?.toString(),
+        adminId: _asInt(item.adminId),
+        groupAvatarColor: _parseColor(item.groupAvatarColor),
+        unreadCount: item.unreadCount ?? 0,
+      ),
+    );
   }
 
   /// Loads messages for a thread from API and replaces local list.
@@ -342,7 +410,12 @@ class ChatService extends ChangeNotifier {
       text: item.text ?? '',
       sentAt: item.sentAt ?? DateTime.now(),
       status: _mapStatus(item.status),
-      mediaPath: item.mediaPath?.toString(),
+      mediaPath: () {
+        final raw = item.mediaPath?.toString().trim();
+        if (raw == null || raw.isEmpty || raw == 'null') return null;
+        final resolved = mediaUrl(raw);
+        return resolved.isEmpty ? raw : resolved;
+      }(),
       isVideo: item.isVideo ?? false,
       mediaDuration: duration,
     );
@@ -408,6 +481,92 @@ class ChatService extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Creates or opens a 1:1 direct thread with [userId].
+  Future<({ChatThread? thread, String message, bool success})>
+      openOrCreateDirectChat(int userId) async {
+    try {
+      final result = await createOpenDirectApi(userId);
+      if (result == null || result.success != true || result.data == null) {
+        return (
+          thread: null,
+          message: result?.message?.trim().isNotEmpty == true
+              ? result!.message!
+              : 'Failed to open chat. Please try again.',
+          success: false,
+        );
+      }
+
+      final thread = _applyDirectThread(result.data!);
+      notifyListeners();
+      unawaited(loadChatList(search: _lastSearch));
+
+      return (
+        thread: thread,
+        message: result.message?.trim().isNotEmpty == true
+            ? result.message!
+            : 'Chat opened',
+        success: thread != null,
+      );
+    } catch (e) {
+      debugPrint('[ChatService] openOrCreateDirectChat error: $e');
+      return (
+        thread: null,
+        message: 'Failed to open chat. Please try again.',
+        success: false,
+      );
+    }
+  }
+
+  ChatThread? _applyDirectThread(DirectThreadData item) {
+    final threadId = (item.id ?? '').trim();
+    if (threadId.isEmpty) return null;
+
+    for (final p in item.participants ?? const <DirectParticipant>[]) {
+      final pid = p.id;
+      if (pid == null) continue;
+      _users[pid] = ChatUser(
+        id: pid,
+        name: (p.name ?? '').trim().isEmpty ? 'User' : p.name!.trim(),
+        avatarUrl: _resolveAvatar(p.avatarUrl),
+        isOnline: p.isOnline ?? false,
+        lastSeen: _parseLastSeen(p.lastSeen),
+      );
+    }
+
+    final title = (item.title ?? '').trim().isEmpty
+        ? 'Chat'
+        : item.title!.trim();
+    final avatar = _resolveAvatar(item.avatarUrl);
+    final participantIds = List<int>.from(item.participantIds ?? const []);
+
+    final existing = threadById(threadId);
+    if (existing != null) {
+      existing.title = title;
+      existing.participantIds = participantIds;
+      existing.avatarUrl = avatar;
+      existing.description = item.description?.toString();
+      existing.adminId = _asInt(item.adminId);
+      existing.groupAvatarColor = _parseColor(item.groupAvatarColor);
+      existing.unreadCount = item.unreadCount ?? existing.unreadCount;
+      return existing;
+    }
+
+    final thread = ChatThread(
+      id: threadId,
+      type: ChatThreadType.direct,
+      title: title,
+      participantIds: participantIds,
+      messages: [],
+      avatarUrl: avatar,
+      description: item.description?.toString(),
+      adminId: _asInt(item.adminId),
+      groupAvatarColor: _parseColor(item.groupAvatarColor),
+      unreadCount: item.unreadCount ?? 0,
+    );
+    _threads.insert(0, thread);
+    return thread;
+  }
+
   /// Creates a group via API, then refreshes the thread list.
   /// Returns the created [ChatThread] on success, or null on failure.
   /// [errorMessage] is set via the returned record's message when failed.
@@ -456,7 +615,7 @@ class ChatService extends ChangeNotifier {
       description: trimmedDescription.isEmpty ? null : trimmedDescription,
       adminId: currentUserId,
       groupAvatarColor: color,
-      avatarUrl: data?['avatar_url']?.toString(),
+      avatarUrl: _resolveAvatar(data?['avatar_url']?.toString()),
     );
 
     thread.messages.add(

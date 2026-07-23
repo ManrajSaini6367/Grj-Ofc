@@ -26,6 +26,9 @@ class _GroupInfoScreenState extends State<GroupInfoScreen> {
   void initState() {
     super.initState();
     _service.addListener(_onUpdated);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _service.loadThreadDetails(widget.threadId);
+    });
   }
 
   @override

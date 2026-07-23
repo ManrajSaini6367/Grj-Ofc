@@ -86,6 +86,14 @@ class _ChatScreenState extends State<ChatScreen> {
     );
   }
 
+  void _openNewChat() {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => const SelectParticipantsScreen(isNewChat: true),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final hPad = _hPad(context);
@@ -121,10 +129,31 @@ class _ChatScreenState extends State<ChatScreen> {
                     borderRadius: BorderRadius.circular(12),
                   ),
                   onSelected: (value) {
+                    if (value == 'new_chat') _openNewChat();
                     if (value == 'new_group') _openNewGroup();
                     if (value == 'refresh') unawaited(_service.refresh());
                   },
                   itemBuilder: (context) => [
+                    PopupMenuItem(
+                      value: 'new_chat',
+                      child: Row(
+                        children: [
+                          const Icon(
+                            Icons.chat_outlined,
+                            color: AppColors.primaryRed,
+                            size: 20,
+                          ),
+                          const SizedBox(width: 12),
+                          Text(
+                            'New chat',
+                            style: GoogleFonts.poppins(
+                              fontSize: 14,
+                              color: AppColors.headingBlack,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
                     PopupMenuItem(
                       value: 'new_group',
                       child: Row(

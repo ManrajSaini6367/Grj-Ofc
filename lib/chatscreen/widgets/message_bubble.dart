@@ -139,7 +139,9 @@ class _MediaPreview extends StatelessWidget {
   void _open(BuildContext context) {
     final path = message.mediaPath;
     if (path == null || path.isEmpty) return;
-    if (!File(path).existsSync()) {
+
+    final isNetwork = path.startsWith('http://') || path.startsWith('https://');
+    if (!isNetwork && !File(path).existsSync()) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
@@ -172,6 +174,8 @@ class _MediaPreview extends StatelessWidget {
     final path = message.mediaPath!;
     final radius = BorderRadius.circular(12);
     final heroTag = 'chat-media-${message.id}';
+    final isNetwork =
+        path.startsWith('http://') || path.startsWith('https://');
 
     if (message.isVideo) {
       // No VideoPlayer in the list — avoids Android pigeon channel conflicts.
@@ -246,18 +250,31 @@ class _MediaPreview extends StatelessWidget {
           tag: heroTag,
           child: ClipRRect(
             borderRadius: radius,
-            child: Image.file(
-              File(path),
-              width: double.infinity,
-              height: 220,
-              fit: BoxFit.cover,
-              errorBuilder: (_, __, ___) => Container(
-                height: 160,
-                color: AppColors.operationsCardBg,
-                alignment: Alignment.center,
-                child: const Icon(Icons.broken_image_outlined),
-              ),
-            ),
+            child: isNetwork
+                ? Image.network(
+                    path,
+                    width: double.infinity,
+                    height: 220,
+                    fit: BoxFit.cover,
+                    errorBuilder: (_, __, ___) => Container(
+                      height: 160,
+                      color: AppColors.operationsCardBg,
+                      alignment: Alignment.center,
+                      child: const Icon(Icons.broken_image_outlined),
+                    ),
+                  )
+                : Image.file(
+                    File(path),
+                    width: double.infinity,
+                    height: 220,
+                    fit: BoxFit.cover,
+                    errorBuilder: (_, __, ___) => Container(
+                      height: 160,
+                      color: AppColors.operationsCardBg,
+                      alignment: Alignment.center,
+                      child: const Icon(Icons.broken_image_outlined),
+                    ),
+                  ),
           ),
         ),
       ),

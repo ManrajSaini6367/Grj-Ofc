@@ -225,6 +225,7 @@ class _ViewAttendanceScreenState extends State<ViewAttendanceScreen> {
   }
 
   Widget _buildHeader(Attendance attendance, Color statusColor) {
+    final avatar = mediaUrl(attendance.employeeAvatarUrl);
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -237,10 +238,8 @@ class _ViewAttendanceScreenState extends State<ViewAttendanceScreen> {
           CircleAvatar(
             radius: 28,
             backgroundColor: AppColors.backgroundGray,
-            backgroundImage: attendance.employeeAvatarUrl != null
-                ? NetworkImage(attendance.employeeAvatarUrl!)
-                : null,
-            child: attendance.employeeAvatarUrl == null
+            backgroundImage: avatar.isNotEmpty ? NetworkImage(avatar) : null,
+            child: avatar.isEmpty
                 ? Text(
                     attendance.employeeName.trim().isEmpty
                         ? '?'

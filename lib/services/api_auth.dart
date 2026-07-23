@@ -4,8 +4,10 @@ import 'dart:io';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:grjoffice_apps/chatmodalsclasses/createopendirectmodal.dart';
 import 'package:grjoffice_apps/chatmodalsclasses/getchatlistmodal.dart';
 import 'package:grjoffice_apps/chatmodalsclasses/getlistmessagesmodal.dart';
+import 'package:grjoffice_apps/chatmodalsclasses/showthreadmodal.dart';
 import 'package:grjoffice_apps/chatmodalsclasses/threadchatmodal.dart';
 import 'package:grjoffice_apps/core/app_navigator.dart';
 import 'package:grjoffice_apps/core/api_config.dart';
@@ -40,6 +42,8 @@ import 'package:grjoffice_apps/services/permission_service.dart';
 import 'package:grjoffice_apps/services/user_session.dart';
 import 'package:grjoffice_apps/utils/app_helpers.dart';
 import 'package:http/http.dart' as http;
+
+export 'package:grjoffice_apps/core/api_config.dart' show mediaUrl;
 
 bool get isLoggedIn => Preference.pref.getString('token') != null;
 
@@ -208,12 +212,6 @@ List<ItemModel>? cachedItems() {
   } catch (_) {
     return null;
   }
-}
-
-String mediaUrl(String? path) {
-  if (path == null || path.isEmpty) return '';
-  if (path.startsWith('http')) return path;
-  return '$baseUrl/$path';
 }
 
 List<String> siteNames(List<SiteModel> sites) {
@@ -4554,6 +4552,74 @@ Future<Getlistmessagemodal?> getListMessageApi({
     }
   } catch (e) {
     debugPrint('Get List Messages Exception : $e');
+  }
+  return null;
+}
+
+//showthreadapi
+Future<Showthreadmodaldata?> showThreadApi(String threadId) async {
+  try {
+    final token = Preference.pref.getString('token') ?? '';
+    final url = '$baseUrl/api/v1/chat/threads/$threadId';
+
+    debugPrint('=========== Show Thread API ===========');
+    debugPrint('URL : $url');
+
+    final response = await http.get(
+      Uri.parse(url),
+      headers: {
+        'Accept': 'application/json',
+        'Authorization': 'Bearer $token',
+      },
+    );
+
+    debugPrint('Status Code : ${response.statusCode}');
+    debugPrint('Response : ${response.body}');
+
+    if (response.statusCode == 200) {
+      final jsonData = jsonDecode(response.body);
+      if (jsonData is Map<String, dynamic>) {
+        return Showthreadmodaldata.fromJson(jsonData);
+      }
+    }
+  } catch (e) {
+    debugPrint('Show Thread Exception : $e');
+  }
+  return null;
+}
+
+//createopendirectapi
+Future<Createopendirectmodaldata?> createOpenDirectApi(int userId) async {
+  try {
+    final token = Preference.pref.getString('token') ?? '';
+    final url = '$baseUrl/api/v1/chat/threads/direct';
+    final body = {'user_id': userId};
+
+    debugPrint('=========== Create/Open Direct API ===========');
+    debugPrint('URL : $url');
+    debugPrint('Request : ${jsonEncode(body)}');
+
+    final response = await http.post(
+      Uri.parse(url),
+      headers: {
+        'Authorization': 'Bearer $token',
+        'Accept': 'application/json',
+        'Content-Type': 'application/json',
+      },
+      body: jsonEncode(body),
+    );
+
+    debugPrint('Status Code : ${response.statusCode}');
+    debugPrint('Response : ${response.body}');
+
+    if (response.statusCode == 200 || response.statusCode == 201) {
+      final jsonData = jsonDecode(response.body);
+      if (jsonData is Map<String, dynamic>) {
+        return Createopendirectmodaldata.fromJson(jsonData);
+      }
+    }
+  } catch (e) {
+    debugPrint('Create/Open Direct API Exception : $e');
   }
   return null;
 }

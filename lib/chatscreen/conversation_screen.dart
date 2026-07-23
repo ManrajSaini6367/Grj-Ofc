@@ -36,6 +36,8 @@ class _ConversationScreenState extends State<ConversationScreen> {
       if (next != _hasText) setState(() => _hasText = next);
     });
     WidgetsBinding.instance.addPostFrameCallback((_) async {
+      await _service.loadThreadDetails(widget.threadId);
+      if (!mounted) return;
       await _service.loadMessages(widget.threadId);
       if (!mounted) return;
       await _service.markThreadRead(widget.threadId);

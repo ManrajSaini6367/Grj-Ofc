@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:grjoffice_apps/chatscreen/models/chat_models.dart';
+import 'package:grjoffice_apps/chatscreen/conversation_screen.dart';
 import 'package:grjoffice_apps/chatscreen/group_details_screen.dart';
 import 'package:grjoffice_apps/chatscreen/services/chat_service.dart';
 import 'package:grjoffice_apps/chatscreen/widgets/chat_avatar.dart';
@@ -15,13 +16,17 @@ class SelectParticipantsScreen extends StatefulWidget {
     super.key,
     this.threadId,
     this.isAddMembers = false,
+    this.isNewChat = false,
   });
 
   final String? threadId;
   final bool isAddMembers;
+  /// Single-user pick → create/open direct chat.
+  final bool isNewChat;
 
   @override
-  State<SelectParticipantsScreen> createState() => _SelectParticipantsScreenState();
+  State<SelectParticipantsScreen> createState() =>
+      _SelectParticipantsScreenState();
 }
 
 class _SelectParticipantsScreenState extends State<SelectParticipantsScreen> {
@@ -74,6 +79,31 @@ class _SelectParticipantsScreenState extends State<SelectParticipantsScreen> {
         _selectedIds.add(id);
       }
     });
+  }
+
+  Future<void> _openDirectChat(ChatUser user) async {
+    if (_submitting) return;
+    setState(() => _submitting = true);
+
+    final result = await _service.openOrCreateDirectChat(user.id);
+    if (!mounted) return;
+    setState(() => _submitting = false);
+
+    if (!result.success || result.thread == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(result.message, style: GoogleFonts.poppins()),
+          backgroundColor: AppColors.primaryRed,
+        ),
+      );
+      return;
+    }
+
+    Navigator.of(context).pushReplacement(
+      MaterialPageRoute(
+        builder: (_) => ConversationScreen(threadId: result.thread!.id),
+      ),
+    );
   }
 
   Future<void> _onNext() async {
@@ -131,36 +161,41 @@ class _SelectParticipantsScreenState extends State<SelectParticipantsScreen> {
         child: Column(
           children: [
             AppTopBar.page(
-              title: widget.isAddMembers ? 'Add Members' : 'Add participants',
+              title: widget.isAddMembers
+                  ? 'Add Members'
+                  : widget.isNewChat
+                      ? 'New chat'
+                      : 'Add participants',
               onBack: _submitting ? null : () => Navigator.pop(context),
               actions: [
-                TextButton(
-                  onPressed: (_selectedIds.isEmpty || _submitting)
-                      ? null
-                      : _onNext,
-                  child: _submitting
-                      ? const SizedBox(
-                          width: 18,
-                          height: 18,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            color: AppColors.primaryRed,
+                if (!widget.isNewChat)
+                  TextButton(
+                    onPressed: (_selectedIds.isEmpty || _submitting)
+                        ? null
+                        : _onNext,
+                    child: _submitting
+                        ? const SizedBox(
+                            width: 18,
+                            height: 18,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: AppColors.primaryRed,
+                            ),
+                          )
+                        : Text(
+                            widget.isAddMembers ? 'Add' : 'Next',
+                            style: GoogleFonts.poppins(
+                              color: _selectedIds.isEmpty
+                                  ? AppColors.textSecondary
+                                  : AppColors.primaryRed,
+                              fontWeight: FontWeight.w700,
+                              fontSize: 14,
+                            ),
                           ),
-                        )
-                      : Text(
-                          widget.isAddMembers ? 'Add' : 'Next',
-                          style: GoogleFonts.poppins(
-                            color: _selectedIds.isEmpty
-                                ? AppColors.textSecondary
-                                : AppColors.primaryRed,
-                            fontWeight: FontWeight.w700,
-                            fontSize: 14,
-                          ),
-                        ),
-                ),
+                  ),
               ],
             ),
-            if (_selectedIds.isNotEmpty)
+            if (!widget.isNewChat && _selectedIds.isNotEmpty)
               Container(
                 width: double.infinity,
                 color: AppColors.cardWhite,
@@ -248,61 +283,103 @@ class _SelectParticipantsScreenState extends State<SelectParticipantsScreen> {
               ),
             ),
             Expanded(
-              child: ListView.separated(
-                itemCount: users.length,
-                separatorBuilder: (_, __) => Divider(
-                height: 1,
-                indent: 72,
-                color: AppColors.borderGray.withValues(alpha: 0.35),
-              ),
-              itemBuilder: (context, index) {
-                final user = users[index];
-                final selected = _selectedIds.contains(user.id);
-                return Material(
-                  color: AppColors.cardWhite,
-                  child: InkWell(
-                    onTap: () => _toggle(user.id),
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                      child: Row(
-                        children: [
-                          ChatAvatar(user: user, showOnlineDot: true, radius: 22),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: Text(
-                              user.name,
-                              style: GoogleFonts.poppins(
-                                fontSize: 14,
-                                fontWeight: FontWeight.w500,
-                                color: AppColors.headingBlack,
-                              ),
+              child: Stack(
+                children: [
+                  ListView.separated(
+                    itemCount: users.length,
+                    separatorBuilder: (_, __) => Divider(
+                      height: 1,
+                      indent: 72,
+                      color: AppColors.borderGray.withValues(alpha: 0.35),
+                    ),
+                    itemBuilder: (context, index) {
+                      final user = users[index];
+                      final selected = _selectedIds.contains(user.id);
+                      return Material(
+                        color: AppColors.cardWhite,
+                        child: InkWell(
+                          onTap: _submitting
+                              ? null
+                              : () {
+                                  if (widget.isNewChat) {
+                                    unawaited(_openDirectChat(user));
+                                  } else {
+                                    _toggle(user.id);
+                                  }
+                                },
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 16,
+                              vertical: 12,
+                            ),
+                            child: Row(
+                              children: [
+                                ChatAvatar(
+                                  user: user,
+                                  showOnlineDot: true,
+                                  radius: 22,
+                                ),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: Text(
+                                    user.name,
+                                    style: GoogleFonts.poppins(
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.w500,
+                                      color: AppColors.headingBlack,
+                                    ),
+                                  ),
+                                ),
+                                if (!widget.isNewChat)
+                                  AnimatedContainer(
+                                    duration: const Duration(milliseconds: 180),
+                                    width: 22,
+                                    height: 22,
+                                    decoration: BoxDecoration(
+                                      color: selected
+                                          ? AppColors.primaryRed
+                                          : Colors.transparent,
+                                      shape: BoxShape.circle,
+                                      border: Border.all(
+                                        color: selected
+                                            ? AppColors.primaryRed
+                                            : AppColors.borderGray,
+                                        width: 1.5,
+                                      ),
+                                    ),
+                                    child: selected
+                                        ? const Icon(
+                                            Icons.check,
+                                            size: 14,
+                                            color: AppColors.white,
+                                          )
+                                        : null,
+                                  )
+                                else
+                                  const Icon(
+                                    Icons.chevron_right,
+                                    color: AppColors.textSecondary,
+                                  ),
+                              ],
                             ),
                           ),
-                          AnimatedContainer(
-                            duration: const Duration(milliseconds: 180),
-                            width: 22,
-                            height: 22,
-                            decoration: BoxDecoration(
-                              color: selected ? AppColors.primaryRed : Colors.transparent,
-                              shape: BoxShape.circle,
-                              border: Border.all(
-                                color: selected ? AppColors.primaryRed : AppColors.borderGray,
-                                width: 1.5,
-                              ),
-                            ),
-                            child: selected
-                                ? const Icon(Icons.check, size: 14, color: AppColors.white)
-                                : null,
-                          ),
-                        ],
+                        ),
+                      );
+                    },
+                  ),
+                  if (_submitting && widget.isNewChat)
+                    const ColoredBox(
+                      color: Color(0x66FFFFFF),
+                      child: Center(
+                        child: CircularProgressIndicator(
+                          color: AppColors.primaryRed,
+                        ),
                       ),
                     ),
-                  ),
-                );
-              },
+                ],
+              ),
             ),
-          ),
-        ],
+          ],
         ),
       ),
     );

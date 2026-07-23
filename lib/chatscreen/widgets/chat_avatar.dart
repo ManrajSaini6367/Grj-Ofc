@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:grjoffice_apps/chatscreen/models/chat_models.dart';
 import 'package:grjoffice_apps/core/app_colors.dart';
+import 'package:grjoffice_apps/core/api_config.dart';
 
 class ChatAvatar extends StatelessWidget {
   const ChatAvatar({
@@ -37,9 +38,26 @@ class ChatAvatar extends StatelessWidget {
 
     final fg = isGroup ? (groupColor ?? AppColors.primaryRed) : AppColors.primaryRed;
 
-    final avatarUrl = user?.avatarUrl;
-    final hasAvatar =
-        !isGroup && avatarUrl != null && avatarUrl.trim().isNotEmpty;
+    final resolvedUrl = mediaUrl(user?.avatarUrl);
+    final hasAvatar = !isGroup && resolvedUrl.isNotEmpty;
+
+    Widget placeholder() {
+      if (isGroup) {
+        return Icon(
+          groupIcon ?? Icons.groups_rounded,
+          color: fg,
+          size: radius,
+        );
+      }
+      return Text(
+        label,
+        style: GoogleFonts.poppins(
+          color: fg,
+          fontSize: radius * 0.72,
+          fontWeight: FontWeight.w700,
+        ),
+      );
+    }
 
     return Stack(
       clipBehavior: Clip.none,
@@ -47,23 +65,17 @@ class ChatAvatar extends StatelessWidget {
         CircleAvatar(
           radius: radius,
           backgroundColor: bg,
-          backgroundImage: hasAvatar ? NetworkImage(avatarUrl) : null,
           child: hasAvatar
-              ? null
-              : (isGroup
-                  ? Icon(
-                      groupIcon ?? Icons.groups_rounded,
-                      color: fg,
-                      size: radius,
-                    )
-                  : Text(
-                      label,
-                      style: GoogleFonts.poppins(
-                        color: fg,
-                        fontSize: radius * 0.72,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    )),
+              ? ClipOval(
+                  child: Image.network(
+                    resolvedUrl,
+                    width: radius * 2,
+                    height: radius * 2,
+                    fit: BoxFit.cover,
+                    errorBuilder: (_, __, ___) => placeholder(),
+                  ),
+                )
+              : placeholder(),
         ),
         if (showOnlineDot && user?.isOnline == true)
           Positioned(
@@ -92,6 +104,7 @@ class GroupProfileAvatar extends StatelessWidget {
     this.radius = 48,
     this.onTap,
     this.showCamera = false,
+    this.imageUrl,
   });
 
   final String label;
@@ -99,12 +112,23 @@ class GroupProfileAvatar extends StatelessWidget {
   final double radius;
   final VoidCallback? onTap;
   final bool showCamera;
+  final String? imageUrl;
 
   @override
   Widget build(BuildContext context) {
     final bg = (color ?? AppColors.primaryRed).withValues(alpha: 0.15);
     final fg = color ?? AppColors.primaryRed;
     final initial = label.trim().isNotEmpty ? label.trim()[0].toUpperCase() : 'G';
+    final resolvedUrl = mediaUrl(imageUrl);
+
+    Widget placeholder() => Text(
+          initial,
+          style: GoogleFonts.poppins(
+            color: fg,
+            fontSize: radius * 0.75,
+            fontWeight: FontWeight.w700,
+          ),
+        );
 
     return GestureDetector(
       onTap: onTap,
@@ -114,14 +138,17 @@ class GroupProfileAvatar extends StatelessWidget {
           CircleAvatar(
             radius: radius,
             backgroundColor: bg,
-            child: Text(
-              initial,
-              style: GoogleFonts.poppins(
-                color: fg,
-                fontSize: radius * 0.75,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
+            child: resolvedUrl.isNotEmpty
+                ? ClipOval(
+                    child: Image.network(
+                      resolvedUrl,
+                      width: radius * 2,
+                      height: radius * 2,
+                      fit: BoxFit.cover,
+                      errorBuilder: (_, __, ___) => placeholder(),
+                    ),
+                  )
+                : placeholder(),
           ),
           if (showCamera)
             Positioned(

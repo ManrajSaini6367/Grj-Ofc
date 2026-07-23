@@ -44,21 +44,30 @@ class _ChatMediaViewerScreenState extends State<ChatMediaViewerScreen> {
 
   Future<void> _initVideo() async {
     try {
-      final file = File(widget.path);
-      if (!await file.exists()) {
-        if (!mounted) return;
-        setState(() {
-          _failed = true;
-          _ready = true;
-        });
-        return;
-      }
+      final isNetwork =
+          widget.path.startsWith('http://') || widget.path.startsWith('https://');
 
-      // Prefer URI on Android — more reliable with Media3 / pigeon channel.
-      final controller = VideoPlayerController.file(
-        file,
-        videoPlayerOptions: VideoPlayerOptions(mixWithOthers: true),
-      );
+      late final VideoPlayerController controller;
+      if (isNetwork) {
+        controller = VideoPlayerController.networkUrl(
+          Uri.parse(widget.path),
+          videoPlayerOptions: VideoPlayerOptions(mixWithOthers: true),
+        );
+      } else {
+        final file = File(widget.path);
+        if (!await file.exists()) {
+          if (!mounted) return;
+          setState(() {
+            _failed = true;
+            _ready = true;
+          });
+          return;
+        }
+        controller = VideoPlayerController.file(
+          file,
+          videoPlayerOptions: VideoPlayerOptions(mixWithOthers: true),
+        );
+      }
 
       _video = controller;
       await controller.initialize();
@@ -265,14 +274,25 @@ class _ChatMediaViewerScreenState extends State<ChatMediaViewerScreen> {
       );
     }
 
-    final image = Image.file(
-      File(widget.path),
-      fit: BoxFit.contain,
-      errorBuilder: (_, __, ___) => Text(
-        'Could not open this photo.',
-        style: GoogleFonts.poppins(color: Colors.white70),
-      ),
-    );
+    final isNetwork =
+        widget.path.startsWith('http://') || widget.path.startsWith('https://');
+    final image = isNetwork
+        ? Image.network(
+            widget.path,
+            fit: BoxFit.contain,
+            errorBuilder: (_, __, ___) => Text(
+              'Could not open this photo.',
+              style: GoogleFonts.poppins(color: Colors.white70),
+            ),
+          )
+        : Image.file(
+            File(widget.path),
+            fit: BoxFit.contain,
+            errorBuilder: (_, __, ___) => Text(
+              'Could not open this photo.',
+              style: GoogleFonts.poppins(color: Colors.white70),
+            ),
+          );
 
     if (widget.heroTag != null) {
       return Hero(
