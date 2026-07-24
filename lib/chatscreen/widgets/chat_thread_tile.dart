@@ -42,7 +42,7 @@ class ChatThreadTile extends StatelessWidget {
                 isGroup: thread.isGroup,
                 groupLabel: thread.title,
                 groupColor: thread.isGroup ? thread.groupColor : null,
-                showOnlineDot: !thread.isGroup,
+                showOnlineDot: false,
                 radius: 26,
               ),
               const SizedBox(width: 12),

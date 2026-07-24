@@ -83,7 +83,8 @@ class _SuppliersScreenState extends State<SuppliersScreen> {
     final response = await getSuppliersApi(
       context,
       search: search ?? _searchController.text.trim(),
-      perPage: 100,
+      perPage: 15,
+      fetchAllPages: true,
     );
     if (!mounted) return;
     setState(() {

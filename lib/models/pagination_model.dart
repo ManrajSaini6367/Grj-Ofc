@@ -13,10 +13,10 @@ class PaginationModel {
 
   factory PaginationModel.fromJson(Map<String, dynamic> json) {
     return PaginationModel(
-      currentPage: json['current_page'] as int? ?? 1,
-      lastPage: json['last_page'] as int? ?? 1,
-      perPage: json['per_page'] as int? ?? 15,
-      total: json['total'] as int? ?? 0,
+      currentPage: _asInt(json['current_page'], 1),
+      lastPage: _asInt(json['last_page'], 1),
+      perPage: _asInt(json['per_page'], 15),
+      total: _asInt(json['total'], 0),
     );
   }
 
@@ -28,4 +28,11 @@ class PaginationModel {
       'total': total,
     };
   }
+}
+
+int _asInt(dynamic value, [int fallback = 0]) {
+  if (value == null) return fallback;
+  if (value is int) return value;
+  if (value is num) return value.toInt();
+  return int.tryParse(value.toString()) ?? fallback;
 }

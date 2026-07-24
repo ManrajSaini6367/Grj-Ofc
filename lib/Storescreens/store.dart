@@ -47,7 +47,13 @@ class _StoreScreenState extends State<StoreScreen> {
 
   Future<void> _loadItems({bool showLoader = true}) async {
     if (showLoader && mounted) setState(() => _isLoading = true);
-    final apiItems = await itemsApi(context, perPage: 50, status: 'published');
+    final apiItems = await itemsApi(
+      context,
+      perPage: 15,
+      fetchAllPages: true,
+      status: 'published',
+      purchase: '1',
+    );
     if (!mounted) return;
     setState(() {
       _storeItems = apiItems?.map(_toInventoryItem).toList() ?? [];

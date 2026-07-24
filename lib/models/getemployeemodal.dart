@@ -167,10 +167,10 @@ class EmployeeListPagination {
 
   factory EmployeeListPagination.fromJson(Map<String, dynamic> json) =>
       EmployeeListPagination(
-        currentPage: json['current_page'] as int?,
-        lastPage: json['last_page'] as int?,
-        perPage: json['per_page'] as int?,
-        total: json['total'] as int?,
+        currentPage: _parseInt(json['current_page']),
+        lastPage: _parseInt(json['last_page']),
+        perPage: _parseInt(json['per_page']),
+        total: _parseInt(json['total']),
       );
 
   Map<String, dynamic> toJson() => {

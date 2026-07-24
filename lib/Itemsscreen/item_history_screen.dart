@@ -51,7 +51,12 @@ class _ItemHistoryScreenState extends State<ItemHistoryScreen> {
 
     if (showLoader) setState(() => _isLoading = true);
 
-    final response = await itemHistoryApi(context, itemId: itemId);
+    final response = await itemHistoryApi(
+      context,
+      itemId: itemId,
+      perPage: 15,
+      fetchAllPages: true,
+    );
     if (!mounted) return;
 
     final records = response?.data?.items ?? [];

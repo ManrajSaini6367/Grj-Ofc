@@ -70,6 +70,8 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
     final response = await getEmployeesApi(
       context,
       search: _searchController.text.trim(),
+      perPage: 15,
+      fetchAllPages: true,
     );
     if (!mounted) return;
     setState(() {

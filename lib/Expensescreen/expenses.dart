@@ -53,7 +53,8 @@ class _ExpensesScreenState extends State<ExpensesScreen> {
       context,
       period: _apiPeriod,
       category: _categoryFilter?.name,
-      perPage: 50,
+      perPage: 15,
+      fetchAllPages: true,
     );
 
     if (!mounted) return;

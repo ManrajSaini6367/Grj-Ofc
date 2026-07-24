@@ -219,7 +219,7 @@ class _SelectParticipantsScreenState extends State<SelectParticipantsScreen> {
                             Stack(
                               clipBehavior: Clip.none,
                               children: [
-                                ChatAvatar(user: user, radius: 20, showOnlineDot: true),
+                                ChatAvatar(user: user, radius: 20, showOnlineDot: false),
                                 Positioned(
                                   right: -4,
                                   top: -4,
@@ -316,7 +316,7 @@ class _SelectParticipantsScreenState extends State<SelectParticipantsScreen> {
                               children: [
                                 ChatAvatar(
                                   user: user,
-                                  showOnlineDot: true,
+                                  showOnlineDot: false,
                                   radius: 22,
                                 ),
                                 const SizedBox(width: 12),

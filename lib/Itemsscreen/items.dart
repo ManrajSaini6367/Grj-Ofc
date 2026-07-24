@@ -39,7 +39,16 @@ class _ItemsScreenState extends State<ItemsScreen> {
 
   Future<void> _loadItems({bool showLoader = true}) async {
     if (showLoader && mounted) setState(() => _isLoading = true);
-    final apiItems = await itemsApi(context, perPage: 50);
+    // Item List: all published items for site (no purchase/consumable filter),
+    // and load every page so the full catalog shows.
+    final apiItems = await itemsApi(
+      context,
+      perPage: 15,
+      fetchAllPages: true,
+      status: 'published',
+      purchase: '',
+      consumable: '',
+    );
     if (!mounted) return;
     setState(() {
       _items = apiItems?.map(_toInventoryItem).toList() ?? [];

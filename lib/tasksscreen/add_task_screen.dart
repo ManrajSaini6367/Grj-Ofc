@@ -86,7 +86,11 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
   Future<void> _loadEmployees() async {
     setState(() => _isLoadingEmployees = true);
     try {
-      final response = await getEmployeesApi(context);
+      final response = await getEmployeesApi(
+        context,
+        perPage: 15,
+        fetchAllPages: true,
+      );
       final items = response?.data?.items ?? [];
       final fetched = <_TaskEmployeeOption>[];
       for (final item in items) {

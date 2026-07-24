@@ -21,11 +21,15 @@ class ChatService extends ChangeNotifier {
   String _lastSearch = '';
   bool _usersLoaded = false;
   bool _loadingMessages = false;
+  Timer? _messagePollTimer;
+  String? _pollingThreadId;
+  bool _syncingMessages = false;
 
   bool get isLoading => _loading;
   String? get error => _error;
   bool get isInitialized => _initialized;
   bool get isLoadingMessages => _loadingMessages;
+  String? get pollingThreadId => _pollingThreadId;
 
   int get currentUserId => cachedUser()?.id ?? 1;
 
@@ -390,6 +394,109 @@ class ChatService extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Starts polling while a conversation is open (WhatsApp-style live updates).
+  void startMessagePolling(
+    String threadId, {
+    Duration interval = const Duration(seconds: 2),
+  }) {
+    if (_pollingThreadId == threadId && _messagePollTimer != null) return;
+    stopMessagePolling();
+    _pollingThreadId = threadId;
+    _messagePollTimer = Timer.periodic(interval, (_) {
+      unawaited(syncMessages(threadId));
+    });
+  }
+
+  void stopMessagePolling() {
+    _messagePollTimer?.cancel();
+    _messagePollTimer = null;
+    _pollingThreadId = null;
+  }
+
+  /// Quietly merges latest server messages into the open thread.
+  Future<bool> syncMessages(String threadId, {int perPage = 50}) async {
+    if (_syncingMessages) return false;
+    final thread = threadById(threadId);
+    if (thread == null) return false;
+
+    _syncingMessages = true;
+    try {
+      final result = await getListMessageApi(
+        chatThreadId: threadId,
+        perPage: perPage,
+      );
+      if (result == null || result.success != true) return false;
+
+      final serverMessages = (result.data?.items ?? const <MessageItem>[])
+          .map(_mapApiMessage)
+          .whereType<ChatMessage>()
+          .toList();
+
+      final previousIds = thread.messages.map((m) => m.id).toSet();
+      final previousFingerprint = _messagesFingerprint(thread.messages);
+      final merged = _mergeMessages(thread.messages, serverMessages);
+      final nextFingerprint = _messagesFingerprint(merged);
+
+      if (previousFingerprint == nextFingerprint) return false;
+
+      thread.messages
+        ..clear()
+        ..addAll(merged);
+
+      final hasNewFromOthers = merged.any(
+        (m) => !previousIds.contains(m.id) && m.senderId != currentUserId,
+      );
+
+      notifyListeners();
+
+      if (hasNewFromOthers) {
+        unawaited(markThreadRead(threadId));
+      }
+      return true;
+    } catch (e) {
+      debugPrint('[ChatService] syncMessages error: $e');
+      return false;
+    } finally {
+      _syncingMessages = false;
+    }
+  }
+
+  String _messagesFingerprint(List<ChatMessage> messages) {
+    return messages
+        .map((m) => '${m.id}:${m.status.index}:${m.text}:${m.mediaPath ?? ''}')
+        .join('|');
+  }
+
+  /// Keeps optimistic local messages until the same content appears from API.
+  List<ChatMessage> _mergeMessages(
+    List<ChatMessage> local,
+    List<ChatMessage> server,
+  ) {
+    final byId = <String, ChatMessage>{
+      for (final m in server) m.id: m,
+    };
+
+    for (final pending in local) {
+      if (!pending.id.startsWith('m_')) continue;
+      final alreadyOnServer = server.any((s) {
+        if (s.senderId != pending.senderId) return false;
+        final sameText = s.text == pending.text && pending.text.isNotEmpty;
+        final sameMedia = pending.hasMedia &&
+            s.hasMedia &&
+            (s.isVideo == pending.isVideo);
+        if (!sameText && !sameMedia) return false;
+        return s.sentAt.difference(pending.sentAt).abs().inSeconds < 120;
+      });
+      if (!alreadyOnServer) {
+        byId[pending.id] = pending;
+      }
+    }
+
+    final merged = byId.values.toList()
+      ..sort((a, b) => a.sentAt.compareTo(b.sentAt));
+    return merged;
+  }
+
   ChatMessage? _mapApiMessage(MessageItem item) {
     final id = (item.id ?? '').trim();
     if (id.isEmpty) return null;
@@ -447,6 +554,11 @@ class ChatService extends ChangeNotifier {
     message.status =
         ok ? MessageDeliveryStatus.sent : MessageDeliveryStatus.sending;
     notifyListeners();
+
+    if (ok) {
+      // Pull server copy so both devices stay in sync quickly.
+      unawaited(syncMessages(threadId));
+    }
   }
 
   Future<void> sendMediaMessage(

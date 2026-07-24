@@ -14,6 +14,8 @@ import 'package:grjoffice_apps/models/site_model.dart';
 import 'package:grjoffice_apps/services/attendance_service.dart';
 import 'package:grjoffice_apps/services/api_auth.dart';
 import 'package:grjoffice_apps/services/location_service.dart';
+import 'package:grjoffice_apps/services/permission_service.dart';
+import 'package:grjoffice_apps/services/user_session.dart';
 import 'package:grjoffice_apps/widgets/app_logo.dart';
 import 'package:grjoffice_apps/widgets/site_selection_dialog.dart';
 class HomePage extends StatefulWidget {
@@ -35,13 +37,66 @@ class _HomePageState extends State<HomePage> {
   List<String> _sites = [];
 
   static const _operations = [
-    _OperationItem(Icons.inventory_2_outlined, 'Supplier', 'SUPPLIER'),
-    _OperationItem(Icons.groups_outlined, 'Labour Contractor', 'LABOUR CONTRACTOR'),
-    _OperationItem(Icons.storefront_outlined, 'Store', 'STORE'),
-    _OperationItem(Icons.shopping_cart_outlined, 'Purchase', 'PURCHASE'),
-    _OperationItem(Icons.badge_outlined, 'Employer Attendances', 'EMPLOYER ATTENDANCES'),
-    _OperationItem(Icons.people_outline, 'Contractor Attendances', 'CONTRACTOR ATTENDANCES'),
+    _OperationItem(
+      Icons.inventory_2_outlined,
+      'Supplier',
+      'SUPPLIER',
+      anyOf: [AppPermissions.suppliersView],
+    ),
+    _OperationItem(
+      Icons.groups_outlined,
+      'Labour Contractor',
+      'LABOUR CONTRACTOR',
+      anyOf: [AppPermissions.contractorsView],
+    ),
+    _OperationItem(
+      Icons.storefront_outlined,
+      'Store',
+      'STORE',
+      anyOf: [
+        AppPermissions.itemsView,
+        AppPermissions.itemsCreate,
+      ],
+    ),
+    _OperationItem(
+      Icons.shopping_cart_outlined,
+      'Purchase',
+      'PURCHASE',
+      anyOf: [
+        AppPermissions.purchasesView,
+        AppPermissions.purchasesCreate,
+        AppPermissions.purchasesViewAll,
+      ],
+    ),
+    _OperationItem(
+      Icons.badge_outlined,
+      'Employer Attendances',
+      'EMPLOYER ATTENDANCES',
+      anyOf: [
+        AppPermissions.employerAttendancesView,
+        AppPermissions.employerAttendancesCreate,
+        AppPermissions.viewAttendances,
+      ],
+    ),
+    _OperationItem(
+      Icons.people_outline,
+      'Contractor Attendances',
+      'CONTRACTOR ATTENDANCES',
+      anyOf: [
+        AppPermissions.labourAttendancesView,
+        AppPermissions.labourAttendancesCreate,
+        AppPermissions.labourAttendancesReport,
+      ],
+    ),
   ];
+
+  List<_OperationItem> get _visibleOperations {
+    final perms = PermissionService.instance;
+    return _operations.where((item) {
+      if (item.anyOf.isEmpty) return true;
+      return perms.canAny(item.anyOf);
+    }).toList();
+  }
 
   static const _supplies = [
     _SupplyItem(
@@ -55,6 +110,12 @@ class _HomePageState extends State<HomePage> {
       'Completed 6h ago',
     ),
   ];
+
+  /// Login / profile `attendance_allow` — controls Punch In card on Dashboard.
+  bool get _attendanceAllowed =>
+      UserSession.instance.user?.attendanceAllow ??
+      cachedUser()?.attendanceAllow ??
+      false;
 
   double _hPad(BuildContext context) {
     final width = MediaQuery.sizeOf(context).width;
@@ -72,7 +133,7 @@ class _HomePageState extends State<HomePage> {
 
   Future<void> _bootstrap() async {
     await _attendance.load();
-    if (mounted) {
+    if (mounted && _attendanceAllowed) {
       final todayStatus = await getTodayAttendanceApi(
         context,
         showErrors: false,
@@ -82,9 +143,11 @@ class _HomePageState extends State<HomePage> {
       }
     }
     await _loadSites();
-    final granted = await _location.initialize();
-    if (_attendance.isPunchedIn && granted) {
-      await _location.startTracking();
+    if (_attendanceAllowed) {
+      final granted = await _location.initialize();
+      if (_attendance.isPunchedIn && granted) {
+        await _location.startTracking();
+      }
     }
     if (mounted) setState(() {});
   }
@@ -144,6 +207,7 @@ class _HomePageState extends State<HomePage> {
   }
 
   Future<void> _handlePunchIn() async {
+    if (!_attendanceAllowed) return;
     if (_isProcessingPunch || !_attendance.canPunchIn) return;
     setState(() => _isProcessingPunch = true);
 
@@ -190,6 +254,7 @@ class _HomePageState extends State<HomePage> {
   }
 
   Future<void> _handlePunchOut() async {
+    if (!_attendanceAllowed) return;
     if (_isProcessingPunch || !_attendance.canPunchOut) return;
     setState(() => _isProcessingPunch = true);
 
@@ -280,18 +345,47 @@ class _HomePageState extends State<HomePage> {
                           children: [
                             _buildHeader(),
                             const SizedBox(height: 14),
-                            _AttendanceCard(
-                              attendance: _attendance,
-                              isProcessingPunch: _isProcessingPunch,
-                              onPunchIn: _handlePunchIn,
-                              onPunchOut: _handlePunchOut,
+                            AnimatedBuilder(
+                              animation: UserSession.instance,
+                              builder: (context, _) {
+                                if (!_attendanceAllowed) {
+                                  return const SizedBox.shrink();
+                                }
+                                return Column(
+                                  children: [
+                                    _AttendanceCard(
+                                      attendance: _attendance,
+                                      isProcessingPunch: _isProcessingPunch,
+                                      onPunchIn: _handlePunchIn,
+                                      onPunchOut: _handlePunchOut,
+                                    ),
+                                    const SizedBox(height: 16),
+                                  ],
+                                );
+                              },
                             ),
-                            const SizedBox(height: 16),
                             _buildQuickActions(),
                             const SizedBox(height: 24),
-                            _buildSectionTitle('Operations'),
-                            const SizedBox(height: 12),
-                            _buildOperationsGrid(constraints.maxWidth),
+                            AnimatedBuilder(
+                              animation: PermissionService.instance,
+                              builder: (context, _) {
+                                final visibleOps = _visibleOperations;
+                                if (visibleOps.isEmpty) {
+                                  return const SizedBox.shrink();
+                                }
+                                return Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    _buildSectionTitle('Operations'),
+                                    const SizedBox(height: 12),
+                                    _buildOperationsGrid(
+                                      constraints.maxWidth,
+                                      visibleOps,
+                                    ),
+                                  ],
+                                );
+                              },
+                            ),
                             const SizedBox(height: 24),
                             _buildSectionTitle('Office Supplies'),
                             const SizedBox(height: 12),
@@ -434,26 +528,36 @@ class _HomePageState extends State<HomePage> {
   }
 
   Widget _buildQuickActions() {
-    return Row(
-      children: [
-        Expanded(
-          child: _buildQuickActionCard(
-            icon: Icons.chat_bubble_outline,
-            title: 'Chats',
-            subtitle: 'Manage Chats',
-            onTap: () => navigateToMainTab(context, MainTab.chats),
-          ),
-        ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: _buildQuickActionCard(
-            icon: Icons.history,
-            title: 'Activity',
-            subtitle: 'Check all activity',
-            onTap: () => pushInShell(context, const ActivitiesScreen()),
-          ),
-        ),
-      ],
+    return AnimatedBuilder(
+      animation: PermissionService.instance,
+      builder: (context, _) {
+        final showActivity =
+            PermissionService.instance.can(AppPermissions.viewDayReport);
+
+        return Row(
+          children: [
+            Expanded(
+              child: _buildQuickActionCard(
+                icon: Icons.chat_bubble_outline,
+                title: 'Chats',
+                subtitle: 'Manage Chats',
+                onTap: () => navigateToMainTab(context, MainTab.chats),
+              ),
+            ),
+            if (showActivity) ...[
+              const SizedBox(width: 12),
+              Expanded(
+                child: _buildQuickActionCard(
+                  icon: Icons.history,
+                  title: 'Activity',
+                  subtitle: 'Check all activity',
+                  onTap: () => pushInShell(context, const ActivitiesScreen()),
+                ),
+              ),
+            ],
+          ],
+        );
+      },
     );
   }
 
@@ -509,7 +613,10 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-  Widget _buildOperationsGrid(double maxWidth) {
+  Widget _buildOperationsGrid(
+    double maxWidth,
+    List<_OperationItem> operations,
+  ) {
     final crossAxisCount = maxWidth >= 520 ? 3 : 2;
     final aspectRatio = maxWidth < 360 ? 1.18 : 1.28;
 
@@ -522,28 +629,32 @@ class _HomePageState extends State<HomePage> {
         crossAxisSpacing: 12,
         childAspectRatio: aspectRatio,
       ),
-      itemCount: _operations.length,
-      itemBuilder: (context, index) => _buildOperationCard(_operations[index], index),
+      itemCount: operations.length,
+      itemBuilder: (context, index) =>
+          _buildOperationCard(operations[index]),
     );
   }
-  Widget _buildOperationCard(_OperationItem item, int index) {
+
+  void _openOperation(_OperationItem item) {
+    switch (item.title) {
+      case 'Supplier':
+        pushInShell(context, const SuppliersScreen(isActive: true));
+      case 'Labour Contractor':
+        pushInShell(context, const ContractorsScreen(isActive: true));
+      case 'Store':
+        navigateToMainTab(context, MainTab.store);
+      case 'Purchase':
+        navigateToMainTab(context, MainTab.purchase);
+      case 'Employer Attendances':
+        pushInShell(context, const AttendanceScreen());
+      case 'Contractor Attendances':
+        pushInShell(context, const ContractorAttendanceScreen());
+    }
+  }
+
+  Widget _buildOperationCard(_OperationItem item) {
     return GestureDetector(
-      onTap: () {
-        switch (index) {
-          case 0:
-            pushInShell(context, const SuppliersScreen(isActive: true));
-          case 1:
-            pushInShell(context, const ContractorsScreen(isActive: true));
-          case 2:
-            navigateToMainTab(context, MainTab.store);
-          case 3:
-            navigateToMainTab(context, MainTab.purchase);
-          case 4:
-            pushInShell(context, const AttendanceScreen());
-          case 5:
-            pushInShell(context, const ContractorAttendanceScreen());
-        }
-      },
+      onTap: () => _openOperation(item),
       child: Container(
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
@@ -640,11 +751,19 @@ class _HomePageState extends State<HomePage> {
 }
 
 class _OperationItem {
-  const _OperationItem(this.icon, this.title, this.subtitle);
+  const _OperationItem(
+    this.icon,
+    this.title,
+    this.subtitle, {
+    this.anyOf = const [],
+  });
 
   final IconData icon;
   final String title;
   final String subtitle;
+
+  /// Empty = always visible. Otherwise user needs any of these permissions.
+  final List<String> anyOf;
 }
 
 class _SupplyItem {

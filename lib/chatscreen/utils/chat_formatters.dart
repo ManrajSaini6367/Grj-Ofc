@@ -16,6 +16,18 @@ class ChatFormatters {
 
   static String messageTime(DateTime time) => _formatClock(time);
 
+  static String dayLabel(DateTime time) {
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final day = DateTime(time.year, time.month, time.day);
+    if (day == today) return 'Today';
+    if (day == today.subtract(const Duration(days: 1))) return 'Yesterday';
+    return '${time.day} ${_month(time.month)} ${time.year}';
+  }
+
+  static bool isSameDay(DateTime a, DateTime b) =>
+      a.year == b.year && a.month == b.month && a.day == b.day;
+
   static String presenceLabel({required bool isOnline, DateTime? lastSeen}) {
     if (isOnline) return 'online';
     if (lastSeen == null) return 'offline';
@@ -28,7 +40,7 @@ class ChatFormatters {
   static String _formatClock(DateTime time) {
     final hour = time.hour % 12 == 0 ? 12 : time.hour % 12;
     final minute = time.minute.toString().padLeft(2, '0');
-    final period = time.hour >= 12 ? 'PM' : 'AM';
+    final period = time.hour >= 12 ? 'pm' : 'am';
     return '$hour:$minute $period';
   }
 

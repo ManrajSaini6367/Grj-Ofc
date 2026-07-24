@@ -179,10 +179,10 @@ class ItemHistoryPagination {
 
   factory ItemHistoryPagination.fromJson(Map<String, dynamic> json) =>
       ItemHistoryPagination(
-        currentPage: json['current_page'] as int?,
-        lastPage: json['last_page'] as int?,
-        perPage: json['per_page'] as int?,
-        total: json['total'] as int?,
+        currentPage: _asInt(json['current_page']),
+        lastPage: _asInt(json['last_page']),
+        perPage: _asInt(json['per_page']),
+        total: _asInt(json['total']),
       );
 
   Map<String, dynamic> toJson() => {
@@ -191,6 +191,13 @@ class ItemHistoryPagination {
         'per_page': perPage,
         'total': total,
       };
+}
+
+int? _asInt(dynamic value) {
+  if (value == null) return null;
+  if (value is int) return value;
+  if (value is num) return value.toInt();
+  return int.tryParse(value.toString());
 }
 
 double? _parseQty(dynamic value) {

@@ -34,8 +34,8 @@ class ItemModel {
   factory ItemModel.fromJson(Map<String, dynamic> json) {
     final siteJson = json['site'];
     return ItemModel(
-      id: json['id'] as int,
-      siteId: json['site_id'] as int? ?? 0,
+      id: _asInt(json['id']) ?? 0,
+      siteId: _asInt(json['site_id']) ?? 0,
       name: json['name']?.toString() ?? '',
       sku: json['sku']?.toString(),
       unit: json['unit']?.toString() ?? '',

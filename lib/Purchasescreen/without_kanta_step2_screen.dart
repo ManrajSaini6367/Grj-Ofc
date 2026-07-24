@@ -69,7 +69,14 @@ class _WithoutKantaStep2ScreenState extends State<WithoutKantaStep2Screen> {
 
   Future<void> _loadItems() async {
     final supplierId = widget.purchase.supplierId;
-    final catalog = cachedItems() ?? await itemsApi(context) ?? <ItemModel>[];
+    final catalog = cachedItems() ??
+        await itemsApi(
+          context,
+          perPage: 15,
+          fetchAllPages: true,
+          purchase: '1',
+        ) ??
+        <ItemModel>[];
     if (!mounted) return;
 
     List<ItemModel> materials = [];

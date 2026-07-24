@@ -68,7 +68,12 @@ class _AddPurchaseScreenState extends State<AddPurchaseScreen> {
   }
 
   Future<void> _loadLookups() async {
-    final itemsResult = await itemsApi(context, perPage: 50);
+    final itemsResult = await itemsApi(
+      context,
+      perPage: 15,
+      fetchAllPages: true,
+      purchase: '1',
+    );
     if (!mounted) return;
 
     setState(() {
@@ -124,7 +129,11 @@ class _AddPurchaseScreenState extends State<AddPurchaseScreen> {
     });
 
     // With/Without Kanta are not items — use full suppliers API.
-    final response = await getSuppliersApi(context, perPage: 100);
+    final response = await getSuppliersApi(
+      context,
+      perPage: 15,
+      fetchAllPages: true,
+    );
     if (!mounted) return;
     if (_flowType != flowType) return;
 
@@ -1295,7 +1304,8 @@ class _SupplierSearchSheetState extends State<_SupplierSearchSheet> {
         : await getSuppliersApi(
             context,
             search: keyword,
-            perPage: 50,
+            perPage: 15,
+            fetchAllPages: true,
           );
     if (!mounted || token != _searchToken) return;
 

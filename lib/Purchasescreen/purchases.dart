@@ -77,7 +77,8 @@ class _PurchasesScreenState extends State<PurchasesScreen> {
       period: _apiPeriod,
       status: _apiStatus,
       search: '',
-      perPage: 50,
+      perPage: 15,
+      fetchAllPages: true,
     );
 
     if (!mounted) return;

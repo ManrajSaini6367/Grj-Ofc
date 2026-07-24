@@ -76,7 +76,14 @@ class _WithKantaStep3ScreenState extends State<WithKantaStep3Screen> {
 
   Future<void> _loadItems() async {
     final supplierId = widget.purchase.supplierId;
-    final catalog = cachedItems() ?? await itemsApi(context) ?? <ItemModel>[];
+    final catalog = cachedItems() ??
+        await itemsApi(
+          context,
+          perPage: 15,
+          fetchAllPages: true,
+          purchase: '1',
+        ) ??
+        <ItemModel>[];
     if (!mounted) return;
 
     List<ItemModel> materials = [];

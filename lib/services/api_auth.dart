@@ -27,6 +27,7 @@ import 'package:grjoffice_apps/models/labourattendancereport.dart';
 import 'package:grjoffice_apps/models/listcontractor.dart';
 import 'package:grjoffice_apps/models/login_model.dart';
 import 'package:grjoffice_apps/models/mypermission.dart';
+import 'package:grjoffice_apps/models/pagination_model.dart';
 import 'package:grjoffice_apps/models/site_model.dart';
 import 'package:grjoffice_apps/models/sites_response_model.dart';
 import 'package:grjoffice_apps/DayEndReport/activity.dart';
@@ -232,60 +233,99 @@ Future logInApi(
   String password, {
   bool rememberDevice = false,
 }) async {
-  try {
-    final response = await http.post(
-      Uri.parse('$baseUrl/api/v1/login'),
-      headers: {
-        'Content-Type': 'application/json',
-        'Accept': 'application/json',
-      },
-      body: jsonEncode({
-        'email': login.trim(),
-        'password': password,
-        'device_name': _deviceName,
-        "device_id": "abc123-device-uuid",
-      }),
-    );
-    print(response.body);
-    if (response.statusCode == 200) {
-      final data = json.decode(response.body);
-      if (data['success'] == true) {
-        final loginData = LoginModel.fromJson(data['data'] as Map<String, dynamic>);
-
-        await Preference.pref.setString('token', loginData.token);
-        await _saveUser(loginData.user);
-        await Preference.pref.setBool('rememberDevice', rememberDevice);
-
-        if (rememberDevice) {
-          await Preference.pref.setString('rememberedLogin', login.trim());
-        } else {
-          await Preference.pref.remove('rememberedLogin');
-        }
-
-        // Clear previous role's permissions, apply login payload, then sync API.
-        await PermissionService.instance.clear();
-        await PermissionService.instance.apply(
-          permissions: loginData.user.permissions,
-          roles: loginData.user.roles,
-        );
-        await PermissionService.instance.refresh();
-
-        if (!context.mounted) return;
-        message(context, data['message'].toString());
-        pushAndRevoveUntil(context, const MainShell());
-      } else {
-        if (!context.mounted) return;
-        message(context, data['message'].toString());
-        throw Exception('Failed to load data');
-      }
-    } else {
-      final data = json.decode(response.body);
-      if (!context.mounted) return;
-      message(context, data['message'].toString());
-      throw Exception('Failed to load data');
+  final email = login.trim();
+  if (email.isEmpty || password.isEmpty) {
+    if (context.mounted) {
+      message(context, 'Please enter email and password.');
     }
-  } catch (e) {
-    print(e);
+    return;
+  }
+
+  try {
+    final response = await http
+        .post(
+          Uri.parse('$baseUrl/api/v1/login'),
+          headers: {
+            'Content-Type': 'application/json',
+            'Accept': 'application/json',
+          },
+          body: jsonEncode({
+            'email': email,
+            'password': password,
+            'device_name': _deviceName,
+            'device_id': 'abc123-device-uuid',
+          }),
+        )
+        .timeout(const Duration(seconds: 30));
+
+    debugPrint('Login API status: ${response.statusCode}');
+    debugPrint('Login API body: ${response.body}');
+
+    final data = decodeApiJson(response.body);
+    if (data == null) {
+      if (context.mounted) {
+        message(context, 'Unexpected server response. Please try again.');
+      }
+      return;
+    }
+
+    if (response.statusCode == 200 && data['success'] == true) {
+      final payload = data['data'];
+      if (payload is! Map<String, dynamic>) {
+        if (context.mounted) {
+          message(context, 'Invalid login response. Please try again.');
+        }
+        return;
+      }
+
+      final loginData = LoginModel.fromJson(payload);
+
+      await Preference.pref.setString('token', loginData.token);
+      await _saveUser(loginData.user);
+      await Preference.pref.setBool('rememberDevice', rememberDevice);
+
+      if (rememberDevice) {
+        await Preference.pref.setString('rememberedLogin', email);
+      } else {
+        await Preference.pref.remove('rememberedLogin');
+      }
+
+      // Apply permissions from login first so UI can open immediately.
+      await PermissionService.instance.clear();
+      await PermissionService.instance.apply(
+        permissions: loginData.user.permissions,
+        roles: loginData.user.roles,
+      );
+      // Sync latest permissions in background (don't block login).
+      unawaited(PermissionService.instance.refresh());
+
+      if (!context.mounted) return;
+      message(context, data['message']?.toString() ?? 'Logged in successfully.');
+      pushAndRevoveUntil(context, const MainShell());
+      return;
+    }
+
+    if (!context.mounted) return;
+    message(
+      context,
+      data['message']?.toString() ??
+          'Login failed. Please check your credentials.',
+    );
+  } on TimeoutException {
+    debugPrint('Login API timeout');
+    if (context.mounted) {
+      message(context, 'Server is taking too long. Please try again.');
+    }
+  } on SocketException catch (e) {
+    debugPrint('Login API network error: $e');
+    if (context.mounted) {
+      message(context, 'No internet connection. Please try again.');
+    }
+  } catch (e, st) {
+    debugPrint('Login API error: $e\n$st');
+    if (context.mounted) {
+      message(context, 'Login failed. Please try again.');
+    }
   }
 }
 
@@ -381,8 +421,11 @@ Future<List<ItemModel>?> itemsApi(
   int? siteId,
   String search = '',
   String status = 'published',
-  String consumable = '0',
+  String? consumable = '0',
+  String? purchase = '1',
   int perPage = 15,
+  int page = 1,
+  bool fetchAllPages = false,
 }) async {
   try {
     final resolvedSiteId = siteId ?? selectedSiteId();
@@ -395,43 +438,81 @@ Future<List<ItemModel>?> itemsApi(
 
     await Preference.pref.setInt('site_id', resolvedSiteId);
 
-    final uri = Uri.parse('$baseUrl/api/v1/items').replace(
-      queryParameters: {
+    Future<ItemsResponseModel?> fetchPage(int pageNo) async {
+      final query = <String, String>{
         'site_id': resolvedSiteId.toString(),
-        'search': search,
-        'status': status,
-        'consumable': consumable,
         'per_page': perPage.toString(),
-        'purchase': '1',
-      },
-    );
-    final response = await http.get(uri, headers: authHeaders);
-    print(response.body);
-    if (response.statusCode == 200) {
-      final data = json.decode(response.body);
-      if (data['success'] == true) {
-        final itemsResponse =
-            ItemsResponseModel.fromJson(data['data'] as Map<String, dynamic>);
-        final items = itemsResponse.items;
-
-        await Preference.pref.setString(
-          'items',
-          jsonEncode(items.map((item) => item.toJson()).toList()),
-        );
-        return items;
-      } else {
-        if (!context.mounted) return cachedItems();
-        message(context, data['message'].toString());
-        throw Exception('Failed to load data');
+        'page': pageNo.toString(),
+      };
+      if (search.trim().isNotEmpty) query['search'] = search.trim();
+      if (status.trim().isNotEmpty) query['status'] = status.trim();
+      if (consumable != null && consumable.trim().isNotEmpty) {
+        query['consumable'] = consumable.trim();
       }
-    } else {
-      final data = json.decode(response.body);
-      if (!context.mounted) return cachedItems();
-      message(context, data['message']?.toString() ?? 'Failed to load items.');
-      throw Exception('Failed to load data');
+      if (purchase != null && purchase.trim().isNotEmpty) {
+        query['purchase'] = purchase.trim();
+      }
+
+      final uri = Uri.parse('$baseUrl/api/v1/items').replace(
+        queryParameters: query,
+      );
+      debugPrint('[itemsApi] GET $uri');
+
+      final response = await http
+          .get(uri, headers: authHeaders)
+          .timeout(const Duration(seconds: 30));
+      debugPrint('[itemsApi] status=${response.statusCode}');
+      debugPrint(response.body);
+
+      if (response.statusCode != 200) {
+        final data = decodeApiJson(response.body);
+        if (context.mounted) {
+          message(
+            context,
+            data?['message']?.toString() ?? 'Failed to load items.',
+          );
+        }
+        return null;
+      }
+
+      final data = decodeApiJson(response.body);
+      if (data == null || data['success'] != true) {
+        if (context.mounted) {
+          message(
+            context,
+            data?['message']?.toString() ?? 'Failed to load items.',
+          );
+        }
+        return null;
+      }
+
+      final payload = data['data'];
+      if (payload is! Map<String, dynamic>) return null;
+      return ItemsResponseModel.fromJson(payload);
     }
-  } catch (e) {
-    print(e);
+
+    final first = await fetchPage(page);
+    if (first == null) return cachedItems();
+
+    final allItems = <ItemModel>[...first.items];
+
+    if (fetchAllPages) {
+      final lastPage = first.pagination.lastPage;
+      for (var p = page + 1; p <= lastPage; p++) {
+        if (!context.mounted) break;
+        final next = await fetchPage(p);
+        if (next == null) break;
+        allItems.addAll(next.items);
+      }
+    }
+
+    await Preference.pref.setString(
+      'items',
+      jsonEncode(allItems.map((item) => item.toJson()).toList()),
+    );
+    return allItems;
+  } catch (e, st) {
+    debugPrint('[itemsApi] error: $e\n$st');
   }
   return cachedItems();
 }
@@ -736,7 +817,9 @@ Future<Getsupplierlistdata?> getSuppliersApi(
   BuildContext context, {
   int? siteId,
   String search = '',
-  int perPage = 50,
+  int perPage = 15,
+  int page = 1,
+  bool fetchAllPages = false,
 }) async {
   try {
     final resolvedSiteId = siteId ?? selectedSiteId();
@@ -744,45 +827,80 @@ Future<Getsupplierlistdata?> getSuppliersApi(
       return null;
     }
 
-    final queryParams = <String, String>{
-      'site_id': resolvedSiteId.toString(),
-      'per_page': perPage.toString(),
-    };
-    if (search.trim().isNotEmpty) {
-      queryParams['search'] = search.trim();
+    Future<Getsupplierlistdata?> fetchPage(int pageNo) async {
+      final queryParams = <String, String>{
+        'site_id': resolvedSiteId.toString(),
+        'per_page': perPage.toString(),
+        'page': pageNo.toString(),
+      };
+      if (search.trim().isNotEmpty) {
+        queryParams['search'] = search.trim();
+      }
+
+      final uri = Uri.parse('$baseUrl/api/v1/suppliers').replace(
+        queryParameters: queryParams,
+      );
+
+      debugPrint('[getSuppliersApi] GET $uri');
+
+      final response = await http
+          .get(uri, headers: authHeaders)
+          .timeout(const Duration(seconds: 30));
+
+      debugPrint('[getSuppliersApi] statusCode: ${response.statusCode}');
+      debugPrint('[getSuppliersApi] response body: ${response.body}');
+
+      final decoded = decodeApiJson(response.body);
+      final apiMessage = decoded?['message']?.toString();
+
+      if (response.statusCode == 200 &&
+          decoded != null &&
+          decoded['success'] == true) {
+        return Getsupplierlistdata.fromJson(decoded);
+      }
+
+      if (context.mounted) {
+        message(context, apiMessage ?? 'Failed to load suppliers.');
+      }
+      return null;
     }
 
-    final uri = Uri.parse('$baseUrl/api/v1/suppliers').replace(
-      queryParameters: queryParams,
+    final first = await fetchPage(page);
+    if (first == null) return null;
+
+    if (!fetchAllPages) return first;
+
+    final allItems = <SupplierListItem>[...(first.data?.items ?? const [])];
+    final lastPage = first.data?.pagination?.lastPage ?? 1;
+
+    for (var p = page + 1; p <= lastPage; p++) {
+      if (!context.mounted) break;
+      final next = await fetchPage(p);
+      if (next == null) break;
+      allItems.addAll(next.data?.items ?? const []);
+    }
+
+    return Getsupplierlistdata(
+      success: first.success,
+      message: first.message,
+      data: SupplierListData(
+        items: allItems,
+        pagination: SupplierListPagination(
+          currentPage: 1,
+          lastPage: lastPage,
+          perPage: perPage,
+          total: allItems.length,
+        ),
+      ),
     );
-
-    print('[getSuppliersApi] GET $uri');
-
-    final response = await http
-        .get(uri, headers: authHeaders)
-        .timeout(const Duration(seconds: 30));
-
-    print('[getSuppliersApi] statusCode: ${response.statusCode}');
-    print('[getSuppliersApi] response body: ${response.body}');
-
-    final decoded = decodeApiJson(response.body);
-    final apiMessage = decoded?['message']?.toString();
-
-    if (response.statusCode == 200 && decoded != null && decoded['success'] == true) {
-      return Getsupplierlistdata.fromJson(decoded);
-    }
-
-    if (!context.mounted) return null;
-    message(context, apiMessage ?? 'Failed to load suppliers.');
-    return null;
   } on TimeoutException {
-    print('[getSuppliersApi] request timed out');
+    debugPrint('[getSuppliersApi] request timed out');
     if (!context.mounted) return null;
     message(context, 'Request timed out. Please try again.');
     return null;
   } catch (e, stack) {
-    print('[getSuppliersApi] error: $e');
-    print('[getSuppliersApi] stack: $stack');
+    debugPrint('[getSuppliersApi] error: $e');
+    debugPrint('[getSuppliersApi] stack: $stack');
     if (!context.mounted) return null;
     message(context, 'Something went wrong');
     return null;
@@ -1604,44 +1722,83 @@ Future<bool> deleteItemApi(
 Future<Itemhistorydata?> itemHistoryApi(
   BuildContext context, {
   required int itemId,
-  int perPage = 50,
+  String type = '',
+  int perPage = 15,
+  int page = 1,
+  bool fetchAllPages = false,
 }) async {
   try {
-    final uri = Uri.parse('$baseUrl/api/v1/items/$itemId/history').replace(
-      queryParameters: {
+    Future<Itemhistorydata?> fetchPage(int pageNo) async {
+      final query = <String, String>{
         'per_page': perPage.toString(),
-      },
-    );
+        'page': pageNo.toString(),
+      };
+      if (type.trim().isNotEmpty) query['type'] = type.trim();
 
-    print('[itemHistoryApi] GET $uri');
+      final uri = Uri.parse('$baseUrl/api/v1/items/$itemId/history').replace(
+        queryParameters: query,
+      );
 
-    final response = await http
-        .get(uri, headers: authHeaders)
-        .timeout(const Duration(seconds: 30));
+      debugPrint('[itemHistoryApi] GET $uri');
 
-    print('[itemHistoryApi] statusCode: ${response.statusCode}');
-    print('[itemHistoryApi] response body: ${response.body}');
+      final response = await http
+          .get(uri, headers: authHeaders)
+          .timeout(const Duration(seconds: 30));
 
-    final decoded = decodeApiJson(response.body);
-    final apiMessage = decoded?['message']?.toString();
+      debugPrint('[itemHistoryApi] statusCode: ${response.statusCode}');
+      debugPrint('[itemHistoryApi] response body: ${response.body}');
 
-    if (response.statusCode == 200 &&
-        decoded != null &&
-        decoded['success'] == true) {
-      return Itemhistorydata.fromJson(decoded);
+      final decoded = decodeApiJson(response.body);
+      final apiMessage = decoded?['message']?.toString();
+
+      if (response.statusCode == 200 &&
+          decoded != null &&
+          decoded['success'] == true) {
+        return Itemhistorydata.fromJson(decoded);
+      }
+
+      if (context.mounted) {
+        message(context, apiMessage ?? 'Failed to load item history.');
+      }
+      return null;
     }
 
-    if (!context.mounted) return null;
-    message(context, apiMessage ?? 'Failed to load item history.');
-    return null;
+    final first = await fetchPage(page);
+    if (first == null) return null;
+    if (!fetchAllPages) return first;
+
+    final allItems = <ItemHistoryRecord>[...(first.data?.items ?? const [])];
+    final lastPage = first.data?.pagination?.lastPage ?? 1;
+
+    for (var p = page + 1; p <= lastPage; p++) {
+      if (!context.mounted) break;
+      final next = await fetchPage(p);
+      if (next == null) break;
+      allItems.addAll(next.data?.items ?? const []);
+    }
+
+    return Itemhistorydata(
+      success: first.success,
+      message: first.message,
+      data: ItemHistoryListData(
+        items: allItems,
+        pagination: ItemHistoryPagination(
+          currentPage: 1,
+          lastPage: lastPage,
+          perPage: perPage,
+          total: allItems.length,
+        ),
+        item: first.data?.item,
+      ),
+    );
   } on TimeoutException {
-    print('[itemHistoryApi] request timed out');
+    debugPrint('[itemHistoryApi] request timed out');
     if (!context.mounted) return null;
     message(context, 'Request timed out. Please try again.');
     return null;
   } catch (e, stack) {
-    print('[itemHistoryApi] error: $e');
-    print('[itemHistoryApi] stack: $stack');
+    debugPrint('[itemHistoryApi] error: $e');
+    debugPrint('[itemHistoryApi] stack: $stack');
     if (!context.mounted) return null;
     message(context, 'Something went wrong');
     return null;
@@ -1731,7 +1888,9 @@ Future<Getemployeesmodal?> getEmployeesApi(
   BuildContext context, {
   int? siteId,
   String search = '',
-  int perPage = 50,
+  int perPage = 15,
+  int page = 1,
+  bool fetchAllPages = false,
 }) async {
   try {
     final resolvedSiteId = siteId ?? selectedSiteId();
@@ -1739,47 +1898,79 @@ Future<Getemployeesmodal?> getEmployeesApi(
       return null;
     }
 
-    final queryParams = <String, String>{
-      'site_id': resolvedSiteId.toString(),
-      'per_page': perPage.toString(),
-    };
-    if (search.trim().isNotEmpty) {
-      queryParams['search'] = search.trim();
+    Future<Getemployeesmodal?> fetchPage(int pageNo) async {
+      final queryParams = <String, String>{
+        'site_id': resolvedSiteId.toString(),
+        'per_page': perPage.toString(),
+        'page': pageNo.toString(),
+      };
+      if (search.trim().isNotEmpty) {
+        queryParams['search'] = search.trim();
+      }
+
+      final uri = Uri.parse('$baseUrl/api/v1/employees').replace(
+        queryParameters: queryParams,
+      );
+
+      debugPrint('[getEmployeesApi] GET $uri');
+
+      final response = await http
+          .get(uri, headers: authHeaders)
+          .timeout(const Duration(seconds: 30));
+
+      debugPrint('[getEmployeesApi] statusCode: ${response.statusCode}');
+      debugPrint('[getEmployeesApi] response body: ${response.body}');
+
+      final decoded = decodeApiJson(response.body);
+      final apiMessage = decoded?['message']?.toString();
+
+      if (response.statusCode == 200 &&
+          decoded != null &&
+          decoded['success'] == true) {
+        return Getemployeesmodal.fromJson(decoded);
+      }
+
+      if (context.mounted) {
+        message(context, apiMessage ?? 'Failed to load employees.');
+      }
+      return null;
     }
 
-    final uri = Uri.parse('$baseUrl/api/v1/employees').replace(
-      queryParameters: queryParams,
+    final first = await fetchPage(page);
+    if (first == null) return null;
+    if (!fetchAllPages) return first;
+
+    final allItems = <EmployeeListItem>[...(first.data?.items ?? const [])];
+    final lastPage = first.data?.pagination?.lastPage ?? 1;
+
+    for (var p = page + 1; p <= lastPage; p++) {
+      if (!context.mounted) break;
+      final next = await fetchPage(p);
+      if (next == null) break;
+      allItems.addAll(next.data?.items ?? const []);
+    }
+
+    return Getemployeesmodal(
+      success: first.success,
+      message: first.message,
+      data: EmployeeListData(
+        items: allItems,
+        pagination: EmployeeListPagination(
+          currentPage: 1,
+          lastPage: lastPage,
+          perPage: perPage,
+          total: allItems.length,
+        ),
+      ),
     );
-
-    print('[getEmployeesApi] GET $uri');
-
-    final response = await http
-        .get(uri, headers: authHeaders)
-        .timeout(const Duration(seconds: 30));
-
-    print('[getEmployeesApi] statusCode: ${response.statusCode}');
-    print('[getEmployeesApi] response body: ${response.body}');
-
-    final decoded = decodeApiJson(response.body);
-    final apiMessage = decoded?['message']?.toString();
-
-    if (response.statusCode == 200 &&
-        decoded != null &&
-        decoded['success'] == true) {
-      return Getemployeesmodal.fromJson(decoded);
-    }
-
-    if (!context.mounted) return null;
-    message(context, apiMessage ?? 'Failed to load employees.');
-    return null;
   } on TimeoutException {
-    print('[getEmployeesApi] request timed out');
+    debugPrint('[getEmployeesApi] request timed out');
     if (!context.mounted) return null;
     message(context, 'Request timed out. Please try again.');
     return null;
   } catch (e, stack) {
-    print('[getEmployeesApi] error: $e');
-    print('[getEmployeesApi] stack: $stack');
+    debugPrint('[getEmployeesApi] error: $e');
+    debugPrint('[getEmployeesApi] stack: $stack');
     if (!context.mounted) return null;
     message(context, 'Something went wrong');
     return null;
@@ -2704,7 +2895,9 @@ Future<ExpensesListResponse?> getExpensesApi(
   String? category,
   String? type,
   String search = '',
-  int perPage = 50,
+  int perPage = 15,
+  int page = 1,
+  bool fetchAllPages = false,
 }) async {
   try {
     final resolvedSiteId = siteId ?? selectedSiteId();
@@ -2715,54 +2908,87 @@ Future<ExpensesListResponse?> getExpensesApi(
       return null;
     }
 
-    final queryParams = <String, String>{
-      'site_id': resolvedSiteId.toString(),
-      'period': period,
-      'per_page': perPage.toString(),
-    };
-    if (category != null && category.trim().isNotEmpty) {
-      queryParams['category'] = category.trim();
-    }
-    if (type != null && type.trim().isNotEmpty) {
-      queryParams['type'] = type.trim();
-    }
-    if (search.trim().isNotEmpty) {
-      queryParams['search'] = search.trim();
+    Future<ExpensesListResponse?> fetchPage(int pageNo) async {
+      final queryParams = <String, String>{
+        'site_id': resolvedSiteId.toString(),
+        'period': period,
+        'per_page': perPage.toString(),
+        'page': pageNo.toString(),
+      };
+      if (category != null && category.trim().isNotEmpty) {
+        queryParams['category'] = category.trim();
+      }
+      if (type != null && type.trim().isNotEmpty) {
+        queryParams['type'] = type.trim();
+      }
+      if (search.trim().isNotEmpty) {
+        queryParams['search'] = search.trim();
+      }
+
+      final uri = Uri.parse('$baseUrl/api/v1/expenses').replace(
+        queryParameters: queryParams,
+      );
+
+      debugPrint('[getExpensesApi] GET $uri');
+
+      final response = await http
+          .get(uri, headers: authHeaders)
+          .timeout(const Duration(seconds: 30));
+
+      debugPrint('[getExpensesApi] statusCode: ${response.statusCode}');
+      debugPrint('[getExpensesApi] response body: ${response.body}');
+
+      final decoded = decodeApiJson(response.body);
+      final apiMessage = decoded?['message']?.toString();
+
+      if (response.statusCode == 200 &&
+          decoded != null &&
+          decoded['success'] == true) {
+        return ExpensesListResponse.fromJson(decoded);
+      }
+
+      if (context.mounted) {
+        message(context, apiMessage ?? 'Failed to load expenses.');
+      }
+      return null;
     }
 
-    final uri = Uri.parse('$baseUrl/api/v1/expenses').replace(
-      queryParameters: queryParams,
+    final first = await fetchPage(page);
+    if (first == null) return null;
+    if (!fetchAllPages) return first;
+
+    final allItems = <Expense>[...(first.data?.items ?? const [])];
+    final lastPage = first.data?.pagination?.lastPage ?? 1;
+
+    for (var p = page + 1; p <= lastPage; p++) {
+      if (!context.mounted) break;
+      final next = await fetchPage(p);
+      if (next == null) break;
+      allItems.addAll(next.data?.items ?? const []);
+    }
+
+    return ExpensesListResponse(
+      success: first.success,
+      message: first.message,
+      data: ExpensesListData(
+        items: allItems,
+        pagination: PaginationModel(
+          currentPage: 1,
+          lastPage: lastPage,
+          perPage: perPage,
+          total: allItems.length,
+        ),
+        totalAmount: first.data?.totalAmount ?? 0,
+      ),
     );
-
-    print('[getExpensesApi] GET $uri');
-
-    final response = await http
-        .get(uri, headers: authHeaders)
-        .timeout(const Duration(seconds: 30));
-
-    print('[getExpensesApi] statusCode: ${response.statusCode}');
-    print('[getExpensesApi] response body: ${response.body}');
-
-    final decoded = decodeApiJson(response.body);
-    final apiMessage = decoded?['message']?.toString();
-
-    if (response.statusCode == 200 &&
-        decoded != null &&
-        decoded['success'] == true) {
-      return ExpensesListResponse.fromJson(decoded);
-    }
-
-    if (!context.mounted) return null;
-    message(context, apiMessage ?? 'Failed to load expenses.');
-    return null;
   } on TimeoutException {
-    print('[getExpensesApi] request timed out');
+    debugPrint('[getExpensesApi] request timed out');
     if (!context.mounted) return null;
     message(context, 'Request timed out. Please try again.');
     return null;
   } catch (e, stack) {
-    print('[getExpensesApi] error: $e');
-    print('[getExpensesApi] stack: $stack');
+    debugPrint('[getExpensesApi] error: $e');
+    debugPrint('[getExpensesApi] stack: $stack');
     if (!context.mounted) return null;
     message(context, 'Something went wrong');
     return null;
@@ -3077,7 +3303,9 @@ Future<PurchasesListResponse?> getPurchasesApi(
   String? status,
   String? flowType,
   String search = '',
-  int perPage = 50,
+  int perPage = 15,
+  int page = 1,
+  bool fetchAllPages = false,
 }) async {
   try {
     final resolvedSiteId = siteId ?? selectedSiteId();
@@ -3088,48 +3316,81 @@ Future<PurchasesListResponse?> getPurchasesApi(
       return null;
     }
 
-    final queryParams = <String, String>{
-      'site_id': resolvedSiteId.toString(),
-      'period': period,
-      'per_page': perPage.toString(),
-      'status': status?.trim() ?? '',
-      'flow_type': flowType?.trim() ?? '',
-      'search': search.trim(),
-    };
+    Future<PurchasesListResponse?> fetchPage(int pageNo) async {
+      final queryParams = <String, String>{
+        'site_id': resolvedSiteId.toString(),
+        'period': period,
+        'per_page': perPage.toString(),
+        'page': pageNo.toString(),
+        'status': status?.trim() ?? '',
+        'flow_type': flowType?.trim() ?? '',
+        'search': search.trim(),
+      };
 
-    final uri = Uri.parse('$baseUrl/api/v1/purchases').replace(
-      queryParameters: queryParams,
-    );
+      final uri = Uri.parse('$baseUrl/api/v1/purchases').replace(
+        queryParameters: queryParams,
+      );
 
-    print('[getPurchasesApi] GET $uri');
+      debugPrint('[getPurchasesApi] GET $uri');
 
-    final response = await http
-        .get(uri, headers: authHeaders)
-        .timeout(const Duration(seconds: 30));
+      final response = await http
+          .get(uri, headers: authHeaders)
+          .timeout(const Duration(seconds: 30));
 
-    print('[getPurchasesApi] statusCode: ${response.statusCode}');
-    print('[getPurchasesApi] response body: ${response.body}');
+      debugPrint('[getPurchasesApi] statusCode: ${response.statusCode}');
+      debugPrint('[getPurchasesApi] response body: ${response.body}');
 
-    final decoded = decodeApiJson(response.body);
-    final apiMessage = decoded?['message']?.toString();
+      final decoded = decodeApiJson(response.body);
+      final apiMessage = decoded?['message']?.toString();
 
-    if (response.statusCode == 200 &&
-        decoded != null &&
-        decoded['success'] == true) {
-      return PurchasesListResponse.fromJson(decoded);
+      if (response.statusCode == 200 &&
+          decoded != null &&
+          decoded['success'] == true) {
+        return PurchasesListResponse.fromJson(decoded);
+      }
+
+      if (context.mounted) {
+        message(context, apiMessage ?? 'Failed to load purchases.');
+      }
+      return null;
     }
 
-    if (!context.mounted) return null;
-    message(context, apiMessage ?? 'Failed to load purchases.');
-    return null;
+    final first = await fetchPage(page);
+    if (first == null) return null;
+    if (!fetchAllPages) return first;
+
+    final allItems = <Purchase>[...(first.data?.items ?? const [])];
+    final lastPage = first.data?.pagination?.lastPage ?? 1;
+
+    for (var p = page + 1; p <= lastPage; p++) {
+      if (!context.mounted) break;
+      final next = await fetchPage(p);
+      if (next == null) break;
+      allItems.addAll(next.data?.items ?? const []);
+    }
+
+    return PurchasesListResponse(
+      success: first.success,
+      message: first.message,
+      data: PurchasesListData(
+        items: allItems,
+        pagination: PurchasesPagination(
+          currentPage: 1,
+          lastPage: lastPage,
+          perPage: perPage,
+          total: allItems.length,
+        ),
+        summary: first.data?.summary,
+      ),
+    );
   } on TimeoutException {
-    print('[getPurchasesApi] request timed out');
+    debugPrint('[getPurchasesApi] request timed out');
     if (!context.mounted) return null;
     message(context, 'Request timed out. Please try again.');
     return null;
   } catch (e, stack) {
-    print('[getPurchasesApi] error: $e');
-    print('[getPurchasesApi] stack: $stack');
+    debugPrint('[getPurchasesApi] error: $e');
+    debugPrint('[getPurchasesApi] stack: $stack');
     if (!context.mounted) return null;
     message(context, 'Something went wrong');
     return null;

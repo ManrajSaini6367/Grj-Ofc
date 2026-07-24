@@ -239,7 +239,6 @@ class _GroupInfoScreenState extends State<GroupInfoScreen> {
     }
 
     final members = _service.groupMembers(thread);
-    final online = _service.onlineMembersCount(thread);
     final isAdmin = _service.isGroupAdmin(thread);
 
     return Scaffold(
@@ -289,7 +288,7 @@ class _GroupInfoScreenState extends State<GroupInfoScreen> {
                   const SizedBox(height: 6),
                   Center(
                     child: Text(
-                      'Group · ${thread.participantIds.length} members · $online online',
+                      'Group · ${thread.participantIds.length} members',
                       style: GoogleFonts.poppins(fontSize: 12, color: AppColors.textSecondary),
                     ),
                   ),
@@ -318,17 +317,20 @@ class _GroupInfoScreenState extends State<GroupInfoScreen> {
                     return Material(
                       color: AppColors.cardWhite,
                       child: ListTile(
-                        leading: ChatAvatar(user: member, showOnlineDot: true, radius: 20),
+                        leading: ChatAvatar(user: member, showOnlineDot: false, radius: 20),
                         title: Text(
                           isMe ? '${member.name} (You)' : member.name,
                           style: GoogleFonts.poppins(fontSize: 14, fontWeight: FontWeight.w500),
                         ),
-                        subtitle: Text(
-                          isMemberAdmin
-                              ? 'Group admin'
-                              : (member.isOnline ? 'online' : 'offline'),
-                          style: GoogleFonts.poppins(fontSize: 12, color: AppColors.textSecondary),
-                        ),
+                        subtitle: isMemberAdmin
+                            ? Text(
+                                'Group admin',
+                                style: GoogleFonts.poppins(
+                                  fontSize: 12,
+                                  color: AppColors.textSecondary,
+                                ),
+                              )
+                            : null,
                         trailing: isAdmin && !isMe
                             ? (_removingMemberId == member.id
                                 ? const SizedBox(
