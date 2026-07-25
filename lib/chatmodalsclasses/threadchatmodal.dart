@@ -153,10 +153,12 @@ class ThreadLastMessage {
   String? threadId;
   int? senderId;
   String? senderName;
+  String? type;
   String? text;
   DateTime? sentAt;
   String? status;
   dynamic mediaPath;
+  String? mediaUrl;
   bool? isVideo;
   dynamic mediaDuration;
   bool? isSystem;
@@ -167,10 +169,12 @@ class ThreadLastMessage {
     this.threadId,
     this.senderId,
     this.senderName,
+    this.type,
     this.text,
     this.sentAt,
     this.status,
     this.mediaPath,
+    this.mediaUrl,
     this.isVideo,
     this.mediaDuration,
     this.isSystem,
@@ -183,11 +187,14 @@ class ThreadLastMessage {
         threadId: json['thread_id']?.toString(),
         senderId: _asInt(json['sender_id']),
         senderName: json['sender_name']?.toString(),
+        type: json['type']?.toString(),
         text: json['text']?.toString(),
         sentAt: _asDate(json['sent_at']),
         status: json['status']?.toString(),
         mediaPath: json['media_path'],
-        isVideo: json['is_video'] == true,
+        mediaUrl: json['media_url']?.toString(),
+        isVideo: json['is_video'] == true ||
+            (json['type']?.toString().toLowerCase() == 'video'),
         mediaDuration: json['media_duration'],
         isSystem: json['is_system'] == true,
         isMine: json['is_mine'] == true,

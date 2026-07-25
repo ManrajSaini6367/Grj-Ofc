@@ -199,8 +199,8 @@ class _ChatCameraScreenState extends State<ChatCameraScreen>
     final description = _cameras[safeIndex];
     final controller = CameraController(
       description,
-      // Medium is more reliable across front/back on mid-range Android devices.
-      ResolutionPreset.medium,
+      // Lower preset keeps chat videos smaller for server upload limits.
+      ResolutionPreset.low,
       enableAudio: enableAudio,
     );
 

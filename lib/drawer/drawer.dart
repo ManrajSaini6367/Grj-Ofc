@@ -114,16 +114,16 @@ class AppDrawer extends StatelessWidget {
         AppPermissions.labourAttendancesReport,
       ],
     ),
-    _DrawerMenuItem(
-      DrawerIndex.roles,
-      Icons.admin_panel_settings_outlined,
-      'Roles',
-      anyOf: [
-        AppPermissions.usersView,
-        AppPermissions.usersCreate,
-        AppPermissions.usersBlock,
-      ],
-    ),
+    // _DrawerMenuItem(
+    //   DrawerIndex.roles,
+    //   Icons.admin_panel_settings_outlined,
+    //   'Roles',
+    //   anyOf: [
+    //     AppPermissions.usersView,
+    //     AppPermissions.usersCreate,
+    //     AppPermissions.usersBlock,
+    //   ],
+    // ),
     _DrawerMenuItem(
       DrawerIndex.report,
       Icons.assessment_outlined,

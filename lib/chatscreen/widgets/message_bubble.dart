@@ -31,10 +31,10 @@ class MessageBubble extends StatelessWidget {
     final gutter = ChatTheme.bubbleSideGutter(width);
 
     final radius = BorderRadius.only(
-      topLeft: Radius.circular(isMine ? 10 : (isFirstInGroup ? 0 : 10)),
-      topRight: Radius.circular(isMine ? (isFirstInGroup ? 0 : 10) : 10),
-      bottomLeft: const Radius.circular(10),
-      bottomRight: const Radius.circular(10),
+      topLeft: const Radius.circular(18),
+      topRight: const Radius.circular(18),
+      bottomLeft: Radius.circular(isMine ? 18 : 5),
+      bottomRight: Radius.circular(isMine ? 5 : 18),
     );
 
     return Align(
@@ -42,14 +42,14 @@ class MessageBubble extends StatelessWidget {
       child: ConstrainedBox(
         constraints: BoxConstraints(
           maxWidth: maxBubble,
-          minWidth: message.hasMedia ? 0 : 80,
+          minWidth: message.hasMedia ? 0 : 84,
         ),
         child: Padding(
           padding: EdgeInsets.only(
-            left: isMine ? gutter : 6,
-            right: isMine ? 6 : gutter,
-            top: isFirstInGroup ? 6 : 2,
-            bottom: 1.5,
+            left: isMine ? gutter : 12,
+            right: isMine ? 12 : gutter,
+            top: isFirstInGroup ? 8 : 3,
+            bottom: 2,
           ),
           child: Column(
             crossAxisAlignment:
@@ -60,21 +60,31 @@ class MessageBubble extends StatelessWidget {
                   isFirstInGroup &&
                   !isMine)
                 Padding(
-                  padding: const EdgeInsets.only(left: 8, bottom: 3),
+                  padding: const EdgeInsets.only(left: 10, bottom: 4),
                   child: Text(
                     senderName!,
-                    style: GoogleFonts.roboto(
+                    style: GoogleFonts.poppins(
                       color: _senderColor(senderName!),
-                      fontSize: 12.5,
+                      fontSize: 12,
                       fontWeight: FontWeight.w600,
                     ),
                   ),
                 ),
-              Material(
-                color: isMine ? ChatTheme.outgoing : ChatTheme.incoming,
-                elevation: 0.6,
-                shadowColor: Colors.black26,
-                borderRadius: radius,
+              DecoratedBox(
+                decoration: BoxDecoration(
+                  color: isMine ? ChatTheme.outgoing : ChatTheme.incoming,
+                  borderRadius: radius,
+                  border: isMine
+                      ? null
+                      : Border.all(color: ChatTheme.divider),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.05),
+                      blurRadius: 8,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+                ),
                 child: ClipRRect(
                   borderRadius: radius,
                   child: message.hasMedia
@@ -91,13 +101,13 @@ class MessageBubble extends StatelessWidget {
 
   Color _senderColor(String name) {
     const palette = [
-      Color(0xFF06CF9C),
-      Color(0xFF02A698),
-      Color(0xFF53BDEB),
-      Color(0xFFFFBC38),
-      Color(0xFFFF7A7A),
-      Color(0xFFC38FFF),
-      Color(0xFF7D9CFF),
+      Color(0xFF8B1D1D),
+      Color(0xFFB45309),
+      Color(0xFF047857),
+      Color(0xFF1D4ED8),
+      Color(0xFF7C3AED),
+      Color(0xFFBE185D),
+      Color(0xFF0F766E),
     ];
     final hash = name.codeUnits.fold<int>(0, (a, b) => a + b);
     return palette[hash % palette.length];
@@ -113,7 +123,7 @@ class _TextBubble extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(11, 8, 10, 7),
+      padding: const EdgeInsets.fromLTRB(14, 10, 12, 8),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.end,
         mainAxisSize: MainAxisSize.min,
@@ -122,10 +132,13 @@ class _TextBubble extends StatelessWidget {
             alignment: Alignment.centerLeft,
             child: Text(
               message.text,
-              style: GoogleFonts.roboto(
-                color: ChatTheme.textPrimary,
-                fontSize: 15.5,
-                height: 1.38,
+              style: GoogleFonts.poppins(
+                color: isMine
+                    ? ChatTheme.textOnOutgoing
+                    : ChatTheme.textPrimary,
+                fontSize: 14.5,
+                height: 1.4,
+                fontWeight: FontWeight.w400,
               ),
             ),
           ),
@@ -152,41 +165,39 @@ class _MediaBubble extends StatelessWidget {
     final width = MediaQuery.sizeOf(context).width;
     final mediaW = ChatTheme.mediaWidth(width);
     final mediaH = mediaW * 0.78;
+    final hasCaption = message.text.trim().isNotEmpty;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.end,
       mainAxisSize: MainAxisSize.min,
       children: [
         Padding(
-          padding: const EdgeInsets.fromLTRB(3, 3, 3, 0),
+          padding: const EdgeInsets.fromLTRB(4, 4, 4, 0),
           child: _MediaPreview(
             message: message,
-            width: mediaW - 6,
+            width: mediaW - 8,
             height: mediaH,
           ),
         ),
-        if (message.text.trim().isNotEmpty)
+        if (hasCaption)
           Padding(
-            padding: const EdgeInsets.fromLTRB(10, 7, 9, 0),
+            padding: const EdgeInsets.fromLTRB(14, 8, 12, 0),
             child: Align(
               alignment: Alignment.centerLeft,
               child: Text(
                 message.text,
-                style: GoogleFonts.roboto(
-                  color: ChatTheme.textPrimary,
-                  fontSize: 15,
-                  height: 1.32,
+                style: GoogleFonts.poppins(
+                  color: isMine
+                      ? ChatTheme.textOnOutgoing
+                      : ChatTheme.textPrimary,
+                  fontSize: 14,
+                  height: 1.35,
                 ),
               ),
             ),
           ),
         Padding(
-          padding: EdgeInsets.fromLTRB(
-            10,
-            message.text.trim().isNotEmpty ? 5 : 4,
-            8,
-            6,
-          ),
+          padding: EdgeInsets.fromLTRB(12, hasCaption ? 6 : 5, 10, 8),
           child: _MetaRow(
             sentAt: message.sentAt,
             isMine: isMine,
@@ -216,14 +227,15 @@ class _MetaRow extends StatelessWidget {
       children: [
         Text(
           ChatFormatters.messageTime(sentAt),
-          style: GoogleFonts.roboto(
-            color: ChatTheme.timeMine,
-            fontSize: 11,
+          style: GoogleFonts.poppins(
+            color: isMine ? ChatTheme.timeOnOutgoing : ChatTheme.timeOnIncoming,
+            fontSize: 10.5,
             height: 1,
+            fontWeight: FontWeight.w400,
           ),
         ),
         if (isMine) ...[
-          const SizedBox(width: 3),
+          const SizedBox(width: 4),
           _StatusIcon(status: status),
         ],
       ],
@@ -259,7 +271,7 @@ class _MediaPreview extends StatelessWidget {
         SnackBar(
           content: Text(
             'Media file is no longer available.',
-            style: GoogleFonts.roboto(),
+            style: GoogleFonts.poppins(),
           ),
         ),
       );
@@ -316,7 +328,7 @@ class _MediaPreview extends StatelessWidget {
     final path = message.mediaPath!;
     final isNetwork =
         path.startsWith('http://') || path.startsWith('https://');
-    final radius = BorderRadius.circular(6);
+    final radius = BorderRadius.circular(14);
 
     return Material(
       color: Colors.transparent,
@@ -343,7 +355,7 @@ class _MediaPreview extends StatelessWidget {
                     child: Icon(
                       Icons.play_circle_fill_rounded,
                       color: Colors.white,
-                      size: 58,
+                      size: 54,
                     ),
                   ),
                   Positioned(
@@ -351,18 +363,18 @@ class _MediaPreview extends StatelessWidget {
                     bottom: 8,
                     child: Container(
                       padding: const EdgeInsets.symmetric(
-                        horizontal: 7,
-                        vertical: 3,
+                        horizontal: 8,
+                        vertical: 4,
                       ),
                       decoration: BoxDecoration(
                         color: Colors.black54,
-                        borderRadius: BorderRadius.circular(6),
+                        borderRadius: BorderRadius.circular(8),
                       ),
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           const Icon(
-                            Icons.videocam,
+                            Icons.videocam_rounded,
                             color: Colors.white,
                             size: 13,
                           ),
@@ -371,7 +383,7 @@ class _MediaPreview extends StatelessWidget {
                             message.mediaDuration != null
                                 ? _formatDuration(message.mediaDuration!)
                                 : 'Video',
-                            style: GoogleFonts.roboto(
+                            style: GoogleFonts.poppins(
                               color: Colors.white,
                               fontSize: 11,
                               fontWeight: FontWeight.w500,
@@ -382,26 +394,6 @@ class _MediaPreview extends StatelessWidget {
                     ),
                   ),
                 ],
-                Positioned(
-                  left: 0,
-                  right: 0,
-                  bottom: 0,
-                  child: IgnorePointer(
-                    child: Container(
-                      height: 40,
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          begin: Alignment.bottomCenter,
-                          end: Alignment.topCenter,
-                          colors: [
-                            Colors.black.withValues(alpha: 0.22),
-                            Colors.transparent,
-                          ],
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
               ],
             ),
           ),
@@ -421,22 +413,21 @@ class _StatusIcon extends StatelessWidget {
     switch (status) {
       case MessageDeliveryStatus.sending:
         return const SizedBox(
-          width: 14,
-          height: 14,
-          child: Padding(
-            padding: EdgeInsets.all(1),
-            child: CircularProgressIndicator(
-              strokeWidth: 1.4,
-              color: ChatTheme.tickSent,
-            ),
+          width: 12,
+          height: 12,
+          child: CircularProgressIndicator(
+            strokeWidth: 1.4,
+            color: ChatTheme.tickSent,
           ),
         );
       case MessageDeliveryStatus.sent:
-        return const Icon(Icons.check, size: 15, color: ChatTheme.tickSent);
+        return const Icon(Icons.check, size: 14, color: ChatTheme.tickSent);
       case MessageDeliveryStatus.delivered:
-        return const Icon(Icons.done_all, size: 15, color: ChatTheme.tickSent);
+        return const Icon(Icons.done_all, size: 14, color: ChatTheme.tickSent);
       case MessageDeliveryStatus.read:
-        return const Icon(Icons.done_all, size: 15, color: ChatTheme.tickRead);
+        return const Icon(Icons.done_all, size: 14, color: ChatTheme.tickRead);
+      case MessageDeliveryStatus.failed:
+        return const Icon(Icons.error_outline, size: 14, color: Color(0xFFEF4444));
     }
   }
 }

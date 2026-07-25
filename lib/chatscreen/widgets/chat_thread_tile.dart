@@ -28,13 +28,17 @@ class ChatThreadTile extends StatelessWidget {
               orElse: () => service.currentUserId,
             ),
           );
+    final hasUnread = thread.unreadCount > 0;
+    final width = MediaQuery.sizeOf(context).width;
+    final hPad = width < 360 ? 14.0 : 16.0;
+    final avatarR = width < 360 ? 24.0 : 26.0;
 
     return Material(
       color: AppColors.cardWhite,
       child: InkWell(
         onTap: onTap,
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          padding: EdgeInsets.symmetric(horizontal: hPad, vertical: 13),
           child: Row(
             children: [
               ChatAvatar(
@@ -43,9 +47,9 @@ class ChatThreadTile extends StatelessWidget {
                 groupLabel: thread.title,
                 groupColor: thread.isGroup ? thread.groupColor : null,
                 showOnlineDot: false,
-                radius: 26,
+                radius: avatarR,
               ),
-              const SizedBox(width: 12),
+              const SizedBox(width: 14),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -60,7 +64,8 @@ class ChatThreadTile extends StatelessWidget {
                             style: GoogleFonts.poppins(
                               color: AppColors.headingBlack,
                               fontSize: 15,
-                              fontWeight: FontWeight.w600,
+                              fontWeight:
+                                  hasUnread ? FontWeight.w700 : FontWeight.w600,
                             ),
                           ),
                         ),
@@ -68,18 +73,18 @@ class ChatThreadTile extends StatelessWidget {
                           Text(
                             ChatFormatters.threadTime(last.sentAt),
                             style: GoogleFonts.poppins(
-                              color: thread.unreadCount > 0
+                              color: hasUnread
                                   ? AppColors.primaryRed
                                   : AppColors.textSecondary,
-                              fontSize: 11,
-                              fontWeight: thread.unreadCount > 0
+                              fontSize: 11.5,
+                              fontWeight: hasUnread
                                   ? FontWeight.w600
                                   : FontWeight.w400,
                             ),
                           ),
                       ],
                     ),
-                    const SizedBox(height: 4),
+                    const SizedBox(height: 5),
                     Row(
                       children: [
                         Expanded(
@@ -88,19 +93,20 @@ class ChatThreadTile extends StatelessWidget {
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             style: GoogleFonts.poppins(
-                              color: thread.unreadCount > 0
+                              color: hasUnread
                                   ? AppColors.textDark
                                   : AppColors.textSecondary,
                               fontSize: 13,
-                              fontWeight: thread.unreadCount > 0
+                              fontWeight: hasUnread
                                   ? FontWeight.w500
                                   : FontWeight.w400,
                             ),
                           ),
                         ),
-                        if (thread.unreadCount > 0) ...[
-                          const SizedBox(width: 8),
+                        if (hasUnread) ...[
+                          const SizedBox(width: 10),
                           Container(
+                            constraints: const BoxConstraints(minWidth: 22),
                             padding: const EdgeInsets.symmetric(
                               horizontal: 7,
                               vertical: 3,
@@ -109,6 +115,7 @@ class ChatThreadTile extends StatelessWidget {
                               color: AppColors.primaryRed,
                               borderRadius: BorderRadius.circular(12),
                             ),
+                            alignment: Alignment.center,
                             child: Text(
                               thread.unreadCount > 99
                                   ? '99+'
@@ -136,7 +143,7 @@ class ChatThreadTile extends StatelessWidget {
   String _previewText(ChatMessage? last, ChatService service) {
     if (last == null) return 'No messages yet';
     final body = last.hasMedia
-        ? (last.isVideo ? '🎥 Video' : '📷 Photo')
+        ? (last.isVideo ? 'Video' : 'Photo')
         : last.text;
     if (thread.isGroup) {
       final sender = service.userById(last.senderId);

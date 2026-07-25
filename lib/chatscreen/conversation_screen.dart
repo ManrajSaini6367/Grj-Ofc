@@ -9,6 +9,7 @@ import 'package:grjoffice_apps/chatscreen/theme/chat_theme.dart';
 import 'package:grjoffice_apps/chatscreen/utils/chat_formatters.dart';
 import 'package:grjoffice_apps/chatscreen/widgets/chat_avatar.dart';
 import 'package:grjoffice_apps/chatscreen/widgets/message_bubble.dart';
+import 'package:grjoffice_apps/core/app_colors.dart';
 import 'package:grjoffice_apps/widgets/app_back_button.dart';
 
 class ConversationScreen extends StatefulWidget {
@@ -120,12 +121,26 @@ class _ConversationScreenState extends State<ConversationScreen>
     );
     if (result == null || !mounted) return;
 
-    await _service.sendMediaMessage(
+    final ok = await _service.sendMediaMessage(
       widget.threadId,
       mediaPath: result.file.path,
       isVideo: result.isVideo,
       duration: result.duration,
     );
+    if (!mounted) return;
+    if (!ok) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            _service.error ??
+                'Media server pe save nahi hui. Backend upload check karein.',
+            style: GoogleFonts.poppins(fontSize: 13),
+          ),
+          backgroundColor: const Color(0xFFB91C1C),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    }
     _scrollToBottom(force: true);
   }
 
@@ -156,29 +171,19 @@ class _ConversationScreenState extends State<ConversationScreen>
 
     if (thread == null) {
       return AnnotatedRegion<SystemUiOverlayStyle>(
-        value: SystemUiOverlayStyle.light,
+        value: SystemUiOverlayStyle.dark,
         child: Scaffold(
           backgroundColor: ChatTheme.wallpaper,
-          body: Column(
-            children: [
-              Container(
-                color: ChatTheme.header,
-                padding: EdgeInsets.only(top: topPad),
-                child: const SizedBox(
-                  height: 56,
-                  child: Center(
-                    child: Text(
-                      'Chat',
-                      style: TextStyle(color: Colors.white, fontSize: 17),
-                    ),
-                  ),
-                ),
-              ),
-              const Expanded(
-                child: Center(child: Text('Conversation not found')),
-              ),
-            ],
+          appBar: AppBar(
+            backgroundColor: ChatTheme.header,
+            foregroundColor: AppColors.headingBlack,
+            elevation: 0,
+            title: Text(
+              'Chat',
+              style: GoogleFonts.poppins(fontWeight: FontWeight.w600),
+            ),
           ),
+          body: const Center(child: Text('Conversation not found')),
         ),
       );
     }
@@ -197,8 +202,8 @@ class _ConversationScreenState extends State<ConversationScreen>
         : null;
 
     return AnnotatedRegion<SystemUiOverlayStyle>(
-      value: SystemUiOverlayStyle.light.copyWith(
-        statusBarColor: ChatTheme.header,
+      value: SystemUiOverlayStyle.dark.copyWith(
+        statusBarColor: Colors.transparent,
         systemNavigationBarColor: ChatTheme.composerBar,
       ),
       child: Scaffold(
@@ -218,84 +223,79 @@ class _ConversationScreenState extends State<ConversationScreen>
             Expanded(
               child: Padding(
                 padding: EdgeInsets.symmetric(horizontal: sideInset),
-                child: Stack(
-                  children: [
-                    const Positioned.fill(
-                      child: ColoredBox(color: ChatTheme.wallpaper),
-                    ),
-                    const Positioned.fill(
-                      child: CustomPaint(painter: ChatWallpaperPainter()),
-                    ),
-                    if (_service.isLoadingMessages &&
-                        thread.messages.isEmpty &&
-                        !_initialLoadDone)
-                      const Center(
-                        child: CircularProgressIndicator(
-                          color: ChatTheme.header,
-                        ),
-                      )
-                    else if (thread.messages.isEmpty)
-                      _EmptyChatState(isGroup: thread.isGroup)
-                    else
-                      ListView.builder(
-                        controller: _scrollController,
-                        physics: const BouncingScrollPhysics(
-                          parent: AlwaysScrollableScrollPhysics(),
-                        ),
-                        padding: EdgeInsets.fromLTRB(
-                          width < 360 ? 2 : 4,
-                          10,
-                          width < 360 ? 2 : 4,
-                          10,
-                        ),
-                        itemCount: thread.messages.length,
-                        itemBuilder: (context, index) {
-                          final message = thread.messages[index];
-                          final showDate = index == 0 ||
-                              !ChatFormatters.isSameDay(
-                                thread.messages[index - 1].sentAt,
-                                message.sentAt,
-                              );
-                          final isMine =
-                              message.isMine(_service.currentUserId);
-                          final sender =
-                              _service.userById(message.senderId);
-                          final isSystem =
-                              message.text.startsWith('You created') ||
-                                  message.text.startsWith('You added') ||
-                                  message.text.startsWith('You removed');
-                          final firstInGroup =
-                              _isFirstInGroup(thread.messages, index);
+                child: ColoredBox(
+                  color: ChatTheme.wallpaper,
+                  child: _service.isLoadingMessages &&
+                          thread.messages.isEmpty &&
+                          !_initialLoadDone
+                      ? const Center(
+                          child: CircularProgressIndicator(
+                            color: AppColors.primaryRed,
+                          ),
+                        )
+                      : thread.messages.isEmpty
+                          ? _EmptyChatState(isGroup: thread.isGroup)
+                          : ListView.builder(
+                              controller: _scrollController,
+                              physics: const BouncingScrollPhysics(
+                                parent: AlwaysScrollableScrollPhysics(),
+                              ),
+                              padding: EdgeInsets.fromLTRB(
+                                width < 360 ? 4 : 8,
+                                12,
+                                width < 360 ? 4 : 8,
+                                12,
+                              ),
+                              itemCount: thread.messages.length,
+                              itemBuilder: (context, index) {
+                                final message = thread.messages[index];
+                                final showDate = index == 0 ||
+                                    !ChatFormatters.isSameDay(
+                                      thread.messages[index - 1].sentAt,
+                                      message.sentAt,
+                                    );
+                                final isMine =
+                                    message.isMine(_service.currentUserId);
+                                final sender =
+                                    _service.userById(message.senderId);
+                                final isSystem = message.text
+                                        .startsWith('You created') ||
+                                    message.text.startsWith('You added') ||
+                                    message.text.startsWith('You removed');
+                                final firstInGroup = _isFirstInGroup(
+                                  thread.messages,
+                                  index,
+                                );
 
-                          return Column(
-                            children: [
-                              if (showDate)
-                                _DateChip(
-                                  label: ChatFormatters.dayLabel(
-                                    message.sentAt,
-                                  ),
-                                ),
-                              if (isSystem)
-                                _SystemBanner(text: message.text)
-                              else
-                                MessageBubble(
-                                  message: message,
-                                  isMine: isMine,
-                                  showSenderName: thread.isGroup && !isMine,
-                                  senderName: sender?.name,
-                                  isFirstInGroup: firstInGroup,
-                                ),
-                            ],
-                          );
-                        },
-                      ),
-                  ],
+                                return Column(
+                                  children: [
+                                    if (showDate)
+                                      _DateChip(
+                                        label: ChatFormatters.dayLabel(
+                                          message.sentAt,
+                                        ),
+                                      ),
+                                    if (isSystem)
+                                      _SystemBanner(text: message.text)
+                                    else
+                                      MessageBubble(
+                                        message: message,
+                                        isMine: isMine,
+                                        showSenderName:
+                                            thread.isGroup && !isMine,
+                                        senderName: sender?.name,
+                                        isFirstInGroup: firstInGroup,
+                                      ),
+                                  ],
+                                );
+                              },
+                            ),
                 ),
               ),
             ),
             Padding(
               padding: EdgeInsets.symmetric(horizontal: sideInset),
-              child: _WhatsAppComposer(
+              child: _MessageComposer(
                 controller: _messageController,
                 focusNode: _focusNode,
                 hasText: _hasText,
@@ -334,29 +334,34 @@ class _ChatHeader extends StatelessWidget {
   Widget build(BuildContext context) {
     final width = MediaQuery.sizeOf(context).width;
     final headerH = ChatTheme.headerHeight(width);
-    final avatarR = width < 360 ? 16.0 : 18.0;
+    final avatarR = width < 360 ? 18.0 : 20.0;
 
     return Material(
       color: ChatTheme.header,
-      elevation: 1.5,
-      shadowColor: Colors.black26,
-      child: Padding(
+      elevation: 0,
+      child: Container(
+        decoration: const BoxDecoration(
+          color: ChatTheme.header,
+          border: Border(
+            bottom: BorderSide(color: ChatTheme.divider, width: 1),
+          ),
+        ),
         padding: EdgeInsets.only(top: topPadding),
         child: SizedBox(
           height: headerH,
           child: Row(
             children: [
-              const SizedBox(width: 2),
+              const SizedBox(width: 4),
               AppBackButton(
                 onPressed: onBack,
-                color: Colors.white,
+                color: AppColors.headingBlack,
                 size: 40,
                 iconSize: 18,
               ),
               Expanded(
                 child: InkWell(
                   onTap: onTapTitle,
-                  borderRadius: BorderRadius.circular(8),
+                  borderRadius: BorderRadius.circular(10),
                   child: Padding(
                     padding: const EdgeInsets.symmetric(vertical: 4),
                     child: Row(
@@ -369,7 +374,7 @@ class _ChatHeader extends StatelessWidget {
                               thread.isGroup ? thread.groupColor : null,
                           radius: avatarR,
                         ),
-                        const SizedBox(width: 10),
+                        const SizedBox(width: 12),
                         Expanded(
                           child: Column(
                             mainAxisAlignment: MainAxisAlignment.center,
@@ -379,11 +384,10 @@ class _ChatHeader extends StatelessWidget {
                                 thread.title,
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
-                                style: GoogleFonts.roboto(
-                                  fontSize: width < 360 ? 15.5 : 16.5,
-                                  fontWeight: FontWeight.w500,
-                                  color: Colors.white,
-                                  letterSpacing: 0.1,
+                                style: GoogleFonts.poppins(
+                                  fontSize: width < 360 ? 15 : 16,
+                                  fontWeight: FontWeight.w600,
+                                  color: AppColors.headingBlack,
                                 ),
                               ),
                               if (subtitle != null)
@@ -391,10 +395,9 @@ class _ChatHeader extends StatelessWidget {
                                   subtitle!,
                                   maxLines: 1,
                                   overflow: TextOverflow.ellipsis,
-                                  style: GoogleFonts.roboto(
-                                    fontSize: 12.5,
-                                    color:
-                                        Colors.white.withValues(alpha: 0.88),
+                                  style: GoogleFonts.poppins(
+                                    fontSize: 12,
+                                    color: ChatTheme.textSecondary,
                                   ),
                                 ),
                             ],
@@ -410,8 +413,8 @@ class _ChatHeader extends StatelessWidget {
                   tooltip: 'Group info',
                   onPressed: onInfo,
                   icon: const Icon(
-                    Icons.more_vert_rounded,
-                    color: Colors.white,
+                    Icons.info_outline_rounded,
+                    color: ChatTheme.iconMuted,
                   ),
                 )
               else
@@ -424,8 +427,8 @@ class _ChatHeader extends StatelessWidget {
   }
 }
 
-class _WhatsAppComposer extends StatelessWidget {
-  const _WhatsAppComposer({
+class _MessageComposer extends StatelessWidget {
+  const _MessageComposer({
     required this.controller,
     required this.focusNode,
     required this.hasText,
@@ -445,119 +448,107 @@ class _WhatsAppComposer extends StatelessWidget {
   Widget build(BuildContext context) {
     final width = MediaQuery.sizeOf(context).width;
     final minH = ChatTheme.composerMinHeight(width);
-    final sendSize = width < 360 ? 44.0 : 48.0;
+    final sendSize = width < 360 ? 46.0 : 50.0;
 
-    return Material(
-      color: ChatTheme.composerBar,
-      elevation: 6,
-      shadowColor: Colors.black12,
-      child: Padding(
-        padding: EdgeInsets.fromLTRB(
-          width < 360 ? 4 : 6,
-          7,
-          width < 360 ? 4 : 6,
-          7 + bottomInset,
+    return Container(
+      decoration: const BoxDecoration(
+        color: ChatTheme.composerBar,
+        border: Border(
+          top: BorderSide(color: ChatTheme.divider, width: 1),
         ),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.end,
-          children: [
-            Expanded(
-              child: Container(
-                constraints: BoxConstraints(minHeight: minH),
-                decoration: BoxDecoration(
-                  color: ChatTheme.inputFill,
-                  borderRadius: BorderRadius.circular(24),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.04),
-                      blurRadius: 2,
-                      offset: const Offset(0, 1),
-                    ),
-                  ],
-                ),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  children: [
-                    const SizedBox(width: 14),
-                    Expanded(
-                      child: TextField(
-                        controller: controller,
-                        focusNode: focusNode,
-                        minLines: 1,
-                        maxLines: 5,
-                        textCapitalization: TextCapitalization.sentences,
-                        textInputAction: TextInputAction.send,
-                        style: GoogleFonts.roboto(
-                          fontSize: width < 360 ? 15.5 : 16,
-                          color: ChatTheme.textPrimary,
-                          height: 1.3,
-                        ),
-                        decoration: InputDecoration(
-                          hintText: 'Type a message',
-                          hintStyle: GoogleFonts.roboto(
-                            color: ChatTheme.textSecondary,
-                            fontSize: width < 360 ? 15.5 : 16,
-                          ),
-                          border: InputBorder.none,
-                          isDense: true,
-                          contentPadding: EdgeInsets.fromLTRB(
-                            0,
-                            width < 360 ? 11 : 12,
-                            4,
-                            width < 360 ? 11 : 12,
-                          ),
-                        ),
-                        onSubmitted: (_) {
-                          if (hasText) onSend();
-                        },
-                      ),
-                    ),
-                    Padding(
-                      padding: const EdgeInsets.only(bottom: 2, right: 4),
-                      child: IconButton(
-                        tooltip: 'Camera',
-                        onPressed: onCamera,
-                        visualDensity: VisualDensity.compact,
-                        icon: const Icon(
-                          Icons.camera_alt_rounded,
-                          color: ChatTheme.iconMuted,
-                          size: 23,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
+      ),
+      padding: EdgeInsets.fromLTRB(
+        width < 360 ? 10 : 14,
+        10,
+        width < 360 ? 10 : 14,
+        10 + bottomInset,
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.end,
+        children: [
+          Expanded(
+            child: Container(
+              constraints: BoxConstraints(minHeight: minH),
+              decoration: BoxDecoration(
+                color: ChatTheme.inputFill,
+                borderRadius: BorderRadius.circular(28),
               ),
-            ),
-            SizedBox(width: width < 360 ? 5 : 7),
-            Padding(
-              padding: const EdgeInsets.only(bottom: 0),
-              child: AnimatedOpacity(
-                duration: const Duration(milliseconds: 150),
-                opacity: hasText ? 1 : 0.45,
-                child: Material(
-                  color: ChatTheme.header,
-                  shape: const CircleBorder(),
-                  elevation: hasText ? 2 : 0,
-                  shadowColor: ChatTheme.header.withValues(alpha: 0.4),
-                  child: InkWell(
-                    customBorder: const CircleBorder(),
-                    onTap: hasText ? onSend : null,
-                    child: SizedBox(
-                      width: sendSize,
-                      height: sendSize,
-                      child: const Icon(
-                        Icons.send_rounded,
-                        color: Colors.white,
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: TextField(
+                      controller: controller,
+                      focusNode: focusNode,
+                      minLines: 1,
+                      maxLines: 5,
+                      textCapitalization: TextCapitalization.sentences,
+                      textInputAction: TextInputAction.send,
+                      style: GoogleFonts.poppins(
+                        fontSize: 14.5,
+                        color: ChatTheme.textPrimary,
+                        height: 1.35,
+                      ),
+                      decoration: InputDecoration(
+                        hintText: 'Type a message…',
+                        hintStyle: GoogleFonts.poppins(
+                          color: AppColors.inputHint,
+                          fontSize: 14.5,
+                        ),
+                        border: InputBorder.none,
+                        isDense: true,
+                        contentPadding: const EdgeInsets.symmetric(
+                          vertical: 13,
+                        ),
+                      ),
+                      onSubmitted: (_) {
+                        if (hasText) onSend();
+                      },
+                    ),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 3, right: 4),
+                    child: IconButton(
+                      tooltip: 'Camera',
+                      onPressed: onCamera,
+                      visualDensity: VisualDensity.compact,
+                      icon: const Icon(
+                        Icons.camera_alt_outlined,
+                        color: ChatTheme.iconMuted,
                         size: 22,
                       ),
                     ),
                   ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(width: 10),
+          AnimatedOpacity(
+            duration: const Duration(milliseconds: 150),
+            opacity: hasText ? 1 : 0.4,
+            child: Material(
+              color: AppColors.primaryRed,
+              shape: const CircleBorder(),
+              elevation: hasText ? 2 : 0,
+              shadowColor: AppColors.primaryRed.withValues(alpha: 0.35),
+              child: InkWell(
+                customBorder: const CircleBorder(),
+                onTap: hasText ? onSend : null,
+                child: SizedBox(
+                  width: sendSize,
+                  height: sendSize,
+                  child: const Icon(
+                    Icons.send_rounded,
+                    color: Colors.white,
+                    size: 21,
+                  ),
                 ),
               ),
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
@@ -571,25 +562,18 @@ class _DateChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 10),
+      padding: const EdgeInsets.symmetric(vertical: 12),
       child: Center(
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
           decoration: BoxDecoration(
             color: ChatTheme.dateChip,
-            borderRadius: BorderRadius.circular(8),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.06),
-                blurRadius: 1,
-                offset: const Offset(0, 0.5),
-              ),
-            ],
+            borderRadius: BorderRadius.circular(20),
           ),
           child: Text(
             label,
-            style: GoogleFonts.roboto(
-              fontSize: 12,
+            style: GoogleFonts.poppins(
+              fontSize: 11.5,
               fontWeight: FontWeight.w500,
               color: ChatTheme.dateText,
             ),
@@ -608,19 +592,19 @@ class _SystemBanner extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 24),
+      padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 28),
       child: Center(
         child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
           decoration: BoxDecoration(
             color: ChatTheme.systemChip,
-            borderRadius: BorderRadius.circular(8),
+            borderRadius: BorderRadius.circular(12),
           ),
           child: Text(
             text,
             textAlign: TextAlign.center,
-            style: GoogleFonts.roboto(
-              fontSize: 12.5,
+            style: GoogleFonts.poppins(
+              fontSize: 12,
               color: ChatTheme.dateText,
             ),
           ),
@@ -638,30 +622,46 @@ class _EmptyChatState extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Center(
-      child: Container(
-        margin: const EdgeInsets.symmetric(horizontal: 28),
-        padding: const EdgeInsets.fromLTRB(18, 16, 18, 16),
-        decoration: BoxDecoration(
-          color: const Color(0xFFFFF5C4),
-          borderRadius: BorderRadius.circular(10),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.08),
-              blurRadius: 4,
-              offset: const Offset(0, 1),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 36),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 76,
+              height: 76,
+              decoration: BoxDecoration(
+                color: AppColors.primaryRed.withValues(alpha: 0.08),
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(
+                Icons.chat_bubble_outline_rounded,
+                color: AppColors.primaryRed,
+                size: 34,
+              ),
+            ),
+            const SizedBox(height: 18),
+            Text(
+              isGroup ? 'Start the conversation' : 'Say hello',
+              style: GoogleFonts.poppins(
+                fontSize: 17,
+                fontWeight: FontWeight.w600,
+                color: AppColors.headingBlack,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              isGroup
+                  ? 'Send the first message to this group.'
+                  : 'Send a message to begin chatting.',
+              textAlign: TextAlign.center,
+              style: GoogleFonts.poppins(
+                fontSize: 13,
+                height: 1.45,
+                color: ChatTheme.textSecondary,
+              ),
             ),
           ],
-        ),
-        child: Text(
-          isGroup
-              ? 'Messages are end-to-end encrypted in this group. Only members can read them.'
-              : 'Messages are end-to-end encrypted. No one outside this chat can read them.',
-          textAlign: TextAlign.center,
-          style: GoogleFonts.roboto(
-            fontSize: 13,
-            height: 1.35,
-            color: const Color(0xFF54656F),
-          ),
         ),
       ),
     );

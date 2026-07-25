@@ -5,8 +5,11 @@ import 'package:grjoffice_apps/chatmodalsclasses/getlistmessagesmodal.dart';
 import 'package:grjoffice_apps/chatmodalsclasses/showthreadmodal.dart';
 import 'package:grjoffice_apps/chatmodalsclasses/threadchatmodal.dart';
 import 'package:grjoffice_apps/chatscreen/models/chat_models.dart';
+import 'package:grjoffice_apps/core/preference.dart';
 import 'package:grjoffice_apps/services/api_auth.dart';
+import 'package:path_provider/path_provider.dart';
 import 'dart:async';
+import 'dart:io';
 
 class ChatService extends ChangeNotifier {
   ChatService._();
@@ -157,6 +160,14 @@ class ChatService extends ChangeNotifier {
       final messages = <ChatMessage>[];
       final last = item.lastMessage;
       if (last != null && (last.id ?? '').isNotEmpty) {
+        final lastMedia = () {
+          final url = last.mediaUrl?.trim();
+          if (url != null && url.isNotEmpty && url != 'null') return url;
+          final path = last.mediaPath?.toString().trim();
+          if (path == null || path.isEmpty || path == 'null') return null;
+          final resolved = mediaUrl(path);
+          return resolved.isEmpty ? path : resolved;
+        }();
         messages.add(
           ChatMessage(
             id: last.id!,
@@ -165,8 +176,9 @@ class ChatService extends ChangeNotifier {
             text: last.text ?? '',
             sentAt: last.sentAt ?? item.updatedAt ?? DateTime.now(),
             status: _mapStatus(last.status),
-            mediaPath: last.mediaPath?.toString(),
-            isVideo: last.isVideo ?? false,
+            mediaPath: lastMedia,
+            isVideo: last.isVideo ??
+                ((last.type ?? '').toLowerCase() == 'video'),
             mediaDuration: _parseDuration(last.mediaDuration),
           ),
         );
@@ -468,25 +480,44 @@ class ChatService extends ChangeNotifier {
   }
 
   /// Keeps optimistic local messages until the same content appears from API.
+  /// Also preserves local media files when server returns null media_path.
   List<ChatMessage> _mergeMessages(
     List<ChatMessage> local,
     List<ChatMessage> server,
   ) {
-    final byId = <String, ChatMessage>{
-      for (final m in server) m.id: m,
-    };
+    final localMedia = local.where((m) => m.hasMedia).toList();
+
+    final byId = <String, ChatMessage>{};
+    for (final serverMsg in server) {
+      var merged = serverMsg;
+      if (!serverMsg.hasMedia && localMedia.isNotEmpty) {
+        final match = _findLocalMediaMatch(localMedia, serverMsg);
+        if (match != null) {
+          merged = ChatMessage(
+            id: serverMsg.id,
+            threadId: serverMsg.threadId,
+            senderId: serverMsg.senderId,
+            text: serverMsg.text,
+            sentAt: serverMsg.sentAt,
+            status: serverMsg.status,
+            mediaPath: match.mediaPath,
+            isVideo: match.isVideo || serverMsg.isVideo,
+            mediaDuration: serverMsg.mediaDuration ?? match.mediaDuration,
+          );
+          if (match.mediaPath != null) {
+            unawaited(_cacheLocalMediaPath(serverMsg.id, match.mediaPath!));
+          }
+        }
+      }
+      byId[merged.id] = merged;
+    }
 
     for (final pending in local) {
       if (!pending.id.startsWith('m_')) continue;
-      final alreadyOnServer = server.any((s) {
-        if (s.senderId != pending.senderId) return false;
-        final sameText = s.text == pending.text && pending.text.isNotEmpty;
-        final sameMedia = pending.hasMedia &&
-            s.hasMedia &&
-            (s.isVideo == pending.isVideo);
-        if (!sameText && !sameMedia) return false;
-        return s.sentAt.difference(pending.sentAt).abs().inSeconds < 120;
-      });
+      final alreadyOnServer = server.any(
+        (s) => _isLikelySameMessage(pending, s) &&
+            (!pending.hasMedia || s.hasMedia),
+      );
       if (!alreadyOnServer) {
         byId[pending.id] = pending;
       }
@@ -495,6 +526,73 @@ class ChatService extends ChangeNotifier {
     final merged = byId.values.toList()
       ..sort((a, b) => a.sentAt.compareTo(b.sentAt));
     return merged;
+  }
+
+  ChatMessage? _findLocalMediaMatch(
+    List<ChatMessage> localMedia,
+    ChatMessage serverMsg,
+  ) {
+    for (final local in localMedia) {
+      if (!_isLikelySameMessage(local, serverMsg)) continue;
+      return local;
+    }
+    return null;
+  }
+
+  bool _isLikelySameMessage(ChatMessage a, ChatMessage b) {
+    if (a.senderId != b.senderId) return false;
+    if (a.sentAt.difference(b.sentAt).abs().inSeconds > 180) return false;
+    if (a.text.isNotEmpty && b.text.isNotEmpty && a.text == b.text) {
+      return true;
+    }
+    if (a.isVideo &&
+        (b.isVideo || b.mediaDuration != null) &&
+        a.mediaDuration != null &&
+        b.mediaDuration != null &&
+        a.mediaDuration!.inSeconds == b.mediaDuration!.inSeconds) {
+      return true;
+    }
+    return a.hasMedia && b.hasMedia && a.isVideo == b.isVideo;
+  }
+
+  String _localMediaPrefKey(String messageId) => 'chat_local_media_$messageId';
+
+  Future<void> _cacheLocalMediaPath(String messageId, String path) async {
+    try {
+      await Preference.pref.setString(_localMediaPrefKey(messageId), path);
+    } catch (e) {
+      debugPrint('[ChatService] cache local media failed: $e');
+    }
+  }
+
+  String? _cachedLocalMediaPath(String messageId) {
+    try {
+      return Preference.pref.getString(_localMediaPrefKey(messageId));
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Future<String> _persistMediaFile(String sourcePath, {required bool isVideo}) async {
+    final source = File(sourcePath);
+    if (!await source.exists()) return sourcePath;
+    final dir = await getApplicationDocumentsDirectory();
+    final chatDir = Directory('${dir.path}/chat_media');
+    if (!await chatDir.exists()) {
+      await chatDir.create(recursive: true);
+    }
+    final ext = isVideo
+        ? 'mp4'
+        : (sourcePath.toLowerCase().endsWith('.png')
+            ? 'png'
+            : sourcePath.toLowerCase().endsWith('.webp')
+                ? 'webp'
+                : 'jpg');
+    final dest = File(
+      '${chatDir.path}/${DateTime.now().millisecondsSinceEpoch}.$ext',
+    );
+    await source.copy(dest.path);
+    return dest.path;
   }
 
   ChatMessage? _mapApiMessage(MessageItem item) {
@@ -510,6 +608,27 @@ class ChatService extends ChangeNotifier {
       if (parsed != null) duration = Duration(seconds: parsed);
     }
 
+    String? mediaPath;
+    final rawUrl = item.mediaUrl?.trim();
+    final rawPath = item.mediaPath?.toString().trim();
+    if (rawUrl != null && rawUrl.isNotEmpty && rawUrl != 'null') {
+      mediaPath = rawUrl;
+    } else if (rawPath != null && rawPath.isNotEmpty && rawPath != 'null') {
+      final resolved = mediaUrl(rawPath);
+      mediaPath = resolved.isEmpty ? rawPath : resolved;
+    } else {
+      // Fallback to device cache if server has no media yet.
+      final cached = _cachedLocalMediaPath(id);
+      if (cached != null && cached.isNotEmpty && File(cached).existsSync()) {
+        mediaPath = cached;
+      }
+    }
+
+    final type = (item.type ?? '').toLowerCase();
+    final isVideo = item.isVideo == true ||
+        type == 'video' ||
+        (mediaPath != null && mediaPath.toLowerCase().endsWith('.mp4'));
+
     return ChatMessage(
       id: id,
       threadId: item.threadId ?? '',
@@ -517,13 +636,8 @@ class ChatService extends ChangeNotifier {
       text: item.text ?? '',
       sentAt: item.sentAt ?? DateTime.now(),
       status: _mapStatus(item.status),
-      mediaPath: () {
-        final raw = item.mediaPath?.toString().trim();
-        if (raw == null || raw.isEmpty || raw == 'null') return null;
-        final resolved = mediaUrl(raw);
-        return resolved.isEmpty ? raw : resolved;
-      }(),
-      isVideo: item.isVideo ?? false,
+      mediaPath: mediaPath,
+      isVideo: isVideo,
       mediaDuration: duration,
     );
   }
@@ -552,7 +666,7 @@ class ChatService extends ChangeNotifier {
     );
 
     message.status =
-        ok ? MessageDeliveryStatus.sent : MessageDeliveryStatus.sending;
+        ok ? MessageDeliveryStatus.sent : MessageDeliveryStatus.failed;
     notifyListeners();
 
     if (ok) {
@@ -561,36 +675,113 @@ class ChatService extends ChangeNotifier {
     }
   }
 
-  Future<void> sendMediaMessage(
+  Future<bool> sendMediaMessage(
     String threadId, {
     required String mediaPath,
     required bool isVideo,
     Duration? duration,
+    String caption = '',
   }) async {
     final thread = threadById(threadId);
-    if (thread == null) return;
+    if (thread == null) return false;
 
+    _error = null;
+
+    // Keep a durable copy so reopen still shows media if server path is null.
+    final persistedPath = await _persistMediaFile(
+      mediaPath,
+      isVideo: isVideo,
+    );
+
+    final tempId = 'm_${DateTime.now().millisecondsSinceEpoch}';
     final message = ChatMessage(
-      id: 'm_${DateTime.now().millisecondsSinceEpoch}',
+      id: tempId,
       threadId: threadId,
       senderId: currentUserId,
-      text: isVideo ? 'Video' : 'Photo',
+      text: caption.trim().isNotEmpty
+          ? caption.trim()
+          : (isVideo ? 'Video' : 'Photo'),
       sentAt: DateTime.now(),
       status: MessageDeliveryStatus.sending,
-      mediaPath: mediaPath,
+      mediaPath: persistedPath,
       isVideo: isVideo,
       mediaDuration: duration,
     );
     thread.messages.add(message);
     notifyListeners();
 
-    await Future<void>.delayed(const Duration(milliseconds: 350));
-    message.status = MessageDeliveryStatus.sent;
+    ChatMediaSendResult result;
+    if (isVideo) {
+      final seconds = (duration?.inSeconds ?? 1).clamp(1, 120);
+      result = await sendVideoMessageApi(
+        threadId: threadId,
+        text: caption.trim(),
+        mediaDuration: '$seconds',
+        videoFile: File(persistedPath),
+      );
+    } else {
+      result = await sendPhotoMessageApi(
+        threadId: threadId,
+        text: caption.trim(),
+        photoFile: File(persistedPath),
+      );
+    }
+
+    final index = thread.messages.indexWhere((m) => m.id == tempId);
+    if (index < 0) return false;
+
+    if (!result.success) {
+      // Keep local preview so user can see what failed to upload.
+      thread.messages[index] = ChatMessage(
+        id: result.messageId?.trim().isNotEmpty == true
+            ? result.messageId!.trim()
+            : tempId,
+        threadId: threadId,
+        senderId: currentUserId,
+        text: message.text,
+        sentAt: message.sentAt,
+        status: MessageDeliveryStatus.failed,
+        mediaPath: persistedPath,
+        isVideo: isVideo,
+        mediaDuration: duration,
+      );
+      _error = result.errorMessage;
+      notifyListeners();
+      return false;
+    }
+
+    final serverId = result.messageId?.trim();
+    final serverMedia = result.hasServerMedia
+        ? (mediaUrl(result.mediaPath).isEmpty
+            ? result.mediaPath
+            : mediaUrl(result.mediaPath))
+        : null;
+    final displayPath = serverMedia ?? persistedPath;
+    final finalId =
+        (serverId != null && serverId.isNotEmpty) ? serverId : tempId;
+
+    if (serverId != null && serverId.isNotEmpty) {
+      await _cacheLocalMediaPath(serverId, persistedPath);
+    }
+
+    thread.messages[index] = ChatMessage(
+      id: finalId,
+      threadId: threadId,
+      senderId: currentUserId,
+      text: message.text,
+      sentAt: message.sentAt,
+      status: MessageDeliveryStatus.sent,
+      mediaPath: displayPath,
+      isVideo: isVideo || result.isVideo,
+      mediaDuration: duration ??
+          (result.mediaDuration != null
+              ? Duration(seconds: result.mediaDuration!)
+              : null),
+    );
     notifyListeners();
 
-    await Future<void>.delayed(const Duration(milliseconds: 500));
-    message.status = MessageDeliveryStatus.delivered;
-    notifyListeners();
+    unawaited(syncMessages(threadId));
+    return true;
   }
 
   /// Creates or opens a 1:1 direct thread with [userId].

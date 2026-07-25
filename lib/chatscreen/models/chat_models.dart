@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 
 enum ChatThreadType { direct, group }
 
-enum MessageDeliveryStatus { sending, sent, delivered, read }
+enum MessageDeliveryStatus { sending, sent, delivered, read, failed }
 
 class ChatUser {
   const ChatUser({

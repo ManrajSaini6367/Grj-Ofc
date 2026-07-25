@@ -43,6 +43,7 @@ import 'package:grjoffice_apps/services/permission_service.dart';
 import 'package:grjoffice_apps/services/user_session.dart';
 import 'package:grjoffice_apps/utils/app_helpers.dart';
 import 'package:http/http.dart' as http;
+import 'package:http_parser/http_parser.dart';
 
 export 'package:grjoffice_apps/core/api_config.dart' show mediaUrl;
 
@@ -3264,13 +3265,14 @@ Future<http.Response> _sendMultipart(
   Uri uri, {
   required Map<String, String> fields,
   List<http.MultipartFile> files = const [],
+  Duration timeout = const Duration(seconds: 60),
 }) async {
   final request = http.MultipartRequest('POST', uri);
   request.headers.addAll(authHeadersMultipart);
   request.fields.addAll(fields);
   request.files.addAll(files);
-  final streamed = await request.send().timeout(const Duration(seconds: 60));
-  return http.Response.fromStream(streamed).timeout(const Duration(seconds: 60));
+  final streamed = await request.send().timeout(timeout);
+  return http.Response.fromStream(streamed).timeout(timeout);
 }
 
 Future<http.MultipartFile> _multipartImage(
@@ -3284,6 +3286,115 @@ Future<http.MultipartFile> _multipartImage(
     file.path,
     filename: filename.isEmpty ? fallbackName : filename,
   );
+}
+
+Future<http.MultipartFile> _multipartChatMedia(
+  File file, {
+  required String fallbackName,
+  required MediaType contentType,
+}) async {
+  final filename = file.path.split(Platform.pathSeparator).last;
+  final length = await file.length();
+  if (length <= 0) {
+    throw StateError('Media file is empty: ${file.path}');
+  }
+  // Stream from disk (better for large videos than loading all bytes).
+  return http.MultipartFile.fromPath(
+    'media',
+    file.path,
+    filename: filename.isEmpty ? fallbackName : filename,
+    contentType: contentType,
+  );
+}
+
+/// Result of chat photo/video upload.
+class ChatMediaSendResult {
+  const ChatMediaSendResult({
+    required this.success,
+    this.messageId,
+    this.mediaPath,
+    this.isVideo = false,
+    this.mediaDuration,
+    this.errorMessage,
+  });
+
+  final bool success;
+  final String? messageId;
+  final String? mediaPath;
+  final bool isVideo;
+  final int? mediaDuration;
+  final String? errorMessage;
+
+  bool get hasServerMedia {
+    final path = mediaPath?.trim();
+    return path != null && path.isNotEmpty && path != 'null';
+  }
+}
+
+ChatMediaSendResult _parseChatMediaSendResponse(http.Response response) {
+  if (response.statusCode != 200 && response.statusCode != 201) {
+    return ChatMediaSendResult(
+      success: false,
+      errorMessage: 'HTTP ${response.statusCode}',
+    );
+  }
+
+  if (response.body.trim().isEmpty) {
+    return const ChatMediaSendResult(success: true);
+  }
+
+  try {
+    final jsonData = jsonDecode(response.body);
+    if (jsonData is! Map<String, dynamic>) {
+      return const ChatMediaSendResult(success: true);
+    }
+    if (jsonData['success'] == false) {
+      return ChatMediaSendResult(
+        success: false,
+        errorMessage: jsonData['message']?.toString(),
+      );
+    }
+
+    final data = jsonData['data'];
+    if (data is Map<String, dynamic>) {
+      final rawUrl = data['media_url']?.toString().trim();
+      final rawPath = data['media_path']?.toString().trim();
+      final path = () {
+        if (rawUrl != null && rawUrl.isNotEmpty && rawUrl != 'null') {
+          return rawUrl;
+        }
+        if (rawPath == null || rawPath.isEmpty || rawPath == 'null') {
+          return null;
+        }
+        return rawPath;
+      }();
+      final durationRaw = data['media_duration'];
+      int? duration;
+      if (durationRaw is int) {
+        duration = durationRaw;
+      } else if (durationRaw != null) {
+        duration = int.tryParse('$durationRaw');
+      }
+
+      final type = data['type']?.toString().toLowerCase();
+      return ChatMediaSendResult(
+        success: true,
+        messageId: data['id']?.toString(),
+        mediaPath: path,
+        isVideo: data['is_video'] == true || type == 'video',
+        mediaDuration: duration,
+      );
+    }
+
+    return ChatMediaSendResult(
+      success: jsonData['success'] == true || data != null,
+    );
+  } catch (e) {
+    return ChatMediaSendResult(
+      success: false,
+      errorMessage: e.toString(),
+    );
+  }
 }
 
 Purchase? _purchaseFromApiResponse(Map<String, dynamic>? decoded) {
@@ -4884,3 +4995,167 @@ Future<Createopendirectmodaldata?> createOpenDirectApi(int userId) async {
   }
   return null;
 }
+
+//sendvideomessageapi
+Future<ChatMediaSendResult> sendVideoMessageApi({
+  required String threadId,
+  required String text,
+  required String mediaDuration,
+  required File videoFile,
+}) async {
+  try {
+    if (!await videoFile.exists()) {
+      debugPrint('sendVideoMessageApi: file missing at ${videoFile.path}');
+      return const ChatMediaSendResult(
+        success: false,
+        errorMessage: 'Video file missing',
+      );
+    }
+
+    final fileSize = await videoFile.length();
+    debugPrint('=========== Send Video Message API ===========');
+    debugPrint('File : ${videoFile.path}');
+    debugPrint('Size : $fileSize bytes');
+    debugPrint('Duration : $mediaDuration');
+
+    if (fileSize <= 0) {
+      return const ChatMediaSendResult(
+        success: false,
+        errorMessage: 'Empty video file',
+      );
+    }
+
+    final uri = Uri.parse('$baseUrl/api/v1/chat/threads/$threadId/messages');
+    final media = await _multipartChatMedia(
+      videoFile,
+      fallbackName: 'video.mp4',
+      contentType: MediaType('video', 'mp4'),
+    );
+
+    final caption = text.trim().isEmpty ? 'Video' : text.trim();
+
+    final response = await _sendMultipart(
+      uri,
+      fields: {
+        'type': 'video',
+        'text': caption,
+        'media_duration': mediaDuration,
+      },
+      files: [media],
+      timeout: const Duration(seconds: 120),
+    );
+
+    debugPrint('Send Video Status : ${response.statusCode}');
+    debugPrint('Send Video Response : ${response.body}');
+
+    final result = _parseChatMediaSendResponse(response);
+    if (result.success && !result.hasServerMedia) {
+      debugPrint(
+        'sendVideoMessageApi WARNING: server saved message but media_path '
+        'is null / is_video=${result.isVideo}. Backend is not storing the upload '
+        '(check PHP upload_max_filesize / post_max_size / media disk).',
+      );
+      return ChatMediaSendResult(
+        success: false,
+        messageId: result.messageId,
+        mediaDuration: result.mediaDuration,
+        isVideo: result.isVideo,
+        errorMessage:
+            'Server did not save video file (media_path is null). Ask backend to fix media upload storage.',
+      );
+    }
+    return result;
+  } catch (e, st) {
+    debugPrint('sendVideoMessageApi Error : $e');
+    debugPrint('$st');
+    return ChatMediaSendResult(success: false, errorMessage: '$e');
+  }
+}
+
+//sendphotomessageapi
+Future<ChatMediaSendResult> sendPhotoMessageApi({
+  required String threadId,
+  required String text,
+  required File photoFile,
+}) async {
+  try {
+    if (!await photoFile.exists()) {
+      debugPrint('sendPhotoMessageApi: file missing at ${photoFile.path}');
+      return const ChatMediaSendResult(
+        success: false,
+        errorMessage: 'Photo file missing',
+      );
+    }
+
+    final fileSize = await photoFile.length();
+    debugPrint('=========== Send Photo Message API ===========');
+    debugPrint('File : ${photoFile.path}');
+    debugPrint('Size : $fileSize bytes');
+
+    if (fileSize <= 0) {
+      return const ChatMediaSendResult(
+        success: false,
+        errorMessage: 'Empty photo file',
+      );
+    }
+
+    final filename = photoFile.path.split(Platform.pathSeparator).last;
+    final lower = filename.toLowerCase();
+    final MediaType contentType;
+    final String fallbackName;
+    if (lower.endsWith('.png')) {
+      contentType = MediaType('image', 'png');
+      fallbackName = 'photo.png';
+    } else if (lower.endsWith('.webp')) {
+      contentType = MediaType('image', 'webp');
+      fallbackName = 'photo.webp';
+    } else {
+      contentType = MediaType('image', 'jpeg');
+      fallbackName = 'photo.jpg';
+    }
+
+    final uri = Uri.parse('$baseUrl/api/v1/chat/threads/$threadId/messages');
+    final media = await _multipartChatMedia(
+      photoFile,
+      fallbackName: fallbackName,
+      contentType: contentType,
+    );
+
+    final caption = text.trim().isEmpty ? 'Photo' : text.trim();
+
+    final response = await _sendMultipart(
+      uri,
+      fields: {
+        'type': 'photo',
+        'text': caption,
+      },
+      files: [media],
+      timeout: const Duration(seconds: 90),
+    );
+
+    debugPrint('Send Photo Status : ${response.statusCode}');
+    debugPrint('Send Photo Response : ${response.body}');
+
+    final result = _parseChatMediaSendResponse(response);
+    if (result.success && !result.hasServerMedia) {
+      debugPrint(
+        'sendPhotoMessageApi WARNING: server saved message but media_path '
+        'is null. Backend is not storing the upload.',
+      );
+      return ChatMediaSendResult(
+        success: false,
+        messageId: result.messageId,
+        mediaDuration: result.mediaDuration,
+        isVideo: result.isVideo,
+        errorMessage:
+            'Server did not save photo file (media_path is null). Ask backend to fix media upload storage.',
+      );
+    }
+    return result;
+  } catch (e, st) {
+    debugPrint('sendPhotoMessageApi Error : $e');
+    debugPrint('$st');
+    return ChatMediaSendResult(success: false, errorMessage: '$e');
+  }
+}
+
