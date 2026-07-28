@@ -8,6 +8,7 @@ import 'package:grjoffice_apps/SupplierList/suppliers.dart';
 import 'package:grjoffice_apps/attendancescreen/attendance_screen.dart';
 import 'package:grjoffice_apps/attendancescreen/contractor_attendance_screen.dart';
 import 'package:grjoffice_apps/core/app_navigator.dart';
+import 'package:grjoffice_apps/leavescreens/leavescreen.dart';
 import 'package:grjoffice_apps/main_shell.dart';
 import 'package:grjoffice_apps/reportscreen/report_screen.dart';
 import 'package:grjoffice_apps/rolesscreen/roles_screen.dart';
@@ -40,6 +41,7 @@ abstract final class DrawerIndex {
   static const contractorAttendances = 11;
   static const roles = 12;
   static const report = 13;
+  static const leave = 14;
 }
 
 bool shellCanPop(BuildContext context) {
@@ -131,6 +133,8 @@ void navigateFromDrawer(BuildContext context, int drawerIndex) {
       pushInShell(context, const RolesScreen());
     case DrawerIndex.report:
       pushInShell(context, const ReportScreen());
+    case DrawerIndex.leave:
+      pushInShell(context, const LeaveScreen());
     default:
       break;
   }

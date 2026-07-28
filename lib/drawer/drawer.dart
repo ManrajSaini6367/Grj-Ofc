@@ -136,6 +136,12 @@ class AppDrawer extends StatelessWidget {
         AppPermissions.viewDayReport,
       ],
     ),
+    _DrawerMenuItem(
+      DrawerIndex.leave,
+      Icons.event_available_outlined,
+      'Leave',
+      anyOf: [],
+    ),
   ];
 
   List<_DrawerMenuItem> get _visibleItems {
