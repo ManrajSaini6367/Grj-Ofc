@@ -142,6 +142,36 @@ class AppDrawer extends StatelessWidget {
       'Leave',
       anyOf: [],
     ),
+    _DrawerMenuItem(
+      DrawerIndex.leaveRequests,
+      Icons.assignment_outlined,
+      'Leave Requests',
+      anyOf: [],
+    ),
+    // _DrawerMenuItem(
+    //   DrawerIndex.kycVerification,
+    //   Icons.verified_user_outlined,
+    //   'KYC Verification',
+    //   anyOf: [],
+    // ),
+    // _DrawerMenuItem(
+    //   DrawerIndex.kycRequests,
+    //   Icons.assignment_turned_in_outlined,
+    //   'KYC Requests',
+    //   anyOf: [],
+    // ),
+    _DrawerMenuItem(
+      DrawerIndex.employeeKyc,
+      Icons.badge_outlined,
+      'Employee KYC',
+      anyOf: [],
+    ),
+    _DrawerMenuItem(
+      DrawerIndex.employeeKycRequests,
+      Icons.fact_check_outlined,
+      'Employee KYC Requests',
+      anyOf: [],
+    ),
   ];
 
   List<_DrawerMenuItem> get _visibleItems {

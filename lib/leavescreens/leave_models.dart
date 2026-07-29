@@ -26,6 +26,7 @@ class LeaveRequest {
     required this.status,
     required this.createdAt,
     this.durationDays = 1,
+    this.employeeName = 'Employee',
   });
 
   final String id;
@@ -36,8 +37,12 @@ class LeaveRequest {
   LeaveStatus status;
   final DateTime createdAt;
   final int durationDays;
+  final String employeeName;
 
-  LeaveRequest copyWith({LeaveStatus? status}) {
+  LeaveRequest copyWith({
+    LeaveStatus? status,
+    String? employeeName,
+  }) {
     return LeaveRequest(
       id: id,
       fromDate: fromDate,
@@ -47,6 +52,7 @@ class LeaveRequest {
       status: status ?? this.status,
       createdAt: createdAt,
       durationDays: durationDays,
+      employeeName: employeeName ?? this.employeeName,
     );
   }
 
@@ -59,6 +65,7 @@ class LeaveRequest {
         'status': status.name,
         'createdAt': createdAt.toIso8601String(),
         'durationDays': durationDays,
+        'employeeName': employeeName,
       };
 
   factory LeaveRequest.fromJson(Map<String, dynamic> json) {
@@ -79,6 +86,9 @@ class LeaveRequest {
       durationDays: json['durationDays'] is int
           ? json['durationDays'] as int
           : int.tryParse('${json['durationDays']}') ?? 1,
+      employeeName: (json['employeeName']?.toString().trim().isNotEmpty == true)
+          ? json['employeeName'].toString().trim()
+          : 'Employee',
     );
   }
 }

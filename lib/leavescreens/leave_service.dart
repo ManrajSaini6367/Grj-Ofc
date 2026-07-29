@@ -67,8 +67,11 @@ class LeaveService extends ChangeNotifier {
     required DateTime toDate,
     required LeaveType type,
     required String description,
+    String? employeeName,
   }) async {
     await ensureLoaded();
+    final name = (employeeName ?? Preference.pref.getString('name') ?? 'Employee')
+        .trim();
     final request = LeaveRequest(
       id: 'leave_${DateTime.now().millisecondsSinceEpoch}',
       fromDate: DateTime(fromDate.year, fromDate.month, fromDate.day),
@@ -78,6 +81,7 @@ class LeaveService extends ChangeNotifier {
       status: LeaveStatus.pending,
       createdAt: DateTime.now(),
       durationDays: calculateDurationDays(fromDate, toDate),
+      employeeName: name.isEmpty ? 'Employee' : name,
     );
     _leaves.insert(0, request);
     await _persist();

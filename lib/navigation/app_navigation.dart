@@ -8,6 +8,11 @@ import 'package:grjoffice_apps/SupplierList/suppliers.dart';
 import 'package:grjoffice_apps/attendancescreen/attendance_screen.dart';
 import 'package:grjoffice_apps/attendancescreen/contractor_attendance_screen.dart';
 import 'package:grjoffice_apps/core/app_navigator.dart';
+import 'package:grjoffice_apps/kycscreens/employee_kyc_requests_screen.dart';
+import 'package:grjoffice_apps/kycscreens/employee_kyc_screen.dart';
+import 'package:grjoffice_apps/kycscreens/kyc_requests_screen.dart';
+import 'package:grjoffice_apps/kycscreens/kyc_status_screen.dart';
+import 'package:grjoffice_apps/leavescreens/leave_requests_screen.dart';
 import 'package:grjoffice_apps/leavescreens/leavescreen.dart';
 import 'package:grjoffice_apps/main_shell.dart';
 import 'package:grjoffice_apps/reportscreen/report_screen.dart';
@@ -42,6 +47,11 @@ abstract final class DrawerIndex {
   static const roles = 12;
   static const report = 13;
   static const leave = 14;
+  static const leaveRequests = 15;
+  static const kycVerification = 16;
+  static const kycRequests = 17;
+  static const employeeKyc = 18;
+  static const employeeKycRequests = 19;
 }
 
 bool shellCanPop(BuildContext context) {
@@ -135,6 +145,16 @@ void navigateFromDrawer(BuildContext context, int drawerIndex) {
       pushInShell(context, const ReportScreen());
     case DrawerIndex.leave:
       pushInShell(context, const LeaveScreen());
+    case DrawerIndex.leaveRequests:
+      pushInShell(context, const LeaveRequestsScreen());
+    case DrawerIndex.kycVerification:
+      pushInShell(context, const KycVerificationScreen());
+    case DrawerIndex.kycRequests:
+      pushInShell(context, const KycRequestsScreen());
+    case DrawerIndex.employeeKyc:
+      pushInShell(context, const EmployeeKycScreen());
+    case DrawerIndex.employeeKycRequests:
+      pushInShell(context, const EmployeeKycRequestsScreen());
     default:
       break;
   }
