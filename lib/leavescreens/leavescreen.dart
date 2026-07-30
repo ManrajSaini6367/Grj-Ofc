@@ -3,9 +3,10 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:grjoffice_apps/core/app_colors.dart';
 import 'package:grjoffice_apps/drawer/app_end_drawer.dart';
 import 'package:grjoffice_apps/drawer/drawer.dart';
-import 'package:grjoffice_apps/leavescreens/leave_models.dart';
-import 'package:grjoffice_apps/leavescreens/leave_service.dart';
+import 'package:grjoffice_apps/models/getleavetypemodal.dart';
+import 'package:grjoffice_apps/models/getmyleavemodal.dart';
 import 'package:grjoffice_apps/navigation/app_navigation.dart';
+import 'package:grjoffice_apps/services/api_auth.dart';
 import 'package:grjoffice_apps/widgets/app_top_bar.dart';
 import 'package:intl/intl.dart';
 
@@ -19,37 +20,146 @@ class LeaveScreen extends StatefulWidget {
 class _LeaveScreenState extends State<LeaveScreen>
     with SingleTickerProviderStateMixin {
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
-  final _service = LeaveService.instance;
   late final TabController _tabController;
+  final _myLeavesScrollController = ScrollController();
 
   final _descriptionController = TextEditingController();
   DateTime? _fromDate;
   DateTime? _toDate;
-  LeaveType _leaveType = LeaveType.casual;
+  List<LeaveTypeItem> _leaveTypes = const [];
+  LeaveTypeItem? _selectedLeaveType;
+  List<MyLeaveItem> _myLeaves = [];
+  bool _loadingTypes = false;
+  bool _loadingMyLeaves = false;
+  bool _loadingMoreMyLeaves = false;
   bool _submitting = false;
   bool _loading = true;
+  String? _deletingLeaveId;
+  int _myLeavesPage = 1;
+  int _myLeavesLastPage = 1;
+  static const int _myLeavesPerPage = 20;
+
+  bool get _hasMoreMyLeaves => _myLeavesPage < _myLeavesLastPage;
 
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
-    _service.addListener(_onLeaveUpdated);
+    _tabController.addListener(_onTabChanged);
+    _myLeavesScrollController.addListener(_onMyLeavesScroll);
     WidgetsBinding.instance.addPostFrameCallback((_) => _bootstrap());
   }
 
   Future<void> _bootstrap() async {
-    await _service.ensureLoaded();
+    await Future.wait([
+      _loadLeaveTypes(),
+      _loadMyLeaves(reset: true),
+    ]);
     if (!mounted) return;
     setState(() => _loading = false);
   }
 
-  void _onLeaveUpdated() {
-    if (mounted) setState(() {});
+  void _onTabChanged() {
+    if (_tabController.indexIsChanging) return;
+    if (_tabController.index == 1 &&
+        _myLeaves.isEmpty &&
+        !_loadingMyLeaves) {
+      _loadMyLeaves(reset: true);
+    }
+  }
+
+  void _onMyLeavesScroll() {
+    if (!_hasMoreMyLeaves || _loadingMyLeaves || _loadingMoreMyLeaves) return;
+    final pos = _myLeavesScrollController.position;
+    if (pos.pixels >= pos.maxScrollExtent - 140) {
+      _loadMyLeaves(reset: false);
+    }
+  }
+
+  Future<void> _loadLeaveTypes() async {
+    setState(() => _loadingTypes = true);
+    final result = await getLeaveTypeApi(context);
+    if (!mounted) return;
+
+    final items = result?.data?.items
+            ?.where((e) => (e.value ?? '').trim().isNotEmpty)
+            .toList() ??
+        const <LeaveTypeItem>[];
+
+    setState(() {
+      _leaveTypes = items;
+      if (_selectedLeaveType == null && items.isNotEmpty) {
+        _selectedLeaveType = items.first;
+      } else if (_selectedLeaveType != null) {
+        final stillExists = items.any(
+          (e) => e.value == _selectedLeaveType!.value,
+        );
+        if (!stillExists) {
+          _selectedLeaveType = items.isNotEmpty ? items.first : null;
+        }
+      }
+      _loadingTypes = false;
+    });
+  }
+
+  Future<void> _loadMyLeaves({bool reset = true}) async {
+    if (reset) {
+      if (_loadingMyLeaves) return;
+      setState(() {
+        _loadingMyLeaves = true;
+        _myLeavesPage = 1;
+        _myLeavesLastPage = 1;
+      });
+    } else {
+      if (!_hasMoreMyLeaves || _loadingMoreMyLeaves || _loadingMyLeaves) {
+        return;
+      }
+      setState(() => _loadingMoreMyLeaves = true);
+    }
+
+    final pageToLoad = reset ? 1 : _myLeavesPage + 1;
+    final result = await getMyLeaveApi(
+      context,
+      page: pageToLoad,
+      perPage: _myLeavesPerPage,
+    );
+    if (!mounted) return;
+
+    if (result == null) {
+      setState(() {
+        _loadingMyLeaves = false;
+        _loadingMoreMyLeaves = false;
+      });
+      return;
+    }
+
+    final items = result.data?.items ?? const <MyLeaveItem>[];
+    final pagination = result.data?.pagination;
+    final currentPage = pagination?.currentPage ?? pageToLoad;
+    final lastPage = pagination?.lastPage ??
+        (items.length < _myLeavesPerPage ? pageToLoad : pageToLoad + 1);
+
+    setState(() {
+      if (reset) {
+        _myLeaves = List<MyLeaveItem>.from(items);
+      } else {
+        final existingIds = _myLeaves.map((e) => e.id).toSet();
+        _myLeaves.addAll(
+          items.where((e) => e.id == null || !existingIds.contains(e.id)),
+        );
+      }
+      _myLeavesPage = currentPage;
+      _myLeavesLastPage = lastPage;
+      _loadingMyLeaves = false;
+      _loadingMoreMyLeaves = false;
+    });
   }
 
   @override
   void dispose() {
-    _service.removeListener(_onLeaveUpdated);
+    _tabController.removeListener(_onTabChanged);
+    _myLeavesScrollController.removeListener(_onMyLeavesScroll);
+    _myLeavesScrollController.dispose();
     _tabController.dispose();
     _descriptionController.dispose();
     super.dispose();
@@ -62,6 +172,13 @@ class _LeaveScreenState extends State<LeaveScreen>
 
   DateTime _dateOnly(DateTime d) => DateTime(d.year, d.month, d.day);
 
+  int _calcDurationDays(DateTime from, DateTime to) {
+    final start = _dateOnly(from);
+    final end = _dateOnly(to);
+    if (end.isBefore(start)) return 0;
+    return end.difference(start).inDays + 1;
+  }
+
   double _hPad(BuildContext context) {
     final width = MediaQuery.sizeOf(context).width;
     if (width < 360) return 14;
@@ -72,7 +189,7 @@ class _LeaveScreenState extends State<LeaveScreen>
 
   int get _durationDays {
     if (_fromDate == null || _toDate == null) return 0;
-    return LeaveService.calculateDurationDays(_fromDate!, _toDate!);
+    return _calcDurationDays(_fromDate!, _toDate!);
   }
 
   String get _durationLabel {
@@ -158,6 +275,62 @@ class _LeaveScreenState extends State<LeaveScreen>
     });
   }
 
+  Future<void> _confirmDeleteLeave(MyLeaveItem item) async {
+    final id = item.id?.trim() ?? '';
+    if (id.isEmpty || _deletingLeaveId != null) return;
+
+    final typeLabel = (item.typeLabel ?? item.type ?? 'leave').trim();
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+          title: Text(
+            'Delete Leave',
+            style: GoogleFonts.poppins(fontWeight: FontWeight.w700),
+          ),
+          content: Text(
+            'Are you sure you want to delete this $typeLabel request?',
+            style: GoogleFonts.poppins(fontSize: 14, height: 1.4),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext, false),
+              child: Text('Cancel', style: GoogleFonts.poppins()),
+            ),
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext, true),
+              child: Text(
+                'Delete',
+                style: GoogleFonts.poppins(
+                  color: AppColors.primaryRed,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (confirmed != true || !mounted) return;
+
+    setState(() => _deletingLeaveId = id);
+    final ok = await deleteLeaveApi(context, id);
+    if (!mounted) return;
+
+    if (ok) {
+      setState(() {
+        _myLeaves.removeWhere((e) => e.id == id);
+        _deletingLeaveId = null;
+      });
+    } else {
+      setState(() => _deletingLeaveId = null);
+    }
+  }
+
   Future<void> _submit() async {
     FocusScope.of(context).unfocus();
 
@@ -183,25 +356,45 @@ class _LeaveScreenState extends State<LeaveScreen>
       return;
     }
 
+    final siteId = selectedSiteId();
+    if (siteId == null) {
+      _snack('Please select a site first.');
+      return;
+    }
+    final leaveTypeValue = _selectedLeaveType?.value?.trim();
+    if (leaveTypeValue == null || leaveTypeValue.isEmpty) {
+      _snack('Please select a leave type.');
+      return;
+    }
+
+    final dateFmt = DateFormat('yyyy-MM-dd');
+
     setState(() => _submitting = true);
-    await _service.applyLeave(
-      fromDate: _fromDate!,
-      toDate: _toDate!,
-      type: _leaveType,
+    final success = await applyLeaveApi(
+      context,
+      siteId: siteId,
+      type: leaveTypeValue,
+      fromDate: dateFmt.format(_fromDate!),
+      toDate: dateFmt.format(_toDate!),
       description: desc,
     );
     if (!mounted) return;
+
+    if (!success) {
+      setState(() => _submitting = false);
+      return;
+    }
 
     setState(() {
       _submitting = false;
       _fromDate = null;
       _toDate = null;
-      _leaveType = LeaveType.casual;
+      _selectedLeaveType = _leaveTypes.isNotEmpty ? _leaveTypes.first : null;
       _descriptionController.clear();
     });
 
-    _snack('Leave applied successfully.');
     _tabController.animateTo(1);
+    await _loadMyLeaves(reset: true);
   }
 
   void _snack(String message) {
@@ -397,65 +590,109 @@ class _LeaveScreenState extends State<LeaveScreen>
                     SizedBox(height: isWide ? 22 : 18),
                     _sectionLabel('Leave Type'),
                     const SizedBox(height: 8),
-                    DropdownButtonFormField<LeaveType>(
-                      value: _leaveType,
-                      isExpanded: true,
-                      icon: const Icon(
-                        Icons.keyboard_arrow_down_rounded,
-                        color: AppColors.textSecondary,
-                      ),
-                      dropdownColor: AppColors.cardWhite,
-                      borderRadius: BorderRadius.circular(12),
-                      style: GoogleFonts.poppins(
-                        fontSize: 13.5,
-                        fontWeight: FontWeight.w500,
-                        color: AppColors.headingBlack,
-                      ),
-                      decoration: InputDecoration(
-                        filled: true,
-                        fillColor: const Color(0xFFF7F8FA),
-                        contentPadding: const EdgeInsets.symmetric(
-                          horizontal: 14,
-                          vertical: 14,
-                        ),
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                          borderSide: BorderSide.none,
-                        ),
-                        enabledBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                          borderSide: BorderSide(
-                            color: AppColors.borderGray.withValues(alpha: 0.55),
+                    if (_loadingTypes)
+                      const Padding(
+                        padding: EdgeInsets.symmetric(vertical: 12),
+                        child: Center(
+                          child: SizedBox(
+                            width: 22,
+                            height: 22,
+                            child: CircularProgressIndicator(strokeWidth: 2.2),
                           ),
                         ),
-                        focusedBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                          borderSide: const BorderSide(
-                            color: AppColors.primaryRed,
-                            width: 1.4,
-                          ),
-                        ),
-                      ),
-                      items: LeaveType.values
-                          .map(
-                            (type) => DropdownMenuItem<LeaveType>(
-                              value: type,
+                      )
+                    else if (_leaveTypes.isEmpty)
+                      Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 4),
+                        child: Row(
+                          children: [
+                            Expanded(
                               child: Text(
-                                type.label,
+                                'No leave types found.',
                                 style: GoogleFonts.poppins(
-                                  fontSize: 13.5,
-                                  fontWeight: FontWeight.w500,
-                                  color: AppColors.headingBlack,
+                                  fontSize: 13,
+                                  color: AppColors.textSecondary,
                                 ),
                               ),
                             ),
-                          )
-                          .toList(),
-                      onChanged: (value) {
-                        if (value == null) return;
-                        setState(() => _leaveType = value);
-                      },
-                    ),
+                            TextButton(
+                              onPressed: _loadLeaveTypes,
+                              child: Text(
+                                'Retry',
+                                style: GoogleFonts.poppins(
+                                  fontWeight: FontWeight.w600,
+                                  color: AppColors.primaryRed,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      )
+                    else
+                      DropdownButtonFormField<String>(
+                        value: _selectedLeaveType?.value,
+                        isExpanded: true,
+                        icon: const Icon(
+                          Icons.keyboard_arrow_down_rounded,
+                          color: AppColors.textSecondary,
+                        ),
+                        dropdownColor: AppColors.cardWhite,
+                        borderRadius: BorderRadius.circular(12),
+                        style: GoogleFonts.poppins(
+                          fontSize: 13.5,
+                          fontWeight: FontWeight.w500,
+                          color: AppColors.headingBlack,
+                        ),
+                        decoration: InputDecoration(
+                          filled: true,
+                          fillColor: const Color(0xFFF7F8FA),
+                          contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 14,
+                            vertical: 14,
+                          ),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: BorderSide.none,
+                          ),
+                          enabledBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: BorderSide(
+                              color:
+                                  AppColors.borderGray.withValues(alpha: 0.55),
+                            ),
+                          ),
+                          focusedBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: const BorderSide(
+                              color: AppColors.primaryRed,
+                              width: 1.4,
+                            ),
+                          ),
+                        ),
+                        items: _leaveTypes
+                            .map(
+                              (type) => DropdownMenuItem<String>(
+                                value: type.value,
+                                child: Text(
+                                  type.label ?? type.value ?? '',
+                                  style: GoogleFonts.poppins(
+                                    fontSize: 13.5,
+                                    fontWeight: FontWeight.w500,
+                                    color: AppColors.headingBlack,
+                                  ),
+                                ),
+                              ),
+                            )
+                            .toList(),
+                        onChanged: (value) {
+                          if (value == null) return;
+                          setState(() {
+                            _selectedLeaveType = _leaveTypes.firstWhere(
+                              (e) => e.value == value,
+                            );
+                          });
+                        },
+                      ),
                     SizedBox(height: isWide ? 22 : 18),
                     _sectionLabel('Description'),
                     const SizedBox(height: 10),
@@ -547,10 +784,15 @@ class _LeaveScreenState extends State<LeaveScreen>
   }
 
   Widget _buildMyLeaveTab(double hPad, double contentMax) {
-    final items = _service.leaves;
     final bottomInset = MediaQuery.paddingOf(context).bottom;
 
-    if (items.isEmpty) {
+    if (_loadingMyLeaves && _myLeaves.isEmpty) {
+      return const Center(
+        child: CircularProgressIndicator(color: AppColors.primaryRed),
+      );
+    }
+
+    if (_myLeaves.isEmpty) {
       return Center(
         child: Padding(
           padding: EdgeInsets.symmetric(horizontal: hPad + 8),
@@ -623,6 +865,17 @@ class _LeaveScreenState extends State<LeaveScreen>
                     ),
                   ),
                 ),
+                TextButton(
+                  onPressed:
+                      _loadingMyLeaves ? null : () => _loadMyLeaves(reset: true),
+                  child: Text(
+                    'Refresh',
+                    style: GoogleFonts.poppins(
+                      fontWeight: FontWeight.w600,
+                      color: AppColors.textSecondary,
+                    ),
+                  ),
+                ),
               ],
             ),
           ),
@@ -630,18 +883,56 @@ class _LeaveScreenState extends State<LeaveScreen>
       );
     }
 
-    return ListView.separated(
-      padding: EdgeInsets.fromLTRB(hPad, 16, hPad, 24 + bottomInset),
-      itemCount: items.length,
-      separatorBuilder: (_, __) => const SizedBox(height: 10),
-      itemBuilder: (context, index) {
-        return Center(
-          child: ConstrainedBox(
-            constraints: BoxConstraints(maxWidth: contentMax),
-            child: _LeaveCard(request: items[index]),
-          ),
-        );
-      },
+    final showFooter = _loadingMoreMyLeaves || _hasMoreMyLeaves;
+
+    return RefreshIndicator(
+      color: AppColors.primaryRed,
+      onRefresh: () => _loadMyLeaves(reset: true),
+      child: ListView.separated(
+        controller: _myLeavesScrollController,
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: EdgeInsets.fromLTRB(hPad, 16, hPad, 24 + bottomInset),
+        itemCount: _myLeaves.length + (showFooter ? 1 : 0),
+        separatorBuilder: (_, __) => const SizedBox(height: 10),
+        itemBuilder: (context, index) {
+          if (index >= _myLeaves.length) {
+            return Padding(
+              padding: const EdgeInsets.symmetric(vertical: 12),
+              child: Center(
+                child: _loadingMoreMyLeaves
+                    ? const SizedBox(
+                        width: 22,
+                        height: 22,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2.2,
+                          color: AppColors.primaryRed,
+                        ),
+                      )
+                    : TextButton(
+                        onPressed: () => _loadMyLeaves(reset: false),
+                        child: Text(
+                          'Load more',
+                          style: GoogleFonts.poppins(
+                            fontWeight: FontWeight.w600,
+                            color: AppColors.primaryRed,
+                          ),
+                        ),
+                      ),
+              ),
+            );
+          }
+          return Center(
+            child: ConstrainedBox(
+              constraints: BoxConstraints(maxWidth: contentMax),
+              child: _LeaveCard(
+                item: _myLeaves[index],
+                deleting: _deletingLeaveId == _myLeaves[index].id,
+                onDelete: () => _confirmDeleteLeave(_myLeaves[index]),
+              ),
+            ),
+          );
+        },
+      ),
     );
   }
 
@@ -878,29 +1169,46 @@ class _DateField extends StatelessWidget {
 }
 
 class _LeaveCard extends StatelessWidget {
-  const _LeaveCard({required this.request});
+  const _LeaveCard({
+    required this.item,
+    required this.onDelete,
+    this.deleting = false,
+  });
 
-  final LeaveRequest request;
+  final MyLeaveItem item;
+  final VoidCallback onDelete;
+  final bool deleting;
+
+  String get _statusKey => (item.status ?? 'pending').trim().toLowerCase();
+
+  bool get _canDelete =>
+      _statusKey == 'pending' || _statusKey.isEmpty;
+
+  String get _statusLabel {
+    final key = _statusKey;
+    if (key.isEmpty) return 'Pending';
+    return key[0].toUpperCase() + key.substring(1);
+  }
 
   Color get _statusColor {
-    switch (request.status) {
-      case LeaveStatus.pending:
-        return const Color(0xFFD97706);
-      case LeaveStatus.approved:
+    switch (_statusKey) {
+      case 'approved':
         return const Color(0xFF059669);
-      case LeaveStatus.rejected:
+      case 'rejected':
         return const Color(0xFFDC2626);
+      default:
+        return const Color(0xFFD97706);
     }
   }
 
   Color get _statusBg {
-    switch (request.status) {
-      case LeaveStatus.pending:
-        return const Color(0xFFFFF7ED);
-      case LeaveStatus.approved:
+    switch (_statusKey) {
+      case 'approved':
         return const Color(0xFFECFDF5);
-      case LeaveStatus.rejected:
+      case 'rejected':
         return const Color(0xFFFEF2F2);
+      default:
+        return const Color(0xFFFFF7ED);
     }
   }
 
@@ -909,9 +1217,15 @@ class _LeaveCard extends StatelessWidget {
     final dateFmt = DateFormat('dd MMM yyyy');
     final width = MediaQuery.sizeOf(context).width;
     final pad = width < 360 ? 12.0 : 14.0;
-    final durationLabel = request.durationDays == 1
-        ? '1 Day'
-        : '${request.durationDays} Days';
+    final days = item.durationDays ?? 0;
+    final durationLabel = days == 1 ? '1 Day' : '$days Days';
+    final typeLabel = (item.typeLabel ?? item.type ?? 'Leave').trim();
+    final description = (item.description ?? '').trim();
+    final fromText = item.fromDate == null
+        ? '—'
+        : dateFmt.format(item.fromDate!);
+    final toText =
+        item.toDate == null ? '—' : dateFmt.format(item.toDate!);
 
     return Container(
       width: double.infinity,
@@ -955,7 +1269,7 @@ class _LeaveCard extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      request.type.label,
+                      typeLabel,
                       style: GoogleFonts.poppins(
                         fontSize: 14.5,
                         fontWeight: FontWeight.w700,
@@ -975,7 +1289,7 @@ class _LeaveCard extends StatelessWidget {
                   ],
                 ),
               ),
-              const SizedBox(width: 8),
+              const SizedBox(width: 6),
               Container(
                 padding: const EdgeInsets.symmetric(
                   horizontal: 9,
@@ -986,7 +1300,7 @@ class _LeaveCard extends StatelessWidget {
                   borderRadius: BorderRadius.circular(16),
                 ),
                 child: Text(
-                  request.status.label,
+                  _statusLabel,
                   style: GoogleFonts.poppins(
                     fontSize: 11,
                     fontWeight: FontWeight.w700,
@@ -994,6 +1308,37 @@ class _LeaveCard extends StatelessWidget {
                   ),
                 ),
               ),
+              if (_canDelete) ...[
+                const SizedBox(width: 4),
+                Material(
+                  color: const Color(0xFFFEF2F2),
+                  borderRadius: BorderRadius.circular(10),
+                  child: InkWell(
+                    onTap: deleting ? null : onDelete,
+                    borderRadius: BorderRadius.circular(10),
+                    child: SizedBox(
+                      width: 34,
+                      height: 34,
+                      child: Center(
+                        child: deleting
+                            ? const SizedBox(
+                                width: 16,
+                                height: 16,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  color: AppColors.primaryRed,
+                                ),
+                              )
+                            : const Icon(
+                                Icons.delete_outline_rounded,
+                                size: 18,
+                                color: AppColors.primaryRed,
+                              ),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
             ],
           ),
           const SizedBox(height: 12),
@@ -1010,12 +1355,12 @@ class _LeaveCard extends StatelessWidget {
                 final from = _MetaItem(
                   icon: Icons.calendar_today_rounded,
                   label: 'From',
-                  value: dateFmt.format(request.fromDate),
+                  value: fromText,
                 );
                 final to = _MetaItem(
                   icon: Icons.event_rounded,
                   label: 'To',
-                  value: dateFmt.format(request.toDate),
+                  value: toText,
                 );
                 if (stack) {
                   return Column(
@@ -1041,24 +1386,26 @@ class _LeaveCard extends StatelessWidget {
               },
             ),
           ),
-          const SizedBox(height: 12),
-          Text(
-            'Description',
-            style: GoogleFonts.poppins(
-              fontSize: 11.5,
-              fontWeight: FontWeight.w600,
-              color: AppColors.textSecondary,
+          if (description.isNotEmpty) ...[
+            const SizedBox(height: 12),
+            Text(
+              'Description',
+              style: GoogleFonts.poppins(
+                fontSize: 11.5,
+                fontWeight: FontWeight.w600,
+                color: AppColors.textSecondary,
+              ),
             ),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            request.description,
-            style: GoogleFonts.poppins(
-              fontSize: 13,
-              color: AppColors.textDark,
-              height: 1.4,
+            const SizedBox(height: 4),
+            Text(
+              description,
+              style: GoogleFonts.poppins(
+                fontSize: 13,
+                color: AppColors.textDark,
+                height: 1.4,
+              ),
             ),
-          ),
+          ],
         ],
       ),
     );

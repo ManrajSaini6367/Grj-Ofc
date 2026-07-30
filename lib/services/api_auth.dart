@@ -18,6 +18,9 @@ import 'package:grjoffice_apps/LabourContractor/labour_contractor.dart';
 import 'package:grjoffice_apps/Itemsscreen/item.dart';
 import 'package:grjoffice_apps/models/getcontractor.dart';
 import 'package:grjoffice_apps/models/getemployeemodal.dart';
+import 'package:grjoffice_apps/models/getleavetypemodal.dart';
+import 'package:grjoffice_apps/models/getmyleavemodal.dart';
+import 'package:grjoffice_apps/models/getshowleavemodal.dart';
 import 'package:grjoffice_apps/models/getsupplier.dart';
 import 'package:grjoffice_apps/models/getsupplierlist.dart';
 import 'package:grjoffice_apps/models/item_model.dart';
@@ -5159,3 +5162,306 @@ Future<ChatMediaSendResult> sendPhotoMessageApi({
   }
 }
 
+/// Apply leave — POST /api/v1/leaves
+Future<bool> applyLeaveApi(
+  BuildContext context, {
+  required int siteId,
+  required String type,
+  required String fromDate,
+  required String toDate,
+  required String description,
+}) async {
+  try {
+    final token = Preference.pref.getString('token') ?? '';
+    final url = '$baseUrl/api/v1/leaves';
+
+    // Matches Postman: type is string (casual/sick/function), not an id.
+    final body = {
+      'site_id': siteId,
+      'type': type,
+      'from_date': fromDate,
+      'to_date': toDate,
+      'description': description,
+    };
+
+    debugPrint('[applyLeaveApi] POST $url');
+    debugPrint('[applyLeaveApi] request: ${jsonEncode(body)}');
+
+    final response = await http.post(
+      Uri.parse(url),
+      headers: {
+        'Accept': 'application/json',
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $token',
+      },
+      body: jsonEncode(body),
+    );
+
+    debugPrint('[applyLeaveApi] statusCode: ${response.statusCode}');
+    debugPrint('[applyLeaveApi] response: ${response.body}');
+
+    final data = decodeApiJson(response.body);
+    final apiMessage = data?['message']?.toString();
+
+    if (response.statusCode == 200 || response.statusCode == 201) {
+      if (!context.mounted) return false;
+      message(context, apiMessage ?? 'Leave applied successfully');
+      return true;
+    }
+
+    if (!context.mounted) return false;
+    message(context, apiMessage ?? 'Failed to apply leave.');
+    return false;
+  } catch (e, stack) {
+    debugPrint('[applyLeaveApi] error: $e');
+    debugPrint('[applyLeaveApi] stack: $stack');
+    if (!context.mounted) return false;
+    message(context, 'Something went wrong');
+    return false;
+  }
+}
+
+/// GET /api/v1/leaves/types
+
+Future<Getleavetypemodal?> getLeaveTypeApi(BuildContext context) async {
+  try {
+    final url = '$baseUrl/api/v1/leaves/types';
+    debugPrint('[getLeaveTypeApi] GET $url');
+
+    final response = await http
+        .get(Uri.parse(url), headers: authHeaders)
+        .timeout(const Duration(seconds: 30));
+
+    debugPrint('[getLeaveTypeApi] statusCode: ${response.statusCode}');
+    debugPrint('[getLeaveTypeApi] response: ${response.body}');
+
+    final decoded = decodeApiJson(response.body);
+    final apiMessage = decoded?['message']?.toString();
+
+    if (response.statusCode == 200 &&
+        decoded != null &&
+        decoded['success'] == true) {
+      final model = Getleavetypemodal.fromJson(decoded);
+      debugPrint(
+        '[getLeaveTypeApi] types: ${model.data?.items?.length ?? 0}',
+      );
+      return model;
+    }
+
+    if (context.mounted) {
+      message(context, apiMessage ?? 'Failed to fetch leave types.');
+    }
+    return null;
+  } catch (e, stack) {
+    debugPrint('[getLeaveTypeApi] error: $e');
+    debugPrint('[getLeaveTypeApi] stack: $stack');
+    if (context.mounted) {
+      message(context, 'Something went wrong');
+    }
+    return null;
+  }
+}
+
+/// GET /api/v1/leaves/mine
+Future<Getmyleavedata?> getMyLeaveApi(
+  BuildContext context, {
+  int perPage = 20,
+  int page = 1,
+  String status = 'all',
+}) async {
+  try {
+    final query = <String, String>{
+      'per_page': perPage.toString(),
+      'page': page.toString(),
+      if (status.trim().isNotEmpty) 'status': status.trim(),
+    };
+
+    final uri = Uri.parse('$baseUrl/api/v1/leaves/mine').replace(
+      queryParameters: query,
+    );
+    debugPrint('[getMyLeaveApi] GET $uri');
+
+    final response = await http
+        .get(uri, headers: authHeaders)
+        .timeout(const Duration(seconds: 30));
+
+    debugPrint('[getMyLeaveApi] statusCode: ${response.statusCode}');
+    debugPrint('[getMyLeaveApi] response: ${response.body}');
+
+    final decoded = decodeApiJson(response.body);
+    final apiMessage = decoded?['message']?.toString();
+
+    if (response.statusCode == 200 &&
+        decoded != null &&
+        decoded['success'] == true) {
+      final model = Getmyleavedata.fromJson(decoded);
+      debugPrint(
+        '[getMyLeaveApi] leaves: ${model.data?.items?.length ?? 0}',
+      );
+      return model;
+    }
+
+    if (context.mounted) {
+      message(context, apiMessage ?? 'Failed to fetch my leaves.');
+    }
+    return null;
+  } catch (e, stack) {
+    debugPrint('[getMyLeaveApi] error: $e');
+    debugPrint('[getMyLeaveApi] stack: $stack');
+    if (context.mounted) {
+      message(context, 'Something went wrong');
+    }
+    return null;
+  }
+}
+
+//getshowleavemodalapi
+
+
+/// GET /api/v1/leaves — HR leave requests list
+Future<Getmyleavedata?> getLeaveRequestsApi(
+  BuildContext context, {
+  int perPage = 20,
+  int page = 1,
+  String status = 'all',
+}) async {
+  try {
+    final query = <String, String>{
+      'per_page': perPage.toString(),
+      'page': page.toString(),
+      if (status.trim().isNotEmpty) 'status': status.trim(),
+    };
+
+    final uri = Uri.parse('$baseUrl/api/v1/leaves').replace(
+      queryParameters: query,
+    );
+    debugPrint('[getLeaveRequestsApi] GET $uri');
+
+    final response = await http
+        .get(uri, headers: authHeaders)
+        .timeout(const Duration(seconds: 30));
+
+    debugPrint('[getLeaveRequestsApi] statusCode: ${response.statusCode}');
+    debugPrint('[getLeaveRequestsApi] response: ${response.body}');
+
+    final decoded = decodeApiJson(response.body);
+    final apiMessage = decoded?['message']?.toString();
+
+    if (response.statusCode == 200 &&
+        decoded != null &&
+        decoded['success'] == true) {
+      final model = Getmyleavedata.fromJson(decoded);
+      debugPrint(
+        '[getLeaveRequestsApi] leaves: ${model.data?.items?.length ?? 0}',
+      );
+      return model;
+    }
+
+    if (context.mounted) {
+      message(context, apiMessage ?? 'Failed to fetch leave requests.');
+    }
+    return null;
+  } catch (e, stack) {
+    debugPrint('[getLeaveRequestsApi] error: $e');
+    debugPrint('[getLeaveRequestsApi] stack: $stack');
+    if (context.mounted) {
+      message(context, 'Something went wrong');
+    }
+    return null;
+  }
+}
+
+/// GET /api/v1/leaves/{leaveId}
+Future<Getshowleavemodal?> getShowLeaveApi(
+  BuildContext context,
+  String leaveId,
+) async {
+  try {
+    final id = leaveId.trim();
+    if (id.isEmpty) {
+      if (context.mounted) {
+        message(context, 'Leave id is missing.');
+      }
+      return null;
+    }
+
+    final url = '$baseUrl/api/v1/leaves/$id';
+    debugPrint('[getShowLeaveApi] GET $url');
+
+    final response = await http
+        .get(Uri.parse(url), headers: authHeaders)
+        .timeout(const Duration(seconds: 30));
+
+    debugPrint('[getShowLeaveApi] statusCode: ${response.statusCode}');
+    debugPrint('[getShowLeaveApi] response: ${response.body}');
+
+    final decoded = decodeApiJson(response.body);
+    final apiMessage = decoded?['message']?.toString();
+
+    if (response.statusCode == 200 &&
+        decoded != null &&
+        decoded['success'] == true) {
+      final model = Getshowleavemodal.fromJson(decoded);
+      debugPrint('[getShowLeaveApi] leaveId: ${model.data?.id}');
+      return model;
+    }
+
+    if (context.mounted) {
+      message(context, apiMessage ?? 'Failed to fetch leave details.');
+    }
+    return null;
+  } catch (e, stack) {
+    debugPrint('[getShowLeaveApi] error: $e');
+    debugPrint('[getShowLeaveApi] stack: $stack');
+    if (context.mounted) {
+      message(context, 'Something went wrong');
+    }
+    return null;
+  }
+}
+
+/// DELETE /api/v1/leaves/{leaveId}
+Future<bool> deleteLeaveApi(
+  BuildContext context,
+  String leaveId,
+) async {
+  try {
+    final id = leaveId.trim();
+    if (id.isEmpty) {
+      if (context.mounted) {
+        message(context, 'Leave id is missing.');
+      }
+      return false;
+    }
+
+    final url = '$baseUrl/api/v1/leaves/$id';
+    debugPrint('[deleteLeaveApi] DELETE $url');
+
+    final response = await http
+        .delete(Uri.parse(url), headers: authHeaders)
+        .timeout(const Duration(seconds: 30));
+
+    debugPrint('[deleteLeaveApi] statusCode: ${response.statusCode}');
+    debugPrint('[deleteLeaveApi] response: ${response.body}');
+
+    final decoded = decodeApiJson(response.body);
+    final apiMessage = decoded?['message']?.toString();
+
+    if ((response.statusCode == 200 || response.statusCode == 204) &&
+        (decoded == null || decoded['success'] != false)) {
+      if (!context.mounted) return false;
+      message(context, apiMessage ?? 'Leave deleted successfully');
+      return true;
+    }
+
+    if (!context.mounted) return false;
+    message(context, apiMessage ?? 'Failed to delete leave.');
+    return false;
+  } catch (e, stack) {
+    debugPrint('[deleteLeaveApi] error: $e');
+    debugPrint('[deleteLeaveApi] stack: $stack');
+    if (!context.mounted) return false;
+    message(context, 'Something went wrong');
+    return false;
+  }
+}

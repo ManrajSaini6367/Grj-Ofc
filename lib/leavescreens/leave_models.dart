@@ -1,10 +1,20 @@
 enum LeaveType {
-  casual('Casual Leave'),
-  sick('Sick Leave'),
-  function('Function Leave');
+  casual('Casual Leave', 'casual'),
+  sick('Sick Leave', 'sick'),
+  function('Function Leave', 'function');
 
-  const LeaveType(this.label);
+  const LeaveType(this.label, this.apiValue);
   final String label;
+  /// Backend `type` field (e.g. casual, sick, function).
+  final String apiValue;
+
+  static LeaveType fromApiValue(String? value) {
+    final key = (value ?? '').trim().toLowerCase();
+    return LeaveType.values.firstWhere(
+      (e) => e.apiValue == key,
+      orElse: () => LeaveType.casual,
+    );
+  }
 }
 
 enum LeaveStatus {
