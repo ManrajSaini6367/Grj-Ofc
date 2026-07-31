@@ -4,7 +4,7 @@ import 'package:grjoffice_apps/core/app_colors.dart';
 import 'package:grjoffice_apps/drawer/app_end_drawer.dart';
 import 'package:grjoffice_apps/drawer/drawer.dart';
 import 'package:grjoffice_apps/leavescreens/view_leave_screen.dart';
-import 'package:grjoffice_apps/models/getmyleavemodal.dart';
+import 'package:grjoffice_apps/models/leaverequestHR.dart';
 import 'package:grjoffice_apps/navigation/app_navigation.dart';
 import 'package:grjoffice_apps/services/api_auth.dart';
 import 'package:grjoffice_apps/widgets/app_top_bar.dart';
@@ -22,9 +22,11 @@ class _LeaveRequestsScreenState extends State<LeaveRequestsScreen> {
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
   final _scrollController = ScrollController();
 
-  List<MyLeaveItem> _items = [];
+  List<HrLeaveRequestItem> _items = [];
   bool _loading = true;
   bool _loadingMore = false;
+  String? _actionLeaveId;
+  String? _actionType;
   int _page = 1;
   int _lastPage = 1;
   static const int _perPage = 20;
@@ -67,10 +69,11 @@ class _LeaveRequestsScreenState extends State<LeaveRequestsScreen> {
     }
 
     final pageToLoad = reset ? 1 : _page + 1;
-    final result = await getLeaveRequestsApi(
+    final result = await getLeaveRequestHRListApi(
       context,
       page: pageToLoad,
       perPage: _perPage,
+      status: 'all',
     );
     if (!mounted) return;
 
@@ -82,7 +85,7 @@ class _LeaveRequestsScreenState extends State<LeaveRequestsScreen> {
       return;
     }
 
-    final items = result.data?.items ?? const <MyLeaveItem>[];
+    final items = result.data?.items ?? const <HrLeaveRequestItem>[];
     final pagination = result.data?.pagination;
     final currentPage = pagination?.currentPage ?? pageToLoad;
     final lastPage = pagination?.lastPage ??
@@ -90,7 +93,7 @@ class _LeaveRequestsScreenState extends State<LeaveRequestsScreen> {
 
     setState(() {
       if (reset) {
-        _items = List<MyLeaveItem>.from(items);
+        _items = List<HrLeaveRequestItem>.from(items);
       } else {
         final existingIds = _items.map((e) => e.id).toSet();
         _items.addAll(
@@ -116,7 +119,7 @@ class _LeaveRequestsScreenState extends State<LeaveRequestsScreen> {
     navigateFromDrawer(context, index);
   }
 
-  Future<void> _openLeave(MyLeaveItem item) async {
+  Future<void> _openLeave(HrLeaveRequestItem item) async {
     final id = item.id?.trim() ?? '';
     if (id.isEmpty) return;
     await Navigator.of(context).push(
@@ -132,7 +135,7 @@ class _LeaveRequestsScreenState extends State<LeaveRequestsScreen> {
     setState(() {
       _items = _items.map((item) {
         if (item.id != id) return item;
-        return MyLeaveItem(
+        return HrLeaveRequestItem(
           id: item.id,
           userId: item.userId,
           siteId: item.siteId,
@@ -152,6 +155,50 @@ class _LeaveRequestsScreenState extends State<LeaveRequestsScreen> {
           updatedAt: item.updatedAt,
         );
       }).toList();
+    });
+  }
+
+  Future<void> _approveLeave(HrLeaveRequestItem item) async {
+    final id = item.id?.trim() ?? '';
+    if (id.isEmpty || _actionLeaveId != null) return;
+
+    setState(() {
+      _actionLeaveId = id;
+      _actionType = 'approve';
+    });
+
+    final ok = await approveLeaveApi(context, leaveId: id);
+    if (!mounted) return;
+
+    if (ok) {
+      _setStatusLocal(id, 'approved');
+    }
+
+    setState(() {
+      _actionLeaveId = null;
+      _actionType = null;
+    });
+  }
+
+  Future<void> _rejectLeave(HrLeaveRequestItem item) async {
+    final id = item.id?.trim() ?? '';
+    if (id.isEmpty || _actionLeaveId != null) return;
+
+    setState(() {
+      _actionLeaveId = id;
+      _actionType = 'reject';
+    });
+
+    final ok = await rejectLeaveApi(context, leaveId: id);
+    if (!mounted) return;
+
+    if (ok) {
+      _setStatusLocal(id, 'rejected');
+    }
+
+    setState(() {
+      _actionLeaveId = null;
+      _actionType = null;
     });
   }
 
@@ -248,16 +295,12 @@ class _LeaveRequestsScreenState extends State<LeaveRequestsScreen> {
                                   child: _HrLeaveCard(
                                     item: item,
                                     onTap: () => _openLeave(item),
-                                    onApprove: () {
-                                      final id = item.id;
-                                      if (id == null) return;
-                                      _setStatusLocal(id, 'approved');
-                                    },
-                                    onReject: () {
-                                      final id = item.id;
-                                      if (id == null) return;
-                                      _setStatusLocal(id, 'rejected');
-                                    },
+                                    approving: _actionLeaveId == item.id &&
+                                        _actionType == 'approve',
+                                    rejecting: _actionLeaveId == item.id &&
+                                        _actionType == 'reject',
+                                    onApprove: () => _approveLeave(item),
+                                    onReject: () => _rejectLeave(item),
                                   ),
                                 ),
                               );
@@ -346,12 +389,16 @@ class _HrLeaveCard extends StatelessWidget {
     required this.onTap,
     required this.onApprove,
     required this.onReject,
+    this.approving = false,
+    this.rejecting = false,
   });
 
-  final MyLeaveItem item;
+  final HrLeaveRequestItem item;
   final VoidCallback onTap;
   final VoidCallback onApprove;
   final VoidCallback onReject;
+  final bool approving;
+  final bool rejecting;
 
   String get _statusKey => (item.status ?? 'pending').trim().toLowerCase();
 
@@ -577,6 +624,8 @@ class _HrLeaveCard extends StatelessWidget {
               const SizedBox(height: 10),
               _ActionButtons(
                 status: _statusKey,
+                approving: approving,
+                rejecting: rejecting,
                 onApprove: onApprove,
                 onReject: onReject,
               ),
@@ -602,11 +651,15 @@ class _ActionButtons extends StatelessWidget {
     required this.status,
     required this.onApprove,
     required this.onReject,
+    this.approving = false,
+    this.rejecting = false,
   });
 
   final String status;
   final VoidCallback onApprove;
   final VoidCallback onReject;
+  final bool approving;
+  final bool rejecting;
 
   static const approvedColor = Color(0xFF059669);
   static const rejectedColor = Color(0xFFDC2626);
@@ -622,11 +675,12 @@ class _ActionButtons extends StatelessWidget {
       required Color color,
       required VoidCallback? onPressed,
       required bool selected,
+      bool loading = false,
     }) {
       return SizedBox(
         height: 36,
         child: OutlinedButton(
-          onPressed: onPressed,
+          onPressed: loading ? null : onPressed,
           style: OutlinedButton.styleFrom(
             foregroundColor: color,
             backgroundColor: color.withValues(alpha: selected ? 0.14 : 0.06),
@@ -636,14 +690,23 @@ class _ActionButtons extends StatelessWidget {
             ),
             padding: const EdgeInsets.symmetric(horizontal: 12),
           ),
-          child: Text(
-            label,
-            style: GoogleFonts.poppins(
-              fontSize: 12.5,
-              fontWeight: FontWeight.w600,
-              letterSpacing: 0.1,
-            ),
-          ),
+          child: loading
+              ? SizedBox(
+                  width: 16,
+                  height: 16,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    color: color,
+                  ),
+                )
+              : Text(
+                  label,
+                  style: GoogleFonts.poppins(
+                    fontSize: 12.5,
+                    fontWeight: FontWeight.w600,
+                    letterSpacing: 0.1,
+                  ),
+                ),
         ),
       );
     }
@@ -657,20 +720,24 @@ class _ActionButtons extends StatelessWidget {
       );
     }
 
+    final busy = approving || rejecting;
+
     return LayoutBuilder(
       builder: (context, c) {
         final stack = c.maxWidth < 340;
         final approveBtn = button(
           label: 'Approve',
           color: approvedColor,
-          onPressed: onApprove,
+          onPressed: busy ? null : onApprove,
           selected: false,
+          loading: approving,
         );
         final rejectBtn = button(
           label: 'Reject',
           color: rejectedColor,
-          onPressed: onReject,
+          onPressed: busy ? null : onReject,
           selected: false,
+          loading: rejecting,
         );
         if (stack) {
           return Column(

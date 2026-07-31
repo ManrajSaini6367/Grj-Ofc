@@ -27,6 +27,7 @@ import 'package:grjoffice_apps/models/item_model.dart';
 import 'package:grjoffice_apps/models/itemhistorymodal.dart';
 import 'package:grjoffice_apps/models/items_response_model.dart';
 import 'package:grjoffice_apps/models/labourattendancereport.dart';
+import 'package:grjoffice_apps/models/leaverequestHR.dart';
 import 'package:grjoffice_apps/models/listcontractor.dart';
 import 'package:grjoffice_apps/models/login_model.dart';
 import 'package:grjoffice_apps/models/mypermission.dart';
@@ -5315,63 +5316,8 @@ Future<Getmyleavedata?> getMyLeaveApi(
   }
 }
 
-//getshowleavemodalapi
-
-
-/// GET /api/v1/leaves — HR leave requests list
-Future<Getmyleavedata?> getLeaveRequestsApi(
-  BuildContext context, {
-  int perPage = 20,
-  int page = 1,
-  String status = 'all',
-}) async {
-  try {
-    final query = <String, String>{
-      'per_page': perPage.toString(),
-      'page': page.toString(),
-      if (status.trim().isNotEmpty) 'status': status.trim(),
-    };
-
-    final uri = Uri.parse('$baseUrl/api/v1/leaves').replace(
-      queryParameters: query,
-    );
-    debugPrint('[getLeaveRequestsApi] GET $uri');
-
-    final response = await http
-        .get(uri, headers: authHeaders)
-        .timeout(const Duration(seconds: 30));
-
-    debugPrint('[getLeaveRequestsApi] statusCode: ${response.statusCode}');
-    debugPrint('[getLeaveRequestsApi] response: ${response.body}');
-
-    final decoded = decodeApiJson(response.body);
-    final apiMessage = decoded?['message']?.toString();
-
-    if (response.statusCode == 200 &&
-        decoded != null &&
-        decoded['success'] == true) {
-      final model = Getmyleavedata.fromJson(decoded);
-      debugPrint(
-        '[getLeaveRequestsApi] leaves: ${model.data?.items?.length ?? 0}',
-      );
-      return model;
-    }
-
-    if (context.mounted) {
-      message(context, apiMessage ?? 'Failed to fetch leave requests.');
-    }
-    return null;
-  } catch (e, stack) {
-    debugPrint('[getLeaveRequestsApi] error: $e');
-    debugPrint('[getLeaveRequestsApi] stack: $stack');
-    if (context.mounted) {
-      message(context, 'Something went wrong');
-    }
-    return null;
-  }
-}
-
 /// GET /api/v1/leaves/{leaveId}
+/// 
 Future<Getshowleavemodal?> getShowLeaveApi(
   BuildContext context,
   String leaveId,
@@ -5465,3 +5411,161 @@ Future<bool> deleteLeaveApi(
     return false;
   }
 }
+
+//getleaverequesrHR
+
+Future<Leaverequesthr?> getLeaveRequestHRListApi(
+  BuildContext context, {
+  int perPage = 20,
+  int page = 1,
+  String status = 'all',
+  String type = '',
+  String search = '',
+}) async {
+  try {
+    final query = <String, String>{
+      'per_page': perPage.toString(),
+      'page': page.toString(),
+      'status': status.trim().isEmpty ? 'all' : status.trim(),
+      'type': type.trim(),
+      'search': search.trim(),
+    };
+
+    final uri = Uri.parse('$baseUrl/api/v1/leaves').replace(
+      queryParameters: query,
+    );
+    debugPrint('[getLeaveRequestHRListApi] GET $uri');
+
+    final response = await http
+        .get(uri, headers: authHeaders)
+        .timeout(const Duration(seconds: 30));
+
+    debugPrint('[getLeaveRequestHRListApi] statusCode: ${response.statusCode}');
+    debugPrint('[getLeaveRequestHRListApi] response: ${response.body}');
+
+    final decoded = decodeApiJson(response.body);
+    final apiMessage = decoded?['message']?.toString();
+
+    if (response.statusCode == 200 &&
+        decoded != null &&
+        decoded['success'] == true) {
+      final model = Leaverequesthr.fromJson(decoded);
+      debugPrint(
+        '[getLeaveRequestHRListApi] leaves: ${model.data?.items?.length ?? 0}',
+      );
+      return model;
+    }
+
+    if (context.mounted) {
+      message(context, apiMessage ?? 'Failed to fetch leave requests.');
+    }
+    return null;
+  } catch (e, stack) {
+    debugPrint('[getLeaveRequestHRListApi] error: $e');
+    debugPrint('[getLeaveRequestHRListApi] stack: $stack');
+    if (context.mounted) {
+      message(context, 'Something went wrong');
+    }
+    return null;
+  }
+}
+
+
+
+//approveleave from HR
+
+Future<bool> approveLeaveApi(
+  BuildContext context, {
+  required String leaveId,
+}) async {
+  try {
+    final id = leaveId.trim();
+    if (id.isEmpty) {
+      if (context.mounted) {
+        message(context, 'Leave id is missing.');
+      }
+      return false;
+    }
+
+    final url = '$baseUrl/api/v1/leaves/$id/approve';
+    debugPrint('[approveLeaveApi] POST $url');
+
+    final response = await http
+        .post(Uri.parse(url), headers: authHeaders)
+        .timeout(const Duration(seconds: 30));
+
+    debugPrint('[approveLeaveApi] statusCode: ${response.statusCode}');
+    debugPrint('[approveLeaveApi] response: ${response.body}');
+
+    final decoded = decodeApiJson(response.body);
+    final apiMessage = decoded?['message']?.toString();
+
+    if (response.statusCode == 200 &&
+        decoded != null &&
+        decoded['success'] == true) {
+      if (!context.mounted) return false;
+      message(context, apiMessage ?? 'Leave approved successfully');
+      return true;
+    }
+
+    if (!context.mounted) return false;
+    message(context, apiMessage ?? 'Failed to approve leave.');
+    return false;
+  } catch (e, stack) {
+    debugPrint('[approveLeaveApi] error: $e');
+    debugPrint('[approveLeaveApi] stack: $stack');
+    if (!context.mounted) return false;
+    message(context, 'Something went wrong');
+    return false;
+  }
+}
+
+//Rejectleave from HR
+
+
+Future<bool> rejectLeaveApi(
+  BuildContext context, {
+  required String leaveId,
+}) async {
+  try {
+    final id = leaveId.trim();
+    if (id.isEmpty) {
+      if (context.mounted) {
+        message(context, 'Leave id is missing.');
+      }
+      return false;
+    }
+
+    final url = '$baseUrl/api/v1/leaves/$id/reject';
+    debugPrint('[rejectLeaveApi] POST $url');
+
+    final response = await http
+        .post(Uri.parse(url), headers: authHeaders)
+        .timeout(const Duration(seconds: 30));
+
+    debugPrint('[rejectLeaveApi] statusCode: ${response.statusCode}');
+    debugPrint('[rejectLeaveApi] response: ${response.body}');
+
+    final decoded = decodeApiJson(response.body);
+    final apiMessage = decoded?['message']?.toString();
+
+    if (response.statusCode == 200 &&
+        decoded != null &&
+        decoded['success'] == true) {
+      if (!context.mounted) return false;
+      message(context, apiMessage ?? 'Leave rejected successfully');
+      return true;
+    }
+
+    if (!context.mounted) return false;
+    message(context, apiMessage ?? 'Failed to reject leave.');
+    return false;
+  } catch (e, stack) {
+    debugPrint('[rejectLeaveApi] error: $e');
+    debugPrint('[rejectLeaveApi] stack: $stack');
+    if (!context.mounted) return false;
+    message(context, 'Something went wrong');
+    return false;
+  }
+}
+
