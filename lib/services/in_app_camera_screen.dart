@@ -8,8 +8,16 @@ import 'package:path_provider/path_provider.dart';
 import 'package:permission_handler/permission_handler.dart';
 
 /// In-app camera with capture → preview → OK / Cancel flow.
+/// Uses a full-screen preview so documents stay large and easy to align.
 class InAppCameraScreen extends StatefulWidget {
-  const InAppCameraScreen({super.key});
+  const InAppCameraScreen({
+    super.key,
+    this.title = 'Take Photo',
+    this.showDocumentGuide = false,
+  });
+
+  final String title;
+  final bool showDocumentGuide;
 
   @override
   State<InAppCameraScreen> createState() => _InAppCameraScreenState();
@@ -89,7 +97,7 @@ class _InAppCameraScreenState extends State<InAppCameraScreen>
 
       final controller = CameraController(
         rear,
-        ResolutionPreset.medium,
+        ResolutionPreset.high,
         enableAudio: false,
         imageFormatGroup: ImageFormatGroup.jpeg,
       );
@@ -129,7 +137,7 @@ class _InAppCameraScreenState extends State<InAppCameraScreen>
       final shot = await controller.takePicture();
       final dir = await getTemporaryDirectory();
       final dest = File(
-        '${dir.path}/purchase_cam_${DateTime.now().millisecondsSinceEpoch}.jpg',
+        '${dir.path}/kyc_cam_${DateTime.now().millisecondsSinceEpoch}.jpg',
       );
       await File(shot.path).copy(dest.path);
 
@@ -155,7 +163,6 @@ class _InAppCameraScreenState extends State<InAppCameraScreen>
 
   void _onCancel() {
     if (_isPreview) {
-      // Discard preview and go back to live camera (retake).
       setState(() => _previewFile = null);
       return;
     }
@@ -172,29 +179,64 @@ class _InAppCameraScreenState extends State<InAppCameraScreen>
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.black,
-      appBar: AppBar(
-        backgroundColor: Colors.black,
-        foregroundColor: AppColors.white,
-        leading: IconButton(
-          icon: const Icon(Icons.close),
-          onPressed: () => Navigator.of(context).pop(),
-        ),
-        title: Text(
-          _isPreview ? 'Preview' : 'Take Photo',
-          style: GoogleFonts.poppins(fontWeight: FontWeight.w600, fontSize: 16),
-        ),
+      body: Stack(
+        fit: StackFit.expand,
+        children: [
+          _buildBody(),
+          if (!_isPreview &&
+              !_initializing &&
+              _error == null &&
+              widget.showDocumentGuide)
+            _DocumentGuideOverlay(label: widget.title),
+          SafeArea(
+            child: Column(
+              children: [
+                _buildTopBar(),
+                const Spacer(),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+                  child: _isPreview
+                      ? _buildPreviewActions()
+                      : _buildCaptureActions(),
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
-      body: _buildBody(),
-      bottomNavigationBar: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
-          child: _isPreview ? _buildPreviewActions() : _buildCaptureActions(),
-        ),
+    );
+  }
+
+  Widget _buildTopBar() {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(8, 4, 12, 8),
+      child: Row(
+        children: [
+          IconButton(
+            onPressed: () => Navigator.of(context).pop(),
+            icon: const Icon(Icons.close, color: Colors.white, size: 26),
+          ),
+          Expanded(
+            child: Text(
+              _isPreview ? 'Preview — ${widget.title}' : widget.title,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: GoogleFonts.poppins(
+                color: Colors.white,
+                fontWeight: FontWeight.w700,
+                fontSize: 16,
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
 
   Widget _buildCaptureActions() {
+    final canCapture =
+        !_initializing && _error == null && !_capturing && _controller != null;
+
     return Row(
       children: [
         Expanded(
@@ -205,39 +247,45 @@ class _InAppCameraScreenState extends State<InAppCameraScreen>
               style: OutlinedButton.styleFrom(
                 foregroundColor: AppColors.white,
                 side: const BorderSide(color: AppColors.white, width: 1.2),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
               ),
               child: Text(
                 'Cancel',
-                style: GoogleFonts.poppins(fontWeight: FontWeight.w600, fontSize: 14),
+                style: GoogleFonts.poppins(
+                  fontWeight: FontWeight.w600,
+                  fontSize: 14,
+                ),
               ),
             ),
           ),
         ),
         const SizedBox(width: 16),
         GestureDetector(
-          onTap: (_initializing || _error != null || _capturing) ? null : _capture,
+          onTap: canCapture ? _capture : null,
           child: Container(
-            width: 68,
-            height: 68,
+            width: 72,
+            height: 72,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
               border: Border.all(color: AppColors.white, width: 3),
-              color: _capturing ? AppColors.textSecondary : AppColors.primaryRed,
+              color: _capturing
+                  ? AppColors.textSecondary
+                  : AppColors.primaryRed,
             ),
             child: _capturing
                 ? const Padding(
-                    padding: EdgeInsets.all(16),
+                    padding: EdgeInsets.all(18),
                     child: CircularProgressIndicator(
                       strokeWidth: 2.5,
                       color: AppColors.white,
                     ),
                   )
-                : const Icon(Icons.camera_alt, color: AppColors.white, size: 28),
+                : const Icon(Icons.camera_alt, color: AppColors.white, size: 30),
           ),
         ),
         const SizedBox(width: 16),
-        // Placeholder so capture button stays centered.
         const Expanded(child: SizedBox(height: 48)),
       ],
     );
@@ -254,11 +302,16 @@ class _InAppCameraScreenState extends State<InAppCameraScreen>
               style: OutlinedButton.styleFrom(
                 foregroundColor: AppColors.white,
                 side: const BorderSide(color: AppColors.white, width: 1.2),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
               ),
               child: Text(
-                'Cancel',
-                style: GoogleFonts.poppins(fontWeight: FontWeight.w600, fontSize: 14),
+                'Retake',
+                style: GoogleFonts.poppins(
+                  fontWeight: FontWeight.w600,
+                  fontSize: 14,
+                ),
               ),
             ),
           ),
@@ -273,11 +326,16 @@ class _InAppCameraScreenState extends State<InAppCameraScreen>
                 backgroundColor: AppColors.primaryRed,
                 foregroundColor: AppColors.white,
                 elevation: 0,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
               ),
               child: Text(
-                'OK',
-                style: GoogleFonts.poppins(fontWeight: FontWeight.w700, fontSize: 14),
+                'Use Photo',
+                style: GoogleFonts.poppins(
+                  fontWeight: FontWeight.w700,
+                  fontSize: 14,
+                ),
               ),
             ),
           ),
@@ -288,13 +346,18 @@ class _InAppCameraScreenState extends State<InAppCameraScreen>
 
   Widget _buildBody() {
     if (_isPreview) {
-      return Center(
+      return ColoredBox(
+        color: Colors.black,
         child: InteractiveViewer(
-          child: Image.file(
-            _previewFile!,
-            fit: BoxFit.contain,
-            width: double.infinity,
-            height: double.infinity,
+          minScale: 1,
+          maxScale: 4,
+          child: Center(
+            child: Image.file(
+              _previewFile!,
+              fit: BoxFit.contain,
+              width: double.infinity,
+              height: double.infinity,
+            ),
           ),
         ),
       );
@@ -342,11 +405,135 @@ class _InAppCameraScreenState extends State<InAppCameraScreen>
     }
 
     final controller = _controller!;
-    return Center(
-      child: AspectRatio(
-        aspectRatio: controller.value.aspectRatio,
-        child: CameraPreview(controller),
+    return _FullScreenCameraPreview(controller: controller);
+  }
+}
+
+class _FullScreenCameraPreview extends StatelessWidget {
+  const _FullScreenCameraPreview({required this.controller});
+
+  final CameraController controller;
+
+  @override
+  Widget build(BuildContext context) {
+    if (!controller.value.isInitialized) {
+      return const SizedBox.shrink();
+    }
+
+    final previewSize = controller.value.previewSize;
+    if (previewSize == null) {
+      return SizedBox.expand(child: CameraPreview(controller));
+    }
+
+    // previewSize is landscape sensor size; swap for portrait full-screen fill.
+    return SizedBox.expand(
+      child: FittedBox(
+        fit: BoxFit.cover,
+        clipBehavior: Clip.hardEdge,
+        child: SizedBox(
+          width: previewSize.height,
+          height: previewSize.width,
+          child: CameraPreview(controller),
+        ),
       ),
     );
+  }
+}
+
+class _DocumentGuideOverlay extends StatelessWidget {
+  const _DocumentGuideOverlay({required this.label});
+
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final maxW = constraints.maxWidth;
+        final maxH = constraints.maxHeight;
+        final frameW = (maxW * 0.92).clamp(260.0, maxW - 16);
+        final frameH = (frameW / 1.58).clamp(150.0, maxH * 0.46);
+        final left = (maxW - frameW) / 2;
+        final top = (maxH - frameH) / 2;
+        final hole = Rect.fromLTWH(left, top, frameW, frameH);
+        final topPad = MediaQuery.paddingOf(context).top + 56;
+
+        return IgnorePointer(
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              CustomPaint(
+                size: Size(maxW, maxH),
+                painter: _HoleOverlayPainter(hole: hole, radius: 16),
+              ),
+              Positioned(
+                left: left,
+                top: top,
+                width: frameW,
+                height: frameH,
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: Colors.white, width: 2.4),
+                  ),
+                ),
+              ),
+              Positioned(
+                left: 20,
+                right: 20,
+                top: topPad,
+                child: Column(
+                  children: [
+                    Text(
+                      'Align $label inside the frame',
+                      textAlign: TextAlign.center,
+                      style: GoogleFonts.poppins(
+                        color: Colors.white,
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                        height: 1.35,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'Move closer so the document fills the box',
+                      textAlign: TextAlign.center,
+                      style: GoogleFonts.poppins(
+                        color: Colors.white70,
+                        fontSize: 12,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _HoleOverlayPainter extends CustomPainter {
+  const _HoleOverlayPainter({required this.hole, required this.radius});
+
+  final Rect hole;
+  final double radius;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final overlay = Path()..addRect(Offset.zero & size);
+    final cutout = Path()
+      ..addRRect(RRect.fromRectAndRadius(hole, Radius.circular(radius)));
+    final path = Path.combine(PathOperation.difference, overlay, cutout);
+    canvas.drawPath(
+      path,
+      Paint()..color = Colors.black.withValues(alpha: 0.52),
+    );
+  }
+
+  @override
+  bool shouldRepaint(covariant _HoleOverlayPainter oldDelegate) {
+    return oldDelegate.hole != hole || oldDelegate.radius != radius;
   }
 }

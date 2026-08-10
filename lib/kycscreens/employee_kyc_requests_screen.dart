@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:grjoffice_apps/core/app_colors.dart';
@@ -159,7 +161,7 @@ class _EmptyState extends StatelessWidget {
               ),
               const SizedBox(height: 16),
               Text(
-                'No configurations yet',
+                'No KYC submissions yet',
                 style: GoogleFonts.poppins(
                   fontSize: 16.5,
                   fontWeight: FontWeight.w800,
@@ -168,7 +170,7 @@ class _EmptyState extends StatelessWidget {
               ),
               const SizedBox(height: 8),
               Text(
-                'Saved employee configurations from Employee KYC will appear here.',
+                'Completed Employee KYC submissions will appear here.',
                 textAlign: TextAlign.center,
                 style: GoogleFonts.poppins(
                   fontSize: 13,
@@ -215,13 +217,6 @@ class _ConfigCard extends StatelessWidget {
             border: Border.all(
               color: AppColors.borderGray.withValues(alpha: 0.4),
             ),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.03),
-                blurRadius: 8,
-                offset: const Offset(0, 2),
-              ),
-            ],
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -237,7 +232,9 @@ class _ConfigCard extends StatelessWidget {
                       borderRadius: BorderRadius.circular(11),
                     ),
                     child: Text(
-                      _initials(config.employeeName),
+                      config.employeeId.isEmpty
+                          ? 'E'
+                          : config.employeeId.substring(0, 1).toUpperCase(),
                       style: GoogleFonts.poppins(
                         fontSize: 12.5,
                         fontWeight: FontWeight.w800,
@@ -251,20 +248,18 @@ class _ConfigCard extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          config.employeeName,
+                          'Employee ID',
+                          style: GoogleFonts.poppins(
+                            fontSize: 11.5,
+                            color: AppColors.textSecondary,
+                          ),
+                        ),
+                        Text(
+                          config.employeeId.isEmpty ? '—' : config.employeeId,
                           style: GoogleFonts.poppins(
                             fontSize: 14.5,
                             fontWeight: FontWeight.w800,
                             color: AppColors.headingBlack,
-                          ),
-                        ),
-                        const SizedBox(height: 2),
-                        Text(
-                          'ID: ${config.employeeId}',
-                          style: GoogleFonts.poppins(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w600,
-                            color: AppColors.textSecondary,
                           ),
                         ),
                       ],
@@ -300,17 +295,54 @@ class _ConfigCard extends StatelessWidget {
                 ),
                 child: Column(
                   children: [
-                    _MiniRow(label: 'Role', value: config.role),
-                    _MiniRow(label: 'Site', value: config.assignedSite),
-                    _MiniRow(label: 'Salary', value: config.monthlySalary),
-                    _MiniRow(label: 'Leave', value: config.leaveAllocation),
                     _MiniRow(
-                      label: 'Food / Stay / Sunday',
-                      value:
-                          '${yesNo(config.foodAllowance)} / ${yesNo(config.stayAllowance)} / ${yesNo(config.sundayOff)}',
+                      label: 'Salary',
+                      value: config.monthlySalary.isEmpty
+                          ? '—'
+                          : '₹ ${config.monthlySalary}',
                     ),
                     _MiniRow(
-                      label: 'Configured',
+                      label: 'Employment',
+                      value: config.employmentType.isEmpty
+                          ? '—'
+                          : config.employmentType,
+                    ),
+                    _MiniRow(
+                      label: 'Food Allowance',
+                      value: yesNo(config.foodAllowance),
+                    ),
+                    if (config.foodAllowance) ...[
+                      _MiniRow(
+                        label: 'Food Employee',
+                        value: '₹ ${config.foodEmployeeAmount}',
+                      ),
+                      _MiniRow(
+                        label: 'Food Company',
+                        value: '₹ ${config.foodCompanyAmount}',
+                      ),
+                    ],
+                    _MiniRow(
+                      label: 'Stay Allowance',
+                      value: yesNo(config.stayAllowance),
+                    ),
+                    if (config.stayAllowance) ...[
+                      _MiniRow(
+                        label: 'Stay Employee',
+                        value: '₹ ${config.stayEmployeeAmount}',
+                      ),
+                      _MiniRow(
+                        label: 'Stay Company',
+                        value: '₹ ${config.stayCompanyAmount}',
+                      ),
+                    ],
+                    _MiniRow(
+                      label: 'Emergency',
+                      value: config.emergencyContact.isEmpty
+                          ? '—'
+                          : config.emergencyContact,
+                    ),
+                    _MiniRow(
+                      label: 'Submitted',
                       value: dateFmt.format(config.configuredAt),
                       isLast: true,
                     ),
@@ -334,14 +366,6 @@ class _ConfigCard extends StatelessWidget {
         ),
       ),
     );
-  }
-
-  String _initials(String name) {
-    final parts = name.trim().split(RegExp(r'\s+')).where((e) => e.isNotEmpty);
-    if (parts.isEmpty) return 'E';
-    final list = parts.toList();
-    if (list.length == 1) return list.first.substring(0, 1).toUpperCase();
-    return (list[0].substring(0, 1) + list[1].substring(0, 1)).toUpperCase();
   }
 }
 
@@ -400,7 +424,6 @@ class EmployeeKycDetailScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final width = MediaQuery.sizeOf(context).width;
     final hPad = width < 600 ? 16.0 : 24.0;
-    final dateFmt = DateFormat('dd MMM yyyy');
 
     String yesNo(bool v) => v ? 'Yes' : 'No';
 
@@ -423,111 +446,103 @@ class EmployeeKycDetailScreen extends StatelessWidget {
               child: ConstrainedBox(
                 constraints: const BoxConstraints(maxWidth: 680),
                 child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Container(
-                      width: double.infinity,
-                      padding: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(
-                        color: AppColors.cardWhite,
-                        borderRadius: BorderRadius.circular(16),
-                        border: Border.all(
-                          color: AppColors.borderGray.withValues(alpha: 0.4),
+                    _DetailSection(
+                      title: 'Employee Information',
+                      rows: [
+                        ('Employee ID', config.employeeId),
+                        ('Assigned Site', config.assignedSite),
+                        ('Joining Date', config.joiningDate),
+                        (
+                          'Monthly Salary',
+                          config.monthlySalary.isEmpty
+                              ? '—'
+                              : '₹ ${config.monthlySalary}'
                         ),
-                      ),
-                      child: Row(
-                        children: [
-                          Container(
-                            width: 48,
-                            height: 48,
-                            alignment: Alignment.center,
-                            decoration: BoxDecoration(
-                              color: AppColors.primaryRed.withValues(alpha: 0.1),
-                              borderRadius: BorderRadius.circular(14),
-                            ),
-                            child: Icon(
-                              Icons.person_rounded,
-                              color: AppColors.primaryRed,
-                            ),
+                        (
+                          'Leave Allocation',
+                          config.leaveAllocation.isEmpty
+                              ? '—'
+                              : '${config.leaveAllocation} leaves / year'
+                        ),
+                        ('Employment Type', config.employmentType),
+                        ('Food Allowance', yesNo(config.foodAllowance)),
+                        if (config.foodAllowance) ...[
+                          (
+                            'Food Employee Amount',
+                            '₹ ${config.foodEmployeeAmount}'
                           ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  config.employeeName,
-                                  style: GoogleFonts.poppins(
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.w800,
-                                    color: AppColors.headingBlack,
-                                  ),
-                                ),
-                                Text(
-                                  config.employeeId,
-                                  style: GoogleFonts.poppins(
-                                    fontSize: 12.5,
-                                    fontWeight: FontWeight.w600,
-                                    color: AppColors.textSecondary,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 10,
-                              vertical: 6,
-                            ),
-                            decoration: BoxDecoration(
-                              color: const Color(0xFFECFDF5),
-                              borderRadius: BorderRadius.circular(16),
-                            ),
-                            child: Text(
-                              config.status,
-                              style: GoogleFonts.poppins(
-                                fontSize: 11.5,
-                                fontWeight: FontWeight.w800,
-                                color: const Color(0xFF059669),
-                              ),
-                            ),
+                          (
+                            'Food Company Provides',
+                            '₹ ${config.foodCompanyAmount}'
                           ),
                         ],
+                        ('Stay Allowance', yesNo(config.stayAllowance)),
+                        if (config.stayAllowance) ...[
+                          (
+                            'Stay Employee Amount',
+                            '₹ ${config.stayEmployeeAmount}'
+                          ),
+                          (
+                            'Stay Company Provides',
+                            '₹ ${config.stayCompanyAmount}'
+                          ),
+                        ],
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    _DetailSection(
+                      title: 'Bank Details',
+                      rows: [
+                        ('Account Holder', config.accountHolderName),
+                        ('Bank Name', config.bankName),
+                        ('Account Number', config.accountNumber),
+                        ('IFSC Code', config.ifscCode),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    _DetailSection(
+                      title: 'Emergency Contact',
+                      rows: [
+                        (
+                          'Contact Number',
+                          config.emergencyContact.isEmpty
+                              ? '—'
+                              : config.emergencyContact
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    Text(
+                      'Uploaded Documents',
+                      style: GoogleFonts.poppins(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w800,
+                        color: AppColors.headingBlack,
                       ),
                     ),
-                    const SizedBox(height: 12),
-                    _DetailSection(
-                      title: 'Assignment',
-                      rows: [
-                        ('Assigned Role', config.role),
-                        ('Assigned Site', config.assignedSite),
-                        ('Employment Type', config.employmentType),
-                        ('Joining Date', dateFmt.format(config.joiningDate)),
-                      ],
+                    const SizedBox(height: 10),
+                    _DetailImage(label: 'PAN Card', path: config.panPath),
+                    _DetailImage(
+                      label: 'Aadhaar Card Front',
+                      path: config.aadhaarFrontPath,
                     ),
-                    const SizedBox(height: 12),
-                    _DetailSection(
-                      title: 'Compensation & Leave',
-                      rows: [
-                        ('Monthly Salary', config.monthlySalary),
-                        ('Leave Allocation', config.leaveAllocation),
-                      ],
+                    _DetailImage(
+                      label: 'Aadhaar Card Back',
+                      path: config.aadhaarBackPath,
                     ),
-                    const SizedBox(height: 12),
-                    _DetailSection(
-                      title: 'Benefits & Off Days',
-                      rows: [
-                        ('Food Allowance', yesNo(config.foodAllowance)),
-                        ('Stay Allowance', yesNo(config.stayAllowance)),
-                        ('Sunday Off', yesNo(config.sundayOff)),
-                      ],
+                    _DetailImage(
+                      label: '10th Marksheet',
+                      path: config.marksheet10Path,
                     ),
-                    const SizedBox(height: 12),
-                    _DetailSection(
-                      title: 'Configuration Meta',
-                      rows: [
-                        ('Status', config.status),
-                        ('Configured Date', dateFmt.format(config.configuredAt)),
-                      ],
+                    _DetailImage(
+                      label: '12th Marksheet',
+                      path: config.marksheet12Path,
+                    ),
+                    _DetailImage(
+                      label: 'Cancelled Cheque',
+                      path: config.bankChequePath,
                     ),
                   ],
                 ),
@@ -571,34 +586,89 @@ class _DetailSection extends StatelessWidget {
           ),
           const SizedBox(height: 10),
           for (var i = 0; i < rows.length; i++) ...[
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                SizedBox(
-                  width: 140,
-                  child: Text(
-                    rows[i].$1,
-                    style: GoogleFonts.poppins(
-                      fontSize: 12.5,
-                      fontWeight: FontWeight.w600,
-                      color: AppColors.textSecondary,
+            Padding(
+              padding: EdgeInsets.only(bottom: i == rows.length - 1 ? 0 : 8),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  SizedBox(
+                    width: 150,
+                    child: Text(
+                      rows[i].$1,
+                      style: GoogleFonts.poppins(
+                        fontSize: 12.5,
+                        fontWeight: FontWeight.w600,
+                        color: AppColors.textSecondary,
+                      ),
                     ),
                   ),
-                ),
-                Expanded(
-                  child: Text(
-                    rows[i].$2,
-                    style: GoogleFonts.poppins(
-                      fontSize: 13.5,
-                      fontWeight: FontWeight.w700,
-                      color: AppColors.headingBlack,
+                  Expanded(
+                    child: Text(
+                      rows[i].$2.isEmpty ? '—' : rows[i].$2,
+                      style: GoogleFonts.poppins(
+                        fontSize: 13.5,
+                        fontWeight: FontWeight.w700,
+                        color: AppColors.headingBlack,
+                      ),
                     ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
-            if (i < rows.length - 1) const SizedBox(height: 10),
           ],
+        ],
+      ),
+    );
+  }
+}
+
+class _DetailImage extends StatelessWidget {
+  const _DetailImage({required this.label, required this.path});
+
+  final String label;
+  final String path;
+
+  @override
+  Widget build(BuildContext context) {
+    final file = path.trim().isEmpty ? null : File(path);
+    final hasFile = file != null && file.existsSync();
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            label,
+            style: GoogleFonts.poppins(
+              fontSize: 12.5,
+              fontWeight: FontWeight.w700,
+              color: AppColors.headingBlack,
+            ),
+          ),
+          const SizedBox(height: 6),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(12),
+            child: hasFile
+                ? Image.file(
+                    file,
+                    height: 160,
+                    width: double.infinity,
+                    fit: BoxFit.cover,
+                  )
+                : Container(
+                    height: 90,
+                    width: double.infinity,
+                    alignment: Alignment.center,
+                    color: AppColors.cardWhite,
+                    child: Text(
+                      'No image',
+                      style: GoogleFonts.poppins(
+                        color: AppColors.textSecondary,
+                      ),
+                    ),
+                  ),
+          ),
         ],
       ),
     );

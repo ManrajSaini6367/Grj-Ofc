@@ -5,76 +5,133 @@ import 'package:grjoffice_apps/core/preference.dart';
 
 class EmployeeKycConfig {
   const EmployeeKycConfig({
-    required this.employeeName,
     required this.employeeId,
-    required this.role,
-    required this.assignedSite,
-    required this.monthlySalary,
-    required this.leaveAllocation,
     required this.foodAllowance,
     required this.stayAllowance,
-    required this.sundayOff,
-    required this.employmentType,
-    required this.joiningDate,
+    required this.emergencyContact,
     required this.configuredAt,
-    this.status = 'Configured',
+    this.employeeName = '',
+    this.assignedSite = '',
+    this.monthlySalary = '',
+    this.leaveAllocation = '',
+    this.employmentType = '',
+    this.joiningDate = '',
+    this.foodEmployeeAmount = '',
+    this.foodCompanyAmount = '',
+    this.stayEmployeeAmount = '',
+    this.stayCompanyAmount = '',
+    this.panPath = '',
+    this.aadhaarFrontPath = '',
+    this.aadhaarBackPath = '',
+    this.marksheet10Path = '',
+    this.marksheet12Path = '',
+    this.accountHolderName = '',
+    this.bankName = '',
+    this.accountNumber = '',
+    this.ifscCode = '',
+    this.bankChequePath = '',
+    this.status = 'Submitted',
   });
 
-  final String employeeName;
   final String employeeId;
-  final String role;
+  final String employeeName;
   final String assignedSite;
   final String monthlySalary;
   final String leaveAllocation;
-  final bool foodAllowance;
-  final bool stayAllowance;
-  final bool sundayOff;
   final String employmentType;
-  final DateTime joiningDate;
+  final String joiningDate;
+  final bool foodAllowance;
+  final String foodEmployeeAmount;
+  final String foodCompanyAmount;
+  final bool stayAllowance;
+  final String stayEmployeeAmount;
+  final String stayCompanyAmount;
+  final String emergencyContact;
+  final String panPath;
+  final String aadhaarFrontPath;
+  final String aadhaarBackPath;
+  final String marksheet10Path;
+  final String marksheet12Path;
+  final String accountHolderName;
+  final String bankName;
+  final String accountNumber;
+  final String ifscCode;
+  final String bankChequePath;
   final DateTime configuredAt;
   final String status;
 
   Map<String, dynamic> toJson() => {
-        'employeeName': employeeName,
         'employeeId': employeeId,
-        'role': role,
+        'employeeName': employeeName,
         'assignedSite': assignedSite,
         'monthlySalary': monthlySalary,
         'leaveAllocation': leaveAllocation,
-        'foodAllowance': foodAllowance,
-        'stayAllowance': stayAllowance,
-        'sundayOff': sundayOff,
         'employmentType': employmentType,
-        'joiningDate': joiningDate.toIso8601String(),
+        'joiningDate': joiningDate,
+        'foodAllowance': foodAllowance,
+        'foodEmployeeAmount': foodEmployeeAmount,
+        'foodCompanyAmount': foodCompanyAmount,
+        'stayAllowance': stayAllowance,
+        'stayEmployeeAmount': stayEmployeeAmount,
+        'stayCompanyAmount': stayCompanyAmount,
+        'emergencyContact': emergencyContact,
+        'panPath': panPath,
+        'aadhaarFrontPath': aadhaarFrontPath,
+        'aadhaarBackPath': aadhaarBackPath,
+        'marksheet10Path': marksheet10Path,
+        'marksheet12Path': marksheet12Path,
+        'accountHolderName': accountHolderName,
+        'bankName': bankName,
+        'accountNumber': accountNumber,
+        'ifscCode': ifscCode,
+        'bankChequePath': bankChequePath,
         'savedAt': configuredAt.toIso8601String(),
         'status': status,
       };
 
   factory EmployeeKycConfig.fromJson(Map<String, dynamic> json) {
     return EmployeeKycConfig(
-      employeeName: json['employeeName']?.toString() ?? 'Employee',
       employeeId: json['employeeId']?.toString() ?? '',
-      role: json['role']?.toString() ?? '—',
-      assignedSite: json['assignedSite']?.toString() ?? '—',
-      monthlySalary: json['monthlySalary']?.toString() ?? '—',
-      leaveAllocation: json['leaveAllocation']?.toString() ?? '—',
+      employeeName: json['employeeName']?.toString() ?? '',
+      assignedSite: json['assignedSite']?.toString() ?? '',
+      monthlySalary: json['monthlySalary']?.toString() ?? '',
+      leaveAllocation: json['leaveAllocation']?.toString() ?? '',
+      employmentType: json['employmentType']?.toString() ?? '',
+      joiningDate: json['joiningDate']?.toString() ?? '',
       foodAllowance: json['foodAllowance'] == true,
+      foodEmployeeAmount: (json['foodEmployeeAmount'] ??
+              json['foodAllowanceAmount'])
+          ?.toString() ??
+          '',
+      foodCompanyAmount: json['foodCompanyAmount']?.toString() ?? '',
       stayAllowance: json['stayAllowance'] == true,
-      sundayOff: json['sundayOff'] == true,
-      employmentType: json['employmentType']?.toString() ?? '—',
-      joiningDate:
-          DateTime.tryParse('${json['joiningDate']}') ?? DateTime.now(),
+      stayEmployeeAmount: (json['stayEmployeeAmount'] ??
+              json['stayAllowanceAmount'])
+          ?.toString() ??
+          '',
+      stayCompanyAmount: json['stayCompanyAmount']?.toString() ?? '',
+      emergencyContact: json['emergencyContact']?.toString() ?? '',
+      panPath: json['panPath']?.toString() ?? '',
+      aadhaarFrontPath: json['aadhaarFrontPath']?.toString() ?? '',
+      aadhaarBackPath: json['aadhaarBackPath']?.toString() ?? '',
+      marksheet10Path: json['marksheet10Path']?.toString() ?? '',
+      marksheet12Path: json['marksheet12Path']?.toString() ?? '',
+      accountHolderName: json['accountHolderName']?.toString() ?? '',
+      bankName: json['bankName']?.toString() ?? '',
+      accountNumber: json['accountNumber']?.toString() ?? '',
+      ifscCode: json['ifscCode']?.toString() ?? '',
+      bankChequePath: json['bankChequePath']?.toString() ?? '',
       configuredAt: DateTime.tryParse('${json['savedAt']}') ??
           DateTime.tryParse('${json['configuredAt']}') ??
           DateTime.now(),
       status: json['status']?.toString().trim().isNotEmpty == true
           ? json['status'].toString()
-          : 'Configured',
+          : 'Submitted',
     );
   }
 }
 
-/// Shared local store for HR Employee KYC configurations.
+/// Shared local store for Employee KYC submissions.
 class EmployeeKycStore extends ChangeNotifier {
   EmployeeKycStore._();
   static final EmployeeKycStore instance = EmployeeKycStore._();

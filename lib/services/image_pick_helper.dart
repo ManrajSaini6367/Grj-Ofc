@@ -10,60 +10,109 @@ const _maxImageBytes = 4 * 1024 * 1024; // 4 MB
 
 enum _PickChoice { camera, gallery }
 
-/// Safe image pick for purchase flows.
+/// Safe image pick for purchase / KYC flows.
 /// Camera uses in-app preview (avoids Android killing the Flutter process).
-Future<File?> pickPurchaseImageFile(BuildContext context) async {
+///
+/// [fromCamera] `true` = camera, `false` = gallery, `null` = ask via sheet.
+Future<File?> pickPurchaseImageFile(
+  BuildContext context, {
+  String? title,
+  bool documentGuide = false,
+  bool? fromCamera,
+}) async {
   FocusManager.instance.primaryFocus?.unfocus();
   await Future<void>.delayed(const Duration(milliseconds: 80));
   if (!context.mounted) return null;
 
-  final choice = await showModalBottomSheet<_PickChoice>(
-    context: context,
-    backgroundColor: Colors.transparent,
-    builder: (context) {
-      return SafeArea(
-        child: Container(
-          margin: const EdgeInsets.fromLTRB(12, 0, 12, 12),
-          decoration: BoxDecoration(
-            color: AppColors.cardWhite,
-            borderRadius: BorderRadius.circular(16),
+  _PickChoice? choice;
+  if (fromCamera == true) {
+    choice = _PickChoice.camera;
+  } else if (fromCamera == false) {
+    choice = _PickChoice.gallery;
+  } else {
+    choice = await showModalBottomSheet<_PickChoice>(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (context) {
+        return SafeArea(
+          child: Container(
+            margin: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+            decoration: BoxDecoration(
+              color: AppColors.cardWhite,
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (title != null && title.trim().isNotEmpty)
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 14, 16, 4),
+                    child: Text(
+                      title,
+                      style: GoogleFonts.poppins(
+                        fontWeight: FontWeight.w700,
+                        fontSize: 14,
+                        color: AppColors.headingBlack,
+                      ),
+                    ),
+                  ),
+                ListTile(
+                  leading: const Icon(
+                    Icons.photo_camera_outlined,
+                    color: AppColors.primaryRed,
+                  ),
+                  title: Text(
+                    'Take Photo',
+                    style: GoogleFonts.poppins(fontWeight: FontWeight.w600),
+                  ),
+                  onTap: () => Navigator.pop(context, _PickChoice.camera),
+                ),
+                ListTile(
+                  leading: const Icon(
+                    Icons.photo_library_outlined,
+                    color: AppColors.primaryRed,
+                  ),
+                  title: Text(
+                    'Choose from Gallery',
+                    style: GoogleFonts.poppins(fontWeight: FontWeight.w600),
+                  ),
+                  onTap: () => Navigator.pop(context, _PickChoice.gallery),
+                ),
+                const SizedBox(height: 4),
+              ],
+            ),
           ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              ListTile(
-                leading: const Icon(Icons.photo_camera_outlined, color: AppColors.primaryRed),
-                title: Text('Take Photo', style: GoogleFonts.poppins(fontWeight: FontWeight.w600)),
-                onTap: () => Navigator.pop(context, _PickChoice.camera),
-              ),
-              ListTile(
-                leading: const Icon(Icons.photo_library_outlined, color: AppColors.primaryRed),
-                title: Text('Choose from Gallery', style: GoogleFonts.poppins(fontWeight: FontWeight.w600)),
-                onTap: () => Navigator.pop(context, _PickChoice.gallery),
-              ),
-              const SizedBox(height: 4),
-            ],
-          ),
-        ),
-      );
-    },
-  );
+        );
+      },
+    );
+  }
 
   if (choice == null || !context.mounted) return null;
   await Future<void>.delayed(const Duration(milliseconds: 150));
   if (!context.mounted) return null;
 
   if (choice == _PickChoice.camera) {
-    return _openInAppCamera(context);
+    return _openInAppCamera(
+      context,
+      title: title ?? 'Take Photo',
+      documentGuide: documentGuide,
+    );
   }
   return _pickFromGallery(context);
 }
 
-Future<File?> _openInAppCamera(BuildContext context) async {
+Future<File?> _openInAppCamera(
+  BuildContext context, {
+  String title = 'Take Photo',
+  bool documentGuide = false,
+}) async {
   try {
     final file = await Navigator.of(context).push<File>(
       MaterialPageRoute(
-        builder: (_) => const InAppCameraScreen(),
+        builder: (_) => InAppCameraScreen(
+          title: title,
+          showDocumentGuide: documentGuide,
+        ),
         fullscreenDialog: true,
       ),
     );
