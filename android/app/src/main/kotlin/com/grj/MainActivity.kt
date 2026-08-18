@@ -1,4 +1,4 @@
-package com.grj.office
+package com.grj
 
 import android.content.ContentValues
 import android.os.Build

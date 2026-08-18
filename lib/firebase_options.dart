@@ -52,28 +52,26 @@ class DefaultFirebaseOptions {
 
   static const FirebaseOptions android = FirebaseOptions(
     apiKey: 'AIzaSyAXkcbW4E50lkZVShWOWuA5IwAqpUJXI5E',
-    appId: '1:949646447302:android:43576f2abd3c51be72bdc7',
+    appId: '1:949646447302:android:ac20d94805b4611f72bdc7',
     messagingSenderId: '949646447302',
     projectId: 'grjofficeapps',
     storageBucket: 'grjofficeapps.firebasestorage.app',
   );
-
   static const FirebaseOptions ios = FirebaseOptions(
     apiKey: 'AIzaSyBK_axppXNJOXMwZNZkpDdeofk4g9KjuOs',
-    appId: '1:949646447302:ios:dd9096e0797c39f472bdc7',
+    appId: '1:949646447302:ios:ac3496b008223bc572bdc7',
     messagingSenderId: '949646447302',
     projectId: 'grjofficeapps',
     storageBucket: 'grjofficeapps.firebasestorage.app',
-    iosBundleId: 'com.example.grjofficeApps',
+    iosBundleId: 'com.grj',
   );
-
   static const FirebaseOptions macos = FirebaseOptions(
     apiKey: 'AIzaSyBK_axppXNJOXMwZNZkpDdeofk4g9KjuOs',
-    appId: '1:949646447302:ios:dd9096e0797c39f472bdc7',
+    appId: '1:949646447302:ios:ac3496b008223bc572bdc7',
     messagingSenderId: '949646447302',
     projectId: 'grjofficeapps',
     storageBucket: 'grjofficeapps.firebasestorage.app',
-    iosBundleId: 'com.example.grjofficeApps',
+    iosBundleId: 'com.grj',
   );
 
   static const FirebaseOptions windows = FirebaseOptions(
