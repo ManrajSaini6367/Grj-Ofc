@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:grjoffice_apps/core/app_colors.dart';
 import 'package:grjoffice_apps/models/item_model.dart';
@@ -314,15 +315,32 @@ class _AddSupplierScreenState extends State<AddSupplierScreen> {
           ),
           const SizedBox(height: 16),
           _buildTextField(
-            label: 'Mobile',
-            controller: _mobileController,
-            hint: '+91 98765 43210',
-            keyboardType: TextInputType.phone,
-            validator: (value) {
-              if (value == null || value.trim().isEmpty) return 'Mobile is required';
-              return null;
-            },
-          ),
+  label: 'Mobile',
+  controller: _mobileController,
+  hint: '9876543210',
+  keyboardType: TextInputType.phone,
+  inputFormatters: [
+    FilteringTextInputFormatter.digitsOnly,
+    LengthLimitingTextInputFormatter(10),
+  ],
+  validator: (value) {
+    final mobile = value?.trim() ?? '';
+
+    if (mobile.isEmpty) {
+      return 'Mobile is required';
+    }
+
+    if (mobile.length != 10) {
+      return 'Mobile number must be exactly 10 digits';
+    }
+
+    if (!RegExp(r'^[6-9]\d{9}$').hasMatch(mobile)) {
+      return 'Enter a valid 10-digit mobile number';
+    }
+
+    return null;
+  },
+),
           const SizedBox(height: 16),
           _buildMaterialField(),
           const SizedBox(height: 16),
@@ -330,10 +348,10 @@ class _AddSupplierScreenState extends State<AddSupplierScreen> {
             label: 'GST NO',
             controller: _gstController,
             hint: '27AABCS1429B1Z5',
-            validator: (value) {
-              if (value == null || value.trim().isEmpty) return 'GST number is required';
-              return null;
-            },
+            // validator: (value) {
+            //   if (value == null || value.trim().isEmpty) return 'GST number is required';
+            //   return null;
+            // },
           ),
           const SizedBox(height: 16),
           _buildTextField(
@@ -341,10 +359,10 @@ class _AddSupplierScreenState extends State<AddSupplierScreen> {
             controller: _panController,
             hint: 'AABCS1429B',
             textCapitalization: TextCapitalization.characters,
-            validator: (value) {
-              if (value == null || value.trim().isEmpty) return 'PAN number is required';
-              return null;
-            },
+            // validator: (value) {
+            //   if (value == null || value.trim().isEmpty) return 'PAN number is required';
+            //   return null;
+            // },
           ),
           const SizedBox(height: 16),
           _buildTextField(
@@ -565,13 +583,14 @@ class _AddSupplierScreenState extends State<AddSupplierScreen> {
   }
 
   Widget _buildTextField({
-    required String label,
-    required TextEditingController controller,
-    required String hint,
-    TextInputType keyboardType = TextInputType.text,
-    TextCapitalization textCapitalization = TextCapitalization.none,
-    int maxLines = 1,
-    String? Function(String?)? validator,
+   required String label,
+  required TextEditingController controller,
+  required String hint,
+  TextInputType keyboardType = TextInputType.text,
+  TextCapitalization textCapitalization = TextCapitalization.none,
+  int maxLines = 1,
+  List<TextInputFormatter>? inputFormatters,
+  String? Function(String?)? validator,
   }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -585,15 +604,19 @@ class _AddSupplierScreenState extends State<AddSupplierScreen> {
           ),
         ),
         const SizedBox(height: 8),
-        TextFormField(
-          controller: controller,
-          keyboardType: keyboardType,
-          textCapitalization: textCapitalization,
-          maxLines: maxLines,
-          validator: validator,
-          style: GoogleFonts.poppins(color: AppColors.headingBlack, fontSize: 14),
-          decoration: _inputDecoration(hint),
-        ),
+       TextFormField(
+  controller: controller,
+  keyboardType: keyboardType,
+  textCapitalization: textCapitalization,
+  inputFormatters: inputFormatters,
+  maxLines: maxLines,
+  validator: validator,
+  style: GoogleFonts.poppins(
+    color: AppColors.headingBlack,
+    fontSize: 14,
+  ),
+  decoration: _inputDecoration(hint),
+),
       ],
     );
   }

@@ -32,7 +32,6 @@ class _KantaMaterialLine {
 
 class _WithKantaStep3ScreenState extends State<WithKantaStep3Screen> {
   static const _saveBlue = Color(0xFF2563EB);
-  static const _addGreen = Color(0xFF22C55E);
 
   final _formKey = GlobalKey<FormState>();
   final _invoiceController = TextEditingController();
@@ -130,21 +129,24 @@ class _WithKantaStep3ScreenState extends State<WithKantaStep3Screen> {
     super.dispose();
   }
 
-  void _addMaterialLine() => setState(() => _lines.add(_KantaMaterialLine()));
-
   void _removeMaterialLine(int index) {
     if (_lines.length <= 1) return;
     setState(() => _lines.removeAt(index).dispose());
   }
 
   Future<void> _pickImage({required bool isKantaSlip}) async {
-    final picked = await pickPurchaseImage(context);
-    if (picked == null || !mounted) return;
+    final title = isKantaSlip ? 'Kanta Slip Image' : 'Vehicle at Kanta Image';
+    final file = await pickPurchaseImageFile(
+      context,
+      title: title,
+      fromCamera: true,
+    );
+    if (file == null || !mounted) return;
     setState(() {
       if (isKantaSlip) {
-        _kantaSlipImageFile = File(picked.path);
+        _kantaSlipImageFile = file;
       } else {
-        _vehicleAtKantaImageFile = File(picked.path);
+        _vehicleAtKantaImageFile = file;
       }
     });
   }
@@ -165,12 +167,6 @@ class _WithKantaStep3ScreenState extends State<WithKantaStep3Screen> {
     }
 
     final invoiceNo = _invoiceController.text.trim();
-    if (invoiceNo.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Invoice No is required.', style: GoogleFonts.poppins())),
-      );
-      return;
-    }
 
     final kantaNo = _kantaNoController.text.trim();
     if (kantaNo.isEmpty) {
@@ -215,7 +211,7 @@ class _WithKantaStep3ScreenState extends State<WithKantaStep3Screen> {
     final updated = await purchaseStep3WithKantaApi(
       context,
       purchaseId: purchaseId,
-      invoiceNo: invoiceNo,
+      invoiceNo: invoiceNo.isEmpty ? null : invoiceNo,
       kantaNo: kantaNo,
       remark: remark.isEmpty ? null : remark,
       materials: materials,
@@ -340,28 +336,6 @@ class _WithKantaStep3ScreenState extends State<WithKantaStep3Screen> {
                                   child: _buildMaterialRow(index, isWide: isWide),
                                 );
                               }),
-                              const SizedBox(height: 12),
-                              Align(
-                                alignment: Alignment.centerLeft,
-                                child: SizedBox(
-                                  height: 40,
-                                  child: ElevatedButton.icon(
-                                    onPressed: _addMaterialLine,
-                                    icon: const Icon(Icons.add, size: 18),
-                                    label: Text(
-                                      'Add Material',
-                                      style: GoogleFonts.poppins(fontSize: 13, fontWeight: FontWeight.w600),
-                                    ),
-                                    style: ElevatedButton.styleFrom(
-                                      backgroundColor: _addGreen,
-                                      foregroundColor: AppColors.white,
-                                      elevation: 0,
-                                      padding: const EdgeInsets.symmetric(horizontal: 14),
-                                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
-                                    ),
-                                  ),
-                                ),
-                              ),
                             ],
                             const SizedBox(height: 20),
                             Divider(color: AppColors.borderGray.withValues(alpha: 0.5)),

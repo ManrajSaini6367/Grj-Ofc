@@ -1,3 +1,4 @@
+import 'package:grjoffice_apps/core/api_config.dart';
 import 'package:grjoffice_apps/models/item_model.dart';
 
 enum PurchaseStatus { pending, approved, received, cancelled }
@@ -440,6 +441,17 @@ String formatPurchaseImageDateTime(DateTime dateTime) {
   final minute = dateTime.minute.toString().padLeft(2, '0');
   final period = dateTime.hour >= 12 ? 'PM' : 'AM';
   return '${dateTime.day.toString().padLeft(2, '0')} ${months[dateTime.month - 1]} ${dateTime.year}, $hour:$minute $period';
+}
+
+/// Full image URL from API `url`, relative path, or bare storage filename.
+String resolvePurchaseImageUrl(String? value) {
+  if (value == null || value.trim().isEmpty) return '';
+  final trimmed = value.trim();
+  if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) {
+    return trimmed;
+  }
+  if (trimmed.contains('/')) return mediaUrl(trimmed);
+  return '$baseUrl/storage/$trimmed';
 }
 
 const kPurchaseItemOptions = [

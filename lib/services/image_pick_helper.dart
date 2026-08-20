@@ -4,7 +4,9 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:grjoffice_apps/core/app_colors.dart';
 import 'package:grjoffice_apps/services/in_app_camera_screen.dart';
+import 'package:image/image.dart' as img;
 import 'package:image_picker/image_picker.dart';
+import 'package:path_provider/path_provider.dart';
 
 const _maxImageBytes = 4 * 1024 * 1024; // 4 MB
 
@@ -117,7 +119,14 @@ Future<File?> _openInAppCamera(
       ),
     );
     if (file == null) return null;
-    return await _stabilizeFile(file);
+    final stabilized = await _stabilizeFile(file);
+    if (stabilized == null && context.mounted) {
+      _showPickError(
+        context,
+        'Could not process photo. Please try again with better lighting.',
+      );
+    }
+    return stabilized;
   } catch (e, stack) {
     debugPrint('[pickPurchaseImageFile] camera error: $e');
     debugPrint('[pickPurchaseImageFile] stack: $stack');
@@ -139,7 +148,11 @@ Future<File?> _pickFromGallery(BuildContext context) async {
       requestFullMetadata: false,
     );
     if (xfile == null) return null;
-    return await _stabilizePickedFile(xfile);
+    final stabilized = await _stabilizePickedFile(xfile);
+    if (stabilized == null && context.mounted) {
+      _showPickError(context, 'Could not process photo. Please try another image.');
+    }
+    return stabilized;
   } catch (e, stack) {
     debugPrint('[pickPurchaseImageFile] gallery error: $e');
     debugPrint('[pickPurchaseImageFile] stack: $stack');
@@ -183,8 +196,68 @@ Future<File?> _stabilizeFile(File src) async {
 
   if (size <= _maxImageBytes) return src;
 
-  debugPrint('[pickPurchaseImageFile] image too large: $size bytes');
-  return null;
+  debugPrint('[pickPurchaseImageFile] optimizing large image: $size bytes');
+  return _compressPurchaseImage(src);
+}
+
+Future<File?> _compressPurchaseImage(File src) async {
+  try {
+    final bytes = await src.readAsBytes();
+    final decoded = img.decodeImage(bytes);
+    if (decoded == null) {
+      debugPrint('[pickPurchaseImageFile] decode failed');
+      return null;
+    }
+
+    img.Image working = decoded;
+    const maxSide = 1920;
+    if (working.width > maxSide || working.height > maxSide) {
+      working = working.width >= working.height
+          ? img.copyResize(working, width: maxSide)
+          : img.copyResize(working, height: maxSide);
+    }
+
+    var encoded = img.encodeJpg(working, quality: 85);
+    if (encoded.length > _maxImageBytes) {
+      for (final quality in [75, 65, 55, 45, 35]) {
+        encoded = img.encodeJpg(working, quality: quality);
+        if (encoded.length <= _maxImageBytes) break;
+      }
+    }
+
+    if (encoded.length > _maxImageBytes) {
+      var side = (working.width < working.height ? working.width : working.height)
+          .toDouble();
+      while (encoded.length > _maxImageBytes && side > 640) {
+        side *= 0.85;
+        final resized = img.copyResize(
+          working,
+          width: working.width >= working.height ? side.round() : null,
+          height: working.height > working.width ? side.round() : null,
+        );
+        encoded = img.encodeJpg(resized, quality: 70);
+      }
+    }
+
+    if (encoded.isEmpty || encoded.length > _maxImageBytes) {
+      debugPrint(
+        '[pickPurchaseImageFile] could not reduce below $_maxImageBytes bytes',
+      );
+      return null;
+    }
+
+    final dir = await getTemporaryDirectory();
+    final out = File(
+      '${dir.path}/purchase_img_${DateTime.now().millisecondsSinceEpoch}.jpg',
+    );
+    await out.writeAsBytes(encoded, flush: true);
+    debugPrint('[pickPurchaseImageFile] optimized to ${encoded.length} bytes');
+    return out;
+  } catch (e, stack) {
+    debugPrint('[pickPurchaseImageFile] compress error: $e');
+    debugPrint('[pickPurchaseImageFile] stack: $stack');
+    return null;
+  }
 }
 
 /// Backward-compatible helper returning [XFile].

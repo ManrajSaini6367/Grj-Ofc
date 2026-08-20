@@ -4143,7 +4143,7 @@ Future<Purchase?> purchaseStep2WithoutKantaApi(
 Future<Purchase?> purchaseStep3WithKantaApi(
   BuildContext context, {
   required int purchaseId,
-  required String invoiceNo,
+  String? invoiceNo,
   required String kantaNo,
   String? remark,
   required List<PurchaseMaterialPayload> materials,
@@ -4153,9 +4153,12 @@ Future<Purchase?> purchaseStep3WithKantaApi(
   try {
     final url = '$baseUrl/api/v1/purchases/$purchaseId/step-3';
     final fields = <String, String>{
-      'invoice_no': invoiceNo.trim(),
       'kanta_no': kantaNo.trim(),
     };
+    final trimmedInvoice = invoiceNo?.trim();
+    if (trimmedInvoice != null && trimmedInvoice.isNotEmpty) {
+      fields['invoice_no'] = trimmedInvoice;
+    }
     if (remark != null && remark.trim().isNotEmpty) {
       fields['remark'] = remark.trim();
     }

@@ -303,7 +303,11 @@ class _AddPurchaseScreenState extends State<AddPurchaseScreen> {
   }
 
   Future<void> _pickLoadingImage() async {
-    final file = await pickPurchaseImageFile(context);
+    final file = await pickPurchaseImageFile(
+      context,
+      title: 'Loading Vehicle Image',
+      fromCamera: true,
+    );
     if (!mounted) return;
     if (file == null) return;
 
@@ -1017,6 +1021,7 @@ class _AddPurchaseScreenState extends State<AddPurchaseScreen> {
       label: 'Vehicle No',
       controller: _vehicleNoController,
       hint: 'Vehicle No',
+       required: true,
     );
   }
 

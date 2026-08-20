@@ -40,9 +40,13 @@ class _WithKantaStep2ScreenState extends State<WithKantaStep2Screen> {
   }
 
   Future<void> _pickUnloadingImage() async {
-    final picked = await pickPurchaseImage(context);
-    if (picked == null || !mounted) return;
-    setState(() => _unloadingImageFile = File(picked.path));
+    final file = await pickPurchaseImageFile(
+      context,
+      title: 'Unloading Vehicle Image',
+      fromCamera: true,
+    );
+    if (file == null || !mounted) return;
+    setState(() => _unloadingImageFile = file);
   }
 
   Future<void> _submit() async {
