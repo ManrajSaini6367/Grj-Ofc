@@ -295,6 +295,7 @@ class _AddSupplierScreenState extends State<AddSupplierScreen> {
 
   Widget _buildFormCard() {
     return Container(
+      clipBehavior: Clip.none,
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: AppColors.cardWhite,
@@ -398,12 +399,16 @@ class _AddSupplierScreenState extends State<AddSupplierScreen> {
           ),
         ),
         const SizedBox(height: 8),
-        TextField(
-          controller: _materialSearchController,
-          onTap: () => setState(() => _showMaterialSuggestions = true),
-          style: GoogleFonts.poppins(color: AppColors.headingBlack, fontSize: 14),
-          decoration: _inputDecoration('Search materials (min 3 letters)').copyWith(
-            prefixIcon: const Icon(Icons.search, color: AppColors.textSecondary, size: 20),
+        Material(
+          color: Colors.transparent,
+          clipBehavior: Clip.none,
+          child: TextField(
+            controller: _materialSearchController,
+            onTap: () => setState(() => _showMaterialSuggestions = true),
+            style: GoogleFonts.poppins(color: AppColors.headingBlack, fontSize: 14),
+            decoration: _inputDecoration('Search materials (min 3 letters)').copyWith(
+              prefixIcon: const Icon(Icons.search, color: AppColors.textSecondary, size: 20),
+            ),
           ),
         ),
         if (query.isNotEmpty && query.length < 3) ...[
@@ -604,42 +609,52 @@ class _AddSupplierScreenState extends State<AddSupplierScreen> {
           ),
         ),
         const SizedBox(height: 8),
-       TextFormField(
-  controller: controller,
-  keyboardType: keyboardType,
-  textCapitalization: textCapitalization,
-  inputFormatters: inputFormatters,
-  maxLines: maxLines,
-  validator: validator,
-  style: GoogleFonts.poppins(
-    color: AppColors.headingBlack,
-    fontSize: 14,
-  ),
-  decoration: _inputDecoration(hint),
-),
+        Material(
+          color: Colors.transparent,
+          clipBehavior: Clip.none,
+          child: TextFormField(
+            controller: controller,
+            keyboardType: keyboardType,
+            textCapitalization: textCapitalization,
+            inputFormatters: inputFormatters,
+            maxLines: maxLines,
+            validator: validator,
+            style: GoogleFonts.poppins(
+              color: AppColors.headingBlack,
+              fontSize: 14,
+            ),
+            decoration: _inputDecoration(hint),
+          ),
+        ),
       ],
     );
   }
 
   InputDecoration _inputDecoration(String hint) {
+    final normalBorder = OutlineInputBorder(
+      borderRadius: BorderRadius.circular(8),
+      borderSide: BorderSide(color: AppColors.borderGray.withValues(alpha: 0.6)),
+    );
+    const focusBorder = OutlineInputBorder(
+      borderRadius: BorderRadius.all(Radius.circular(8)),
+      borderSide: BorderSide(color: AppColors.primaryRed, width: 1.5),
+    );
+
     return InputDecoration(
       hintText: hint,
       hintStyle: GoogleFonts.poppins(color: AppColors.inputHint, fontSize: 14),
       filled: true,
       fillColor: AppColors.operationsCardBg,
+      isDense: true,
       contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
-      enabledBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(8),
-        borderSide: BorderSide(color: AppColors.borderGray.withValues(alpha: 0.6)),
-      ),
-      focusedBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(8),
-        borderSide: const BorderSide(color: AppColors.primaryRed, width: 1.5),
-      ),
-      errorBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(8),
+      border: normalBorder,
+      enabledBorder: normalBorder,
+      focusedBorder: focusBorder,
+      errorBorder: normalBorder.copyWith(
         borderSide: const BorderSide(color: AppColors.primaryRed),
       ),
+      focusedErrorBorder: focusBorder,
+      disabledBorder: normalBorder,
     );
   }
 

@@ -3,9 +3,13 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:grjoffice_apps/core/app_colors.dart';
 import 'package:grjoffice_apps/drawer/app_end_drawer.dart';
 import 'package:grjoffice_apps/drawer/drawer.dart';
+import 'package:grjoffice_apps/models/site_model.dart';
 import 'package:grjoffice_apps/navigation/app_navigation.dart';
+import 'package:grjoffice_apps/reportscreen/reports_list_screen.dart';
+import 'package:grjoffice_apps/services/api_auth.dart';
 import 'package:grjoffice_apps/widgets/app_top_bar.dart';
 
+/// Step 1 — Choose Site (web-style Reports entry).
 class ReportScreen extends StatefulWidget {
   const ReportScreen({super.key});
 
@@ -15,18 +19,86 @@ class ReportScreen extends StatefulWidget {
 
 class _ReportScreenState extends State<ReportScreen> {
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
-  String _period = 'This Month';
 
-  double _hPad(BuildContext context) {
-    final width = MediaQuery.sizeOf(context).width;
+  List<SiteModel> _sites = [];
+  int? _selectedSiteId;
+  bool _loadingSites = true;
+
+  double _hPad(double width) {
     if (width < 360) return 14;
     if (width < 600) return 18;
-    return 20;
+    return 24;
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _loadSites());
+  }
+
+  Future<void> _loadSites() async {
+    final cached = cachedSites();
+    if (cached != null && cached.isNotEmpty && mounted) {
+      setState(() {
+        _applySites(cached);
+        _loadingSites = false;
+      });
+    }
+
+    final sites = await sitesApi(context);
+    if (!mounted) return;
+    setState(() {
+      _applySites(sites ?? cached ?? const []);
+      _loadingSites = false;
+    });
+  }
+
+  void _applySites(List<SiteModel> sites) {
+    _sites = sites.where((s) => s.name.trim().isNotEmpty).toList();
+    final preferred = selectedSiteId();
+    if (preferred != null && _sites.any((s) => s.id == preferred)) {
+      _selectedSiteId = preferred;
+    } else if (_sites.isNotEmpty) {
+      _selectedSiteId = _sites.first.id;
+    }
+  }
+
+  String? _selectedSiteName() {
+    if (_selectedSiteId == null) return null;
+    return siteNameById(_sites, _selectedSiteId!);
+  }
+
+  void _onNext() {
+    final siteId = _selectedSiteId;
+    final siteName = _selectedSiteName();
+    if (siteId == null || siteName == null || siteName.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Please select a site.',
+            style: GoogleFonts.poppins(fontSize: 13),
+          ),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      return;
+    }
+
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => ReportsListScreen(
+          siteId: siteId,
+          siteName: siteName,
+        ),
+      ),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
-    final hPad = _hPad(context);
+    final width = MediaQuery.sizeOf(context).width;
+    final hPad = _hPad(width);
+    final isWide = width >= 720;
 
     return Scaffold(
       key: _scaffoldKey,
@@ -45,52 +117,172 @@ class _ReportScreenState extends State<ReportScreen> {
               horizontalPadding: hPad,
             ),
             Expanded(
-              child: ListView(
-                padding: EdgeInsets.fromLTRB(hPad, 16, hPad, 24),
-                children: [
-                  Text(
-                    'Period',
-                    style: GoogleFonts.poppins(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600,
-                      color: AppColors.textDark,
+              child: SingleChildScrollView(
+                padding: EdgeInsets.fromLTRB(hPad, 20, hPad, 24),
+                child: Align(
+                  alignment: Alignment.topCenter,
+                  child: ConstrainedBox(
+                    constraints: BoxConstraints(maxWidth: isWide ? 560 : 640),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        Text(
+                          'CHOOSE SITE',
+                          style: GoogleFonts.poppins(
+                            fontSize: width < 400 ? 18 : 20,
+                            fontWeight: FontWeight.w800,
+                            color: AppColors.headingBlack,
+                            letterSpacing: 0.3,
+                          ),
+                        ),
+                        const SizedBox(height: 18),
+                        Container(
+                          padding: const EdgeInsets.all(18),
+                          decoration: BoxDecoration(
+                            color: AppColors.cardWhite,
+                            borderRadius: BorderRadius.circular(10),
+                            border: Border.all(
+                              color: AppColors.borderGray.withValues(alpha: 0.4),
+                            ),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withValues(alpha: 0.04),
+                                blurRadius: 12,
+                                offset: const Offset(0, 3),
+                              ),
+                            ],
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              Text(
+                                'Information Site',
+                                style: GoogleFonts.poppins(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w700,
+                                  color: AppColors.headingBlack,
+                                ),
+                              ),
+                              const SizedBox(height: 16),
+                              Text(
+                                'Site',
+                                style: GoogleFonts.poppins(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w600,
+                                  color: AppColors.textDark,
+                                ),
+                              ),
+                              const SizedBox(height: 8),
+                              _loadingSites
+                                  ? const Padding(
+                                      padding: EdgeInsets.symmetric(vertical: 14),
+                                      child: Center(
+                                        child: SizedBox(
+                                          width: 22,
+                                          height: 22,
+                                          child: CircularProgressIndicator(
+                                            strokeWidth: 2.2,
+                                            color: AppColors.primaryRed,
+                                          ),
+                                        ),
+                                      ),
+                                    )
+                                  : DropdownButtonFormField<int>(
+                                      value: _selectedSiteId,
+                                      isExpanded: true,
+                                      decoration: InputDecoration(
+                                        hintText: '-- Select an option --',
+                                        hintStyle: GoogleFonts.poppins(
+                                          fontSize: 13,
+                                          color: AppColors.inputHint,
+                                        ),
+                                        filled: true,
+                                        fillColor: AppColors.cardWhite,
+                                        contentPadding:
+                                            const EdgeInsets.symmetric(
+                                          horizontal: 12,
+                                          vertical: 12,
+                                        ),
+                                        border: OutlineInputBorder(
+                                          borderRadius:
+                                              BorderRadius.circular(6),
+                                          borderSide: BorderSide(
+                                            color: AppColors.borderGray
+                                                .withValues(alpha: 0.7),
+                                          ),
+                                        ),
+                                        enabledBorder: OutlineInputBorder(
+                                          borderRadius:
+                                              BorderRadius.circular(6),
+                                          borderSide: BorderSide(
+                                            color: AppColors.borderGray
+                                                .withValues(alpha: 0.7),
+                                          ),
+                                        ),
+                                        focusedBorder: OutlineInputBorder(
+                                          borderRadius:
+                                              BorderRadius.circular(6),
+                                          borderSide: BorderSide(
+                                            color: AppColors.primaryRed
+                                                .withValues(alpha: 0.55),
+                                            width: 1.4,
+                                          ),
+                                        ),
+                                      ),
+                                      items: _sites
+                                          .map(
+                                            (s) => DropdownMenuItem(
+                                              value: s.id,
+                                              child: Text(
+                                                s.name,
+                                                maxLines: 1,
+                                                overflow: TextOverflow.ellipsis,
+                                                style: GoogleFonts.poppins(
+                                                  fontSize: 13,
+                                                ),
+                                              ),
+                                            ),
+                                          )
+                                          .toList(),
+                                      onChanged: (v) =>
+                                          setState(() => _selectedSiteId = v),
+                                    ),
+                              const SizedBox(height: 20),
+                              SizedBox(
+                                height: 44,
+                                child: ElevatedButton.icon(
+                                  onPressed:
+                                      _loadingSites || _sites.isEmpty
+                                          ? null
+                                          : _onNext,
+                                  icon: const Icon(Icons.description_outlined,
+                                      size: 18),
+                                  label: Text(
+                                    'Next',
+                                    style: GoogleFonts.poppins(
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: const Color(0xFF2563EB),
+                                    foregroundColor: AppColors.white,
+                                    disabledBackgroundColor: const Color(0xFF2563EB)
+                                        .withValues(alpha: 0.45),
+                                    elevation: 0,
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(6),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
                     ),
                   ),
-                  const SizedBox(height: 8),
-                  Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
-                    children: ['Today', 'This Week', 'This Month', 'Custom'].map((label) {
-                      final selected = _period == label;
-                      return ChoiceChip(
-                        label: Text(label),
-                        selected: selected,
-                        onSelected: (_) => setState(() => _period = label),
-                        selectedColor: AppColors.primaryRed.withValues(alpha: 0.15),
-                        labelStyle: GoogleFonts.poppins(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
-                          color: selected ? AppColors.primaryRed : AppColors.textDark,
-                        ),
-                        side: BorderSide(
-                          color: selected ? AppColors.primaryRed : AppColors.borderGray,
-                        ),
-                        backgroundColor: AppColors.cardWhite,
-                      );
-                    }).toList(),
-                  ),
-                  const SizedBox(height: 20),
-                  Text(
-                    'Available Reports',
-                    style: GoogleFonts.poppins(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w700,
-                      color: AppColors.headingBlack,
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  ..._kReports.map(_reportCard),
-                ],
+                ),
               ),
             ),
           ],
@@ -98,109 +290,4 @@ class _ReportScreenState extends State<ReportScreen> {
       ),
     );
   }
-
-  Widget _reportCard(_ReportItem report) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 10),
-      child: Material(
-        color: AppColors.cardWhite,
-        borderRadius: BorderRadius.circular(12),
-        child: InkWell(
-          onTap: () {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text('${report.title} — $_period report ready to export.')),
-            );
-          },
-          borderRadius: BorderRadius.circular(12),
-          child: Container(
-            padding: const EdgeInsets.all(14),
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: AppColors.borderGray.withValues(alpha: 0.4)),
-            ),
-            child: Row(
-              children: [
-                Container(
-                  width: 44,
-                  height: 44,
-                  decoration: BoxDecoration(
-                    color: AppColors.primaryRed.withValues(alpha: 0.1),
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: Icon(report.icon, color: AppColors.primaryRed, size: 22),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        report.title,
-                        style: GoogleFonts.poppins(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w700,
-                          color: AppColors.headingBlack,
-                        ),
-                      ),
-                      const SizedBox(height: 2),
-                      Text(
-                        report.subtitle,
-                        style: GoogleFonts.poppins(fontSize: 12, color: AppColors.textSecondary),
-                      ),
-                    ],
-                  ),
-                ),
-                const Icon(Icons.file_download_outlined, color: AppColors.textSecondary, size: 22),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
 }
-
-class _ReportItem {
-  const _ReportItem({
-    required this.title,
-    required this.subtitle,
-    required this.icon,
-  });
-
-  final String title;
-  final String subtitle;
-  final IconData icon;
-}
-
-const _kReports = [
-  _ReportItem(
-    title: 'Attendance Report',
-    subtitle: 'Employee punch in/out summary',
-    icon: Icons.how_to_reg_outlined,
-  ),
-  _ReportItem(
-    title: 'Purchase Report',
-    subtitle: 'Purchase orders and spend',
-    icon: Icons.shopping_cart_outlined,
-  ),
-  _ReportItem(
-    title: 'Store Stock Report',
-    subtitle: 'Inventory balances by item',
-    icon: Icons.storefront_outlined,
-  ),
-  _ReportItem(
-    title: 'Expense Report',
-    subtitle: 'Category-wise expense breakdown',
-    icon: Icons.account_balance_wallet_outlined,
-  ),
-  _ReportItem(
-    title: 'Day End Report',
-    subtitle: 'Daily site activity summary',
-    icon: Icons.event_note_outlined,
-  ),
-  _ReportItem(
-    title: 'Contractor Report',
-    subtitle: 'Labour contractor attendance & rates',
-    icon: Icons.groups_outlined,
-  ),
-];

@@ -212,6 +212,7 @@ class _AddContractorScreenState extends State<AddContractorScreen> {
 
   Widget _buildFormCard() {
     return Container(
+      clipBehavior: Clip.none,
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: AppColors.cardWhite,
@@ -281,15 +282,19 @@ class _AddContractorScreenState extends State<AddContractorScreen> {
       children: [
         Text(label, style: GoogleFonts.poppins(fontSize: 13, fontWeight: FontWeight.w500)),
         const SizedBox(height: 8),
-        TextFormField(
-          controller: controller,
-          keyboardType: keyboardType,
-          maxLines: maxLines,
-          validator: required
-              ? (v) => (v == null || v.trim().isEmpty) ? '$label is required' : null
-              : null,
-          style: GoogleFonts.poppins(fontSize: 14),
-          decoration: _inputDecoration(hint),
+        Material(
+          color: Colors.transparent,
+          clipBehavior: Clip.none,
+          child: TextFormField(
+            controller: controller,
+            keyboardType: keyboardType,
+            maxLines: maxLines,
+            validator: required
+                ? (v) => (v == null || v.trim().isEmpty) ? '$label is required' : null
+                : null,
+            style: GoogleFonts.poppins(fontSize: 14),
+            decoration: _inputDecoration(hint),
+          ),
         ),
       ],
     );
@@ -301,17 +306,21 @@ class _AddContractorScreenState extends State<AddContractorScreen> {
       children: [
         Text(label, style: GoogleFonts.poppins(fontSize: 13, fontWeight: FontWeight.w500)),
         const SizedBox(height: 8),
-        TextFormField(
-          controller: controller,
-          keyboardType: const TextInputType.numberWithOptions(decimal: true),
-          inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'^\d+\.?\d{0,2}'))],
-          validator: (v) {
-            if (v == null || v.trim().isEmpty) return 'Rate is required';
-            if (_parseRate(v) == null) return 'Enter a valid amount';
-            return null;
-          },
-          style: GoogleFonts.poppins(fontSize: 14),
-          decoration: _inputDecoration('0').copyWith(prefixText: '₹ '),
+        Material(
+          color: Colors.transparent,
+          clipBehavior: Clip.none,
+          child: TextFormField(
+            controller: controller,
+            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+            inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'^\d+\.?\d{0,2}'))],
+            validator: (v) {
+              if (v == null || v.trim().isEmpty) return 'Rate is required';
+              if (_parseRate(v) == null) return 'Enter a valid amount';
+              return null;
+            },
+            style: GoogleFonts.poppins(fontSize: 14),
+            decoration: _inputDecoration('0').copyWith(prefixText: '₹ '),
+          ),
         ),
       ],
     );
@@ -365,24 +374,30 @@ class _AddContractorScreenState extends State<AddContractorScreen> {
   }
 
   InputDecoration _inputDecoration(String hint) {
+    final normalBorder = OutlineInputBorder(
+      borderRadius: BorderRadius.circular(8),
+      borderSide: BorderSide(color: AppColors.borderGray.withValues(alpha: 0.6)),
+    );
+    const focusBorder = OutlineInputBorder(
+      borderRadius: BorderRadius.all(Radius.circular(8)),
+      borderSide: BorderSide(color: AppColors.primaryRed, width: 1.5),
+    );
+
     return InputDecoration(
       hintText: hint,
       hintStyle: GoogleFonts.poppins(color: AppColors.inputHint, fontSize: 14),
       filled: true,
       fillColor: AppColors.operationsCardBg,
+      isDense: true,
       contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
-      enabledBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(8),
-        borderSide: BorderSide(color: AppColors.borderGray.withValues(alpha: 0.6)),
-      ),
-      focusedBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(8),
-        borderSide: const BorderSide(color: AppColors.primaryRed, width: 1.5),
-      ),
-      errorBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(8),
+      border: normalBorder,
+      enabledBorder: normalBorder,
+      focusedBorder: focusBorder,
+      errorBorder: normalBorder.copyWith(
         borderSide: const BorderSide(color: AppColors.primaryRed),
       ),
+      focusedErrorBorder: focusBorder,
+      disabledBorder: normalBorder,
     );
   }
 

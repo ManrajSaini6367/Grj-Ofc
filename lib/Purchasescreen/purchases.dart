@@ -1156,14 +1156,10 @@ class _PurchasesScreenState extends State<PurchasesScreen> {
 
     if (!mounted) return;
 
-    showModalBottomSheet<void>(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: AppColors.cardWhite,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+    await Navigator.of(context).push<void>(
+      MaterialPageRoute(
+        builder: (_) => _VehicleImagesScreen(purchase: detail),
       ),
-      builder: (context) => _VehicleImagesSheet(purchase: detail),
     );
   }
 
@@ -1510,16 +1506,16 @@ class _PurchasesScreenState extends State<PurchasesScreen> {
   }
 }
 
-class _VehicleImagesSheet extends StatefulWidget {
-  const _VehicleImagesSheet({required this.purchase});
+class _VehicleImagesScreen extends StatefulWidget {
+  const _VehicleImagesScreen({required this.purchase});
 
   final Purchase purchase;
 
   @override
-  State<_VehicleImagesSheet> createState() => _VehicleImagesSheetState();
+  State<_VehicleImagesScreen> createState() => _VehicleImagesScreenState();
 }
 
-class _VehicleImagesSheetState extends State<_VehicleImagesSheet> {
+class _VehicleImagesScreenState extends State<_VehicleImagesScreen> {
   bool _loadingImages = true;
 
   @override
@@ -1528,26 +1524,58 @@ class _VehicleImagesSheetState extends State<_VehicleImagesSheet> {
     WidgetsBinding.instance.addPostFrameCallback((_) => _preloadImages());
   }
 
-  List<String> _collectImageUrls() {
+  double _hPad(double width) {
+    if (width < 360) return 14;
+    if (width < 600) return 18;
+    return 20;
+  }
+
+  List<_VehicleImageItem> _imageItems() {
     final p = widget.purchase;
-    final urls = <String>[];
+    final items = <_VehicleImageItem>[
+      _VehicleImageItem(
+        label: p.isDirectPurchase ? 'Image' : 'Loading',
+        imageRef: p.loadingVehicleImage,
+        capturedAt: p.loadingVehicleImageAt,
+      ),
+    ];
 
-    void add(String? ref) {
-      final url = resolvePurchaseImageUrl(ref);
-      if (url.isNotEmpty) urls.add(url);
+    if (!p.isDirectPurchase) {
+      items.add(
+        _VehicleImageItem(
+          label: 'Unloading',
+          imageRef: p.unloadingVehicleImage,
+          capturedAt: p.unloadingVehicleImageAt,
+        ),
+      );
     }
 
-    add(p.loadingVehicleImage);
-    if (!p.isDirectPurchase) add(p.unloadingVehicleImage);
     if (p.isWithKanta) {
-      add(p.kantaSlipImage);
-      add(p.vehicleAtKantaImage);
+      items.add(
+        _VehicleImageItem(
+          label: 'Kanta Slip',
+          imageRef: p.kantaSlipImage,
+          capturedAt: p.kantaSlipImageAt,
+        ),
+      );
+      items.add(
+        _VehicleImageItem(
+          label: 'Vehicle at Kanta',
+          imageRef: p.vehicleAtKantaImage,
+          capturedAt: p.vehicleAtKantaImageAt,
+        ),
+      );
     }
-    return urls;
+
+    return items;
   }
 
   Future<void> _preloadImages() async {
-    final urls = _collectImageUrls();
+    final urls = _imageItems()
+        .map((item) => resolvePurchaseImageUrl(item.imageRef))
+        .where((url) => url.isNotEmpty)
+        .toList();
+
     if (urls.isEmpty) {
       if (mounted) setState(() => _loadingImages = false);
       return;
@@ -1564,83 +1592,75 @@ class _VehicleImagesSheetState extends State<_VehicleImagesSheet> {
     if (mounted) setState(() => _loadingImages = false);
   }
 
+  void _openFullImage(String label, String imageUrl) {
+    Navigator.of(context).push<void>(
+      MaterialPageRoute(
+        builder: (_) => _VehicleImageViewerPage(
+          title: label,
+          imageUrl: imageUrl,
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
-    final p = widget.purchase;
-    final maxHeight = MediaQuery.sizeOf(context).height * 0.85;
+    final width = MediaQuery.sizeOf(context).width;
+    final hPad = _hPad(width);
+    final items = _imageItems();
 
-    return SafeArea(
-      child: ConstrainedBox(
-        constraints: BoxConstraints(maxHeight: maxHeight),
-        child: Stack(
+    return Scaffold(
+      backgroundColor: AppColors.backgroundGray,
+      body: SafeArea(
+        child: Column(
           children: [
-            SingleChildScrollView(
-              padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
+            AppTopBar.page(
+              title: 'Vehicle Images',
+              onBack: () => Navigator.pop(context),
+              horizontalPadding: hPad,
+            ),
+            Expanded(
+              child: Stack(
                 children: [
-                  Text(
-                    'Vehicle Images',
-                    style: GoogleFonts.poppins(
-                      fontSize: 18,
-                      fontWeight: FontWeight.w700,
-                    ),
+                  ListView.separated(
+                    padding: EdgeInsets.fromLTRB(hPad, 12, hPad, 24),
+                    itemCount: items.length,
+                    separatorBuilder: (_, __) => const SizedBox(height: 10),
+                    itemBuilder: (context, index) {
+                      final item = items[index];
+                      return _VehicleImageListTile(
+                        item: item,
+                        onTap: (url) => _openFullImage(item.label, url),
+                      );
+                    },
                   ),
-                  const SizedBox(height: 16),
-                  _VehicleImageRow(
-                    label: p.isDirectPurchase ? 'Image' : 'Loading',
-                    imageRef: p.loadingVehicleImage,
-                    capturedAt: p.loadingVehicleImageAt,
-                  ),
-                  if (!p.isDirectPurchase) ...[
-                    const SizedBox(height: 16),
-                    _VehicleImageRow(
-                      label: 'Unloading',
-                      imageRef: p.unloadingVehicleImage,
-                      capturedAt: p.unloadingVehicleImageAt,
+                  if (_loadingImages)
+                    Positioned.fill(
+                      child: ColoredBox(
+                        color: AppColors.backgroundGray.withValues(alpha: 0.88),
+                        child: Center(
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const CircularProgressIndicator(
+                                color: AppColors.primaryRed,
+                              ),
+                              const SizedBox(height: 12),
+                              Text(
+                                'Loading images…',
+                                style: GoogleFonts.poppins(
+                                  fontSize: 13,
+                                  color: AppColors.textSecondary,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
                     ),
-                  ],
-                  if (p.isWithKanta) ...[
-                    const SizedBox(height: 16),
-                    _VehicleImageRow(
-                      label: 'Kanta Slip',
-                      imageRef: p.kantaSlipImage,
-                      capturedAt: p.kantaSlipImageAt,
-                    ),
-                    const SizedBox(height: 16),
-                    _VehicleImageRow(
-                      label: 'Vehicle at Kanta',
-                      imageRef: p.vehicleAtKantaImage,
-                      capturedAt: p.vehicleAtKantaImageAt,
-                    ),
-                  ],
                 ],
               ),
             ),
-            if (_loadingImages)
-              Positioned.fill(
-                child: ColoredBox(
-                  color: AppColors.cardWhite.withValues(alpha: 0.92),
-                  child: Center(
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        const CircularProgressIndicator(
-                          color: AppColors.primaryRed,
-                        ),
-                        const SizedBox(height: 12),
-                        Text(
-                          'Loading images…',
-                          style: GoogleFonts.poppins(
-                            fontSize: 13,
-                            color: AppColors.textSecondary,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
           ],
         ),
       ),
@@ -1648,8 +1668,8 @@ class _VehicleImagesSheetState extends State<_VehicleImagesSheet> {
   }
 }
 
-class _VehicleImageRow extends StatelessWidget {
-  const _VehicleImageRow({
+class _VehicleImageItem {
+  const _VehicleImageItem({
     required this.label,
     required this.imageRef,
     required this.capturedAt,
@@ -1658,207 +1678,288 @@ class _VehicleImageRow extends StatelessWidget {
   final String label;
   final String? imageRef;
   final DateTime? capturedAt;
+}
+
+class _VehicleImageListTile extends StatelessWidget {
+  const _VehicleImageListTile({
+    required this.item,
+    required this.onTap,
+  });
+
+  final _VehicleImageItem item;
+  final ValueChanged<String> onTap;
+
+  static const _thumbSize = 72.0;
 
   @override
   Widget build(BuildContext context) {
-    final imageUrl = resolvePurchaseImageUrl(imageRef);
+    final imageUrl = resolvePurchaseImageUrl(item.imageRef);
     final hasImage = imageUrl.isNotEmpty;
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          label,
-          style: GoogleFonts.poppins(fontSize: 13, fontWeight: FontWeight.w600),
-        ),
-        const SizedBox(height: 8),
-        if (!hasImage)
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.symmetric(vertical: 28),
-            decoration: BoxDecoration(
-              color: AppColors.operationsCardBg,
-              borderRadius: BorderRadius.circular(10),
-              border: Border.all(
-                color: AppColors.borderGray.withValues(alpha: 0.5),
-              ),
+    return Material(
+      color: AppColors.cardWhite,
+      borderRadius: BorderRadius.circular(12),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: hasImage ? () => onTap(imageUrl) : null,
+        child: Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: AppColors.borderGray.withValues(alpha: 0.45),
             ),
-            child: Column(
-              children: [
-                Icon(
-                  Icons.image_not_supported_outlined,
-                  color: AppColors.textSecondary.withValues(alpha: 0.6),
-                ),
-                const SizedBox(height: 6),
-                Text(
-                  'Not uploaded',
-                  style: GoogleFonts.poppins(
-                    fontSize: 12,
-                    color: AppColors.textSecondary,
-                  ),
-                ),
-              ],
-            ),
-          )
-        else
-          Material(
-            color: Colors.transparent,
-            child: InkWell(
-              onTap: () => _showPurchaseImagePreview(context, label, imageUrl),
-              borderRadius: BorderRadius.circular(10),
-              child: ClipRRect(
+          ),
+          child: Row(
+            children: [
+              ClipRRect(
                 borderRadius: BorderRadius.circular(10),
-                child: AspectRatio(
-                  aspectRatio: 16 / 9,
-                  child: Stack(
-                    fit: StackFit.expand,
-                    children: [
-                      Image.network(
-                        imageUrl,
-                        fit: BoxFit.cover,
-                        gaplessPlayback: true,
-                        errorBuilder: (_, __, ___) => Container(
-                          color: AppColors.operationsCardBg,
-                          alignment: Alignment.center,
-                          padding: const EdgeInsets.all(12),
-                          child: Text(
-                            'Unable to load image',
-                            textAlign: TextAlign.center,
+                child: SizedBox(
+                  width: _thumbSize,
+                  height: _thumbSize,
+                  child: hasImage
+                      ? Image.network(
+                          imageUrl,
+                          fit: BoxFit.cover,
+                          gaplessPlayback: true,
+                          errorBuilder: (_, __, ___) => _emptyThumb(
+                            icon: Icons.broken_image_outlined,
+                            text: 'Error',
+                          ),
+                        )
+                      : _emptyThumb(
+                          icon: Icons.image_not_supported_outlined,
+                          text: 'No image',
+                        ),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      item.label,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: GoogleFonts.poppins(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                        color: AppColors.headingBlack,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      hasImage
+                          ? (item.capturedAt != null
+                              ? formatPurchaseImageDateTime(item.capturedAt!)
+                              : 'Tap to view full size')
+                          : 'Not uploaded',
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: GoogleFonts.poppins(
+                        fontSize: 11.5,
+                        height: 1.35,
+                        color: AppColors.textSecondary,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              if (hasImage)
+                Icon(
+                  Icons.chevron_right_rounded,
+                  color: AppColors.textSecondary.withValues(alpha: 0.7),
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _emptyThumb({required IconData icon, required String text}) {
+    return Container(
+      color: AppColors.operationsCardBg,
+      alignment: Alignment.center,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 22, color: AppColors.textSecondary.withValues(alpha: 0.65)),
+          const SizedBox(height: 4),
+          Text(
+            text,
+            style: GoogleFonts.poppins(
+              fontSize: 9.5,
+              color: AppColors.textSecondary,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _VehicleImageViewerPage extends StatelessWidget {
+  const _VehicleImageViewerPage({
+    required this.title,
+    required this.imageUrl,
+  });
+
+  final String title;
+  final String imageUrl;
+
+  double _hPad(double width) {
+    if (width < 360) return 14;
+    if (width < 600) return 18;
+    return 20;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final width = MediaQuery.sizeOf(context).width;
+    final hPad = _hPad(width);
+
+    return Scaffold(
+      backgroundColor: AppColors.backgroundGray,
+      body: SafeArea(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            AppTopBar.page(
+              title: title,
+              onBack: () => Navigator.pop(context),
+              horizontalPadding: hPad,
+            ),
+            Expanded(
+              child: Padding(
+                padding: EdgeInsets.fromLTRB(hPad, 10, hPad, 20),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Expanded(
+                      child: Container(
+                        width: double.infinity,
+                        decoration: BoxDecoration(
+                          color: AppColors.cardWhite,
+                          borderRadius: BorderRadius.circular(18),
+                          border: Border.all(
+                            color: AppColors.borderGray.withValues(alpha: 0.45),
+                          ),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withValues(alpha: 0.06),
+                              blurRadius: 18,
+                              offset: const Offset(0, 6),
+                            ),
+                          ],
+                        ),
+                        clipBehavior: Clip.antiAlias,
+                        child: InteractiveViewer(
+                          minScale: 0.9,
+                          maxScale: 4,
+                          boundaryMargin: const EdgeInsets.all(24),
+                          child: Center(
+                            child: Padding(
+                              padding: const EdgeInsets.all(14),
+                              child: Image.network(
+                                imageUrl,
+                                fit: BoxFit.contain,
+                                gaplessPlayback: true,
+                                loadingBuilder: (context, child, progress) {
+                                  if (progress == null) return child;
+                                  return SizedBox(
+                                    height: 180,
+                                    child: Center(
+                                      child: Column(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          const CircularProgressIndicator(
+                                            color: AppColors.primaryRed,
+                                          ),
+                                          const SizedBox(height: 12),
+                                          Text(
+                                            'Loading image…',
+                                            style: GoogleFonts.poppins(
+                                              fontSize: 12,
+                                              color: AppColors.textSecondary,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  );
+                                },
+                                errorBuilder: (_, __, ___) => Padding(
+                                  padding: const EdgeInsets.all(24),
+                                  child: Column(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Icon(
+                                        Icons.broken_image_outlined,
+                                        size: 42,
+                                        color: AppColors.textSecondary
+                                            .withValues(alpha: 0.55),
+                                      ),
+                                      const SizedBox(height: 10),
+                                      Text(
+                                        'Unable to load image',
+                                        textAlign: TextAlign.center,
+                                        style: GoogleFonts.poppins(
+                                          fontSize: 13,
+                                          color: AppColors.textSecondary,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 14,
+                        vertical: 10,
+                      ),
+                      decoration: BoxDecoration(
+                        color: AppColors.cardWhite,
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(
+                          color: AppColors.borderGray.withValues(alpha: 0.35),
+                        ),
+                      ),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(
+                            Icons.touch_app_outlined,
+                            size: 16,
+                            color: AppColors.textSecondary.withValues(alpha: 0.85),
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            'Pinch to zoom • Drag to move',
                             style: GoogleFonts.poppins(
                               fontSize: 12,
                               color: AppColors.textSecondary,
                             ),
                           ),
-                        ),
-                      ),
-                      Positioned(
-                        right: 8,
-                        bottom: 8,
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 8,
-                            vertical: 4,
-                          ),
-                          decoration: BoxDecoration(
-                            color: Colors.black.withValues(alpha: 0.55),
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              const Icon(
-                                Icons.fullscreen,
-                                size: 14,
-                                color: AppColors.white,
-                              ),
-                              const SizedBox(width: 4),
-                              Text(
-                                'View',
-                                style: GoogleFonts.poppins(
-                                  fontSize: 11,
-                                  color: AppColors.white,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-          ),
-        if (hasImage && capturedAt != null) ...[
-          const SizedBox(height: 6),
-          Row(
-            children: [
-              Icon(
-                Icons.schedule,
-                size: 12,
-                color: AppColors.textSecondary.withValues(alpha: 0.8),
-              ),
-              const SizedBox(width: 4),
-              Text(
-                formatPurchaseImageDateTime(capturedAt!),
-                style: GoogleFonts.poppins(
-                  fontSize: 11,
-                  color: AppColors.textSecondary,
-                ),
-              ),
-            ],
-          ),
-        ],
-      ],
-    );
-  }
-}
-
-void _showPurchaseImagePreview(
-  BuildContext context,
-  String label,
-  String imageUrl,
-) {
-  showDialog<void>(
-    context: context,
-    builder: (dialogContext) {
-      return Dialog(
-        backgroundColor: Colors.transparent,
-        insetPadding: const EdgeInsets.all(16),
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(20),
-          child: Container(
-            color: Colors.white,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 14, 8, 10),
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: Text(
-                          label,
-                          style: GoogleFonts.poppins(
-                            fontSize: 17,
-                            fontWeight: FontWeight.w600,
-                            color: AppColors.headingBlack,
-                          ),
-                        ),
-                      ),
-                      IconButton(
-                        onPressed: () => Navigator.of(dialogContext).pop(),
-                        icon: const Icon(Icons.close_rounded),
-                      ),
-                    ],
-                  ),
-                ),
-                Flexible(
-                  child: InteractiveViewer(
-                    minScale: 0.8,
-                    maxScale: 4,
-                    child: Image.network(
-                      imageUrl,
-                      fit: BoxFit.contain,
-                      gaplessPlayback: true,
-                      errorBuilder: (_, __, ___) => Padding(
-                        padding: const EdgeInsets.all(40),
-                        child: Text(
-                          'Unable to load image',
-                          style: GoogleFonts.poppins(),
-                        ),
+                        ],
                       ),
                     ),
-                  ),
+                  ],
                 ),
-                const SizedBox(height: 16),
-              ],
+              ),
             ),
-          ),
+          ],
         ),
-      );
-    },
-  );
+      ),
+    );
+  }
 }
 
 enum _KantaSlipFilter { all, yes, no }
