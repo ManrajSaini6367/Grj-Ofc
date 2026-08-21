@@ -1,43 +1,125 @@
 package com.grj
 
 import android.content.ContentValues
+import android.graphics.Bitmap
+import android.graphics.Canvas
+import android.graphics.Color
+import android.graphics.pdf.PdfDocument
 import android.os.Build
+import android.os.Bundle
 import android.os.Environment
 import android.provider.MediaStore
+import android.view.View
+import android.view.ViewGroup
+import android.webkit.WebView
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
+import java.io.ByteArrayOutputStream
 import java.io.File
 import java.io.FileOutputStream
 
 class MainActivity : FlutterActivity() {
     private val downloadsChannel = "grjoffice_apps/downloads"
 
+    override fun onCreate(savedInstanceState: Bundle?) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.KITKAT) {
+            WebView.enableSlowWholeDocumentDraw()
+        }
+        super.onCreate(savedInstanceState)
+    }
+
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, downloadsChannel)
             .setMethodCallHandler { call, result ->
-                if (call.method == "saveToDownloads") {
-                    val bytes = call.argument<ByteArray>("bytes")
-                    val fileName = call.argument<String>("fileName")
-                    if (bytes == null || fileName.isNullOrBlank()) {
-                        result.error("INVALID_ARGS", "bytes and fileName are required", null)
-                        return@setMethodCallHandler
+                when (call.method) {
+                    "saveToDownloads" -> {
+                        val bytes = call.argument<ByteArray>("bytes")
+                        val fileName = call.argument<String>("fileName")
+                        if (bytes == null || fileName.isNullOrBlank()) {
+                            result.error("INVALID_ARGS", "bytes and fileName are required", null)
+                            return@setMethodCallHandler
+                        }
+                        try {
+                            val saved = saveFileToDownloads(bytes, fileName)
+                            result.success(saved)
+                        } catch (e: Exception) {
+                            result.error("SAVE_FAILED", e.message, null)
+                        }
                     }
-                    try {
-                        val saved = saveImageToDownloads(bytes, fileName)
-                        result.success(saved)
-                    } catch (e: Exception) {
-                        result.error("SAVE_FAILED", e.message, null)
+
+                    "captureWebViewPdf" -> {
+                        val fileName = call.argument<String>("fileName")
+                        if (fileName.isNullOrBlank()) {
+                            result.error("INVALID_ARGS", "fileName is required", null)
+                            return@setMethodCallHandler
+                        }
+                        runOnUiThread {
+                            try {
+                                val webView = findWebView(window?.decorView?.rootView)
+                                    ?: throw IllegalStateException("WebView not found")
+                                val saved = captureWebViewToPdf(webView, fileName)
+                                result.success(saved)
+                            } catch (e: Exception) {
+                                result.error("CAPTURE_FAILED", e.message, null)
+                            }
+                        }
                     }
-                } else {
-                    result.notImplemented()
+
+                    else -> result.notImplemented()
                 }
             }
     }
 
-    private fun saveImageToDownloads(bytes: ByteArray, fileName: String): String {
+    private fun findWebView(view: View?): WebView? {
+        if (view == null) return null
+        if (view is WebView) return view
+        if (view is ViewGroup) {
+            for (index in 0 until view.childCount) {
+                findWebView(view.getChildAt(index))?.let { return it }
+            }
+        }
+        return null
+    }
+
+    private fun captureWebViewToPdf(webView: WebView, fileName: String): String {
+        webView.scrollTo(0, 0)
+
+        val scale = webView.scale
+        val width = when {
+            webView.width > 0 -> webView.width
+            webView.measuredWidth > 0 -> webView.measuredWidth
+            else -> resources.displayMetrics.widthPixels
+        }.coerceAtLeast(1)
+
+        val contentHeight = (webView.contentHeight * scale).toInt().coerceAtLeast(webView.height)
+        val height = contentHeight.coerceAtLeast(1)
+
+        val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
+        val canvas = Canvas(bitmap)
+        canvas.drawColor(Color.WHITE)
+        webView.draw(canvas)
+
+        val pdfDocument = PdfDocument()
+        try {
+            val pageInfo = PdfDocument.PageInfo.Builder(width, height, 1).create()
+            val page = pdfDocument.startPage(pageInfo)
+            page.canvas.drawBitmap(bitmap, 0f, 0f, null)
+            pdfDocument.finishPage(page)
+
+            val output = ByteArrayOutputStream()
+            pdfDocument.writeTo(output)
+            return saveFileToDownloads(output.toByteArray(), fileName)
+        } finally {
+            pdfDocument.close()
+            bitmap.recycle()
+        }
+    }
+
+    private fun saveFileToDownloads(bytes: ByteArray, fileName: String): String {
         val mimeType = when {
+            fileName.endsWith(".pdf", ignoreCase = true) -> "application/pdf"
             fileName.endsWith(".png", ignoreCase = true) -> "image/png"
             fileName.endsWith(".webp", ignoreCase = true) -> "image/webp"
             else -> "image/jpeg"
@@ -67,7 +149,6 @@ class MainActivity : FlutterActivity() {
             values.put(MediaStore.Downloads.IS_PENDING, 0)
             resolver.update(uri, values, null, null)
 
-            // Return a stable filesystem path so the notification tap can open the image.
             @Suppress("DEPRECATION")
             val downloads = Environment.getExternalStoragePublicDirectory(
                 Environment.DIRECTORY_DOWNLOADS

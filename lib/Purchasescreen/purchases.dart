@@ -1,6 +1,11 @@
+import 'dart:convert';
+import 'dart:io';
+import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:grjoffice_apps/core/app_colors.dart';
+import 'package:grjoffice_apps/core/preference.dart';
 import 'package:grjoffice_apps/drawer/app_end_drawer.dart';
 import 'package:grjoffice_apps/drawer/drawer.dart';
 import 'package:grjoffice_apps/navigation/app_navigation.dart';
@@ -12,8 +17,12 @@ import 'package:grjoffice_apps/Purchasescreen/with_kanta_step3_screen.dart';
 import 'package:grjoffice_apps/Purchasescreen/view_purchase_screen.dart';
 import 'package:grjoffice_apps/services/api_auth.dart';
 import 'package:grjoffice_apps/services/permission_service.dart';
+import 'package:grjoffice_apps/services/purchase_image_download_service.dart';
 import 'package:grjoffice_apps/widgets/app_top_bar.dart';
 import 'package:grjoffice_apps/widgets/permission_gate.dart';
+import 'package:open_filex/open_filex.dart';
+import 'package:webview_flutter/webview_flutter.dart';
+import 'package:http/http.dart' as http;
 
 class PurchasesScreen extends StatefulWidget {
   const PurchasesScreen({super.key});
@@ -1163,110 +1172,58 @@ class _PurchasesScreenState extends State<PurchasesScreen> {
     );
   }
 
-  // void _downloadChallan(Purchase purchase) {
-  //   ScaffoldMessenger.of(context).showSnackBar(
-  //     SnackBar(content: Text('Downloading challan for ${purchase.challanNo}…')),
-  //   );
-  // }
-  void _downloadChallan(Purchase purchase) {
-    final challanImageUrl = resolvePurchaseImageUrl(purchase.kantaSlipImage);
+  Future<void> _downloadChallan(Purchase purchase) async {
+    final purchaseId = int.tryParse(purchase.id);
+    var detail = purchase;
 
-    if (challanImageUrl.isEmpty) {
+    if (purchaseId != null) {
+      showDialog<void>(
+        context: context,
+        barrierDismissible: false,
+        useRootNavigator: true,
+        builder: (_) => const PopScope(
+          canPop: false,
+          child: Center(
+            child: CircularProgressIndicator(color: AppColors.primaryRed),
+          ),
+        ),
+      );
+      try {
+        final fetched = await getPurchaseApi(context, purchaseId);
+        if (fetched != null) detail = fetched;
+      } finally {
+        if (mounted) {
+          Navigator.of(context, rootNavigator: true).pop();
+        }
+      }
+    }
+
+    if (!mounted) return;
+
+    final challanUrl = resolveChallanWebUrl(detail);
+    if (challanUrl.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Challan image is not available'),
+        SnackBar(
+          content: Text(
+            'Challan URL is not available for ${detail.challanNo}.',
+            style: GoogleFonts.poppins(fontSize: 13),
+          ),
+          behavior: SnackBarBehavior.floating,
         ),
       );
       return;
     }
 
-    showDialog<void>(
-    context: context,
-    builder: (dialogContext) {
-      return Dialog(
-        backgroundColor: Colors.transparent,
-        insetPadding: const EdgeInsets.all(16),
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(20),
-          child: Container(
-            color: Colors.white,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 14, 8, 10),
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: Text(
-                          'Challan',
-                          style: GoogleFonts.poppins(
-                            fontSize: 17,
-                            fontWeight: FontWeight.w600,
-                            color: AppColors.headingBlack,
-                          ),
-                        ),
-                      ),
-                      IconButton(
-                        onPressed: () {
-                          Navigator.of(dialogContext).pop();
-                        },
-                        icon: const Icon(Icons.close_rounded),
-                      ),
-                    ],
-                  ),
-                ),
-
-                Flexible(
-                  child: InteractiveViewer(
-                    minScale: 0.8,
-                    maxScale: 4,
-                    child: Image.network(
-                      challanImageUrl,
-                      fit: BoxFit.contain,
-                      loadingBuilder:
-                          (context, child, loadingProgress) {
-                        if (loadingProgress == null) {
-                          return child;
-                        }
-
-                        return const Padding(
-                          padding: EdgeInsets.all(60),
-                          child: CircularProgressIndicator(),
-                        );
-                      },
-                      errorBuilder: (_, __, ___) {
-                        return const Padding(
-                          padding: EdgeInsets.all(40),
-                          child: Text(
-                            'Unable to load challan image',
-                          ),
-                        );
-                      },
-                    ),
-                  ),
-                ),
-
-                Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Text(
-                    'Challan No: ${purchase.challanNo}',
-                    style: GoogleFonts.poppins(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w500,
-                      color: AppColors.textSecondary,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
+    await Navigator.of(context).push<void>(
+      MaterialPageRoute(
+        builder: (_) => _ChallanWebViewPage(
+          title: 'Challan — ${detail.challanNo}',
+          url: challanUrl,
+          challanNo: detail.challanNo,
         ),
-      );
-    },
-  );
-}
-
+      ),
+    );
+  }
   String? _cardFlowActionLabel(Purchase purchase) {
     final next = purchase.nextAction?.toLowerCase();
     if (next == 'step_2') return 'Step 2';
@@ -1952,6 +1909,476 @@ class _VehicleImageViewerPage extends StatelessWidget {
                       ),
                     ),
                   ],
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _ChallanWebViewPage extends StatefulWidget {
+  const _ChallanWebViewPage({
+    required this.title,
+    required this.url,
+    required this.challanNo,
+  });
+
+  final String title;
+  final String url;
+  final String challanNo;
+
+  @override
+  State<_ChallanWebViewPage> createState() => _ChallanWebViewPageState();
+}
+
+class _ChallanWebViewPageState extends State<_ChallanWebViewPage> {
+  late final WebViewController _controller;
+  bool _loadingPage = true;
+  bool _downloadingPdf = false;
+  double _progress = 0;
+  final Map<int, String> _pdfChunks = {};
+  int? _pdfChunkTotal;
+
+  double _hPad(double width) {
+    if (width < 360) return 14;
+    if (width < 600) return 18;
+    return 20;
+  }
+
+  String get _pdfFileName => 'challan_${widget.challanNo}.pdf';
+
+  @override
+  void initState() {
+    super.initState();
+    final token = Preference.pref.getString('token');
+    final headers = <String, String>{
+      'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+      if (token != null && token.isNotEmpty) 'Authorization': 'Bearer $token',
+    };
+
+    _controller = WebViewController()
+      ..setJavaScriptMode(JavaScriptMode.unrestricted)
+      ..setBackgroundColor(AppColors.cardWhite)
+      ..addJavaScriptChannel(
+        'GrjChallan',
+        onMessageReceived: (message) => _onJsMessage(message.message),
+      )
+      ..setNavigationDelegate(
+        NavigationDelegate(
+          onProgress: (progress) {
+            if (!mounted) return;
+            setState(() => _progress = progress / 100);
+          },
+          onPageStarted: (_) {
+            if (!mounted) return;
+            setState(() => _loadingPage = true);
+          },
+          onPageFinished: (_) async {
+            if (!mounted) return;
+            setState(() => _loadingPage = false);
+            await _injectPdfBridge();
+          },
+          onWebResourceError: (_) {
+            if (!mounted) return;
+            setState(() => _loadingPage = false);
+          },
+          onNavigationRequest: (request) {
+            final lower = request.url.toLowerCase();
+            if (lower.endsWith('.pdf') || lower.contains('application/pdf')) {
+              _downloadPdfFromUrl(request.url);
+              return NavigationDecision.prevent;
+            }
+            return NavigationDecision.navigate;
+          },
+        ),
+      )
+      ..loadRequest(Uri.parse(widget.url), headers: headers);
+  }
+
+  Future<void> _injectPdfBridge() async {
+    final script = _buildPdfBridgeScript(_pdfFileName);
+    for (final delay in [0, 400, 1200]) {
+      if (delay > 0) {
+        await Future<void>.delayed(Duration(milliseconds: delay));
+      }
+      if (!mounted) return;
+      try {
+        await _controller.runJavaScript(script);
+      } catch (e) {
+        debugPrint('[ChallanWebView] inject bridge failed: $e');
+      }
+    }
+  }
+
+  Future<void> _triggerPdfDownload() async {
+    await _captureChallanPdfNative();
+  }
+
+  Future<void> _prepareWebViewForCapture() async {
+    await _controller.runJavaScript('''
+      window.scrollTo(0, 0);
+      var btnWrap = document.querySelector('.btn-container');
+      if (btnWrap) btnWrap.style.display = 'none';
+    ''');
+    await Future<void>.delayed(const Duration(milliseconds: 400));
+  }
+
+  Future<void> _restoreWebViewAfterCapture() async {
+    try {
+      await _controller.runJavaScript(
+        "var btnWrap = document.querySelector('.btn-container'); if (btnWrap) btnWrap.style.display = '';",
+      );
+    } catch (_) {}
+  }
+
+  Future<void> _captureChallanPdfNative() async {
+    if (_downloadingPdf) return;
+    setState(() => _downloadingPdf = true);
+    try {
+      await _prepareWebViewForCapture();
+
+      if (Platform.isAndroid) {
+        final path = await PurchaseImageDownloadService.captureWebViewPdf(
+          fileName: _pdfFileName,
+        );
+        if (!mounted) return;
+        final result = await OpenFilex.open(path);
+        if (result.type != ResultType.done) {
+          _showSnack('Saved to Downloads/GRJ_Purchases/$_pdfFileName');
+        }
+        return;
+      }
+
+      await _controller.runJavaScript(
+        'window.grjGeneratePdfFallback && window.grjGeneratePdfFallback();',
+      );
+    } catch (e) {
+      debugPrint('[ChallanWebView] native capture error: $e');
+      _showSnack('Could not save PDF.');
+      if (mounted) setState(() => _downloadingPdf = false);
+    } finally {
+      await _restoreWebViewAfterCapture();
+      if (mounted && Platform.isAndroid) {
+        setState(() => _downloadingPdf = false);
+      }
+    }
+  }
+
+  Future<void> _onJsMessage(String raw) async {
+    Map<dynamic, dynamic>? map;
+    try {
+      final decoded = jsonDecode(raw);
+      if (decoded is! Map) return;
+      map = decoded;
+
+      if (map['action'] == 'captureNative') {
+        await _captureChallanPdfNative();
+        return;
+      }
+
+      final error = map['error']?.toString();
+      if (error != null && error.isNotEmpty) {
+        debugPrint('[ChallanWebView] pdf error: $error');
+        _showSnack('PDF download failed.');
+        if (mounted) setState(() => _downloadingPdf = false);
+        return;
+      }
+
+      if (map['chunk'] == true) {
+        if (map['done'] == true) {
+          final total = (map['total'] as num?)?.toInt() ?? _pdfChunkTotal ?? 0;
+          final fileName = (map['filename']?.toString().trim().isNotEmpty ?? false)
+              ? map['filename'].toString().trim()
+              : _pdfFileName;
+          final buffer = StringBuffer();
+          for (var i = 0; i < total; i++) {
+            buffer.write(_pdfChunks[i] ?? '');
+          }
+          _pdfChunks.clear();
+          _pdfChunkTotal = null;
+          try {
+            await _saveAndOpenPdf(base64Decode(buffer.toString()), fileName);
+          } catch (e) {
+            debugPrint('[ChallanWebView] chunk assemble error: $e');
+            _showSnack('Could not save PDF.');
+          } finally {
+            if (mounted) setState(() => _downloadingPdf = false);
+          }
+          return;
+        }
+
+        final index = (map['index'] as num?)?.toInt();
+        final total = (map['total'] as num?)?.toInt();
+        final data = map['data']?.toString();
+        if (index == null || data == null) return;
+        _pdfChunks[index] = data;
+        _pdfChunkTotal = total;
+        if (!_downloadingPdf && mounted) {
+          setState(() => _downloadingPdf = true);
+        }
+        return;
+      }
+
+      final data = map['data']?.toString();
+      if (data == null || data.isEmpty) return;
+
+      final fileName = (map['filename']?.toString().trim().isNotEmpty ?? false)
+          ? map['filename'].toString().trim()
+          : _pdfFileName;
+
+      setState(() => _downloadingPdf = true);
+      final bytes = base64Decode(data);
+      await _saveAndOpenPdf(bytes, fileName);
+    } catch (e) {
+      debugPrint('[ChallanWebView] js message error: $e');
+      _showSnack('Could not save PDF.');
+    } finally {
+      if (mounted && map?['chunk'] != true) {
+        setState(() => _downloadingPdf = false);
+      }
+    }
+  }
+
+  Future<void> _downloadPdfFromUrl(String url) async {
+    if (_downloadingPdf) return;
+    setState(() => _downloadingPdf = true);
+    try {
+      final response = await http
+          .get(Uri.parse(url), headers: authHeaders)
+          .timeout(const Duration(seconds: 60));
+      if (response.statusCode == 200 && response.bodyBytes.isNotEmpty) {
+        await _saveAndOpenPdf(response.bodyBytes, _pdfFileName);
+      } else {
+        _showSnack('Could not download PDF.');
+      }
+    } catch (e) {
+      debugPrint('[ChallanWebView] url download error: $e');
+      _showSnack('Could not download PDF.');
+    } finally {
+      if (mounted) setState(() => _downloadingPdf = false);
+    }
+  }
+
+  Future<void> _saveAndOpenPdf(Uint8List bytes, String fileName) async {
+    final safeName = fileName.toLowerCase().endsWith('.pdf') ? fileName : '$fileName.pdf';
+    final savedPath = await PurchaseImageDownloadService.downloadToDownloadsFolder(
+      bytes: bytes,
+      fileName: safeName,
+    );
+
+    if (!mounted) return;
+
+    final result = await OpenFilex.open(savedPath);
+    if (result.type != ResultType.done) {
+      _showSnack('Saved to Downloads/GRJ_Purchases/$safeName');
+    }
+  }
+
+  void _showSnack(String msg) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(msg, style: GoogleFonts.poppins(fontSize: 13)),
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
+  }
+
+  String _buildPdfBridgeScript(String fileName) {
+    final escapedName = fileName.replaceAll("'", "\\'");
+    return '''
+(function() {
+  function postError(msg) {
+    if (window.GrjChallan) {
+      GrjChallan.postMessage(JSON.stringify({ error: msg }));
+    }
+  }
+
+  function requestNativeCapture() {
+    if (window.GrjChallan) {
+      GrjChallan.postMessage(JSON.stringify({ action: 'captureNative' }));
+    }
+  }
+
+  function sendPdfBlob(blob) {
+    if (!blob || !blob.size) {
+      postError('empty pdf blob');
+      return;
+    }
+    var reader = new FileReader();
+    reader.onerror = function() { postError('read blob failed'); };
+    reader.onloadend = function() {
+      var parts = (reader.result || '').toString().split(',');
+      if (parts.length < 2) {
+        postError('invalid blob encoding');
+        return;
+      }
+      GrjChallan.postMessage(JSON.stringify({
+        filename: '$escapedName',
+        data: parts[1]
+      }));
+    };
+    reader.readAsDataURL(blob);
+  }
+
+  function generatePdfFallback() {
+    var element = document.getElementById('content');
+    if (!element || typeof html2pdf !== 'function') {
+      postError('html2pdf missing');
+      return;
+    }
+    var pdfH = Math.max(element.scrollHeight, element.offsetHeight, 660);
+    var opt = {
+      margin: [0, 0, 0, 0],
+      filename: '$escapedName',
+      image: { type: 'jpeg', quality: 1 },
+      html2canvas: {
+        scale: 2,
+        scrollY: 0,
+        scrollX: 0,
+        width: 400,
+        height: pdfH,
+        windowWidth: 400,
+        windowHeight: pdfH
+      },
+      jsPDF: { unit: 'px', format: [400, pdfH] }
+    };
+    html2pdf().set(opt).from(element).output('blob').then(sendPdfBlob).catch(function(err) {
+      postError(String(err));
+    });
+  }
+
+  function overrideSubmitButton() {
+    var btn = document.getElementById('submit');
+    if (!btn) return false;
+    if (btn.dataset.grjOverridden === '1') return true;
+
+    var newBtn = btn.cloneNode(true);
+    newBtn.dataset.grjOverridden = '1';
+    btn.parentNode.replaceChild(newBtn, btn);
+    newBtn.addEventListener('click', function(e) {
+      e.preventDefault();
+      requestNativeCapture();
+    });
+    return true;
+  }
+
+  overrideSubmitButton();
+
+  if (!window.__grjPdfHookInterval) {
+    var tries = 0;
+    window.__grjPdfHookInterval = setInterval(function() {
+      overrideSubmitButton();
+      tries++;
+      if (tries > 30) {
+        clearInterval(window.__grjPdfHookInterval);
+        window.__grjPdfHookInterval = null;
+      }
+    }, 200);
+  }
+
+  window.grjGeneratePdfFallback = generatePdfFallback;
+  window.grjDownloadChallanPdf = requestNativeCapture;
+})();
+''';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final hPad = _hPad(MediaQuery.sizeOf(context).width);
+
+    return Scaffold(
+      backgroundColor: AppColors.backgroundGray,
+      body: SafeArea(
+        child: Column(
+          children: [
+            AppTopBar.page(
+              title: widget.title,
+              onBack: () => Navigator.pop(context),
+              horizontalPadding: hPad,
+            ),
+            if (_loadingPage)
+              LinearProgressIndicator(
+                minHeight: 2,
+                value: _progress > 0 ? _progress : null,
+                color: AppColors.primaryRed,
+                backgroundColor: AppColors.borderGray.withValues(alpha: 0.25),
+              ),
+            Expanded(
+              child: Padding(
+                padding: EdgeInsets.fromLTRB(hPad, 8, hPad, 8),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(12),
+                  child: Stack(
+                    children: [
+                      WebViewWidget(controller: _controller),
+                      if (_downloadingPdf)
+                        ColoredBox(
+                          color: Colors.black.withValues(alpha: 0.35),
+                          child: Center(
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 22,
+                                vertical: 18,
+                              ),
+                              decoration: BoxDecoration(
+                                color: AppColors.cardWhite,
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: Column(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  const CircularProgressIndicator(
+                                    color: AppColors.primaryRed,
+                                  ),
+                                  const SizedBox(height: 12),
+                                  Text(
+                                    'Saving PDF…',
+                                    style: GoogleFonts.poppins(
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+            Padding(
+              padding: EdgeInsets.fromLTRB(hPad, 0, hPad, 12),
+              child: SizedBox(
+                width: double.infinity,
+                height: 48,
+                child: ElevatedButton.icon(
+                  onPressed: (_loadingPage || _downloadingPdf)
+                      ? null
+                      : _triggerPdfDownload,
+                  icon: const Icon(Icons.download_rounded, size: 20),
+                  label: Text(
+                    _downloadingPdf ? 'Downloading…' : 'Download PDF',
+                    style: GoogleFonts.poppins(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF16A34A),
+                    foregroundColor: AppColors.white,
+                    disabledBackgroundColor:
+                        const Color(0xFF16A34A).withValues(alpha: 0.55),
+                    elevation: 0,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                  ),
                 ),
               ),
             ),

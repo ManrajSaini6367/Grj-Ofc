@@ -20,6 +20,25 @@ class PurchaseImageDownloadService {
     return _saveBytes(bytes, safeName);
   }
 
+  /// Captures the visible Flutter WebView on Android and saves a PDF copy.
+  static Future<String> captureWebViewPdf({required String fileName}) async {
+    if (!Platform.isAndroid) {
+      throw UnsupportedError('WebView PDF capture is only supported on Android.');
+    }
+    await _requestPermissions();
+    final safeName = _sanitizeFileName(fileName);
+    final pdfName =
+        safeName.toLowerCase().endsWith('.pdf') ? safeName : '$safeName.pdf';
+    final result = await _channel.invokeMethod<String>(
+      'captureWebViewPdf',
+      <String, dynamic>{'fileName': pdfName},
+    );
+    if (result == null || result.isEmpty) {
+      throw StateError('Native WebView PDF capture returned no path.');
+    }
+    return result;
+  }
+
   static Future<void> _requestPermissions() async {
     if (!Platform.isAndroid) return;
     // Needed only on older Android versions for public Downloads writes.
@@ -70,5 +89,13 @@ class PurchaseImageDownloadService {
     }
     if (!cleaned.contains('.')) return '$cleaned.jpg';
     return cleaned;
+  }
+
+  static String sanitizePdfFileName(String name) {
+    final cleaned = name.trim().replaceAll(RegExp(r'[\\/:*?"<>|]'), '_');
+    if (cleaned.isEmpty) {
+      return 'challan_${DateTime.now().millisecondsSinceEpoch}.pdf';
+    }
+    return cleaned.toLowerCase().endsWith('.pdf') ? cleaned : '$cleaned.pdf';
   }
 }

@@ -52,6 +52,7 @@ class Purchase {
     required this.supplierName,
     required this.status,
     required this.flowType,
+    this.challanUrl,
     this.siteId,
     this.supplierId,
     this.step,
@@ -78,6 +79,7 @@ class Purchase {
   final String id;
   final DateTime date;
   final String challanNo;
+  final String? challanUrl;
   final String invoiceNo;
   final String supplierName;
   final PurchaseStatus status;
@@ -195,6 +197,7 @@ class Purchase {
       supplierId: int.tryParse(json['supplier_id']?.toString() ?? ''),
       date: date,
       challanNo: (json['challan_no'] ?? json['vehicle_no'] ?? '—').toString(),
+      challanUrl: json['challan_url']?.toString().trim(),
       invoiceNo: (json['invoice_no'] ?? '—').toString(),
       supplierName: (json['supplier_name'] ?? '—').toString(),
       status: status,
@@ -270,6 +273,7 @@ class Purchase {
     String? id,
     DateTime? date,
     String? challanNo,
+    String? challanUrl,
     String? invoiceNo,
     String? supplierName,
     PurchaseStatus? status,
@@ -300,6 +304,7 @@ class Purchase {
       id: id ?? this.id,
       date: date ?? this.date,
       challanNo: challanNo ?? this.challanNo,
+      challanUrl: challanUrl ?? this.challanUrl,
       invoiceNo: invoiceNo ?? this.invoiceNo,
       supplierName: supplierName ?? this.supplierName,
       status: status ?? this.status,
@@ -441,6 +446,42 @@ String formatPurchaseImageDateTime(DateTime dateTime) {
   final minute = dateTime.minute.toString().padLeft(2, '0');
   final period = dateTime.hour >= 12 ? 'PM' : 'AM';
   return '${dateTime.day.toString().padLeft(2, '0')} ${months[dateTime.month - 1]} ${dateTime.year}, $hour:$minute $period';
+}
+
+/// Challan download/view URL from API `challan_url`.
+String resolveChallanUrl(String? value) {
+  if (value == null || value.trim().isEmpty) return '';
+  return mediaUrl(value.trim());
+}
+
+bool isLikelyImageUrl(String url) {
+  final path = url.toLowerCase().split('?').first;
+  return path.contains('/storage/') ||
+      path.endsWith('.jpg') ||
+      path.endsWith('.jpeg') ||
+      path.endsWith('.png') ||
+      path.endsWith('.webp') ||
+      path.endsWith('.gif');
+}
+
+/// Challan image for display in the app.
+/// `challan_url` from API is the admin page (`/admin/purchase/{id}`), not a photo.
+/// The challan/kanta slip photo lives in `images.kanta_slip`.
+String resolveChallanImageUrl(Purchase purchase) {
+  final kantaSlip = resolvePurchaseImageUrl(purchase.kantaSlipImage);
+  if (kantaSlip.isNotEmpty) return kantaSlip;
+
+  final fromChallanUrl = resolveChallanUrl(purchase.challanUrl);
+  if (fromChallanUrl.isNotEmpty && isLikelyImageUrl(fromChallanUrl)) {
+    return fromChallanUrl;
+  }
+
+  return '';
+}
+
+/// Admin/web link for challan — stored from API, not used as image source.
+String resolveChallanWebUrl(Purchase purchase) {
+  return resolveChallanUrl(purchase.challanUrl);
 }
 
 /// Full image URL from API `url`, relative path, or bare storage filename.
