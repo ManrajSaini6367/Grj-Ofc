@@ -2,10 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:grjoffice_apps/core/app_colors.dart';
 import 'package:grjoffice_apps/reportscreen/labour_attendance_report_screen.dart';
+import 'package:grjoffice_apps/reportscreen/report_detail_screen.dart';
 import 'package:grjoffice_apps/reportscreen/report_models.dart';
+import 'package:grjoffice_apps/services/api_auth.dart';
 import 'package:grjoffice_apps/widgets/app_top_bar.dart';
 
-class ReportsListScreen extends StatelessWidget {
+class ReportsListScreen extends StatefulWidget {
   const ReportsListScreen({
     super.key,
     required this.siteId,
@@ -14,6 +16,14 @@ class ReportsListScreen extends StatelessWidget {
 
   final int siteId;
   final String siteName;
+
+  @override
+  State<ReportsListScreen> createState() => _ReportsListScreenState();
+}
+
+class _ReportsListScreenState extends State<ReportsListScreen> {
+  List<ReportListItem> _items = [];
+  bool _loading = true;
 
   double _hPad(double width) {
     if (width < 360) return 14;
@@ -27,29 +37,65 @@ class ReportsListScreen extends StatelessWidget {
     return 3;
   }
 
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _loadReports());
+  }
+
+  Future<void> _loadReports() async {
+    setState(() => _loading = true);
+
+    final response = await getReportsApi(
+      context,
+      siteId: widget.siteId,
+    );
+
+    if (!mounted) return;
+
+    final apiItems = response?.data?.items ?? const [];
+    setState(() {
+      _items = reportItemsFromApi(apiItems);
+      _loading = false;
+    });
+  }
+
   void _openReport(BuildContext context, ReportListItem item) {
-    switch (item.type) {
-      case ReportType.labourAttendance:
-        Navigator.of(context).push(
-          MaterialPageRoute<void>(
-            builder: (_) => LabourAttendanceReportScreen(
-              siteId: siteId,
-              siteName: siteName,
-            ),
+    if (item.opensLabourAttendanceScreen) {
+      Navigator.of(context).push(
+        MaterialPageRoute<void>(
+          builder: (_) => LabourAttendanceReportScreen(
+            report: item,
+            siteId: widget.siteId,
+            siteName: widget.siteName,
           ),
-        );
-        break;
-      default:
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              '${item.title} — API coming soon.',
-              style: GoogleFonts.poppins(fontSize: 13),
-            ),
-            behavior: SnackBarBehavior.floating,
-          ),
-        );
+        ),
+      );
+      return;
     }
+
+    if (item.path == null || item.path!.trim().isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            '${item.title} has no report path configured.',
+            style: GoogleFonts.poppins(fontSize: 13),
+          ),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      return;
+    }
+
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => ReportDetailScreen(
+          report: item,
+          siteId: widget.siteId,
+          siteName: widget.siteName,
+        ),
+      ),
+    );
   }
 
   @override
@@ -57,7 +103,6 @@ class ReportsListScreen extends StatelessWidget {
     final width = MediaQuery.sizeOf(context).width;
     final hPad = _hPad(width);
     final columns = _gridColumns(width);
-    final items = previewReportItems(siteName: siteName);
     final contentMax = width >= 1100 ? 1040.0 : double.infinity;
 
     return Scaffold(
@@ -72,77 +117,146 @@ class ReportsListScreen extends StatelessWidget {
               horizontalPadding: hPad,
             ),
             Expanded(
-              child: SingleChildScrollView(
-                padding: EdgeInsets.fromLTRB(hPad, 16, hPad, 24),
-                child: Center(
-                  child: ConstrainedBox(
-                    constraints: BoxConstraints(maxWidth: contentMax),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        Text(
-                          'REPORT LIST',
-                          style: GoogleFonts.poppins(
-                            fontSize: width < 400 ? 18 : 20,
-                            fontWeight: FontWeight.w800,
-                            color: AppColors.headingBlack,
-                            letterSpacing: 0.3,
+              child: _loading
+                  ? const Center(
+                      child: SizedBox(
+                        width: 28,
+                        height: 28,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2.4,
+                          color: AppColors.primaryRed,
+                        ),
+                      ),
+                    )
+                  : RefreshIndicator(
+                      color: AppColors.primaryRed,
+                      onRefresh: _loadReports,
+                      child: SingleChildScrollView(
+                        physics: const AlwaysScrollableScrollPhysics(),
+                        padding: EdgeInsets.fromLTRB(hPad, 16, hPad, 24),
+                        child: Center(
+                          child: ConstrainedBox(
+                            constraints: BoxConstraints(maxWidth: contentMax),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
+                              children: [
+                                Text(
+                                  'REPORT LIST',
+                                  style: GoogleFonts.poppins(
+                                    fontSize: width < 400 ? 18 : 20,
+                                    fontWeight: FontWeight.w800,
+                                    color: AppColors.headingBlack,
+                                    letterSpacing: 0.3,
+                                  ),
+                                ),
+                                const SizedBox(height: 6),
+                                Row(
+                                  children: [
+                                    Icon(
+                                      Icons.location_on_outlined,
+                                      size: 16,
+                                      color: AppColors.textSecondary,
+                                    ),
+                                    const SizedBox(width: 6),
+                                    Expanded(
+                                      child: Text(
+                                        widget.siteName,
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: GoogleFonts.poppins(
+                                          fontSize: 13,
+                                          color: AppColors.textSecondary,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 18),
+                                if (_items.isEmpty)
+                                  _EmptyReportsState(onRetry: _loadReports)
+                                else
+                                  LayoutBuilder(
+                                    builder: (context, constraints) {
+                                      final gap = 14.0;
+                                      final itemWidth = columns == 1
+                                          ? constraints.maxWidth
+                                          : (constraints.maxWidth -
+                                                  gap * (columns - 1)) /
+                                              columns;
+
+                                      return Wrap(
+                                        spacing: gap,
+                                        runSpacing: gap,
+                                        children: _items.map((item) {
+                                          return SizedBox(
+                                            width: itemWidth,
+                                            child: _ReportGridCard(
+                                              item: item,
+                                              onTap: () =>
+                                                  _openReport(context, item),
+                                            ),
+                                          );
+                                        }).toList(),
+                                      );
+                                    },
+                                  ),
+                              ],
+                            ),
                           ),
                         ),
-                        const SizedBox(height: 6),
-                        Row(
-                          children: [
-                            Icon(
-                              Icons.location_on_outlined,
-                              size: 16,
-                              color: AppColors.textSecondary,
-                            ),
-                            const SizedBox(width: 6),
-                            Expanded(
-                              child: Text(
-                                siteName,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: GoogleFonts.poppins(
-                                  fontSize: 13,
-                                  color: AppColors.textSecondary,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 18),
-                        LayoutBuilder(
-                          builder: (context, constraints) {
-                            final gap = 14.0;
-                            final itemWidth = columns == 1
-                                ? constraints.maxWidth
-                                : (constraints.maxWidth - gap * (columns - 1)) /
-                                    columns;
-
-                            return Wrap(
-                              spacing: gap,
-                              runSpacing: gap,
-                              children: items.map((item) {
-                                return SizedBox(
-                                  width: itemWidth,
-                                  child: _ReportGridCard(
-                                    item: item,
-                                    onTap: () => _openReport(context, item),
-                                  ),
-                                );
-                              }).toList(),
-                            );
-                          },
-                        ),
-                      ],
+                      ),
                     ),
-                  ),
-                ),
-              ),
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+class _EmptyReportsState extends StatelessWidget {
+  const _EmptyReportsState({required this.onRetry});
+
+  final VoidCallback onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 36),
+      decoration: BoxDecoration(
+        color: AppColors.cardWhite,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(
+          color: AppColors.borderGray.withValues(alpha: 0.35),
+        ),
+      ),
+      child: Column(
+        children: [
+          Icon(
+            Icons.description_outlined,
+            size: 42,
+            color: AppColors.textSecondary.withValues(alpha: 0.7),
+          ),
+          const SizedBox(height: 12),
+          Text(
+            'No reports available for this site.',
+            textAlign: TextAlign.center,
+            style: GoogleFonts.poppins(
+              fontSize: 14,
+              fontWeight: FontWeight.w600,
+              color: AppColors.textDark,
+            ),
+          ),
+          const SizedBox(height: 14),
+          TextButton.icon(
+            onPressed: onRetry,
+            icon: const Icon(Icons.refresh_rounded, size: 18),
+            label: Text(
+              'Retry',
+              style: GoogleFonts.poppins(fontWeight: FontWeight.w600),
+            ),
+          ),
+        ],
       ),
     );
   }

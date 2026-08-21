@@ -92,6 +92,7 @@ class _ReportScreenState extends State<ReportScreen> {
         ),
       ),
     );
+    saveSiteId(siteId, siteName: siteName);
   }
 
   @override

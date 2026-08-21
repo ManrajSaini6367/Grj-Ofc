@@ -1,17 +1,23 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:grjoffice_apps/core/app_colors.dart';
+import 'package:grjoffice_apps/models/labourattendancereport.dart';
+import 'package:grjoffice_apps/models/listcontractor.dart';
+import 'package:grjoffice_apps/reportscreen/report_models.dart';
+import 'package:grjoffice_apps/services/api_auth.dart';
 import 'package:grjoffice_apps/widgets/app_top_bar.dart';
 import 'package:intl/intl.dart';
 
-/// Labour Attendance Report — UI only (API wiring later).
+/// Labour Attendance Report — loaded from API.
 class LabourAttendanceReportScreen extends StatefulWidget {
   const LabourAttendanceReportScreen({
     super.key,
+    required this.report,
     required this.siteId,
     required this.siteName,
   });
 
+  final ReportListItem report;
   final int siteId;
   final String siteName;
 
@@ -24,12 +30,49 @@ class _LabourAttendanceReportScreenState
     extends State<LabourAttendanceReportScreen> {
   static const _contractorPlaceholder = 'Please Choose';
 
+  List<ContractorListItem> _contractors = [];
   String _contractor = _contractorPlaceholder;
+  int? _selectedContractorId;
   DateTime? _startDate;
   DateTime? _endDate;
+  bool _loadingContractors = true;
+  bool _searching = false;
   bool _searched = false;
+  List<_LabourDayRow> _rows = [];
 
   static final _dateFmt = DateFormat('dd/MM/yyyy');
+  static final _apiDateFmt = DateFormat('yyyy-MM-dd');
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _loadContractors());
+  }
+
+  Future<void> _loadContractors() async {
+    setState(() => _loadingContractors = true);
+
+    final response = await getContractorListApi(
+      context,
+      siteId: widget.siteId,
+      perPage: 100,
+    );
+
+    if (!mounted) return;
+
+    setState(() {
+      _contractors = response?.data?.items ?? const [];
+      _loadingContractors = false;
+    });
+  }
+
+  ContractorListItem? _selectedContractor() {
+    if (_selectedContractorId == null) return null;
+    for (final contractor in _contractors) {
+      if (contractor.id == _selectedContractorId) return contractor;
+    }
+    return null;
+  }
 
   double _hPad(double width) {
     if (width < 360) return 14;
@@ -73,8 +116,8 @@ class _LabourAttendanceReportScreenState
     });
   }
 
-  void _onSearch() {
-    if (_contractor == _contractorPlaceholder) {
+  Future<void> _onSearch() async {
+    if (_selectedContractorId == null) {
       _snack('Please choose a contractor.');
       return;
     }
@@ -82,15 +125,76 @@ class _LabourAttendanceReportScreenState
       _snack('Please select start and end date.');
       return;
     }
-    setState(() => _searched = true);
+
+    setState(() {
+      _searching = true;
+      _searched = true;
+    });
+
+    final response = await getReportDetailApi(
+      context,
+      path: widget.report.path ?? '/api/v1/reports/labour-attendance',
+      siteId: widget.siteId,
+      queryParams: {
+        'contractor_id': _selectedContractorId.toString(),
+        'start_date': _apiDateFmt.format(_startDate!),
+        'end_date': _apiDateFmt.format(_endDate!),
+      },
+    );
+
+    if (!mounted) return;
+
+    if (response == null || response['success'] == false) {
+      setState(() {
+        _rows = [];
+        _searching = false;
+      });
+      final msg = response?['message']?.toString();
+      if (msg != null && msg.trim().isNotEmpty) {
+        _snack(msg);
+      }
+      return;
+    }
+
+    final data = response['data'];
+    final List<dynamic> rawItems = data is Map && data['items'] is List
+        ? data['items'] as List
+        : const [];
+
+    final items = rawItems
+        .whereType<Map>()
+        .map((e) => LabourAttendanceItem.fromJson(Map<String, dynamic>.from(e)))
+        .toList();
+    final rows = items
+        .where((item) => item.date != null)
+        .map(
+          (item) => _LabourDayRow(
+            date: item.date!,
+            mason: item.mason,
+            beldar: item.beldar,
+            coolie: item.coolie,
+            masonOver: item.masonOver,
+            beldarOver: item.beldarOver,
+            coolieOver: item.coolieOver,
+          ),
+        )
+        .toList()
+      ..sort((a, b) => a.date.compareTo(b.date));
+
+    setState(() {
+      _rows = rows;
+      _searching = false;
+    });
   }
 
   void _onClear() {
     setState(() {
       _contractor = _contractorPlaceholder;
+      _selectedContractorId = null;
       _startDate = null;
       _endDate = null;
       _searched = false;
+      _rows = [];
     });
   }
 
@@ -115,7 +219,7 @@ class _LabourAttendanceReportScreenState
         child: Column(
           children: [
             AppTopBar.page(
-              title: 'Labour Attendance',
+              title: widget.report.title,
               onBack: () => Navigator.pop(context),
               horizontalPadding: hPad,
             ),
@@ -241,10 +345,10 @@ class _LabourAttendanceReportScreenState
             runSpacing: 10,
             children: [
               _ActionButton(
-                label: 'Search',
+                label: _searching ? 'Searching...' : 'Search',
                 icon: Icons.search,
                 backgroundColor: const Color(0xFF2563EB),
-                onPressed: _onSearch,
+                onPressed: _searching ? () {} : _onSearch,
               ),
               _ActionButton(
                 label: 'Clear',
@@ -273,21 +377,54 @@ class _LabourAttendanceReportScreenState
           ),
         ),
         const SizedBox(height: 8),
-        DropdownButtonFormField<String>(
-          value: _contractor,
-          isExpanded: true,
-          decoration: _fieldDecoration(),
-          items: [
-            DropdownMenuItem(
-              value: _contractorPlaceholder,
-              child: Text(
-                _contractorPlaceholder,
-                style: GoogleFonts.poppins(fontSize: 13),
+        _loadingContractors
+            ? const Padding(
+                padding: EdgeInsets.symmetric(vertical: 12),
+                child: Center(
+                  child: SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: AppColors.primaryRed,
+                    ),
+                  ),
+                ),
+              )
+            : DropdownButtonFormField<int?>(
+                value: _selectedContractorId,
+                isExpanded: true,
+                decoration: _fieldDecoration(),
+                hint: Text(
+                  _contractorPlaceholder,
+                  style: GoogleFonts.poppins(fontSize: 13),
+                ),
+                items: _contractors
+                    .where((contractor) => contractor.id != null)
+                    .map(
+                      (contractor) => DropdownMenuItem<int?>(
+                        value: contractor.id,
+                        child: Text(
+                          contractor.name?.trim().isNotEmpty == true
+                              ? contractor.name!.trim()
+                              : 'Contractor #${contractor.id}',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: GoogleFonts.poppins(fontSize: 13),
+                        ),
+                      ),
+                    )
+                    .toList(),
+                onChanged: (value) {
+                  setState(() {
+                    _selectedContractorId = value;
+                    final selected = _selectedContractor();
+                    _contractor = selected?.name?.trim().isNotEmpty == true
+                        ? selected!.name!.trim()
+                        : _contractorPlaceholder;
+                  });
+                },
               ),
-            ),
-          ],
-          onChanged: (_) {},
-        ),
       ],
     );
   }
@@ -386,7 +523,25 @@ class _LabourAttendanceReportScreenState
       );
     }
 
-    final rows = _previewRowsForDesign();
+    if (_searching) {
+      return _buildReportShell(
+        child: const Padding(
+          padding: EdgeInsets.symmetric(vertical: 36),
+          child: Center(
+            child: SizedBox(
+              width: 28,
+              height: 28,
+              child: CircularProgressIndicator(
+                strokeWidth: 2.4,
+                color: AppColors.primaryRed,
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+
+    final rows = _rows;
     final rangeLabel = _rangeLabel();
 
     return _buildReportShell(
@@ -443,21 +598,6 @@ class _LabourAttendanceReportScreenState
     if (_startDate == null || _endDate == null) return '';
     return '${DateFormat('dd MMM').format(_startDate!)} – '
         '${DateFormat('dd MMM yyyy').format(_endDate!)}';
-  }
-
-  /// Temporary rows so mobile card layout is visible before API wiring.
-  List<_LabourDayRow> _previewRowsForDesign() {
-    if (_startDate == null || _endDate == null) return const [];
-
-    final rows = <_LabourDayRow>[];
-    var day = _startDate!;
-    final end = _endDate!;
-
-    while (!day.isAfter(end) && rows.length < 7) {
-      rows.add(_LabourDayRow(date: day));
-      day = day.add(const Duration(days: 1));
-    }
-    return rows;
   }
 
   Widget _buildReportBanner({

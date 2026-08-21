@@ -41,6 +41,7 @@ import 'package:grjoffice_apps/models/user_model.dart';
 import 'package:grjoffice_apps/Expensescreen/expense.dart';
 import 'package:grjoffice_apps/Purchasescreen/purchase.dart';
 import 'package:grjoffice_apps/models/attendance_model.dart';
+import 'package:grjoffice_apps/models/getreportmodal.dart';
 import 'package:grjoffice_apps/models/viewemployeeprofile.dart';
 import 'package:grjoffice_apps/SupplierList/supplier.dart';
 import 'package:grjoffice_apps/services/permission_service.dart';
@@ -5572,3 +5573,101 @@ Future<bool> rejectLeaveApi(
   }
 }
 
+
+//getreportsapi
+Future<Getreportmodaldata?> getReportsApi(
+  BuildContext context, {
+  required int siteId,
+}) async {
+  try {
+    final uri = Uri.parse('$baseUrl/api/v1/reports').replace(
+      queryParameters: {'site_id': siteId.toString()},
+    );
+
+    print('[getReportsApi] GET $uri');
+
+    final response = await http
+        .get(uri, headers: authHeaders)
+        .timeout(const Duration(seconds: 30));
+
+    print('[getReportsApi] statusCode: ${response.statusCode}');
+    print('[getReportsApi] response body: ${response.body}');
+
+    final decoded = decodeApiJson(response.body);
+    final apiMessage = decoded?['message']?.toString();
+
+    if (response.statusCode == 200 &&
+        decoded != null &&
+        decoded['success'] == true) {
+      return Getreportmodaldata.fromJson(decoded);
+    }
+
+    if (!context.mounted) return null;
+    message(context, apiMessage ?? 'Failed to load reports.');
+    return null;
+  } on TimeoutException {
+    print('[getReportsApi] request timed out');
+    if (!context.mounted) return null;
+    message(context, 'Request timed out. Please try again.');
+    return null;
+  } catch (e, stack) {
+    print('[getReportsApi] error: $e');
+    print('[getReportsApi] stack: $stack');
+    if (!context.mounted) return null;
+    message(context, 'Something went wrong');
+    return null;
+  }
+}
+
+//getreportdetailapi — calls path from reports list item (e.g. /api/v1/reports/challan)
+Future<Map<String, dynamic>?> getReportDetailApi(
+  BuildContext context, {
+  required String path,
+  required int siteId,
+  Map<String, String> queryParams = const {},
+}) async {
+  try {
+    final normalizedPath = path.startsWith('/') ? path : '/$path';
+    final params = <String, String>{
+      'site_id': siteId.toString(),
+      ...queryParams,
+    }..removeWhere((_, value) => value.trim().isEmpty);
+
+    final uri = Uri.parse('$baseUrl$normalizedPath').replace(
+      queryParameters: params,
+    );
+
+    print('[getReportDetailApi] GET $uri');
+
+    final response = await http
+        .get(uri, headers: authHeaders)
+        .timeout(const Duration(seconds: 30));
+
+    print('[getReportDetailApi] statusCode: ${response.statusCode}');
+    print('[getReportDetailApi] response body: ${response.body}');
+
+    final decoded = decodeApiJson(response.body);
+    final apiMessage = decoded?['message']?.toString();
+
+    if (response.statusCode == 200 &&
+        decoded != null &&
+        decoded['success'] != false) {
+      return decoded;
+    }
+
+    if (!context.mounted) return null;
+    message(context, apiMessage ?? 'Failed to load report.');
+    return null;
+  } on TimeoutException {
+    print('[getReportDetailApi] request timed out');
+    if (!context.mounted) return null;
+    message(context, 'Request timed out. Please try again.');
+    return null;
+  } catch (e, stack) {
+    print('[getReportDetailApi] error: $e');
+    print('[getReportDetailApi] stack: $stack');
+    if (!context.mounted) return null;
+    message(context, 'Something went wrong');
+    return null;
+  }
+}
