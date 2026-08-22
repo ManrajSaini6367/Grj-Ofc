@@ -484,8 +484,24 @@ String resolveChallanImageUrl(Purchase purchase) {
   return '';
 }
 
+/// Direct PDF link for challan — same endpoint as Postman:
+/// `/admin/purchase/{id}/pdf`
+String resolveChallanPdfUrl(Purchase purchase) {
+  final id = int.tryParse(purchase.id);
+  if (id != null && id > 0) {
+    return '$baseUrl/admin/purchase/$id/pdf';
+  }
+
+  final fromApi = resolveChallanUrl(purchase.challanUrl);
+  if (fromApi.isNotEmpty) return fromApi;
+
+  return '';
+}
+
 /// Direct PDF (or HTML fallback) link for challan — stored from API, not used as image source.
 String resolveChallanWebUrl(Purchase purchase) {
+  final pdfUrl = resolveChallanPdfUrl(purchase);
+  if (pdfUrl.isNotEmpty) return pdfUrl;
   return resolveChallanUrl(purchase.challanUrl);
 }
 

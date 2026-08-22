@@ -72,6 +72,16 @@ Map<String, String> get authHeadersMultipart {
   };
 }
 
+/// Headers for PDF / binary downloads (not JSON APIs).
+Map<String, String> get pdfAuthHeaders {
+  final token = Preference.pref.getString('token');
+  return {
+    'Accept': 'application/pdf,application/octet-stream,*/*',
+    'Cache-Control': 'no-cache',
+    if (token != null) 'Authorization': 'Bearer $token',
+  };
+}
+
 double apiToDouble(dynamic value, double fallback) {
   if (value == null) return fallback;
   if (value is num) return value.toDouble();

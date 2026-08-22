@@ -1200,7 +1200,8 @@ class _PurchasesScreenState extends State<PurchasesScreen> {
 
     if (!mounted) return;
 
-    final challanUrl = resolveChallanWebUrl(detail);
+    final resolvedId = int.tryParse(detail.id) ?? purchaseId;
+    final challanUrl = resolveChallanPdfUrl(detail);
     if (challanUrl.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -1214,67 +1215,91 @@ class _PurchasesScreenState extends State<PurchasesScreen> {
       return;
     }
 
-    if (isLikelyPdfUrl(challanUrl)) {
-      showDialog<void>(
-        context: context,
-        barrierDismissible: false,
-        useRootNavigator: true,
-        builder: (_) => const PopScope(
-          canPop: false,
-          child: Center(
-            child: CircularProgressIndicator(color: AppColors.primaryRed),
-          ),
-        ),
-      );
-      try {
-        final response = await http
-            .get(Uri.parse(challanUrl), headers: authHeaders)
-            .timeout(const Duration(seconds: 60));
-        final bytes = response.bodyBytes;
-        final looksPdf = bytes.length >= 4 &&
-            String.fromCharCodes(bytes.sublist(0, 4)) == '%PDF';
-        if (response.statusCode == 200 && looksPdf) {
-          final fileName = PurchaseImageDownloadService.sanitizePdfFileName(
-            'challan_${detail.challanNo}.pdf',
-          );
-          final savedPath = await PurchaseImageDownloadService.downloadToDownloadsFolder(
-            bytes: bytes,
-            fileName: fileName,
-          );
-          if (!mounted) return;
-          final result = await OpenFilex.open(savedPath);
-          if (result.type != ResultType.done) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text(
-                  'Saved to Downloads/GRJ_Purchases/$fileName',
-                  style: GoogleFonts.poppins(fontSize: 13),
-                ),
-                behavior: SnackBarBehavior.floating,
-              ),
-            );
-          }
-          return;
-        }
-      } catch (e) {
-        debugPrint('[Challan] pdf download error: $e');
-      } finally {
-        if (mounted) {
-          Navigator.of(context, rootNavigator: true).pop();
-        }
-      }
-    }
+    final downloadUrl = Uri.parse(challanUrl).replace(
+      queryParameters: {
+        ...Uri.parse(challanUrl).queryParameters,
+        '_t': '${DateTime.now().millisecondsSinceEpoch}',
+      },
+    );
 
-    if (!mounted) return;
-    await Navigator.of(context).push<void>(
-      MaterialPageRoute(
-        builder: (_) => _ChallanWebViewPage(
-          title: 'Challan — ${detail.challanNo}',
-          url: challanUrl,
-          challanNo: detail.challanNo,
+    showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      useRootNavigator: true,
+      builder: (_) => const PopScope(
+        canPop: false,
+        child: Center(
+          child: CircularProgressIndicator(color: AppColors.primaryRed),
         ),
       ),
     );
+
+    try {
+      debugPrint('[Challan] GET $downloadUrl');
+      final response = await http
+          .get(downloadUrl, headers: pdfAuthHeaders)
+          .timeout(const Duration(seconds: 60));
+      final bytes = response.bodyBytes;
+      final looksPdf = bytes.length >= 4 &&
+          String.fromCharCodes(bytes.sublist(0, 4)) == '%PDF';
+
+      debugPrint(
+        '[Challan] status=${response.statusCode} bytes=${bytes.length} pdf=$looksPdf',
+      );
+
+      if (response.statusCode == 200 && looksPdf) {
+        final fileName = PurchaseImageDownloadService.sanitizePdfFileName(
+          resolvedId != null
+              ? 'challan_purchase_$resolvedId.pdf'
+              : 'challan_${detail.challanNo}.pdf',
+        );
+        final savedPath = await PurchaseImageDownloadService.downloadToDownloadsFolder(
+          bytes: bytes,
+          fileName: fileName,
+        );
+        if (!mounted) return;
+        final result = await OpenFilex.open(savedPath);
+        if (result.type != ResultType.done) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                'Saved to Downloads/GRJ_Purchases/$fileName',
+                style: GoogleFonts.poppins(fontSize: 13),
+              ),
+              behavior: SnackBarBehavior.floating,
+            ),
+          );
+        }
+        return;
+      }
+
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Challan PDF not available. Please try again.',
+            style: GoogleFonts.poppins(fontSize: 13),
+          ),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    } catch (e) {
+      debugPrint('[Challan] pdf download error: $e');
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Could not download challan. Please try again.',
+            style: GoogleFonts.poppins(fontSize: 13),
+          ),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    } finally {
+      if (mounted) {
+        Navigator.of(context, rootNavigator: true).pop();
+      }
+    }
   }
   String? _cardFlowActionLabel(Purchase purchase) {
     final next = purchase.nextAction?.toLowerCase();
@@ -2201,7 +2226,7 @@ class _ChallanWebViewPageState extends State<_ChallanWebViewPage> {
     setState(() => _downloadingPdf = true);
     try {
       final response = await http
-          .get(Uri.parse(url), headers: authHeaders)
+          .get(Uri.parse(url), headers: pdfAuthHeaders)
           .timeout(const Duration(seconds: 60));
       if (response.statusCode == 200 && response.bodyBytes.isNotEmpty) {
         await _saveAndOpenPdf(response.bodyBytes, _pdfFileName);

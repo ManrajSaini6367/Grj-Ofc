@@ -160,7 +160,7 @@ class CalendarDay {
         .map(
           (item) => CalendarActivity.fromJson(
             Map<String, dynamic>.from(item),
-          ),
+          ),  
         )
         .toList();
   }
