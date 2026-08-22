@@ -52,15 +52,17 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
     return 24;
   }
 
-  String get _apiPath =>
-      widget.report.path?.trim().isNotEmpty == true
-          ? widget.report.path!.trim()
-          : '/api/v1/reports/${widget.report.id}';
+  String get _apiPath => widget.report.resolvedPath;
 
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) => _loadFilterOptions());
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      await _loadFilterOptions();
+      if (mounted && widget.report.canAutoLoadFromApi) {
+        await _onSearch();
+      }
+    });
   }
 
   Future<void> _loadFilterOptions() async {
@@ -151,14 +153,26 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
           if (_type != null && _type!.trim().isNotEmpty) {
             params[key] = _type!.trim();
           }
+        case 'item_id':
+          if (widget.report.itemId != null) {
+            params[key] = widget.report.itemId.toString();
+          }
       }
     }
     return params;
   }
 
   bool _validateFilters() {
+    if (_apiPath.isEmpty) return false;
+
     for (final key in widget.report.requiredParams) {
       switch (key) {
+        case 'item_id':
+          if (widget.report.itemId == null) {
+            _snack('Item is not configured for this report.');
+            return false;
+          }
+          continue;
         case 'contractor_id':
           if (_contractorId == null) {
             _snack('Please choose a contractor.');
@@ -200,6 +214,10 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
   }
 
   Future<void> _onSearch() async {
+    if (_apiPath.isEmpty) {
+      _snack('Report API path is not configured.');
+      return;
+    }
     if (!_validateFilters()) return;
 
     setState(() {
@@ -522,7 +540,9 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
         child: Padding(
           padding: const EdgeInsets.symmetric(vertical: 28, horizontal: 16),
           child: Text(
-            'Select filters and tap Search to load report.',
+            widget.report.canAutoLoadFromApi
+                ? 'Loading report...'
+                : 'Select filters and tap Search to load report.',
             textAlign: TextAlign.center,
             style: GoogleFonts.poppins(fontSize: 13, color: AppColors.textSecondary),
           ),

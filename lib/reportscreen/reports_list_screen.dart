@@ -61,6 +61,20 @@ class _ReportsListScreenState extends State<ReportsListScreen> {
   }
 
   void _openReport(BuildContext context, ReportListItem item) {
+    final apiPath = item.resolvedPath;
+    if (apiPath.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            '${item.title} has no report path configured.',
+            style: GoogleFonts.poppins(fontSize: 13),
+          ),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      return;
+    }
+
     if (item.opensLabourAttendanceScreen) {
       Navigator.of(context).push(
         MaterialPageRoute<void>(
@@ -69,19 +83,6 @@ class _ReportsListScreenState extends State<ReportsListScreen> {
             siteId: widget.siteId,
             siteName: widget.siteName,
           ),
-        ),
-      );
-      return;
-    }
-
-    if (item.path == null || item.path!.trim().isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            '${item.title} has no report path configured.',
-            style: GoogleFonts.poppins(fontSize: 13),
-          ),
-          behavior: SnackBarBehavior.floating,
         ),
       );
       return;

@@ -117,6 +117,10 @@ class _LabourAttendanceReportScreenState
   }
 
   Future<void> _onSearch() async {
+    if (widget.report.resolvedPath.isEmpty) {
+      _snack('Report API path is not configured.');
+      return;
+    }
     if (_selectedContractorId == null) {
       _snack('Please choose a contractor.');
       return;
@@ -133,7 +137,7 @@ class _LabourAttendanceReportScreenState
 
     final response = await getReportDetailApi(
       context,
-      path: widget.report.path ?? '/api/v1/reports/labour-attendance',
+      path: widget.report.resolvedPath,
       siteId: widget.siteId,
       queryParams: {
         'contractor_id': _selectedContractorId.toString(),

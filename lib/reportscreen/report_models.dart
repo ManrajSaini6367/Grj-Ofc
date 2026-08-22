@@ -59,6 +59,28 @@ class ReportListItem {
 
   bool get opensDayEndReportScreen => type == ReportType.dayReport ||
       _matchesDayReport(id, title, path);
+
+  /// API endpoint from reports list (`path` field).
+  String get resolvedPath {
+    final raw = path?.trim();
+    if (raw != null && raw.isNotEmpty) return raw;
+    return '';
+  }
+
+  /// Loads immediately on open when only [site_id] (and optional [item_id]) are needed.
+  bool get canAutoLoadFromApi {
+    if (resolvedPath.isEmpty) return false;
+    for (final key in requiredParams) {
+      switch (key) {
+        case 'item_id':
+          if (itemId == null) return false;
+          continue;
+        default:
+          return false;
+      }
+    }
+    return true;
+  }
 }
 
 bool _matchesLabourAttendance(String id, String title, String? path) {
