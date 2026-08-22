@@ -448,10 +448,15 @@ String formatPurchaseImageDateTime(DateTime dateTime) {
   return '${dateTime.day.toString().padLeft(2, '0')} ${months[dateTime.month - 1]} ${dateTime.year}, $hour:$minute $period';
 }
 
-/// Challan download/view URL from API `challan_url`.
+/// Challan download/view URL from API `challan_url` (direct PDF).
 String resolveChallanUrl(String? value) {
   if (value == null || value.trim().isEmpty) return '';
   return mediaUrl(value.trim());
+}
+
+bool isLikelyPdfUrl(String url) {
+  final path = url.toLowerCase().split('?').first;
+  return path.endsWith('.pdf') || path.endsWith('/pdf');
 }
 
 bool isLikelyImageUrl(String url) {
@@ -465,7 +470,7 @@ bool isLikelyImageUrl(String url) {
 }
 
 /// Challan image for display in the app.
-/// `challan_url` from API is the admin page (`/admin/purchase/{id}`), not a photo.
+/// `challan_url` from API is the challan PDF (`/admin/purchase/{id}/pdf`), not a photo.
 /// The challan/kanta slip photo lives in `images.kanta_slip`.
 String resolveChallanImageUrl(Purchase purchase) {
   final kantaSlip = resolvePurchaseImageUrl(purchase.kantaSlipImage);
@@ -479,7 +484,7 @@ String resolveChallanImageUrl(Purchase purchase) {
   return '';
 }
 
-/// Admin/web link for challan — stored from API, not used as image source.
+/// Direct PDF (or HTML fallback) link for challan — stored from API, not used as image source.
 String resolveChallanWebUrl(Purchase purchase) {
   return resolveChallanUrl(purchase.challanUrl);
 }

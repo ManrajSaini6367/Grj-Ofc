@@ -1214,6 +1214,58 @@ class _PurchasesScreenState extends State<PurchasesScreen> {
       return;
     }
 
+    if (isLikelyPdfUrl(challanUrl)) {
+      showDialog<void>(
+        context: context,
+        barrierDismissible: false,
+        useRootNavigator: true,
+        builder: (_) => const PopScope(
+          canPop: false,
+          child: Center(
+            child: CircularProgressIndicator(color: AppColors.primaryRed),
+          ),
+        ),
+      );
+      try {
+        final response = await http
+            .get(Uri.parse(challanUrl), headers: authHeaders)
+            .timeout(const Duration(seconds: 60));
+        final bytes = response.bodyBytes;
+        final looksPdf = bytes.length >= 4 &&
+            String.fromCharCodes(bytes.sublist(0, 4)) == '%PDF';
+        if (response.statusCode == 200 && looksPdf) {
+          final fileName = PurchaseImageDownloadService.sanitizePdfFileName(
+            'challan_${detail.challanNo}.pdf',
+          );
+          final savedPath = await PurchaseImageDownloadService.downloadToDownloadsFolder(
+            bytes: bytes,
+            fileName: fileName,
+          );
+          if (!mounted) return;
+          final result = await OpenFilex.open(savedPath);
+          if (result.type != ResultType.done) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(
+                  'Saved to Downloads/GRJ_Purchases/$fileName',
+                  style: GoogleFonts.poppins(fontSize: 13),
+                ),
+                behavior: SnackBarBehavior.floating,
+              ),
+            );
+          }
+          return;
+        }
+      } catch (e) {
+        debugPrint('[Challan] pdf download error: $e');
+      } finally {
+        if (mounted) {
+          Navigator.of(context, rootNavigator: true).pop();
+        }
+      }
+    }
+
+    if (!mounted) return;
     await Navigator.of(context).push<void>(
       MaterialPageRoute(
         builder: (_) => _ChallanWebViewPage(
@@ -1987,7 +2039,9 @@ class _ChallanWebViewPageState extends State<_ChallanWebViewPage> {
           },
           onNavigationRequest: (request) {
             final lower = request.url.toLowerCase();
-            if (lower.endsWith('.pdf') || lower.contains('application/pdf')) {
+            if (lower.endsWith('.pdf') ||
+                lower.endsWith('/pdf') ||
+                lower.contains('application/pdf')) {
               _downloadPdfFromUrl(request.url);
               return NavigationDecision.prevent;
             }
