@@ -5,6 +5,7 @@ import 'package:grjoffice_apps/Expensescreen/expenses.dart';
 import 'package:grjoffice_apps/Itemsscreen/items.dart';
 import 'package:grjoffice_apps/LabourContractor/contractors.dart';
 import 'package:grjoffice_apps/SupplierList/suppliers.dart';
+import 'package:grjoffice_apps/attendancescreen/my_attendance_screen.dart';
 import 'package:grjoffice_apps/attendancescreen/attendance_screen.dart';
 import 'package:grjoffice_apps/attendancescreen/contractor_attendance_screen.dart';
 import 'package:grjoffice_apps/core/app_navigator.dart';
@@ -17,6 +18,7 @@ import 'package:grjoffice_apps/leavescreens/leavescreen.dart';
 import 'package:grjoffice_apps/main_shell.dart';
 import 'package:grjoffice_apps/reportscreen/report_screen.dart';
 import 'package:grjoffice_apps/rolesscreen/roles_screen.dart';
+import 'package:grjoffice_apps/services/punch_in_gate.dart';
 import 'package:grjoffice_apps/tasksscreen/tasks_screen.dart';
 import 'package:grjoffice_apps/widgets/app_bottom_nav.dart';
 import 'package:grjoffice_apps/utils/app_helpers.dart';
@@ -52,6 +54,7 @@ abstract final class DrawerIndex {
   static const kycRequests = 17;
   static const employeeKyc = 18;
   static const employeeKycRequests = 19;
+  static const myAttendance = 20;
 }
 
 bool shellCanPop(BuildContext context) {
@@ -82,6 +85,10 @@ void showComingSoon(BuildContext context, String label) {
 
 /// Switches tab when already inside [MainShell], otherwise opens [MainShell].
 void navigateToMainTab(BuildContext context, int index) {
+  if (index != MainTab.dashboard && !PunchInGate.ensureAccess(context)) {
+    return;
+  }
+
   if (!AppBottomNav.canAccessTab(index)) {
     message(context, 'You do not have permission to access this');
     return;
@@ -101,6 +108,8 @@ void navigateToMainTab(BuildContext context, int index) {
 
 /// Pushes a secondary screen above the tab stack while keeping the bottom bar visible.
 void pushInShell(BuildContext context, Widget screen) {
+  if (!PunchInGate.ensureAccess(context)) return;
+
   final shell = AppShellScope.maybeOf(context);
   if (shell != null) {
     final nav = shell.shellNavigatorKey.currentState;
@@ -114,6 +123,11 @@ void pushInShell(BuildContext context, Widget screen) {
 
 /// Handles [AppDrawer] menu taps consistently while keeping the bottom bar visible.
 void navigateFromDrawer(BuildContext context, int drawerIndex) {
+  if (drawerIndex != DrawerIndex.dashboard &&
+      !PunchInGate.ensureAccess(context)) {
+    return;
+  }
+
   switch (drawerIndex) {
     case DrawerIndex.dashboard:
       navigateToMainTab(context, MainTab.dashboard);
@@ -155,6 +169,8 @@ void navigateFromDrawer(BuildContext context, int drawerIndex) {
       pushInShell(context, const EmployeeKycScreen());
     case DrawerIndex.employeeKycRequests:
       pushInShell(context, const EmployeeKycRequestsScreen());
+    case DrawerIndex.myAttendance:
+      pushInShell(context, const MyAttendanceScreen());
     default:
       break;
   }

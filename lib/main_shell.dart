@@ -11,6 +11,8 @@ import 'package:grjoffice_apps/profilescreen/profilescreen.dart';
 import 'package:grjoffice_apps/Storescreens/store.dart';
 import 'package:grjoffice_apps/services/permission_service.dart';
 import 'package:grjoffice_apps/services/api_auth.dart';
+import 'package:grjoffice_apps/services/attendance_service.dart';
+import 'package:grjoffice_apps/services/punch_in_gate.dart';
 import 'package:grjoffice_apps/services/user_session.dart';
 import 'package:grjoffice_apps/utils/app_helpers.dart';
 import 'package:grjoffice_apps/widgets/app_bottom_nav.dart';
@@ -31,6 +33,7 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
   final List<int> _tabVersions = List<int>.filled(5, 0);
   final GlobalKey<NavigatorState> _shellNavigatorKey =
       GlobalKey<NavigatorState>();
+  final AttendanceService _attendance = AttendanceService.instance;
   Timer? _permissionPollTimer;
 
   int get _activeTabVersion => _tabVersions[_selectedIndex];
@@ -44,7 +47,12 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
         ? widget.initialIndex
         : AppBottomNav.firstAllowedTab();
 
+    if (PunchInGate.isRequired && !PunchInGate.canAccessApp) {
+      _selectedIndex = MainTab.dashboard;
+    }
+
     PermissionService.instance.addListener(_onPermissionsChanged);
+    _attendance.addListener(_onAttendanceChanged);
 
     // Hydrate session from cache, then sync latest permissions.
     final cached = cachedUser();
@@ -72,7 +80,19 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
     _permissionPollTimer?.cancel();
     WidgetsBinding.instance.removeObserver(this);
     PermissionService.instance.removeListener(_onPermissionsChanged);
+    _attendance.removeListener(_onAttendanceChanged);
     super.dispose();
+  }
+
+  void _onAttendanceChanged() {
+    if (!mounted) return;
+    if (PunchInGate.isRequired && !PunchInGate.canAccessApp) {
+      _shellNavigatorKey.currentState?.popUntil((route) => route.isFirst);
+      if (_selectedIndex != MainTab.dashboard) {
+        _activateTab(MainTab.dashboard, reload: true);
+      }
+    }
+    setState(() {});
   }
 
   @override
@@ -99,6 +119,9 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
   }
 
   void _switchTab(int index) {
+    if (index != MainTab.dashboard && !PunchInGate.ensureAccess(context)) {
+      return;
+    }
     if (!AppBottomNav.canAccessTab(index)) {
       message(context, 'You do not have permission to access this');
       return;
@@ -108,6 +131,9 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
   }
 
   void _onTabSelected(int index) {
+    if (index != MainTab.dashboard && !PunchInGate.ensureAccess(context)) {
+      return;
+    }
     if (!AppBottomNav.canAccessTab(index)) {
       message(context, 'You do not have permission to access this');
       return;

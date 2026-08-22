@@ -95,6 +95,12 @@ class AppDrawer extends StatelessWidget {
       ],
     ),
     _DrawerMenuItem(
+      DrawerIndex.myAttendance,
+      Icons.calendar_month_outlined,
+      'Attendance',
+      anyOf: [],
+    ),
+    _DrawerMenuItem(
       DrawerIndex.employeeAttendances,
       Icons.how_to_reg_outlined,
       'Employee Attendances',

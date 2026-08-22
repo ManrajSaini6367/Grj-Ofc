@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:grjoffice_apps/core/app_colors.dart';
+import 'package:grjoffice_apps/services/punch_in_gate.dart';
 import 'package:grjoffice_apps/widgets/app_back_button.dart';
 import 'package:grjoffice_apps/widgets/app_logo.dart';
 
@@ -165,7 +166,10 @@ class AppTopBar extends StatelessWidget {
     // Bottom-tab roots: logo opens drawer.
     if (scaffoldKey != null) {
       return GestureDetector(
-        onTap: () => scaffoldKey!.currentState?.openDrawer(),
+        onTap: () {
+          if (!PunchInGate.ensureAccess(context)) return;
+          scaffoldKey!.currentState?.openDrawer();
+        },
         child: const AppLogo(size: 38),
       );
     }
@@ -176,7 +180,8 @@ class AppTopBar extends StatelessWidget {
   Widget _buildTrailing(BuildContext context) {
     final trailingChildren = <Widget>[
       ...actions,
-      if (showProfile && scaffoldKey != null) _profileButton(scaffoldKey!),
+      if (showProfile && scaffoldKey != null)
+        _profileButton(context, scaffoldKey!),
     ];
 
     if (trailingChildren.isEmpty) {
@@ -194,9 +199,12 @@ class AppTopBar extends StatelessWidget {
     );
   }
 
-  Widget _profileButton(GlobalKey<ScaffoldState> key) {
+  Widget _profileButton(BuildContext context, GlobalKey<ScaffoldState> key) {
     return GestureDetector(
-      onTap: () => key.currentState?.openEndDrawer(),
+      onTap: () {
+        if (!PunchInGate.ensureAccess(context)) return;
+        key.currentState?.openEndDrawer();
+      },
       child: Container(
         width: 38,
         height: 38,

@@ -16,6 +16,7 @@ import 'package:grjoffice_apps/loginpage/loginpage.dart';
 import 'package:grjoffice_apps/main_shell.dart';
 import 'package:grjoffice_apps/LabourContractor/labour_contractor.dart';
 import 'package:grjoffice_apps/Itemsscreen/item.dart';
+import 'package:grjoffice_apps/models/getcalendermodal.dart';
 import 'package:grjoffice_apps/models/getcontractor.dart';
 import 'package:grjoffice_apps/models/getemployeemodal.dart';
 import 'package:grjoffice_apps/models/getleavetypemodal.dart';
@@ -3606,11 +3607,12 @@ Future<AttendancesListResponse?> getAttendancesApi(
   String? status,
   String search = '',
   int perPage = 50,
+  bool showErrors = true,
 }) async {
   try {
     final resolvedSiteId = siteId ?? selectedSiteId();
     if (resolvedSiteId == null) {
-      if (context.mounted) {
+      if (showErrors && context.mounted) {
         message(context, 'Please select a site first.');
       }
       return null;
@@ -3646,18 +3648,18 @@ Future<AttendancesListResponse?> getAttendancesApi(
       return AttendancesListResponse.fromJson(decoded);
     }
 
-    if (!context.mounted) return null;
+    if (!showErrors || !context.mounted) return null;
     message(context, apiMessage ?? 'Failed to load attendances.');
     return null;
   } on TimeoutException {
     print('[getAttendancesApi] request timed out');
-    if (!context.mounted) return null;
+    if (!showErrors || !context.mounted) return null;
     message(context, 'Request timed out. Please try again.');
     return null;
   } catch (e, stack) {
     print('[getAttendancesApi] error: $e');
     print('[getAttendancesApi] stack: $stack');
-    if (!context.mounted) return null;
+    if (!showErrors || !context.mounted) return null;
     message(context, 'Something went wrong');
     return null;
   }
@@ -5668,6 +5670,72 @@ Future<Map<String, dynamic>?> getReportDetailApi(
     print('[getReportDetailApi] stack: $stack');
     if (!context.mounted) return null;
     message(context, 'Something went wrong');
+    return null;
+  }
+}
+//getattendancecalendarapi
+Future<Getcalendermodal?> getAttendanceCalendarApi(
+  BuildContext context, {
+  int? siteId,
+  required String month,
+  int? userId,
+  bool showErrors = false,
+}) async {
+  try {
+    final resolvedSiteId = siteId ?? selectedSiteId();
+    if (resolvedSiteId == null) {
+      if (showErrors && context.mounted) {
+        message(context, 'Please select a site first.');
+      }
+      return null;
+    }
+
+    final queryParams = <String, String>{
+      'site_id': resolvedSiteId.toString(),
+      'month': month.trim(),
+    };
+    if (userId != null) {
+      queryParams['user_id'] = userId.toString();
+    }
+
+    final uri = Uri.parse('$baseUrl/api/v1/attendances/calendar').replace(
+      queryParameters: queryParams,
+    );
+
+    print('[getAttendanceCalendarApi] GET $uri');
+
+    final response = await http
+        .get(uri, headers: authHeaders)
+        .timeout(const Duration(seconds: 30));
+
+    print('[getAttendanceCalendarApi] statusCode: ${response.statusCode}');
+    print('[getAttendanceCalendarApi] response body: ${response.body}');
+
+    final decoded = decodeApiJson(response.body);
+    final apiMessage = decoded?['message']?.toString();
+
+    if (response.statusCode == 200 &&
+        decoded != null &&
+        decoded['success'] == true) {
+      return Getcalendermodal.fromJson(decoded);
+    }
+
+    if (showErrors && context.mounted) {
+      message(context, apiMessage ?? 'Failed to load attendance calendar.');
+    }
+    return null;
+  } on TimeoutException {
+    print('[getAttendanceCalendarApi] request timed out');
+    if (showErrors && context.mounted) {
+      message(context, 'Request timed out. Please try again.');
+    }
+    return null;
+  } catch (e, stack) {
+    print('[getAttendanceCalendarApi] error: $e');
+    print('[getAttendanceCalendarApi] stack: $stack');
+    if (showErrors && context.mounted) {
+      message(context, 'Something went wrong');
+    }
     return null;
   }
 }

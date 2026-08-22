@@ -15,6 +15,7 @@ import 'package:grjoffice_apps/services/attendance_service.dart';
 import 'package:grjoffice_apps/services/api_auth.dart';
 import 'package:grjoffice_apps/services/location_service.dart';
 import 'package:grjoffice_apps/services/permission_service.dart';
+import 'package:grjoffice_apps/services/punch_in_gate.dart';
 import 'package:grjoffice_apps/services/user_session.dart';
 import 'package:grjoffice_apps/widgets/app_logo.dart';
 import 'package:grjoffice_apps/widgets/site_selection_dialog.dart';
@@ -303,10 +304,13 @@ class _HomePageState extends State<HomePage> {
   @override
   Widget build(BuildContext context) {
     final hPad = _hPad(context);
+    final canOpenMenus = !_attendanceAllowed || _attendance.isPunchedIn;
 
     return Scaffold(
       key: _scaffoldKey,
       backgroundColor: AppColors.backgroundGray,
+      drawerEnableOpenDragGesture: canOpenMenus,
+      endDrawerEnableOpenDragGesture: canOpenMenus,
       drawer: AppDrawer(
         selectedIndex: DrawerIndex.dashboard,
         onItemTap: (index) => navigateFromDrawer(context, index),
@@ -364,33 +368,41 @@ class _HomePageState extends State<HomePage> {
                                 );
                               },
                             ),
-                            _buildQuickActions(),
-                            const SizedBox(height: 24),
-                            AnimatedBuilder(
-                              animation: PermissionService.instance,
-                              builder: (context, _) {
-                                final visibleOps = _visibleOperations;
-                                if (visibleOps.isEmpty) {
-                                  return const SizedBox.shrink();
-                                }
-                                return Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    _buildSectionTitle('Operations'),
-                                    const SizedBox(height: 12),
-                                    _buildOperationsGrid(
-                                      constraints.maxWidth,
-                                      visibleOps,
-                                    ),
-                                  ],
-                                );
-                              },
+                            PunchInLockedLayer(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  _buildQuickActions(),
+                                  const SizedBox(height: 24),
+                                  AnimatedBuilder(
+                                    animation: PermissionService.instance,
+                                    builder: (context, _) {
+                                      final visibleOps = _visibleOperations;
+                                      if (visibleOps.isEmpty) {
+                                        return const SizedBox.shrink();
+                                      }
+                                      return Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: [
+                                          _buildSectionTitle('Operations'),
+                                          const SizedBox(height: 12),
+                                          _buildOperationsGrid(
+                                            constraints.maxWidth,
+                                            visibleOps,
+                                          ),
+                                        ],
+                                      );
+                                    },
+                                  ),
+                                  const SizedBox(height: 24),
+                                  _buildSectionTitle('Office Supplies'),
+                                  const SizedBox(height: 12),
+                                  ..._supplies.map(_buildSupplyCard),
+                                  const SizedBox(height: 32),
+                                ],
+                              ),
                             ),
-                            const SizedBox(height: 24),
-                            _buildSectionTitle('Office Supplies'),
-                            const SizedBox(height: 12),
-                            ..._supplies.map(_buildSupplyCard),
-                            const SizedBox(height: 32),
                           ],
                         ),
                       ),
@@ -410,7 +422,10 @@ class _HomePageState extends State<HomePage> {
     return Row(
       children: [
         GestureDetector(
-          onTap: () => _scaffoldKey.currentState?.openDrawer(),
+          onTap: () {
+            if (!PunchInGate.ensureAccess(context)) return;
+            _scaffoldKey.currentState?.openDrawer();
+          },
           child: const AppLogo(size: 40),
         ),
         const SizedBox(width: 12),
@@ -425,7 +440,10 @@ class _HomePageState extends State<HomePage> {
             border: Border.all(color: AppColors.borderGray),
           ),
           child: IconButton(
-            onPressed: () => _scaffoldKey.currentState?.openEndDrawer(),
+            onPressed: () {
+              if (!PunchInGate.ensureAccess(context)) return;
+              _scaffoldKey.currentState?.openEndDrawer();
+            },
             icon: Icon(Icons.person_outline, color: AppColors.textSecondary, size: 22),
             padding: EdgeInsets.zero,
           ),
@@ -439,7 +457,12 @@ class _HomePageState extends State<HomePage> {
       color: AppColors.cardWhite,
       borderRadius: BorderRadius.circular(8),
       child: InkWell(
-        onTap: _isLoadingSites || _sites.isEmpty ? null : _openSiteSelection,
+        onTap: _isLoadingSites || _sites.isEmpty
+            ? null
+            : () {
+                if (!PunchInGate.ensureAccess(context)) return;
+                _openSiteSelection();
+              },
         borderRadius: BorderRadius.circular(8),
         child: Container(
           height: 40,
@@ -849,8 +872,6 @@ class _AttendanceCardState extends State<_AttendanceCard> {
   Widget build(BuildContext context) {
     final attendance = widget.attendance;
     final isPunchedIn = attendance.isPunchedIn;
-    final punchIn = attendance.punchInTime;
-    final today = attendance.todayAttendance;
 
     return Container(
       width: double.infinity,
@@ -883,9 +904,9 @@ class _AttendanceCardState extends State<_AttendanceCard> {
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  isPunchedIn && punchIn != null
-                      ? 'Since ${AttendanceService.formatTime(punchIn)}'
-                      : (today?.totalHours ?? 'Tap to start your shift'),
+                  isPunchedIn
+                      ? 'Tap punch out when you finish'
+                      : 'Tap to start your shift',
                   style: GoogleFonts.poppins(
                     fontSize: 12,
                     color: AppColors.textSecondary,
