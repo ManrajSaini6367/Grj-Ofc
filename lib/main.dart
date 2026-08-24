@@ -42,6 +42,44 @@ Future<void> main() async {
   runApp(const MyApp());
 }
 
+/// Shrinks every text `fontSize` by 1px, then applies the platform scaler.
+class _MinusOnePxTextScaler extends TextScaler {
+  const _MinusOnePxTextScaler(this.parent);
+
+  final TextScaler parent;
+
+  @override
+  double scale(double fontSize) {
+    final reduced = fontSize > 1 ? fontSize - 1 : fontSize;
+    return parent.scale(reduced);
+  }
+
+  @override
+  // ignore: deprecated_member_use
+  double get textScaleFactor => parent.textScaleFactor;
+
+  @override
+  TextScaler clamp({
+    double minScaleFactor = 0,
+    double maxScaleFactor = double.infinity,
+  }) {
+    return _MinusOnePxTextScaler(
+      parent.clamp(
+        minScaleFactor: minScaleFactor,
+        maxScaleFactor: maxScaleFactor,
+      ),
+    );
+  }
+
+  @override
+  bool operator ==(Object other) {
+    return other is _MinusOnePxTextScaler && other.parent == parent;
+  }
+
+  @override
+  int get hashCode => Object.hash(runtimeType, parent);
+}
+
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
 
@@ -51,6 +89,17 @@ class MyApp extends StatelessWidget {
       navigatorKey: appNavigatorKey,
       debugShowCheckedModeBanner: false,
       title: 'GRJ Office App',
+      builder: (context, child) {
+        if (child == null) return const SizedBox.shrink();
+        final media = MediaQuery.of(context);
+        if (media.textScaler is _MinusOnePxTextScaler) return child;
+        return MediaQuery(
+          data: media.copyWith(
+            textScaler: _MinusOnePxTextScaler(media.textScaler),
+          ),
+          child: child,
+        );
+      },
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(
           seedColor: AppColors.primaryRed,

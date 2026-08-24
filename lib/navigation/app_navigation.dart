@@ -3,6 +3,7 @@ import 'package:grjoffice_apps/DayEndReport/day_end_report_screen.dart';
 import 'package:grjoffice_apps/EmployeeListscreen/employees.dart';
 import 'package:grjoffice_apps/Expensescreen/expenses.dart';
 import 'package:grjoffice_apps/Itemsscreen/items.dart';
+import 'package:grjoffice_apps/Contractorscreen/original_contractors_list_screen.dart';
 import 'package:grjoffice_apps/LabourContractor/contractors.dart';
 import 'package:grjoffice_apps/SupplierList/suppliers.dart';
 import 'package:grjoffice_apps/attendancescreen/my_attendance_screen.dart';
@@ -11,12 +12,13 @@ import 'package:grjoffice_apps/attendancescreen/contractor_attendance_screen.dar
 import 'package:grjoffice_apps/core/app_navigator.dart';
 import 'package:grjoffice_apps/kycscreens/employee_kyc_requests_screen.dart';
 import 'package:grjoffice_apps/kycscreens/employee_kyc_screen.dart';
+import 'package:grjoffice_apps/InwardOutward/inward_outward_screen.dart';
 import 'package:grjoffice_apps/kycscreens/kyc_requests_screen.dart';
 import 'package:grjoffice_apps/kycscreens/kyc_status_screen.dart';
 import 'package:grjoffice_apps/leavescreens/leave_requests_screen.dart';
 import 'package:grjoffice_apps/leavescreens/leavescreen.dart';
 import 'package:grjoffice_apps/main_shell.dart';
-import 'package:grjoffice_apps/reportscreen/report_screen.dart';
+import 'package:grjoffice_apps/reportscreen/reports_list_screen.dart';
 import 'package:grjoffice_apps/rolesscreen/roles_screen.dart';
 import 'package:grjoffice_apps/services/punch_in_gate.dart';
 import 'package:grjoffice_apps/tasksscreen/tasks_screen.dart';
@@ -55,6 +57,8 @@ abstract final class DrawerIndex {
   static const employeeKyc = 18;
   static const employeeKycRequests = 19;
   static const myAttendance = 20;
+  static const originalContractors = 21;
+  static const inwardOutward = 22;
 }
 
 bool shellCanPop(BuildContext context) {
@@ -156,7 +160,7 @@ void navigateFromDrawer(BuildContext context, int drawerIndex) {
     case DrawerIndex.roles:
       pushInShell(context, const RolesScreen());
     case DrawerIndex.report:
-      pushInShell(context, const ReportScreen());
+      pushInShell(context, const ReportsListScreen());
     case DrawerIndex.leave:
       pushInShell(context, const LeaveScreen());
     case DrawerIndex.leaveRequests:
@@ -171,6 +175,10 @@ void navigateFromDrawer(BuildContext context, int drawerIndex) {
       pushInShell(context, const EmployeeKycRequestsScreen());
     case DrawerIndex.myAttendance:
       pushInShell(context, const MyAttendanceScreen());
+    case DrawerIndex.originalContractors:
+      pushInShell(context, const OriginalContractorsListScreen());
+    case DrawerIndex.inwardOutward:
+      pushInShell(context, const InwardOutwardScreen());
     default:
       break;
   }

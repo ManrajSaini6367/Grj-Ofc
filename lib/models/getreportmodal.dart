@@ -56,6 +56,7 @@ class ReportMenuItem {
     this.title,
     this.subtitle,
     this.path,
+    this.excelUrl,
     this.requiredParams,
     this.itemId,
     this.itemName,
@@ -66,6 +67,7 @@ class ReportMenuItem {
   final String? title;
   final String? subtitle;
   final String? path;
+  final String? excelUrl;
   final List<String>? requiredParams;
   final int? itemId;
   final String? itemName;
@@ -78,6 +80,7 @@ class ReportMenuItem {
       title: json['title']?.toString(),
       subtitle: json['subtitle']?.toString(),
       path: json['path']?.toString(),
+      excelUrl: json['excel_url']?.toString(),
       requiredParams: rawParams is List
           ? rawParams.map((e) => e.toString()).toList()
           : const [],

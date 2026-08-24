@@ -11,6 +11,9 @@ class EmployeeKycConfig {
     required this.emergencyContact,
     required this.configuredAt,
     this.employeeName = '',
+    this.email = '',
+    this.phoneNumber = '',
+    this.kycPassword = '',
     this.assignedSite = '',
     this.monthlySalary = '',
     this.leaveAllocation = '',
@@ -31,10 +34,14 @@ class EmployeeKycConfig {
     this.ifscCode = '',
     this.bankChequePath = '',
     this.status = 'Submitted',
+    this.kycId = 0,
   });
 
   final String employeeId;
   final String employeeName;
+  final String email;
+  final String phoneNumber;
+  final String kycPassword;
   final String assignedSite;
   final String monthlySalary;
   final String leaveAllocation;
@@ -59,10 +66,14 @@ class EmployeeKycConfig {
   final String bankChequePath;
   final DateTime configuredAt;
   final String status;
+  final int kycId;
 
   Map<String, dynamic> toJson() => {
         'employeeId': employeeId,
         'employeeName': employeeName,
+        'email': email,
+        'phoneNumber': phoneNumber,
+        'password': kycPassword,
         'assignedSite': assignedSite,
         'monthlySalary': monthlySalary,
         'leaveAllocation': leaveAllocation,
@@ -87,12 +98,18 @@ class EmployeeKycConfig {
         'bankChequePath': bankChequePath,
         'savedAt': configuredAt.toIso8601String(),
         'status': status,
+        'kycId': kycId,
       };
 
   factory EmployeeKycConfig.fromJson(Map<String, dynamic> json) {
     return EmployeeKycConfig(
       employeeId: json['employeeId']?.toString() ?? '',
       employeeName: json['employeeName']?.toString() ?? '',
+      email: json['email']?.toString() ?? '',
+      phoneNumber: json['phoneNumber']?.toString() ?? '',
+      kycPassword: json['password']?.toString() ??
+          json['kycPassword']?.toString() ??
+          '',
       assignedSite: json['assignedSite']?.toString() ?? '',
       monthlySalary: json['monthlySalary']?.toString() ?? '',
       leaveAllocation: json['leaveAllocation']?.toString() ?? '',
@@ -127,6 +144,45 @@ class EmployeeKycConfig {
       status: json['status']?.toString().trim().isNotEmpty == true
           ? json['status'].toString()
           : 'Submitted',
+      kycId: int.tryParse('${json['kycId'] ?? json['id'] ?? 0}') ?? 0,
+    );
+  }
+
+  EmployeeKycConfig copyWith({
+    String? status,
+    int? kycId,
+  }) {
+    return EmployeeKycConfig(
+      employeeId: employeeId,
+      employeeName: employeeName,
+      email: email,
+      phoneNumber: phoneNumber,
+      kycPassword: kycPassword,
+      assignedSite: assignedSite,
+      monthlySalary: monthlySalary,
+      leaveAllocation: leaveAllocation,
+      employmentType: employmentType,
+      joiningDate: joiningDate,
+      foodAllowance: foodAllowance,
+      foodEmployeeAmount: foodEmployeeAmount,
+      foodCompanyAmount: foodCompanyAmount,
+      stayAllowance: stayAllowance,
+      stayEmployeeAmount: stayEmployeeAmount,
+      stayCompanyAmount: stayCompanyAmount,
+      emergencyContact: emergencyContact,
+      panPath: panPath,
+      aadhaarFrontPath: aadhaarFrontPath,
+      aadhaarBackPath: aadhaarBackPath,
+      marksheet10Path: marksheet10Path,
+      marksheet12Path: marksheet12Path,
+      accountHolderName: accountHolderName,
+      bankName: bankName,
+      accountNumber: accountNumber,
+      ifscCode: ifscCode,
+      bankChequePath: bankChequePath,
+      configuredAt: configuredAt,
+      status: status ?? this.status,
+      kycId: kycId ?? this.kycId,
     );
   }
 }

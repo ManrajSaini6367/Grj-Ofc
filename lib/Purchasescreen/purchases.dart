@@ -35,14 +35,10 @@ class _PurchasesScreenState extends State<PurchasesScreen> {
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
   final _searchController = TextEditingController();
   String _searchQuery = '';
-  PurchaseStatus? _statusFilter;
+  _PurchaseStageTab _stageTab = _PurchaseStageTab.total;
   String? _supplierFilter;
   _KantaSlipFilter _kantaSlipFilter = _KantaSlipFilter.all;
-  _PurchaseDateFilter _dateFilter = _PurchaseDateFilter.all;
-  DateTime? _filterStartDate;
-  DateTime? _filterEndDate;
   List<Purchase> _purchases = [];
-  PurchasesSummary? _summary;
   bool _isLoading = true;
 
   @override
@@ -65,26 +61,12 @@ class _PurchasesScreenState extends State<PurchasesScreen> {
     setState(() => _searchQuery = next);
   }
 
-  String get _apiPeriod {
-    if (_hasCustomDateRange) return 'all';
-    return switch (_dateFilter) {
-      _PurchaseDateFilter.all => 'all',
-      _PurchaseDateFilter.today => 'today',
-      _PurchaseDateFilter.last7 => 'last_7',
-      _PurchaseDateFilter.last30 => 'last_30',
-      _PurchaseDateFilter.thisMonth => 'this_month',
-    };
-  }
-
-  String? get _apiStatus => null;
-
   Future<void> _loadPurchases({bool showLoader = true}) async {
     if (showLoader) setState(() => _isLoading = true);
 
     final response = await getPurchasesApi(
       context,
-      period: _apiPeriod,
-      status: _apiStatus,
+      period: 'all',
       search: '',
       perPage: 15,
       fetchAllPages: true,
@@ -93,7 +75,6 @@ class _PurchasesScreenState extends State<PurchasesScreen> {
     if (!mounted) return;
     setState(() {
       _purchases = response?.data?.items ?? [];
-      _summary = response?.data?.summary;
       _isLoading = false;
     });
   }
@@ -107,27 +88,30 @@ class _PurchasesScreenState extends State<PurchasesScreen> {
 
   List<Purchase> get _filteredPurchases {
     return _purchases.where((p) {
-      if (_statusFilter == PurchaseStatus.cancelled) return false;
-      if (_statusFilter == PurchaseStatus.pending &&
-          p.status != PurchaseStatus.pending) {
+      if (_stageTab == _PurchaseStageTab.initial &&
+          p.listStage != PurchaseListStage.initial) {
         return false;
       }
-      if (_statusFilter == PurchaseStatus.received &&
-          p.status != PurchaseStatus.received &&
-          p.status != PurchaseStatus.approved) {
+      if (_stageTab == _PurchaseStageTab.processing &&
+          p.listStage != PurchaseListStage.processing) {
         return false;
       }
-      if (_statusFilter == PurchaseStatus.approved &&
-          p.status != PurchaseStatus.approved) {
+      if (_stageTab == _PurchaseStageTab.completed &&
+          p.listStage != PurchaseListStage.completed) {
         return false;
       }
-      if (_supplierFilter != null && p.supplierName != _supplierFilter) return false;
-      if (_kantaSlipFilter == _KantaSlipFilter.yes && !p.hasKantaSlip) return false;
-      if (_kantaSlipFilter == _KantaSlipFilter.no && p.hasKantaSlip) return false;
-      if (!_matchesDateFilter(p.date)) return false;
+      if (_supplierFilter != null && p.supplierName != _supplierFilter) {
+        return false;
+      }
+      if (_kantaSlipFilter == _KantaSlipFilter.yes && !p.hasKantaSlip) {
+        return false;
+      }
+      if (_kantaSlipFilter == _KantaSlipFilter.no && p.hasKantaSlip) {
+        return false;
+      }
       if (_searchQuery.isNotEmpty) {
         final haystack =
-            '${p.challanNo} ${p.invoiceNo} ${p.supplierName} ${p.vehicleNo ?? ''} ${p.itemName ?? ''} ${p.remark ?? ''} ${p.statusLabel}'
+            '${p.challanNo} ${p.invoiceNo} ${p.supplierName} ${p.vehicleNo ?? ''} ${p.itemName ?? ''} ${p.remark ?? ''} ${p.statusLabel} ${p.flowStageLabel ?? ''}'
                 .toLowerCase();
         if (!haystack.contains(_searchQuery)) return false;
       }
@@ -136,63 +120,24 @@ class _PurchasesScreenState extends State<PurchasesScreen> {
       ..sort((a, b) => b.date.compareTo(a.date));
   }
 
-  bool _matchesDateFilter(DateTime date) {
-    if (_hasCustomDateRange) {
-      final purchaseDate = DateTime(date.year, date.month, date.day);
-      if (_filterStartDate != null) {
-        final start = DateTime(_filterStartDate!.year, _filterStartDate!.month, _filterStartDate!.day);
-        if (purchaseDate.isBefore(start)) return false;
-      }
-      if (_filterEndDate != null) {
-        final end = DateTime(_filterEndDate!.year, _filterEndDate!.month, _filterEndDate!.day);
-        if (purchaseDate.isAfter(end)) return false;
-      }
-      return true;
-    }
-
-    final now = DateTime.now();
-    final today = DateTime(now.year, now.month, now.day);
-    final purchaseDate = DateTime(date.year, date.month, date.day);
-
-    switch (_dateFilter) {
-      case _PurchaseDateFilter.all:
-        return true;
-      case _PurchaseDateFilter.today:
-        return purchaseDate == today;
-      case _PurchaseDateFilter.last7:
-        return !purchaseDate.isBefore(today.subtract(const Duration(days: 6)));
-      case _PurchaseDateFilter.last30:
-        return !purchaseDate.isBefore(today.subtract(const Duration(days: 29)));
-      case _PurchaseDateFilter.thisMonth:
-        return date.year == now.year && date.month == now.month;
-    }
-  }
-
-  bool get _hasCustomDateRange => _filterStartDate != null || _filterEndDate != null;
-
   List<String> get _supplierOptions {
     return _purchases.map((p) => p.supplierName).toSet().toList()..sort();
   }
 
-  bool get _hasNonDateFilters =>
-      _statusFilter != null ||
-      _supplierFilter != null ||
-      _kantaSlipFilter != _KantaSlipFilter.all;
-
   bool get _hasActiveFilters =>
-      _hasNonDateFilters || _hasCustomDateRange || _dateFilter != _PurchaseDateFilter.all;
+      _supplierFilter != null || _kantaSlipFilter != _KantaSlipFilter.all;
 
   void _clearFilters() {
     setState(() {
-      _statusFilter = null;
       _supplierFilter = null;
       _kantaSlipFilter = _KantaSlipFilter.all;
-      _dateFilter = _PurchaseDateFilter.all;
-      _filterStartDate = null;
-      _filterEndDate = null;
     });
-    _loadPurchases();
   }
+
+  int get _stageCountTotal => _purchases.length;
+
+  int _stageCount(PurchaseListStage stage) =>
+      _purchases.where((p) => p.listStage == stage).length;
 
   String _formatDate(DateTime date) {
     const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
@@ -225,8 +170,8 @@ class _PurchasesScreenState extends State<PurchasesScreen> {
                 children: [
                   _buildToolbar(),
                   const SizedBox(height: 10),
-                  _buildDateFilterSection(),
-                  if (_hasNonDateFilters) ...[
+                  _buildStageTabs(),
+                  if (_hasActiveFilters) ...[
                     const SizedBox(height: 10),
                     _buildActiveFilterChips(),
                   ],
@@ -261,10 +206,6 @@ class _PurchasesScreenState extends State<PurchasesScreen> {
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.stretch,
                                   children: [
-                                    if (_summary != null) ...[
-                                      _buildSummaryRow(_summary!),
-                                      const SizedBox(height: 12),
-                                    ],
                                     ...rows.map(_buildPurchaseCard),
                                   ],
                                 ),
@@ -354,8 +295,6 @@ class _PurchasesScreenState extends State<PurchasesScreen> {
       spacing: 8,
       runSpacing: 8,
       children: [
-        if (_statusFilter != null)
-          _activeChip(_statusLabel(_statusFilter!), () => setState(() => _statusFilter = null)),
         if (_supplierFilter != null)
           _activeChip(_supplierFilter!, () => setState(() => _supplierFilter = null)),
         if (_kantaSlipFilter != _KantaSlipFilter.all)
@@ -372,221 +311,6 @@ class _PurchasesScreenState extends State<PurchasesScreen> {
         ),
       ],
     );
-  }
-
-  Widget _buildDateFilterSection() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        // _buildDateFilterChips(),
-        const SizedBox(height: 10),
-        _buildDateRangeFields(),
-      ],
-    );
-  }
-
-  Widget _buildDateFilterChips() {
-    return SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
-      child: Row(
-        children: [
-          _dateFilterChip('All', _PurchaseDateFilter.all),
-          const SizedBox(width: 8),
-          _dateFilterChip('Today', _PurchaseDateFilter.today),
-          const SizedBox(width: 8),
-          _dateFilterChip('7 Days', _PurchaseDateFilter.last7),
-          const SizedBox(width: 8),
-          _dateFilterChip('30 Days', _PurchaseDateFilter.last30),
-          const SizedBox(width: 8),
-          _dateFilterChip('This Month', _PurchaseDateFilter.thisMonth),
-        ],
-      ),
-    );
-  }
-
-  Widget _dateFilterChip(String label, _PurchaseDateFilter value) {
-    final selected = !_hasCustomDateRange && _dateFilter == value;
-    return FilterChip(
-      label: Text(
-        label,
-        style: GoogleFonts.poppins(
-          fontSize: 12,
-          fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
-          color: selected ? AppColors.primaryRed : AppColors.textDark,
-        ),
-      ),
-      selected: selected,
-      onSelected: (_) {
-        setState(() {
-          _dateFilter = value;
-          _filterStartDate = null;
-          _filterEndDate = null;
-        });
-        _loadPurchases();
-      },
-      selectedColor: AppColors.primaryRed.withValues(alpha: 0.12),
-      checkmarkColor: AppColors.primaryRed,
-      backgroundColor: AppColors.cardWhite,
-      side: BorderSide(
-        color: selected
-            ? AppColors.primaryRed.withValues(alpha: 0.4)
-            : AppColors.borderGray.withValues(alpha: 0.5),
-      ),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-      materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-      visualDensity: VisualDensity.compact,
-    );
-  }
-
-  Widget _buildDateRangeFields() {
-    return Row(
-      children: [
-        Expanded(
-          child: _buildDatePickerField(
-            label: 'Start Date',
-            date: _filterStartDate,
-            onTap: () => _pickFilterDate(isStart: true),
-          ),
-        ),
-        const SizedBox(width: 10),
-        Expanded(
-          child: _buildDatePickerField(
-            label: 'End Date',
-            date: _filterEndDate,
-            onTap: () => _pickFilterDate(isStart: false),
-          ),
-        ),
-        if (_hasCustomDateRange) ...[
-          const SizedBox(width: 6),
-          IconButton(
-            onPressed: () {
-              setState(() {
-                _filterStartDate = null;
-                _filterEndDate = null;
-              });
-              _loadPurchases();
-            },
-            icon: const Icon(Icons.close, size: 20, color: AppColors.textSecondary),
-            tooltip: 'Clear dates',
-            padding: EdgeInsets.zero,
-            constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
-            visualDensity: VisualDensity.compact,
-          ),
-        ],
-      ],
-    );
-  }
-
-  Widget _buildDatePickerField({
-    required String label,
-    required DateTime? date,
-    required VoidCallback onTap,
-  }) {
-    final hasDate = date != null;
-    return Material(
-      color: AppColors.cardWhite,
-      borderRadius: BorderRadius.circular(10),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(10),
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(10),
-            border: Border.all(
-              color: hasDate
-                  ? AppColors.primaryRed.withValues(alpha: 0.4)
-                  : AppColors.borderGray.withValues(alpha: 0.5),
-            ),
-          ),
-          child: Row(
-            children: [
-              Icon(
-                Icons.calendar_today_outlined,
-                size: 16,
-                color: hasDate ? AppColors.primaryRed : AppColors.textSecondary,
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      label,
-                      style: GoogleFonts.poppins(
-                        fontSize: 10,
-                        color: AppColors.textSecondary,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                    Text(
-                      hasDate ? _formatDate(date) : 'Select',
-                      style: GoogleFonts.poppins(
-                        fontSize: 12,
-                        fontWeight: hasDate ? FontWeight.w600 : FontWeight.w500,
-                        color: hasDate ? AppColors.textDark : AppColors.inputHint,
-                      ),
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Future<void> _pickFilterDate({required bool isStart}) async {
-    final initial = isStart
-        ? (_filterStartDate ?? DateTime.now())
-        : (_filterEndDate ?? _filterStartDate ?? DateTime.now());
-
-    final picked = await showDatePicker(
-      context: context,
-      initialDate: initial,
-      firstDate: DateTime(2020),
-      lastDate: DateTime(2100),
-      builder: (context, child) {
-        return Theme(
-          data: Theme.of(context).copyWith(
-            colorScheme: const ColorScheme.light(
-              primary: AppColors.primaryRed,
-              onPrimary: AppColors.white,
-            ),
-          ),
-          child: child!,
-        );
-      },
-    );
-    if (picked == null || !mounted) return;
-
-    if (!isStart && _filterStartDate != null) {
-      final start = DateTime(_filterStartDate!.year, _filterStartDate!.month, _filterStartDate!.day);
-      final end = DateTime(picked.year, picked.month, picked.day);
-      if (end.isBefore(start)) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('End date cannot be before start date.', style: GoogleFonts.poppins())),
-        );
-        return;
-      }
-    }
-
-    setState(() {
-      _dateFilter = _PurchaseDateFilter.all;
-      if (isStart) {
-        _filterStartDate = picked;
-        if (_filterEndDate != null) {
-          final start = DateTime(picked.year, picked.month, picked.day);
-          final end = DateTime(_filterEndDate!.year, _filterEndDate!.month, _filterEndDate!.day);
-          if (end.isBefore(start)) _filterEndDate = null;
-        }
-      } else {
-        _filterEndDate = picked;
-      }
-    });
-    _loadPurchases();
   }
 
   Widget _activeChip(String label, VoidCallback onRemove) {
@@ -662,35 +386,6 @@ class _PurchasesScreenState extends State<PurchasesScreen> {
                       ],
                     ),
                     const SizedBox(height: 20),
-                    _filterSection('Status', Icons.flag_outlined, [
-                      _filterChip('All', _statusFilter == null, () {
-                        setState(() => _statusFilter = null);
-                        Navigator.pop(context);
-                      }),
-                      ...PurchaseStatus.values.map((s) => _filterChip(_statusLabel(s), _statusFilter == s, () {
-                        setState(() => _statusFilter = s);
-                        Navigator.pop(context);
-                      })),
-                    ]),
-                    const SizedBox(height: 16),
-                    _filterSection('Date', Icons.date_range_outlined, [
-                      ..._PurchaseDateFilter.values.map((f) => _filterChip(
-                            f.label,
-                            !_hasCustomDateRange && _dateFilter == f,
-                            () {
-                              setState(() {
-                                _dateFilter = f;
-                                _filterStartDate = null;
-                                _filterEndDate = null;
-                              });
-                              Navigator.pop(context);
-                              _loadPurchases();
-                            },
-                          )),
-                      const SizedBox(height: 12),
-                      _buildDateRangeFields(),
-                    ]),
-                    const SizedBox(height: 16),
                     _filterSection('Kanta Slip', Icons.receipt_long_outlined, [
                       _filterChip('All', _kantaSlipFilter == _KantaSlipFilter.all, () {
                         setState(() => _kantaSlipFilter = _KantaSlipFilter.all);
@@ -796,43 +491,106 @@ class _PurchasesScreenState extends State<PurchasesScreen> {
     }
   }
 
-  Widget _buildSummaryRow(PurchasesSummary summary) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-      decoration: BoxDecoration(
-        color: AppColors.cardWhite,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColors.borderGray.withValues(alpha: 0.5)),
+  Widget _buildStageTabs() {
+    final width = MediaQuery.sizeOf(context).width;
+    final twoRows = width < 400;
+    final tabs = [
+      _stageTabData(
+        tab: _PurchaseStageTab.total,
+        label: 'Total',
+        count: _stageCountTotal,
+        color: AppColors.headingBlack,
       ),
-      child: Row(
+      _stageTabData(
+        tab: _PurchaseStageTab.initial,
+        label: 'Initial',
+        count: _stageCount(PurchaseListStage.initial),
+        color: const Color(0xFFD97706),
+      ),
+      _stageTabData(
+        tab: _PurchaseStageTab.processing,
+        label: 'Processing',
+        count: _stageCount(PurchaseListStage.processing),
+        color: const Color(0xFF2563EB),
+      ),
+      _stageTabData(
+        tab: _PurchaseStageTab.completed,
+        label: 'Completed',
+        count: _stageCount(PurchaseListStage.completed),
+        color: const Color(0xFF059669),
+      ),
+    ];
+
+    if (twoRows) {
+      return Column(
         children: [
-          _summaryCell('Total', summary.total.toString()),
-          _summaryCell('Initial', summary.initial.toString()),
-          _summaryCell('Processing', summary.processing.toString()),
-          _summaryCell('Completed', summary.completed.toString()),
+          Row(children: [tabs[0], const SizedBox(width: 8), tabs[1]]),
+          const SizedBox(height: 8),
+          Row(children: [tabs[2], const SizedBox(width: 8), tabs[3]]),
         ],
-      ),
+      );
+    }
+
+    return Row(
+      children: [
+        for (var i = 0; i < tabs.length; i++) ...[
+          if (i > 0) const SizedBox(width: 8),
+          tabs[i],
+        ],
+      ],
     );
   }
 
-  Widget _summaryCell(String label, String value) {
+  Widget _stageTabData({
+    required _PurchaseStageTab tab,
+    required String label,
+    required int count,
+    required Color color,
+  }) {
+    final selected = _stageTab == tab;
     return Expanded(
-      child: Column(
-        children: [
-          Text(
-            value,
-            style: GoogleFonts.poppins(
-              fontSize: 16,
-              fontWeight: FontWeight.w700,
-              color: AppColors.headingBlack,
+      child: Material(
+        color: selected ? color.withValues(alpha: 0.12) : AppColors.cardWhite,
+        borderRadius: BorderRadius.circular(12),
+        child: InkWell(
+          onTap: () => setState(() => _stageTab = tab),
+          borderRadius: BorderRadius.circular(12),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: selected
+                    ? color.withValues(alpha: 0.7)
+                    : AppColors.borderGray.withValues(alpha: 0.5),
+                width: selected ? 1.5 : 1,
+              ),
+            ),
+            child: Column(
+              children: [
+                Text(
+                  count.toString(),
+                  style: GoogleFonts.poppins(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w700,
+                    color: selected ? color : AppColors.headingBlack,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: GoogleFonts.poppins(
+                    fontSize: 11,
+                    fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
+                    color: selected ? color : AppColors.textSecondary,
+                  ),
+                ),
+              ],
             ),
           ),
-          const SizedBox(height: 2),
-          Text(
-            label,
-            style: GoogleFonts.poppins(fontSize: 11, color: AppColors.textSecondary),
-          ),
-        ],
+        ),
       ),
     );
   }
@@ -1056,7 +814,7 @@ class _PurchasesScreenState extends State<PurchasesScreen> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              if (withKantaFlow) ...[
+              if (withKantaFlow)
                 ListTile(
                   leading: const Icon(Icons.photo_library_outlined, color: AppColors.textDark),
                   title: Text('View Vehicle Images', style: GoogleFonts.poppins(fontSize: 14)),
@@ -1065,50 +823,47 @@ class _PurchasesScreenState extends State<PurchasesScreen> {
                     _viewVehicleImages(purchase);
                   },
                 ),
+              ListTile(
+                leading: const Icon(Icons.download_outlined, color: AppColors.textDark),
+                title: Text('Download Challan', style: GoogleFonts.poppins(fontSize: 14)),
+                onTap: () {
+                  Navigator.pop(context);
+                  _downloadChallan(purchase);
+                },
+              ),
+              if (withKantaFlow && _canOpenWithKantaStep3(purchase))
                 ListTile(
-                  leading: const Icon(Icons.download_outlined, color: AppColors.textDark),
-                  title: Text('Download Challan', style: GoogleFonts.poppins(fontSize: 14)),
+                  leading: const Icon(Icons.playlist_add_check_outlined, color: AppColors.primaryRed),
+                  title: Text(
+                    'Step 3',
+                    style: GoogleFonts.poppins(
+                      fontSize: 14,
+                      color: AppColors.primaryRed,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
                   onTap: () {
                     Navigator.pop(context);
-                    _downloadChallan(purchase);
+                    _openWithKantaStep3(purchase);
                   },
                 ),
-                if (_canOpenWithKantaStep3(purchase))
-                  ListTile(
-                    leading: const Icon(Icons.playlist_add_check_outlined, color: AppColors.primaryRed),
-                    title: Text(
-                      'Step 3',
-                      style: GoogleFonts.poppins(
-                        fontSize: 14,
-                        color: AppColors.primaryRed,
-                        fontWeight: FontWeight.w600,
-                      ),
+              if (withoutKantaFlow && _canOpenStep2(purchase))
+                ListTile(
+                  leading: const Icon(Icons.playlist_add_check_outlined, color: AppColors.primaryRed),
+                  title: Text(
+                    'Step 2',
+                    style: GoogleFonts.poppins(
+                      fontSize: 14,
+                      color: AppColors.primaryRed,
+                      fontWeight: FontWeight.w600,
                     ),
-                    onTap: () {
-                      Navigator.pop(context);
-                      _openWithKantaStep3(purchase);
-                    },
                   ),
-                if (_canOpenWithKantaStep3(purchase)) const Divider(height: 1),
-              ] else if (withoutKantaFlow) ...[
-                if (_canOpenStep2(purchase))
-                  ListTile(
-                    leading: const Icon(Icons.playlist_add_check_outlined, color: AppColors.primaryRed),
-                    title: Text(
-                      'Step 2',
-                      style: GoogleFonts.poppins(
-                        fontSize: 14,
-                        color: AppColors.primaryRed,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                    onTap: () {
-                      Navigator.pop(context);
-                      _openFlowStep2(purchase);
-                    },
-                  ),
-                if (_canOpenStep2(purchase)) const Divider(height: 1),
-              ],
+                  onTap: () {
+                    Navigator.pop(context);
+                    _openFlowStep2(purchase);
+                  },
+                ),
+              const Divider(height: 1),
               ListTile(
                 leading: const Icon(Icons.edit_outlined, color: AppColors.textDark),
                 title: Text('Edit Purchase', style: GoogleFonts.poppins(fontSize: 14)),
@@ -1524,12 +1279,13 @@ class _PurchasesScreenState extends State<PurchasesScreen> {
           Icon(Icons.shopping_cart_outlined, size: 48, color: AppColors.textSecondary.withValues(alpha: 0.5)),
           const SizedBox(height: 12),
           Text('No purchases found', style: GoogleFonts.poppins(fontSize: 14, fontWeight: FontWeight.w500)),
-          if (_hasActiveFilters || _searchQuery.isNotEmpty) ...[
+          if (_hasActiveFilters || _searchQuery.isNotEmpty || _stageTab != _PurchaseStageTab.total) ...[
             const SizedBox(height: 12),
             TextButton(
               onPressed: () {
                 _searchController.clear();
                 _clearFilters();
+                setState(() => _stageTab = _PurchaseStageTab.total);
               },
               child: Text('Reset filters', style: GoogleFonts.poppins(color: AppColors.primaryRed, fontWeight: FontWeight.w600)),
             ),
@@ -2470,14 +2226,5 @@ class _ChallanWebViewPageState extends State<_ChallanWebViewPage> {
 
 enum _KantaSlipFilter { all, yes, no }
 
-enum _PurchaseDateFilter {
-  all('All'),
-  today('Today'),
-  last7('Last 7 days'),
-  last30('Last 30 days'),
-  thisMonth('This month');
+enum _PurchaseStageTab { total, initial, processing, completed }
 
-  const _PurchaseDateFilter(this.label);
-
-  final String label;
-}

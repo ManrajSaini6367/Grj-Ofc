@@ -3,10 +3,13 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:grjoffice_apps/core/app_colors.dart';
 import 'package:grjoffice_apps/models/labourattendancereport.dart';
 import 'package:grjoffice_apps/models/listcontractor.dart';
+import 'package:grjoffice_apps/reportscreen/report_excel.dart';
 import 'package:grjoffice_apps/reportscreen/report_models.dart';
 import 'package:grjoffice_apps/services/api_auth.dart';
+import 'package:grjoffice_apps/services/purchase_image_download_service.dart';
 import 'package:grjoffice_apps/widgets/app_top_bar.dart';
 import 'package:intl/intl.dart';
+import 'package:open_filex/open_filex.dart';
 
 /// Labour Attendance Report — loaded from API.
 class LabourAttendanceReportScreen extends StatefulWidget {
@@ -38,7 +41,14 @@ class _LabourAttendanceReportScreenState
   bool _loadingContractors = true;
   bool _searching = false;
   bool _searched = false;
+  bool _downloadingExcel = false;
   List<_LabourDayRow> _rows = [];
+
+  bool get _showDownloadExcel =>
+      !_searching &&
+      _searched &&
+      _rows.isNotEmpty &&
+      widget.report.hasExcelUrl;
 
   static final _dateFmt = DateFormat('dd/MM/yyyy');
   static final _apiDateFmt = DateFormat('yyyy-MM-dd');
@@ -202,6 +212,79 @@ class _LabourAttendanceReportScreenState
     });
   }
 
+  Future<void> _downloadExcel() async {
+    if (!_showDownloadExcel || _downloadingExcel) return;
+
+    final excelUrl = widget.report.excelUrl?.trim() ?? '';
+    if (excelUrl.isEmpty) return;
+
+    setState(() => _downloadingExcel = true);
+    showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      useRootNavigator: true,
+      builder: (_) => const PopScope(
+        canPop: false,
+        child: Center(
+          child: CircularProgressIndicator(color: AppColors.primaryRed),
+        ),
+      ),
+    );
+
+    try {
+      final bytes = buildSimpleXlsx(
+        sheetName: widget.report.title,
+        headers: const [
+          'Date',
+          'Mason',
+          'Beldar',
+          'Coolie',
+          'Mason Over',
+          'Beldar Over',
+          'Coolie Over',
+        ],
+        rows: _rows
+            .map(
+              (row) => [
+                _dateFmt.format(row.date),
+                '${row.mason ?? ''}',
+                '${row.beldar ?? ''}',
+                '${row.coolie ?? ''}',
+                '${row.masonOver ?? ''}',
+                '${row.beldarOver ?? ''}',
+                '${row.coolieOver ?? ''}',
+              ],
+            )
+            .toList(),
+      );
+
+      final stamp = DateFormat('yyyyMMdd').format(DateTime.now());
+      final safeTitle = widget.report.title
+          .trim()
+          .replaceAll(RegExp(r'[\\/:*?"<>|]'), '_');
+      final fileName =
+          '${safeTitle.isEmpty ? 'labour_attendance' : safeTitle}_$stamp.xlsx';
+      final savedPath =
+          await PurchaseImageDownloadService.downloadToDownloadsFolder(
+        bytes: bytes,
+        fileName: fileName,
+      );
+      if (!mounted) return;
+
+      final result = await OpenFilex.open(savedPath);
+      if (result.type != ResultType.done) {
+        _snack('Excel saved to Downloads.');
+      }
+    } catch (_) {
+      if (mounted) _snack('Failed to download Excel.');
+    } finally {
+      if (mounted) {
+        Navigator.of(context, rootNavigator: true).pop();
+        setState(() => _downloadingExcel = false);
+      }
+    }
+  }
+
   void _snack(String msg) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
@@ -344,23 +427,33 @@ class _LabourAttendanceReportScreenState
               ],
             ),
           const SizedBox(height: 16),
-          Wrap(
-            spacing: 10,
-            runSpacing: 10,
+          Row(
             children: [
-              _ActionButton(
-                label: _searching ? 'Searching...' : 'Search',
-                icon: Icons.search,
-                backgroundColor: const Color(0xFF2563EB),
-                onPressed: _searching ? () {} : _onSearch,
+              Expanded(
+                child: _ActionButton(
+                  label: _searching ? 'Searching...' : 'Search',
+                  icon: Icons.search,
+                  onPressed: _searching ? () {} : _onSearch,
+                ),
               ),
-              _ActionButton(
-                label: 'Clear',
-                icon: Icons.refresh,
-                backgroundColor: const Color(0xFFF59E0B),
-                foregroundColor: AppColors.headingBlack,
-                onPressed: _onClear,
+              const SizedBox(width: 8),
+              Expanded(
+                child: _ActionButton(
+                  label: 'Clear',
+                  icon: Icons.refresh,
+                  onPressed: _onClear,
+                ),
               ),
+              if (_showDownloadExcel) ...[
+                const SizedBox(width: 8),
+                Expanded(
+                  child: _ActionButton(
+                    label: _downloadingExcel ? 'Downloading...' : 'Download Excel',
+                    icon: Icons.file_download_outlined,
+                    onPressed: _downloadingExcel ? () {} : _downloadExcel,
+                  ),
+                ),
+              ],
             ],
           ),
         ],
@@ -888,36 +981,35 @@ class _ActionButton extends StatelessWidget {
   const _ActionButton({
     required this.label,
     required this.icon,
-    required this.backgroundColor,
     required this.onPressed,
-    this.foregroundColor = AppColors.white,
   });
 
   final String label;
   final IconData icon;
-  final Color backgroundColor;
-  final Color foregroundColor;
   final VoidCallback onPressed;
 
   @override
   Widget build(BuildContext context) {
     return SizedBox(
       height: 42,
+      width: double.infinity,
       child: ElevatedButton.icon(
         onPressed: onPressed,
-        icon: Icon(icon, size: 18),
+        icon: Icon(icon, size: 16),
         label: Text(
           label,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
           style: GoogleFonts.poppins(
-            fontSize: 13,
+            fontSize: 12,
             fontWeight: FontWeight.w600,
           ),
         ),
         style: ElevatedButton.styleFrom(
-          backgroundColor: backgroundColor,
-          foregroundColor: foregroundColor,
+          backgroundColor: AppColors.primaryRed,
+          foregroundColor: AppColors.white,
           elevation: 0,
-          padding: const EdgeInsets.symmetric(horizontal: 18),
+          padding: const EdgeInsets.symmetric(horizontal: 8),
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
         ),
       ),

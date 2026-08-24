@@ -1,11 +1,11 @@
-import 'package:flutter/foundation.dart';
 import 'package:grjoffice_apps/core/app_date_time.dart';
+import 'package:grjoffice_apps/core/safe_change_notifier.dart';
 import 'package:grjoffice_apps/models/attendance_model.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 /// Manages punch in/out state and working duration with local persistence.
 /// Syncs with [TodayAttendanceStatus] from the API when available.
-class AttendanceService extends ChangeNotifier {
+class AttendanceService extends SafeChangeNotifier {
   AttendanceService._();
 
   static final AttendanceService instance = AttendanceService._();

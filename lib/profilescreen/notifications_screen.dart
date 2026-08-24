@@ -11,11 +11,6 @@ class NotificationsScreen extends StatefulWidget {
 }
 
 class _NotificationsScreenState extends State<NotificationsScreen> {
-  bool _pushEnabled = true;
-  bool _emailEnabled = true;
-  bool _attendanceAlerts = true;
-  bool _taskAlerts = true;
-
   late List<_AppNotification> _items;
 
   @override
@@ -71,8 +66,6 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
               child: ListView(
                 padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
                 children: [
-                  _buildSettingsCard(),
-                  const SizedBox(height: 20),
                   Text(
                     'Recent',
                     style: GoogleFonts.poppins(
@@ -92,73 +85,6 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
           ],
         ),
       ),
-    );
-  }
-
-  Widget _buildSettingsCard() {
-    return Container(
-      decoration: BoxDecoration(
-        color: AppColors.cardWhite,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColors.borderGray.withValues(alpha: 0.4)),
-      ),
-      child: Column(
-        children: [
-          _switchTile(
-            title: 'Push Notifications',
-            subtitle: 'Alerts on this device',
-            value: _pushEnabled,
-            onChanged: (v) => setState(() => _pushEnabled = v),
-          ),
-          _divider(),
-          _switchTile(
-            title: 'Email Notifications',
-            subtitle: 'Updates to your inbox',
-            value: _emailEnabled,
-            onChanged: (v) => setState(() => _emailEnabled = v),
-          ),
-          _divider(),
-          _switchTile(
-            title: 'Attendance Alerts',
-            subtitle: 'Punch in / out reminders',
-            value: _attendanceAlerts,
-            onChanged: (v) => setState(() => _attendanceAlerts = v),
-          ),
-          _divider(),
-          _switchTile(
-            title: 'Task Alerts',
-            subtitle: 'Assignments and due dates',
-            value: _taskAlerts,
-            onChanged: (v) => setState(() => _taskAlerts = v),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _switchTile({
-    required String title,
-    required String subtitle,
-    required bool value,
-    required ValueChanged<bool> onChanged,
-  }) {
-    return SwitchListTile(
-      contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 2),
-      title: Text(
-        title,
-        style: GoogleFonts.poppins(
-          fontSize: 14,
-          fontWeight: FontWeight.w600,
-          color: AppColors.headingBlack,
-        ),
-      ),
-      subtitle: Text(
-        subtitle,
-        style: GoogleFonts.poppins(fontSize: 12, color: AppColors.textSecondary),
-      ),
-      value: value,
-      activeThumbColor: AppColors.primaryRed,
-      onChanged: onChanged,
     );
   }
 
@@ -266,8 +192,6 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
       ),
     );
   }
-
-  Widget _divider() => Divider(height: 1, color: AppColors.borderGray.withValues(alpha: 0.35));
 }
 
 class _AppNotification {

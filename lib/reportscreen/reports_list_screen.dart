@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:grjoffice_apps/core/app_colors.dart';
+import 'package:grjoffice_apps/drawer/app_end_drawer.dart';
+import 'package:grjoffice_apps/drawer/drawer.dart';
+import 'package:grjoffice_apps/navigation/app_navigation.dart';
 import 'package:grjoffice_apps/reportscreen/labour_attendance_report_screen.dart';
 import 'package:grjoffice_apps/reportscreen/report_detail_screen.dart';
 import 'package:grjoffice_apps/reportscreen/report_models.dart';
@@ -8,22 +11,30 @@ import 'package:grjoffice_apps/services/api_auth.dart';
 import 'package:grjoffice_apps/widgets/app_top_bar.dart';
 
 class ReportsListScreen extends StatefulWidget {
-  const ReportsListScreen({
-    super.key,
-    required this.siteId,
-    required this.siteName,
-  });
-
-  final int siteId;
-  final String siteName;
+  const ReportsListScreen({super.key});
 
   @override
   State<ReportsListScreen> createState() => _ReportsListScreenState();
 }
 
 class _ReportsListScreenState extends State<ReportsListScreen> {
+  final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
+
   List<ReportListItem> _items = [];
   bool _loading = true;
+  bool _missingSite = false;
+
+  int? get _siteId => selectedSiteId();
+
+  String get _siteName {
+    final named = selectedSiteName()?.trim();
+    if (named != null && named.isNotEmpty) return named;
+    final id = _siteId;
+    if (id == null) return '';
+    final fromCache = siteNameById(cachedSites() ?? const [], id)?.trim();
+    if (fromCache != null && fromCache.isNotEmpty) return fromCache;
+    return 'Site $id';
+  }
 
   double _hPad(double width) {
     if (width < 360) return 14;
@@ -44,11 +55,24 @@ class _ReportsListScreenState extends State<ReportsListScreen> {
   }
 
   Future<void> _loadReports() async {
-    setState(() => _loading = true);
+    final siteId = _siteId;
+    if (siteId == null) {
+      setState(() {
+        _items = [];
+        _loading = false;
+        _missingSite = true;
+      });
+      return;
+    }
+
+    setState(() {
+      _loading = true;
+      _missingSite = false;
+    });
 
     final response = await getReportsApi(
       context,
-      siteId: widget.siteId,
+      siteId: siteId,
     );
 
     if (!mounted) return;
@@ -61,6 +85,20 @@ class _ReportsListScreenState extends State<ReportsListScreen> {
   }
 
   void _openReport(BuildContext context, ReportListItem item) {
+    final siteId = _siteId;
+    if (siteId == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Select a site from the App Bar to view reports.',
+            style: GoogleFonts.poppins(fontSize: 13),
+          ),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      return;
+    }
+
     final apiPath = item.resolvedPath;
     if (apiPath.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -80,8 +118,8 @@ class _ReportsListScreenState extends State<ReportsListScreen> {
         MaterialPageRoute<void>(
           builder: (_) => LabourAttendanceReportScreen(
             report: item,
-            siteId: widget.siteId,
-            siteName: widget.siteName,
+            siteId: siteId,
+            siteName: _siteName,
           ),
         ),
       );
@@ -92,8 +130,8 @@ class _ReportsListScreenState extends State<ReportsListScreen> {
       MaterialPageRoute<void>(
         builder: (_) => ReportDetailScreen(
           report: item,
-          siteId: widget.siteId,
-          siteName: widget.siteName,
+          siteId: siteId,
+          siteName: _siteName,
         ),
       ),
     );
@@ -107,14 +145,20 @@ class _ReportsListScreenState extends State<ReportsListScreen> {
     final contentMax = width >= 1100 ? 1040.0 : double.infinity;
 
     return Scaffold(
+      key: _scaffoldKey,
       backgroundColor: AppColors.backgroundGray,
+      drawer: AppDrawer(
+        selectedIndex: DrawerIndex.report,
+        onItemTap: (index) => navigateFromDrawer(context, index),
+      ),
+      endDrawer: const AppEndDrawer(),
       body: SafeArea(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            AppTopBar.page(
+            AppTopBar.shell(
               title: 'Reports',
-              onBack: () => Navigator.pop(context),
+              scaffoldKey: _scaffoldKey,
               horizontalPadding: hPad,
             ),
             Expanded(
@@ -161,7 +205,9 @@ class _ReportsListScreenState extends State<ReportsListScreen> {
                                     const SizedBox(width: 6),
                                     Expanded(
                                       child: Text(
-                                        widget.siteName,
+                                        _siteName.isEmpty
+                                            ? 'No site selected'
+                                            : _siteName,
                                         maxLines: 1,
                                         overflow: TextOverflow.ellipsis,
                                         style: GoogleFonts.poppins(
@@ -174,7 +220,12 @@ class _ReportsListScreenState extends State<ReportsListScreen> {
                                 ),
                                 const SizedBox(height: 18),
                                 if (_items.isEmpty)
-                                  _EmptyReportsState(onRetry: _loadReports)
+                                  _EmptyReportsState(
+                                    onRetry: _missingSite ? null : _loadReports,
+                                    message: _missingSite
+                                        ? 'Select a site from the App Bar to view reports.'
+                                        : 'No reports available for this site.',
+                                  )
                                 else
                                   LayoutBuilder(
                                     builder: (context, constraints) {
@@ -216,9 +267,13 @@ class _ReportsListScreenState extends State<ReportsListScreen> {
 }
 
 class _EmptyReportsState extends StatelessWidget {
-  const _EmptyReportsState({required this.onRetry});
+  const _EmptyReportsState({
+    this.onRetry,
+    this.message = 'No reports available for this site.',
+  });
 
-  final VoidCallback onRetry;
+  final VoidCallback? onRetry;
+  final String message;
 
   @override
   Widget build(BuildContext context) {
@@ -240,7 +295,7 @@ class _EmptyReportsState extends StatelessWidget {
           ),
           const SizedBox(height: 12),
           Text(
-            'No reports available for this site.',
+            message,
             textAlign: TextAlign.center,
             style: GoogleFonts.poppins(
               fontSize: 14,
@@ -248,15 +303,17 @@ class _EmptyReportsState extends StatelessWidget {
               color: AppColors.textDark,
             ),
           ),
-          const SizedBox(height: 14),
-          TextButton.icon(
-            onPressed: onRetry,
-            icon: const Icon(Icons.refresh_rounded, size: 18),
-            label: Text(
-              'Retry',
-              style: GoogleFonts.poppins(fontWeight: FontWeight.w600),
+          if (onRetry != null) ...[
+            const SizedBox(height: 14),
+            TextButton.icon(
+              onPressed: onRetry,
+              icon: const Icon(Icons.refresh_rounded, size: 18),
+              label: Text(
+                'Retry',
+                style: GoogleFonts.poppins(fontWeight: FontWeight.w600),
+              ),
             ),
-          ),
+          ],
         ],
       ),
     );

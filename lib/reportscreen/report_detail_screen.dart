@@ -3,10 +3,13 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:grjoffice_apps/core/app_colors.dart';
 import 'package:grjoffice_apps/models/getsupplierlist.dart';
 import 'package:grjoffice_apps/models/listcontractor.dart';
+import 'package:grjoffice_apps/reportscreen/report_excel.dart';
 import 'package:grjoffice_apps/reportscreen/report_models.dart';
 import 'package:grjoffice_apps/services/api_auth.dart';
+import 'package:grjoffice_apps/services/purchase_image_download_service.dart';
 import 'package:grjoffice_apps/widgets/app_top_bar.dart';
 import 'package:intl/intl.dart';
+import 'package:open_filex/open_filex.dart';
 
 /// Generic report detail — uses API `path` + `required_params` from reports list.
 class ReportDetailScreen extends StatefulWidget {
@@ -43,8 +46,15 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
   bool _loadingOptions = false;
   bool _searching = false;
   bool _searched = false;
+  bool _downloadingExcel = false;
   Map<String, dynamic>? _response;
   List<Map<String, dynamic>> _rows = [];
+
+  bool get _showDownloadExcel =>
+      !_searching &&
+      _searched &&
+      _rows.isNotEmpty &&
+      widget.report.hasExcelUrl;
 
   double _hPad(double width) {
     if (width < 360) return 14;
@@ -256,6 +266,58 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
     });
   }
 
+  Future<void> _downloadExcel() async {
+    if (!_showDownloadExcel || _downloadingExcel) return;
+
+    final excelUrl = widget.report.excelUrl?.trim() ?? '';
+    if (excelUrl.isEmpty) return;
+
+    setState(() => _downloadingExcel = true);
+    showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      useRootNavigator: true,
+      builder: (_) => const PopScope(
+        canPop: false,
+        child: Center(
+          child: CircularProgressIndicator(color: AppColors.primaryRed),
+        ),
+      ),
+    );
+
+    try {
+      final bytes = buildReportExcelFromRows(
+        sheetName: widget.report.title,
+        rows: _rows,
+      );
+
+      final stamp = DateFormat('yyyyMMdd').format(DateTime.now());
+      final safeTitle = widget.report.title
+          .trim()
+          .replaceAll(RegExp(r'[\\/:*?"<>|]'), '_');
+      final fileName =
+          '${safeTitle.isEmpty ? 'report' : safeTitle}_$stamp.xlsx';
+      final savedPath =
+          await PurchaseImageDownloadService.downloadToDownloadsFolder(
+        bytes: bytes,
+        fileName: fileName,
+      );
+      if (!mounted) return;
+
+      final result = await OpenFilex.open(savedPath);
+      if (result.type != ResultType.done) {
+        _snack('Excel saved to Downloads.');
+      }
+    } catch (_) {
+      if (mounted) _snack('Failed to download Excel.');
+    } finally {
+      if (mounted) {
+        Navigator.of(context, rootNavigator: true).pop();
+        setState(() => _downloadingExcel = false);
+      }
+    }
+  }
+
   List<Map<String, dynamic>> _extractRows(Map<String, dynamic>? response) {
     if (response == null) return const [];
     final data = response['data'];
@@ -412,23 +474,33 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
           else
             ..._buildFilterFields(isCompact: isCompact),
           const SizedBox(height: 14),
-          Wrap(
-            spacing: 10,
-            runSpacing: 10,
+          Row(
             children: [
-              _actionButton(
-                label: _searching ? 'Searching...' : 'Search',
-                icon: Icons.search,
-                color: const Color(0xFF2563EB),
-                onPressed: _searching ? null : _onSearch,
+              Expanded(
+                child: _actionButton(
+                  label: _searching ? 'Searching...' : 'Search',
+                  icon: Icons.search,
+                  onPressed: _searching ? null : _onSearch,
+                ),
               ),
-              _actionButton(
-                label: 'Clear',
-                icon: Icons.refresh,
-                color: const Color(0xFFF59E0B),
-                foreground: AppColors.headingBlack,
-                onPressed: _onClear,
+              const SizedBox(width: 8),
+              Expanded(
+                child: _actionButton(
+                  label: 'Clear',
+                  icon: Icons.refresh,
+                  onPressed: _onClear,
+                ),
               ),
+              if (_showDownloadExcel) ...[
+                const SizedBox(width: 8),
+                Expanded(
+                  child: _actionButton(
+                    label: _downloadingExcel ? 'Downloading...' : 'Download Excel',
+                    icon: Icons.file_download_outlined,
+                    onPressed: _downloadingExcel ? null : _downloadExcel,
+                  ),
+                ),
+              ],
             ],
           ),
         ],
@@ -605,6 +677,7 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
 
   Widget _buildRowCard(Map<String, dynamic> row, int index, bool isCompact) {
     final entries = row.entries
+        .where((e) => !isDroppedReportExcelColumn(e.key))
         .where((e) => e.value != null && e.value.toString().trim().isNotEmpty)
         .toList();
 
@@ -762,20 +835,27 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
   Widget _actionButton({
     required String label,
     required IconData icon,
-    required Color color,
-    Color foreground = AppColors.white,
     VoidCallback? onPressed,
   }) {
-    return ElevatedButton.icon(
-      onPressed: onPressed,
-      icon: Icon(icon, size: 18),
-      label: Text(label, style: GoogleFonts.poppins(fontWeight: FontWeight.w600)),
-      style: ElevatedButton.styleFrom(
-        backgroundColor: color,
-        foregroundColor: foreground,
-        elevation: 0,
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+    return SizedBox(
+      height: 42,
+      width: double.infinity,
+      child: ElevatedButton.icon(
+        onPressed: onPressed,
+        icon: Icon(icon, size: 16),
+        label: Text(
+          label,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: GoogleFonts.poppins(fontWeight: FontWeight.w600, fontSize: 12),
+        ),
+        style: ElevatedButton.styleFrom(
+          backgroundColor: AppColors.primaryRed,
+          foregroundColor: AppColors.white,
+          elevation: 0,
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+        ),
       ),
     );
   }

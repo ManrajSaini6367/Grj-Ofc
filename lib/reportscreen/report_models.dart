@@ -10,6 +10,7 @@ class ReportListItem {
     required this.type,
     this.accentColor = const Color(0xFFF59E0B),
     this.path,
+    this.excelUrl,
     this.requiredParams = const [],
     this.itemId,
     this.itemName,
@@ -22,10 +23,13 @@ class ReportListItem {
   final ReportType type;
   final Color accentColor;
   final String? path;
+  final String? excelUrl;
   final List<String> requiredParams;
   final int? itemId;
   final String? itemName;
   final String? unit;
+
+  bool get hasExcelUrl => excelUrl != null && excelUrl!.trim().isNotEmpty;
 
   factory ReportListItem.fromApiItem(ReportMenuItem item) {
     final key = item.key?.trim() ?? '';
@@ -48,6 +52,7 @@ class ReportListItem {
       ),
       accentColor: _accentForKey(key, title: item.title),
       path: item.path,
+      excelUrl: item.excelUrl,
       requiredParams: item.requiredParams ?? const [],
       itemId: item.itemId,
       itemName: item.itemName,

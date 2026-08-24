@@ -99,18 +99,18 @@ class _HomePageState extends State<HomePage> {
     }).toList();
   }
 
-  static const _supplies = [
-    _SupplyItem(
-      Icons.print_outlined,
-      'Plotter Ink Cyan',
-      'Requested by John D. • Site A',
-    ),
-    _SupplyItem(
-      Icons.menu_book_outlined,
-      'Field Notebooks',
-      'Completed 6h ago',
-    ),
-  ];
+  // static const _supplies = [
+  //   // _SupplyItem(
+  //   //   Icons.print_outlined,
+  //   //   'Plotter Ink Cyan',
+  //   //   'Requested by John D. • Site A',
+  //   // ),
+  //   // _SupplyItem(
+  //   //   Icons.menu_book_outlined,
+  //   //   'Field Notebooks',
+  //   //   'Completed 6h ago',
+  //   // ),
+  // ];
 
   /// Login / profile `attendance_allow` — controls Punch In card on Dashboard.
   bool get _attendanceAllowed =>
@@ -161,21 +161,23 @@ class _HomePageState extends State<HomePage> {
       final names = siteNames(sites);
       var selected = Preference.pref.getString('selectedSiteName');
       final selectedId = selectedSiteId();
+      final selectedIdIsValid =
+          selectedId != null && sites.any((site) => site.id == selectedId);
 
-      if (selectedId != null) {
+      if (selectedIdIsValid) {
         selected = siteNameById(sites, selectedId) ?? selected;
       }
 
-      if (selected == null || !names.contains(selected)) {
-        selected = _defaultSiteName(sites) ?? names.first;
-      }
+      final resolvedName = (selected != null && names.contains(selected))
+          ? selected
+          : (_defaultSiteName(sites) ?? names.first);
 
-      setState(() {
-        _siteItems = sites;
-        _sites = names;
-        _selectedSite = selected!;
-        _isLoadingSites = false;
-      });
+      _siteItems = sites;
+      _sites = names;
+      _selectedSite = resolvedName;
+      await _saveSelectedSite(resolvedName);
+      if (!mounted) return;
+      setState(() => _isLoadingSites = false);
       return;
     }
 
@@ -204,7 +206,10 @@ class _HomePageState extends State<HomePage> {
   }
 
   void _onAttendanceChanged() {
-    if (mounted) setState(() {});
+    if (!mounted) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) setState(() {});
+    });
   }
 
   Future<void> _handlePunchIn() async {
@@ -230,6 +235,10 @@ class _HomePageState extends State<HomePage> {
         setState(() => _isProcessingPunch = false);
       }
       return;
+    }
+
+    if (selectedSiteId() == null && _selectedSite.isNotEmpty) {
+      await _saveSelectedSite(_selectedSite);
     }
 
     final result = await punchInApi(
@@ -395,11 +404,11 @@ class _HomePageState extends State<HomePage> {
                                       );
                                     },
                                   ),
-                                  const SizedBox(height: 24),
-                                  _buildSectionTitle('Office Supplies'),
-                                  const SizedBox(height: 12),
-                                  ..._supplies.map(_buildSupplyCard),
-                                  const SizedBox(height: 32),
+                                  // const SizedBox(height: 24),
+                                  // _buildSectionTitle('Office Supplies'),
+                                  // const SizedBox(height: 12),
+                                  // ..._supplies.map(_buildSupplyCard),
+                                  // const SizedBox(height: 32),
                                 ],
                               ),
                             ),
@@ -459,10 +468,7 @@ class _HomePageState extends State<HomePage> {
       child: InkWell(
         onTap: _isLoadingSites || _sites.isEmpty
             ? null
-            : () {
-                if (!PunchInGate.ensureAccess(context)) return;
-                _openSiteSelection();
-              },
+            : _openSiteSelection,
         borderRadius: BorderRadius.circular(8),
         child: Container(
           height: 40,
@@ -828,7 +834,10 @@ class _AttendanceCardState extends State<_AttendanceCard> {
   }
 
   void _onAttendanceChanged() {
-    if (mounted) setState(() {});
+    if (!mounted) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) setState(() {});
+    });
   }
 
   Widget _buildPunchButton(bool isPunchedIn) {

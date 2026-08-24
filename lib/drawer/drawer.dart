@@ -49,8 +49,14 @@ class AppDrawer extends StatelessWidget {
     _DrawerMenuItem(
       DrawerIndex.labourContractors,
       Icons.groups_outlined,
-      'Labour Contractor',
+      'Labour',
       anyOf: [AppPermissions.contractorsView],
+    ),
+    _DrawerMenuItem(
+      DrawerIndex.originalContractors,
+      Icons.engineering_outlined,
+      'Contractors',
+      anyOf: [],
     ),
     _DrawerMenuItem(
       DrawerIndex.items,
@@ -62,6 +68,12 @@ class AppDrawer extends StatelessWidget {
       DrawerIndex.store,
       Icons.storefront_outlined,
       'Store',
+      anyOf: [AppPermissions.itemsView],
+    ),
+    _DrawerMenuItem(
+      DrawerIndex.inwardOutward,
+      Icons.swap_horiz_outlined,
+      'Inward / Outward',
       anyOf: [AppPermissions.itemsView],
     ),
     _DrawerMenuItem(

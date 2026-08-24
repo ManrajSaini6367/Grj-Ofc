@@ -19,8 +19,11 @@ import 'package:grjoffice_apps/Itemsscreen/item.dart';
 import 'package:grjoffice_apps/models/getcalendermodal.dart';
 import 'package:grjoffice_apps/models/getcontractor.dart';
 import 'package:grjoffice_apps/models/getemployeemodal.dart';
+import 'package:grjoffice_apps/models/getempoyeeskycrequest.dart';
 import 'package:grjoffice_apps/models/getleavetypemodal.dart';
 import 'package:grjoffice_apps/models/getmyleavemodal.dart';
+import 'package:grjoffice_apps/models/getoriginalcontractor.dart';
+import 'package:grjoffice_apps/models/getcontractorlist.dart';
 import 'package:grjoffice_apps/models/getshowleavemodal.dart';
 import 'package:grjoffice_apps/models/getsupplier.dart';
 import 'package:grjoffice_apps/models/getsupplierlist.dart';
@@ -31,8 +34,10 @@ import 'package:grjoffice_apps/models/labourattendancereport.dart';
 import 'package:grjoffice_apps/models/leaverequestHR.dart';
 import 'package:grjoffice_apps/models/listcontractor.dart';
 import 'package:grjoffice_apps/models/login_model.dart';
+import 'package:grjoffice_apps/models/mykycdatamodal.dart';
 import 'package:grjoffice_apps/models/mypermission.dart';
 import 'package:grjoffice_apps/models/pagination_model.dart';
+import 'package:grjoffice_apps/models/showemployeeskycmodal.dart';
 import 'package:grjoffice_apps/models/site_model.dart';
 import 'package:grjoffice_apps/models/sites_response_model.dart';
 import 'package:grjoffice_apps/DayEndReport/activity.dart';
@@ -41,6 +46,7 @@ import 'package:grjoffice_apps/models/task_message_model.dart';
 import 'package:grjoffice_apps/models/user_model.dart';
 import 'package:grjoffice_apps/Expensescreen/expense.dart';
 import 'package:grjoffice_apps/Purchasescreen/purchase.dart';
+import 'package:grjoffice_apps/models/approvekycmodal.dart';
 import 'package:grjoffice_apps/models/attendance_model.dart';
 import 'package:grjoffice_apps/models/getreportmodal.dart';
 import 'package:grjoffice_apps/models/viewemployeeprofile.dart';
@@ -172,6 +178,9 @@ LabourContractor labourContractorFromApiData(
 int? selectedSiteId() =>
     Preference.pref.getInt('site_id') ?? Preference.pref.getInt('selectedSiteId');
 
+int? currentRoleId() =>
+    cachedUser()?.roleId ?? Preference.pref.getInt('role_id');
+
 String? selectedSiteName() => Preference.pref.getString('selectedSiteName');
 
 Future<void> saveSiteId(int siteId, {String? siteName}) async {
@@ -194,6 +203,11 @@ Future<void> _saveUser(UserModel user) async {
   await Preference.pref.setString('email', user.email);
   await Preference.pref.setString('name', user.name);
   await Preference.pref.setString('user', jsonEncode(user.toJson()));
+  if (user.roleId != null && user.roleId! > 0) {
+    await Preference.pref.setInt('role_id', user.roleId!);
+  } else {
+    await Preference.pref.remove('role_id');
+  }
   await saveSiteIdFromUser(user);
   UserSession.instance.setUser(user);
 }
@@ -251,7 +265,9 @@ Future logInApi(
   bool rememberDevice = false,
 }) async {
   final email = login.trim();
-  if (email.isEmpty || password.isEmpty) {
+  final rawPassword = password;
+  final trimmedPassword = password.trim();
+  if (email.isEmpty || trimmedPassword.isEmpty) {
     if (context.mounted) {
       message(context, 'Please enter email and password.');
     }
@@ -259,24 +275,44 @@ Future logInApi(
   }
 
   try {
+    final url = '$baseUrl/api/v1/login';
+    final headers = {
+      'Content-Type': 'application/json',
+      'Accept': 'application/json',
+    };
+    final requestBody = {
+      'email': email,
+      'password': trimmedPassword,
+      'device_name': _deviceName,
+      'device_id': 'abc123-device-uuid',
+    };
+    final encodedBody = jsonEncode(requestBody);
+
+    print('========== LOGIN REQUEST ==========');
+    print('[Login] URL: $url');
+    print('[Login] headers: $headers');
+    print('[Login] raw email: "$login"');
+    print('[Login] trimmed email: "$email"  len=${email.length}');
+    print('[Login] raw password: "$rawPassword"  len=${rawPassword.length}');
+    print('[Login] trimmed password: "$trimmedPassword"  len=${trimmedPassword.length}');
+    print('[Login] password codeUnits: ${trimmedPassword.codeUnits}');
+    print('[Login] device_name: $_deviceName');
+    print('[Login] request JSON: $encodedBody');
+    print('===================================');
+
     final response = await http
         .post(
-          Uri.parse('$baseUrl/api/v1/login'),
-          headers: {
-            'Content-Type': 'application/json',
-            'Accept': 'application/json',
-          },
-          body: jsonEncode({
-            'email': email,
-            'password': password,
-            'device_name': _deviceName,
-            'device_id': 'abc123-device-uuid',
-          }),
+          Uri.parse(url),
+          headers: headers,
+          body: encodedBody,
         )
         .timeout(const Duration(seconds: 30));
 
-    debugPrint('Login API status: ${response.statusCode}');
-    debugPrint('Login API body: ${response.body}');
+    print('========== LOGIN RESPONSE ==========');
+    print('[Login] status: ${response.statusCode}');
+    print('[Login] response headers: ${response.headers}');
+    print('[Login] response body: ${response.body}');
+    print('====================================');
 
     final data = decodeApiJson(response.body);
     if (data == null) {
@@ -651,6 +687,7 @@ Future<void> _clearSessionData() async {
   await Preference.pref.remove('site_id');
   await Preference.pref.remove('selectedSiteId');
   await Preference.pref.remove('selectedSiteName');
+  await Preference.pref.remove('role_id');
   await PermissionService.instance.clear();
   UserSession.instance.clear();
 }
@@ -1821,6 +1858,67 @@ Future<Itemhistorydata?> itemHistoryApi(
     return null;
   }
 }
+
+Future<bool> createItemHistoryApi(
+  BuildContext context, {
+  required int itemId,
+  required double qty,
+  required String date,
+  required String issueTo,
+  required String remark,
+  String type = 'debit',
+}) async {
+  try {
+    final url = '$baseUrl/api/v1/items/$itemId/history';
+    final body = <String, dynamic>{
+      'qty': qty,
+      'type': type,
+      'issue_to': issueTo,
+      'description': remark,
+      if (date.trim().isNotEmpty) 'date': date,
+      if (selectedSiteId() != null) 'site_id': selectedSiteId(),
+    };
+
+    debugPrint('[createItemHistoryApi] POST $url');
+    debugPrint('[createItemHistoryApi] body: $body');
+
+    final response = await http
+        .post(
+          Uri.parse(url),
+          headers: authHeaders,
+          body: jsonEncode(body),
+        )
+        .timeout(const Duration(seconds: 30));
+
+    debugPrint('[createItemHistoryApi] statusCode: ${response.statusCode}');
+    debugPrint('[createItemHistoryApi] response body: ${response.body}');
+
+    final decoded = decodeApiJson(response.body);
+    final apiMessage = decoded?['message']?.toString();
+
+    if ((response.statusCode == 201 || response.statusCode == 200) &&
+        decoded != null &&
+        decoded['success'] == true) {
+      if (context.mounted && apiMessage != null) message(context, apiMessage);
+      return true;
+    }
+
+    if (context.mounted) {
+      message(context, apiMessage ?? 'Failed to save item history.');
+    }
+    return false;
+  } on TimeoutException {
+    debugPrint('[createItemHistoryApi] request timed out');
+    if (context.mounted) message(context, 'Request timed out. Please try again.');
+    return false;
+  } catch (e, stack) {
+    debugPrint('[createItemHistoryApi] error: $e');
+    debugPrint('[createItemHistoryApi] stack: $stack');
+    if (context.mounted) message(context, 'Something went wrong');
+    return false;
+  }
+}
+
 // createemployeeapi
 Future<bool> createEmployeeApi(
   BuildContext context, {
@@ -3430,6 +3528,8 @@ Future<PurchasesListResponse?> getPurchasesApi(
   String? status,
   String? flowType,
   String search = '',
+  String? startDate,
+  String? endDate,
   int perPage = 15,
   int page = 1,
   bool fetchAllPages = false,
@@ -3452,6 +3552,10 @@ Future<PurchasesListResponse?> getPurchasesApi(
         'status': status?.trim() ?? '',
         'flow_type': flowType?.trim() ?? '',
         'search': search.trim(),
+        if (startDate != null && startDate.trim().isNotEmpty)
+          'start_date': startDate.trim(),
+        if (endDate != null && endDate.trim().isNotEmpty)
+          'end_date': endDate.trim(),
       };
 
       final uri = Uri.parse('$baseUrl/api/v1/purchases').replace(
@@ -5683,6 +5787,78 @@ Future<Map<String, dynamic>?> getReportDetailApi(
     return null;
   }
 }
+
+/// GET report Excel using `excel_url` from the reports list, plus the same
+/// required params used by the report detail request (`site_id`, dates, etc.).
+Future<Uint8List?> downloadReportExcelApi(
+  BuildContext context, {
+  required String excelUrl,
+  required int siteId,
+  Map<String, String> queryParams = const {},
+}) async {
+  try {
+    var raw = excelUrl.trim();
+    if (raw.isEmpty) {
+      if (context.mounted) {
+        message(context, 'Excel download is not available for this report.');
+      }
+      return null;
+    }
+    if (!raw.startsWith('http://') && !raw.startsWith('https://')) {
+      raw = '$baseUrl${raw.startsWith('/') ? raw : '/$raw'}';
+    }
+
+    final parsed = Uri.parse(raw);
+    final params = <String, String>{
+      ...parsed.queryParameters,
+      'site_id': siteId.toString(),
+      ...queryParams,
+    }..removeWhere((_, value) => value.trim().isEmpty);
+
+    final uri = parsed.replace(queryParameters: params);
+
+    print('[downloadReportExcelApi] GET $uri');
+
+    final response = await http
+        .get(uri, headers: pdfAuthHeaders)
+        .timeout(const Duration(seconds: 60));
+
+    print(
+      '[downloadReportExcelApi] statusCode: ${response.statusCode} bytes: ${response.bodyBytes.length}',
+    );
+
+    if (response.statusCode == 200 && response.bodyBytes.isNotEmpty) {
+      final bytes = response.bodyBytes;
+      final looksJson = bytes.isNotEmpty &&
+          (bytes[0] == 0x7B || bytes[0] == 0x5B); // '{' or '['
+      if (looksJson) {
+        final decoded = decodeApiJson(response.body);
+        final apiMessage = decoded?['message']?.toString();
+        if (!context.mounted) return null;
+        message(context, apiMessage ?? 'Failed to download Excel.');
+        return null;
+      }
+      return bytes;
+    }
+
+    final decoded = decodeApiJson(response.body);
+    final apiMessage = decoded?['message']?.toString();
+    if (!context.mounted) return null;
+    message(context, apiMessage ?? 'Failed to download Excel.');
+    return null;
+  } on TimeoutException {
+    print('[downloadReportExcelApi] request timed out');
+    if (!context.mounted) return null;
+    message(context, 'Request timed out. Please try again.');
+    return null;
+  } catch (e, stack) {
+    print('[downloadReportExcelApi] error: $e');
+    print('[downloadReportExcelApi] stack: $stack');
+    if (!context.mounted) return null;
+    message(context, 'Something went wrong');
+    return null;
+  }
+}
 //getattendancecalendarapi
 Future<Getcalendermodal?> getAttendanceCalendarApi(
   BuildContext context, {
@@ -5746,6 +5922,766 @@ Future<Getcalendermodal?> getAttendanceCalendarApi(
     if (showErrors && context.mounted) {
       message(context, 'Something went wrong');
     }
+    return null;
+  }
+}
+
+//getoriginalcontractorapi
+Future<Getoriginalcontractor?> getOriginalContractorsApi(
+  BuildContext context, {
+  int? siteId,
+  String search = '',
+  int perPage = 15,
+}) async {
+  try {
+    final resolvedSiteId = siteId ?? selectedSiteId();
+    if (resolvedSiteId == null) {
+      if (context.mounted) {
+        message(context, 'Please select a site first.');
+      }
+      return null;
+    }
+
+    final queryParams = <String, String>{
+      'site_id': resolvedSiteId.toString(),
+      'per_page': perPage.toString(),
+    };
+    if (search.trim().isNotEmpty) {
+      queryParams['search'] = search.trim();
+    }
+
+    final uri = Uri.parse('$baseUrl/api/v1/original-contractors').replace(
+      queryParameters: queryParams,
+    );
+
+    print('[getOriginalContractorsApi] GET $uri');
+
+    final response = await http
+        .get(uri, headers: authHeaders)
+        .timeout(const Duration(seconds: 30));
+
+    print('[getOriginalContractorsApi] statusCode: ${response.statusCode}');
+    print('[getOriginalContractorsApi] response body: ${response.body}');
+
+    final decoded = decodeApiJson(response.body);
+    final apiMessage = decoded?['message']?.toString();
+
+    if (response.statusCode == 200 &&
+        decoded != null &&
+        decoded['success'] != false) {
+      return Getoriginalcontractor.fromJson(decoded);
+    }
+
+    if (!context.mounted) return null;
+    message(context, apiMessage ?? 'Failed to load contractors.');
+    return null;
+  } on TimeoutException {
+    print('[getOriginalContractorsApi] request timed out');
+    if (!context.mounted) return null;
+    message(context, 'Request timed out. Please try again.');
+    return null;
+  } catch (e, stack) {
+    print('[getOriginalContractorsApi] error: $e');
+    print('[getOriginalContractorsApi] stack: $stack');
+    if (!context.mounted) return null;
+    message(context, 'Something went wrong');
+    return null;
+  }
+}
+
+//createoriginalcontractorapi — POST /api/v1/original-contractors
+Future<OriginalContractorItem?> createOriginalContractorApi(
+  BuildContext context, {
+  required int siteId,
+  required String name,
+  required String status,
+  required List<Map<String, dynamic>> works,
+}) async {
+  try {
+    final url = '$baseUrl/api/v1/original-contractors';
+    final body = <String, dynamic>{
+      'site_id': siteId,
+      'name': name.trim(),
+      'status': status,
+      'works': works
+          .map(
+            (item) => {
+              'work': item['work']?.toString().trim() ?? '',
+              'rate': item['rate'] is num
+                  ? (item['rate'] as num).toInt()
+                  : int.tryParse(item['rate']?.toString() ?? '') ?? 0,
+            },
+          )
+          .where((item) => (item['work'] as String).isNotEmpty)
+          .toList(),
+    };
+
+    print('[createOriginalContractorApi] POST $url');
+    print('[createOriginalContractorApi] body: ${jsonEncode(body)}');
+
+    final response = await http
+        .post(
+          Uri.parse(url),
+          headers: authHeaders,
+          body: jsonEncode(body),
+        )
+        .timeout(const Duration(seconds: 30));
+
+    print('[createOriginalContractorApi] statusCode: ${response.statusCode}');
+    print('[createOriginalContractorApi] response body: ${response.body}');
+
+    final decoded = decodeApiJson(response.body);
+    final apiMessage = decoded?['message']?.toString();
+
+    if ((response.statusCode == 200 || response.statusCode == 201) &&
+        decoded != null &&
+        decoded['success'] == true) {
+      if (context.mounted) {
+        message(context, apiMessage ?? 'Original contractor created');
+      }
+
+      final data = decoded['data'];
+      if (data is Map) {
+        return OriginalContractorItem.fromJson(Map<String, dynamic>.from(data));
+      }
+      return OriginalContractorItem(
+        siteId: siteId,
+        name: name.trim(),
+        status: status,
+      );
+    }
+
+    if (!context.mounted) return null;
+    message(
+      context,
+      _firstApiError(decoded) ??
+          apiMessage ??
+          'Failed to create contractor.',
+    );
+    return null;
+  } on TimeoutException {
+    print('[createOriginalContractorApi] request timed out');
+    if (!context.mounted) return null;
+    message(context, 'Request timed out. Please try again.');
+    return null;
+  } catch (e, stack) {
+    print('[createOriginalContractorApi] error: $e');
+    print('[createOriginalContractorApi] stack: $stack');
+    if (!context.mounted) return null;
+    message(context, 'Something went wrong');
+    return null;
+  }
+}
+
+String? _firstApiError(Map<String, dynamic>? decoded) {
+  final errors = decoded?['errors'];
+  if (errors is! Map) return null;
+  for (final value in errors.values) {
+    if (value is List && value.isNotEmpty) return value.first.toString();
+    if (value != null) return value.toString();
+  }
+  return null;
+}
+
+//getcontractorlistapi — GET /api/v1/original-contractors/{id}
+Future<Getcclist?> getOriginalContractorApi(
+  BuildContext context, {
+  required int originalContractorId,
+}) async {
+  try {
+    final url = '$baseUrl/api/v1/original-contractors/$originalContractorId';
+    print('[getOriginalContractorApi] GET $url');
+
+    final response = await http
+        .get(Uri.parse(url), headers: authHeaders)
+        .timeout(const Duration(seconds: 30));
+
+    print('[getOriginalContractorApi] statusCode: ${response.statusCode}');
+    print('[getOriginalContractorApi] response body: ${response.body}');
+
+    final decoded = decodeApiJson(response.body);
+    final apiMessage = decoded?['message']?.toString();
+
+    if (response.statusCode == 200 &&
+        decoded != null &&
+        decoded['success'] != false) {
+      return Getcclist.fromJson(decoded);
+    }
+
+    if (!context.mounted) return null;
+    message(
+      context,
+      _firstApiError(decoded) ??
+          apiMessage ??
+          'Failed to load contractor details.',
+    );
+    return null;
+  } on TimeoutException {
+    print('[getOriginalContractorApi] request timed out');
+    if (!context.mounted) return null;
+    message(context, 'Request timed out. Please try again.');
+    return null;
+  } catch (e, stack) {
+    print('[getOriginalContractorApi] error: $e');
+    print('[getOriginalContractorApi] stack: $stack');
+    if (!context.mounted) return null;
+    message(context, 'Something went wrong');
+    return null;
+  }
+}
+
+//updateoriginalcontractorapi — PUT /api/v1/original-contractors/{id}
+Future<Getcclist?> updateOriginalContractorApi(
+  BuildContext context, {
+  required int originalContractorId,
+  required String name,
+  required String status,
+  required List<Map<String, dynamic>> works,
+}) async {
+  try {
+    final url = Uri.parse(
+      '$baseUrl/api/v1/original-contractors/$originalContractorId',
+    );
+    final body = <String, dynamic>{
+      'name': name.trim(),
+      'status': status,
+      'works': works
+          .map(
+            (item) => {
+              'work': item['work']?.toString().trim() ?? '',
+              'rate': item['rate'] is num
+                  ? (item['rate'] as num).toInt()
+                  : int.tryParse(item['rate']?.toString() ?? '') ?? 0,
+            },
+          )
+          .where((item) => (item['work'] as String).isNotEmpty)
+          .toList(),
+    };
+
+    print('[updateOriginalContractorApi] PUT $url');
+    print('[updateOriginalContractorApi] body: ${jsonEncode(body)}');
+
+    final response = await apiPut(
+      url,
+      headers: authHeaders,
+      body: jsonEncode(body),
+    ).timeout(const Duration(seconds: 30));
+
+    print('[updateOriginalContractorApi] statusCode: ${response.statusCode}');
+    print('[updateOriginalContractorApi] response body: ${response.body}');
+
+    final decoded = decodeApiJson(response.body);
+    final apiMessage = decoded?['message']?.toString();
+
+    if (response.statusCode == 200 &&
+        decoded != null &&
+        decoded['success'] != false) {
+      if (context.mounted) {
+        message(context, apiMessage ?? 'Original contractor updated');
+      }
+      return Getcclist.fromJson(decoded);
+    }
+
+    if (!context.mounted) return null;
+    message(
+      context,
+      _firstApiError(decoded) ??
+          apiMessage ??
+          'Failed to update contractor.',
+    );
+    return null;
+  } on TimeoutException {
+    print('[updateOriginalContractorApi] request timed out');
+    if (!context.mounted) return null;
+    message(context, 'Request timed out. Please try again.');
+    return null;
+  } catch (e, stack) {
+    print('[updateOriginalContractorApi] error: $e');
+    print('[updateOriginalContractorApi] stack: $stack');
+    if (!context.mounted) return null;
+    message(context, 'Something went wrong');
+    return null;
+  }
+}
+
+//deletecontractorapi — DELETE /api/v1/original-contractors/{id}
+Future<bool> deleteOriginalContractorApi(
+  BuildContext context, {
+  required int originalContractorId,
+}) async {
+  try {
+    final url = '$baseUrl/api/v1/original-contractors/$originalContractorId';
+    print('[deleteOriginalContractorApi] DELETE $url');
+
+    final response = await http
+        .delete(Uri.parse(url), headers: authHeaders)
+        .timeout(const Duration(seconds: 30));
+
+    print('[deleteOriginalContractorApi] statusCode: ${response.statusCode}');
+    print('[deleteOriginalContractorApi] response body: ${response.body}');
+
+    final decoded = decodeApiJson(response.body);
+    final apiMessage = decoded?['message']?.toString();
+
+    if ((response.statusCode == 200 || response.statusCode == 204) &&
+        (decoded == null || decoded['success'] != false)) {
+      return true;
+    }
+
+    if (!context.mounted) return false;
+    message(
+      context,
+      _firstApiError(decoded) ??
+          apiMessage ??
+          'Failed to delete contractor.',
+    );
+    return false;
+  } on TimeoutException {
+    print('[deleteOriginalContractorApi] request timed out');
+    if (!context.mounted) return false;
+    message(context, 'Request timed out. Please try again.');
+    return false;
+  } catch (e, stack) {
+    print('[deleteOriginalContractorApi] error: $e');
+    print('[deleteOriginalContractorApi] stack: $stack');
+    if (!context.mounted) return false;
+    message(context, 'Something went wrong');
+    return false;
+  }
+}
+
+//employeekycapi — POST /api/v1/employee-kycs
+Future<bool> employeeKycApi(
+  BuildContext context, {
+  required int siteId,
+  String? employeeId,
+  required String monthlySalary,
+  required String leaveAllocation,
+  required String employmentType,
+  required String joiningDate,
+  required bool foodAllowance,
+  String foodEmployeeAmount = '',
+  String foodCompanyAmount = '',
+  required bool stayAllowance,
+  String stayEmployeeAmount = '',
+  String stayCompanyAmount = '',
+  required String emergencyContact,
+  required String accountHolderName,
+  required String bankName,
+  required String accountNumber,
+  required String ifscCode,
+  required String password,
+  int? roleId,
+  required File pan,
+  required File aadhaarFront,
+  required File aadhaarBack,
+  required File marksheet10,
+  required File marksheet12,
+  required File bankCheque,
+}) async {
+  try {
+    final url = '$baseUrl/api/v1/employee-kycs';
+    final fields = <String, String>{
+      'site_id': siteId.toString(),
+      'monthly_salary': monthlySalary.trim(),
+      'leave_allocation': leaveAllocation.trim(),
+      'employment_type': employmentType.trim(),
+      'joining_date': joiningDate.trim(),
+      'food_allowance': foodAllowance ? '1' : '0',
+      'food_employee_amount': foodAllowance
+          ? foodEmployeeAmount.trim()
+          : '0',
+      'food_company_amount': foodAllowance
+          ? foodCompanyAmount.trim()
+          : '0',
+      'stay_allowance': stayAllowance ? '1' : '0',
+      'stay_employee_amount': stayAllowance
+          ? stayEmployeeAmount.trim()
+          : '0',
+      'stay_company_amount': stayAllowance
+          ? stayCompanyAmount.trim()
+          : '0',
+      'emergency_contact': emergencyContact.trim(),
+      'account_holder_name': accountHolderName.trim(),
+      'bank_name': bankName.trim(),
+      'account_number': accountNumber.trim(),
+      'ifsc_code': ifscCode.trim().toUpperCase(),
+      'password': password,
+      'password_confirmation': password,
+    };
+
+    if (roleId != null && roleId > 0) {
+      fields['role_id'] = roleId.toString();
+    }
+
+    final resolvedEmployeeId = (employeeId ?? '').trim();
+    if (resolvedEmployeeId.isNotEmpty) {
+      fields['employee_id'] = resolvedEmployeeId;
+    }
+
+    final files = [
+      await _multipartImage('pan', pan, fallbackName: 'pan.jpg'),
+      await _multipartImage(
+        'aadhaar_front',
+        aadhaarFront,
+        fallbackName: 'aadhaar_front.jpg',
+      ),
+      await _multipartImage(
+        'aadhaar_back',
+        aadhaarBack,
+        fallbackName: 'aadhaar_back.jpg',
+      ),
+      await _multipartImage(
+        'marksheet_10',
+        marksheet10,
+        fallbackName: 'marksheet_10.jpg',
+      ),
+      await _multipartImage(
+        'marksheet_12',
+        marksheet12,
+        fallbackName: 'marksheet_12.jpg',
+      ),
+      await _multipartImage(
+        'bank_cheque',
+        bankCheque,
+        fallbackName: 'bank_cheque.jpg',
+      ),
+    ];
+
+    print('[employeeKycApi] POST $url');
+    print('[employeeKycApi] fields: ${{
+      ...fields,
+      'password': '********',
+      'password_confirmation': '********',
+    }}');
+    print('[employeeKycApi] files: pan, aadhaar_front, aadhaar_back, marksheet_10, marksheet_12, bank_cheque');
+
+    final response = await _sendMultipart(
+      Uri.parse(url),
+      fields: fields,
+      files: files,
+      timeout: const Duration(seconds: 90),
+    );
+
+    print('[employeeKycApi] statusCode: ${response.statusCode}');
+    print('[employeeKycApi] response body: ${response.body}');
+
+    final decoded = decodeApiJson(response.body);
+    final apiMessage = decoded?['message']?.toString();
+
+    if ((response.statusCode == 200 || response.statusCode == 201) &&
+        (decoded == null || decoded['success'] != false)) {
+      return true;
+    }
+
+    if (!context.mounted) return false;
+    message(
+      context,
+      _firstApiError(decoded) ??
+          apiMessage ??
+          'Failed to submit Employee KYC.',
+    );
+    return false;
+  } on TimeoutException {
+    print('[employeeKycApi] request timed out');
+    if (!context.mounted) return false;
+    message(context, 'Request timed out. Please try again.');
+    return false;
+  } catch (e, stack) {
+    print('[employeeKycApi] error: $e');
+    print('[employeeKycApi] stack: $stack');
+    if (!context.mounted) return false;
+    message(context, 'Something went wrong');
+    return false;
+  }
+}
+
+
+//mykycdata — GET /api/v1/employee-kycs/mine
+Future<MyKycModalData?> getMyEmployeeKycApi(BuildContext context) async {
+  try {
+    final url = '$baseUrl/api/v1/employee-kycs/mine';
+    print('[getMyEmployeeKycApi] GET $url');
+
+    final response = await http
+        .get(Uri.parse(url), headers: authHeaders)
+        .timeout(const Duration(seconds: 30));
+
+    print('[getMyEmployeeKycApi] statusCode: ${response.statusCode}');
+    print('[getMyEmployeeKycApi] response body: ${response.body}');
+
+    final decoded = decodeApiJson(response.body);
+    if (response.statusCode == 404) return null;
+
+    if (response.statusCode == 200 &&
+        decoded != null &&
+        decoded['success'] == true &&
+        decoded['data'] is Map) {
+      return MyKycModalData.fromJson(
+        Map<String, dynamic>.from(decoded['data'] as Map),
+      );
+    }
+
+    if (decoded != null && decoded['success'] == false) {
+      return null;
+    }
+
+    if (!context.mounted) return null;
+    if (response.statusCode != 200) {
+      message(
+        context,
+        decoded?['message']?.toString() ?? 'Failed to load Employee KYC.',
+      );
+    }
+    return null;
+  } on TimeoutException {
+    print('[getMyEmployeeKycApi] request timed out');
+    if (!context.mounted) return null;
+    message(context, 'Request timed out. Please try again.');
+    return null;
+  } catch (e, stack) {
+    print('[getMyEmployeeKycApi] error: $e');
+    print('[getMyEmployeeKycApi] stack: $stack');
+    if (!context.mounted) return null;
+    message(context, 'Something went wrong');
+    return null;
+  }
+}
+
+//employeekycrequestapi — GET /api/v1/employee-kycs
+Future<GetMyEmployeeKycRequest?> getMyEmployeeKycRequestApi(
+  BuildContext context, {
+  int? siteId,
+  int perPage = 20,
+  int page = 1,
+  String? status,
+  String? search,
+}) async {
+  try {
+    final resolvedSiteId = siteId ?? selectedSiteId();
+    if (resolvedSiteId == null) {
+      if (context.mounted) {
+        message(context, 'Please select a site first.');
+      }
+      return null;
+    }
+
+    final queryParams = <String, String>{
+      'site_id': resolvedSiteId.toString(),
+      'per_page': perPage.toString(),
+      'page': page.toString(),
+    };
+    if (status != null && status.trim().isNotEmpty) {
+      queryParams['status'] = status.trim();
+    }
+    if (search != null && search.trim().isNotEmpty) {
+      queryParams['search'] = search.trim();
+    }
+
+    final uri = Uri.parse('$baseUrl/api/v1/employee-kycs').replace(
+      queryParameters: queryParams,
+    );
+    print('[getMyEmployeeKycRequestApi] GET $uri');
+
+    final response = await http
+        .get(uri, headers: authHeaders)
+        .timeout(const Duration(seconds: 30));
+
+    print('[getMyEmployeeKycRequestApi] statusCode: ${response.statusCode}');
+    print('[getMyEmployeeKycRequestApi] response body: ${response.body}');
+
+    final decoded = decodeApiJson(response.body);
+    final apiMessage = decoded?['message']?.toString();
+
+    if (response.statusCode == 200 &&
+        decoded != null &&
+        decoded['success'] == true &&
+        decoded['data'] is Map) {
+      return GetMyEmployeeKycRequest.fromJson(
+        Map<String, dynamic>.from(decoded['data'] as Map),
+      );
+    }
+
+    if (!context.mounted) return null;
+    message(
+      context,
+      _firstApiError(decoded) ??
+          apiMessage ??
+          'Failed to load Employee KYC requests.',
+    );
+    return null;
+  } on TimeoutException {
+    print('[getMyEmployeeKycRequestApi] request timed out');
+    if (!context.mounted) return null;
+    message(context, 'Request timed out. Please try again.');
+    return null;
+  } catch (e, stack) {
+    print('[getMyEmployeeKycRequestApi] error: $e');
+    print('[getMyEmployeeKycRequestApi] stack: $stack');
+    if (!context.mounted) return null;
+    message(context, 'Something went wrong');
+    return null;
+  }
+}
+
+
+//showemployeekycapi — GET /api/v1/employee-kycs/{id}
+Future<Showemployyeskycmodal?> showEmployeeKycApi(
+  BuildContext context, {
+  required int employeeId,
+}) async {
+  try {
+    final url = '$baseUrl/api/v1/employee-kycs/$employeeId';
+    print('[showEmployeeKycApi] GET $url');
+
+    final response = await http
+        .get(Uri.parse(url), headers: authHeaders)
+        .timeout(const Duration(seconds: 30));
+
+    print('[showEmployeeKycApi] statusCode: ${response.statusCode}');
+    print('[showEmployeeKycApi] response body: ${response.body}');
+
+    final decoded = decodeApiJson(response.body);
+    final apiMessage = decoded?['message']?.toString();
+
+    if (response.statusCode == 200 &&
+        decoded != null &&
+        decoded['success'] == true) {
+      return Showemployyeskycmodal.fromJson(decoded);
+    }
+
+    if (!context.mounted) return null;
+    message(
+      context,
+      _firstApiError(decoded) ??
+          apiMessage ??
+          'Failed to load Employee KYC details.',
+    );
+    return null;
+  } on TimeoutException {
+    print('[showEmployeeKycApi] request timed out');
+    if (!context.mounted) return null;
+    message(context, 'Request timed out. Please try again.');
+    return null;
+  } catch (e, stack) {
+    print('[showEmployeeKycApi] error: $e');
+    print('[showEmployeeKycApi] stack: $stack');
+    if (!context.mounted) return null;
+    message(context, 'Something went wrong');
+    return null;
+  }
+}
+
+//employeekycapproveapi — POST /api/v1/employee-kycs/{id}/approve
+Future<Approvekycmodal?> approveEmployeeKycApi(
+  BuildContext context, {
+  required int employeeId,
+}) async {
+  try {
+    if (employeeId <= 0) {
+      if (context.mounted) {
+        message(context, 'KYC id is missing.');
+      }
+      return null;
+    }
+
+    final url = '$baseUrl/api/v1/employee-kycs/$employeeId/approve';
+    print('[approveEmployeeKycApi] POST $url');
+
+    final response = await http
+        .post(Uri.parse(url), headers: authHeaders)
+        .timeout(const Duration(seconds: 30));
+
+    print('[approveEmployeeKycApi] statusCode: ${response.statusCode}');
+    print('[approveEmployeeKycApi] response: ${response.body}');
+
+    final decoded = decodeApiJson(response.body);
+    final apiMessage = decoded?['message']?.toString();
+
+    if ((response.statusCode == 200 || response.statusCode == 201) &&
+        decoded != null &&
+        decoded['success'] != false) {
+      if (context.mounted) {
+        message(context, apiMessage ?? 'Employee KYC approved');
+      }
+      return Approvekycmodal.fromJson(decoded);
+    }
+
+    if (!context.mounted) return null;
+    message(
+      context,
+      _firstApiError(decoded) ??
+          apiMessage ??
+          'Failed to approve Employee KYC.',
+    );
+    return null;
+  } on TimeoutException {
+    print('[approveEmployeeKycApi] request timed out');
+    if (!context.mounted) return null;
+    message(context, 'Request timed out. Please try again.');
+    return null;
+  } catch (e, stack) {
+    print('[approveEmployeeKycApi] error: $e');
+    print('[approveEmployeeKycApi] stack: $stack');
+    if (!context.mounted) return null;
+    message(context, 'Something went wrong');
+    return null;
+  }
+}
+
+//employeekycrejectapi — POST /api/v1/employee-kycs/{id}/reject
+Future<Approvekycmodal?> rejectEmployeeKycApi(
+  BuildContext context, {
+  required int employeeId,
+}) async {
+  try {
+    if (employeeId <= 0) {
+      if (context.mounted) {
+        message(context, 'KYC id is missing.');
+      }
+      return null;
+    }
+
+    final url = '$baseUrl/api/v1/employee-kycs/$employeeId/reject';
+    print('[rejectEmployeeKycApi] POST $url');
+
+    final response = await http
+        .post(Uri.parse(url), headers: authHeaders)
+        .timeout(const Duration(seconds: 30));
+
+    print('[rejectEmployeeKycApi] statusCode: ${response.statusCode}');
+    print('[rejectEmployeeKycApi] response: ${response.body}');
+
+    final decoded = decodeApiJson(response.body);
+    final apiMessage = decoded?['message']?.toString();
+
+    if ((response.statusCode == 200 || response.statusCode == 201) &&
+        decoded != null &&
+        decoded['success'] != false) {
+      if (context.mounted) {
+        message(context, apiMessage ?? 'Employee KYC rejected');
+      }
+      return Approvekycmodal.fromJson(decoded);
+    }
+
+    if (!context.mounted) return null;
+    message(
+      context,
+      _firstApiError(decoded) ??
+          apiMessage ??
+          'Failed to reject Employee KYC.',
+    );
+    return null;
+  } on TimeoutException {
+    print('[rejectEmployeeKycApi] request timed out');
+    if (!context.mounted) return null;
+    message(context, 'Request timed out. Please try again.');
+    return null;
+  } catch (e, stack) {
+    print('[rejectEmployeeKycApi] error: $e');
+    print('[rejectEmployeeKycApi] stack: $stack');
+    if (!context.mounted) return null;
+    message(context, 'Something went wrong');
     return null;
   }
 }

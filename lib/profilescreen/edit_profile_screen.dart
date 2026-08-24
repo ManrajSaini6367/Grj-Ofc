@@ -72,6 +72,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
         avatar: existing.avatar,
         status: existing.status,
         roles: existing.roles,
+        roleId: existing.roleId,
         dateOfJoin: existing.dateOfJoin,
         dateOfSuspended: existing.dateOfSuspended,
         attendanceAllow: existing.attendanceAllow,

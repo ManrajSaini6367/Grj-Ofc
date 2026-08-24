@@ -9,6 +9,10 @@ enum WithKantaStage { initial, processing, completed }
 
 enum DirectPurchaseStage { completed }
 
+/// List/report stage used by Purchase filters.
+/// API may send names (`initial`) or numeric codes (`2`, `3`).
+enum PurchaseListStage { initial, processing, completed }
+
 enum PurchaseFlowType { withKanta, withoutKanta, direct }
 
 class PurchaseMaterialItem {
@@ -74,6 +78,7 @@ class Purchase {
     this.withoutKantaStage,
     this.withKantaStage,
     this.directPurchaseStage,
+    this.listStage = PurchaseListStage.initial,
   });
 
   final String id;
@@ -105,6 +110,7 @@ class Purchase {
   final WithoutKantaStage? withoutKantaStage;
   final WithKantaStage? withKantaStage;
   final DirectPurchaseStage? directPurchaseStage;
+  final PurchaseListStage listStage;
 
   static Map<String, dynamic>? _asMap(dynamic value) {
     if (value is Map<String, dynamic>) return value;
@@ -134,7 +140,7 @@ class Purchase {
       _ => PurchaseFlowType.withoutKanta,
     };
 
-    final stageRaw = (json['stage'] ?? json['status'] ?? '').toString().toLowerCase();
+    final stageRaw = _normalizeListStageKey(json);
     final apiStatus = (json['status'] ?? '').toString().toLowerCase();
 
     WithoutKantaStage? withoutStage;
@@ -151,12 +157,12 @@ class Purchase {
       withoutStage = stageRaw == 'completed'
           ? WithoutKantaStage.completed
           : WithoutKantaStage.initial;
-    } else if (stageRaw == 'completed' || apiStatus == 'completed') {
+    } else if (stageRaw == 'completed') {
       directStage = DirectPurchaseStage.completed;
     }
 
     final status = switch (apiStatus) {
-      'completed' || 'received' => PurchaseStatus.received,
+      'completed' || 'received' || '4' => PurchaseStatus.received,
       'approved' => PurchaseStatus.approved,
       'cancelled' => PurchaseStatus.cancelled,
       _ => PurchaseStatus.pending,
@@ -227,6 +233,11 @@ class Purchase {
       withoutKantaStage: withoutStage,
       withKantaStage: withStage,
       directPurchaseStage: directStage,
+      listStage: switch (stageRaw) {
+        'processing' => PurchaseListStage.processing,
+        'completed' => PurchaseListStage.completed,
+        _ => PurchaseListStage.initial,
+      },
     );
   }
 
@@ -266,6 +277,28 @@ class Purchase {
   bool get hasFlowStage =>
       withoutKantaStage != null || withKantaStage != null || directPurchaseStage != null;
 
+  /// Maps API `stage` / `status` / `status_code` / `step` to list stage keys.
+  /// Numeric: Initial = 2, Processing = 3, Completed = 4.
+  static String _normalizeListStageKey(Map<String, dynamic> json) {
+    String? mapped(dynamic value) {
+      final v = (value ?? '').toString().trim().toLowerCase();
+      if (v.isEmpty) return null;
+      if (v == '2' || v == 'initial') return 'initial';
+      if (v == '3' || v == 'processing') return 'processing';
+      if (v == '4' || v == 'completed' || v == 'received') return 'completed';
+      if (v.contains('process')) return 'processing';
+      if (v.contains('complete') || v.contains('received')) return 'completed';
+      if (v.contains('initial')) return 'initial';
+      return null;
+    }
+
+    return mapped(json['stage']) ??
+        mapped(json['status_code']) ??
+        mapped(json['status']) ??
+        mapped(json['step']) ??
+        'initial';
+  }
+
   String get materialsSummary =>
       materials.isEmpty ? (itemName ?? '—') : materials.map((m) => m.displayLabel).join(', ');
 
@@ -299,6 +332,7 @@ class Purchase {
     WithoutKantaStage? withoutKantaStage,
     WithKantaStage? withKantaStage,
     DirectPurchaseStage? directPurchaseStage,
+    PurchaseListStage? listStage,
   }) {
     return Purchase(
       id: id ?? this.id,
@@ -330,6 +364,7 @@ class Purchase {
       withoutKantaStage: withoutKantaStage ?? this.withoutKantaStage,
       withKantaStage: withKantaStage ?? this.withKantaStage,
       directPurchaseStage: directPurchaseStage ?? this.directPurchaseStage,
+      listStage: listStage ?? this.listStage,
     );
   }
 }

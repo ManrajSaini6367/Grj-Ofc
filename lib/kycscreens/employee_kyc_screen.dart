@@ -9,6 +9,8 @@ import 'package:grjoffice_apps/drawer/app_end_drawer.dart';
 import 'package:grjoffice_apps/drawer/drawer.dart';
 import 'package:grjoffice_apps/kycscreens/employee_kyc_requests_screen.dart';
 import 'package:grjoffice_apps/kycscreens/employee_kyc_store.dart';
+import 'package:grjoffice_apps/models/mykycdatamodal.dart';
+import 'package:grjoffice_apps/models/site_model.dart';
 import 'package:grjoffice_apps/navigation/app_navigation.dart';
 import 'package:grjoffice_apps/services/api_auth.dart';
 import 'package:grjoffice_apps/services/image_pick_helper.dart';
@@ -50,6 +52,10 @@ class _EmployeeKycScreenState extends State<EmployeeKycScreen> {
   static const _employmentTypes = ['Full-Time', 'Part-Time', 'Contract'];
 
   final _employeeIdCtrl = TextEditingController();
+  final _emailCtrl = TextEditingController();
+  final _phoneCtrl = TextEditingController();
+  final _passwordCtrl = TextEditingController();
+  final _confirmPasswordCtrl = TextEditingController();
   final _assignedSiteCtrl = TextEditingController();
   final _salaryCtrl = TextEditingController();
   final _leaveCtrl = TextEditingController();
@@ -70,6 +76,8 @@ class _EmployeeKycScreenState extends State<EmployeeKycScreen> {
   bool _stayAllowance = false;
   String _employmentType = 'Full-Time';
   DateTime? _joiningDate;
+  List<SiteModel> _assignedSites = [];
+  int? _selectedAssignedSiteId;
 
   File? _panCard;
   File? _aadhaarFront;
@@ -90,7 +98,16 @@ class _EmployeeKycScreenState extends State<EmployeeKycScreen> {
             '')
         .trim();
     _employeeIdCtrl.text = id;
-    _assignedSiteCtrl.text = _resolveAssignedSite();
+    final user = cachedUser();
+    _emailCtrl.text = (user?.email.trim().isNotEmpty == true)
+        ? user!.email.trim()
+        : (Preference.pref.getString('email') ?? '');
+    _phoneCtrl.text = _digitsOnly(
+      user?.mobile.trim().isNotEmpty == true
+          ? user!.mobile.trim()
+          : (Preference.pref.getString('phone') ?? ''),
+    );
+    _applyAssignedSites(cachedSites() ?? const [], notify: false);
     _joiningDate = _parseJoinDate(cachedUser()?.dateOfJoin);
     _foodCompanyCtrl.text = _companyFoodAmount;
     _stayCompanyCtrl.text = _companyStayAmount;
@@ -98,19 +115,181 @@ class _EmployeeKycScreenState extends State<EmployeeKycScreen> {
     _salaryCtrl.addListener(_onAmountChanged);
     _foodEmployeeCtrl.addListener(_onAmountChanged);
     _stayEmployeeCtrl.addListener(_onAmountChanged);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _loadInitialData();
+    });
   }
 
-  String _resolveAssignedSite() {
-    final named = selectedSiteName()?.trim();
-    if (named != null && named.isNotEmpty) return named;
-    final user = cachedUser();
-    final sites = cachedSites() ?? const [];
-    final siteId = selectedSiteId() ?? user?.siteId;
-    if (siteId != null && siteId > 0) {
-      final fromList = siteNameById(sites, siteId)?.trim();
-      if (fromList != null && fromList.isNotEmpty) return fromList;
+  String _digitsOnly(String value) {
+    final digits = value.replaceAll(RegExp(r'[^0-9]'), '');
+    if (digits.length <= 10) return digits;
+    return digits.substring(digits.length - 10);
+  }
+
+  Future<void> _loadInitialData() async {
+    final sitesFuture = sitesApi(context, perPage: 100);
+    final kycFuture = getMyEmployeeKycApi(context);
+    final sites = await sitesFuture;
+    if (!mounted) return;
+    _applyAssignedSites(sites ?? cachedSites() ?? const []);
+    final kyc = await kycFuture;
+    if (!mounted || kyc == null) return;
+    _applyMyKyc(kyc);
+  }
+
+  void _applyMyKyc(MyKycModalData kyc) {
+    if ((kyc.employeeId ?? '').trim().isNotEmpty) {
+      _employeeIdCtrl.text = kyc.employeeId!.trim();
     }
-    return '';
+    if ((kyc.email ?? '').trim().isNotEmpty) {
+      _emailCtrl.text = kyc.email!.trim();
+    }
+    if ((kyc.mobile ?? '').trim().isNotEmpty) {
+      _phoneCtrl.text = _digitsOnly(kyc.mobile!.trim());
+    }
+    if ((kyc.monthlySalary ?? '').trim().isNotEmpty) {
+      _salaryCtrl.text = kyc.monthlySalary!.trim();
+    }
+    if ((kyc.leaveAllocation ?? '').trim().isNotEmpty) {
+      _leaveCtrl.text = kyc.leaveAllocation!.trim();
+    }
+    if ((kyc.emergencyContact ?? '').trim().isNotEmpty) {
+      _emergencyCtrl.text = _digitsOnly(kyc.emergencyContact!.trim());
+    }
+    if ((kyc.accountHolderName ?? '').trim().isNotEmpty) {
+      _accountHolderCtrl.text = kyc.accountHolderName!.trim();
+    }
+    if ((kyc.bankName ?? '').trim().isNotEmpty) {
+      _bankNameCtrl.text = kyc.bankName!.trim();
+    }
+    if ((kyc.accountNumber ?? '').trim().isNotEmpty) {
+      _accountNumberCtrl.text = kyc.accountNumber!.trim();
+    }
+    if ((kyc.ifscCode ?? '').trim().isNotEmpty) {
+      _ifscCtrl.text = kyc.ifscCode!.trim().toUpperCase();
+    }
+
+    final joining = _parseJoinDate(kyc.joiningDate);
+    final employment = (kyc.employmentType ?? '').trim();
+    final type = _employmentTypes.contains(employment)
+        ? employment
+        : _employmentType;
+
+    if (kyc.foodAllowance) {
+      _foodEmployeeCtrl.text = (kyc.foodEmployeeAmount ?? '').trim();
+      _foodCompanyCtrl.text =
+          (kyc.foodCompanyAmount ?? '').trim().isNotEmpty
+              ? kyc.foodCompanyAmount!.trim()
+              : _companyFoodAmount;
+    }
+    if (kyc.stayAllowance) {
+      _stayEmployeeCtrl.text = (kyc.stayEmployeeAmount ?? '').trim();
+      _stayCompanyCtrl.text =
+          (kyc.stayCompanyAmount ?? '').trim().isNotEmpty
+              ? kyc.stayCompanyAmount!.trim()
+              : _companyStayAmount;
+    }
+
+    int? siteId = kyc.siteId;
+    if ((siteId == null || siteId <= 0) &&
+        (kyc.assignedSite ?? '').trim().isNotEmpty) {
+      final wanted = kyc.assignedSite!.trim().toLowerCase();
+      for (final site in _assignedSites) {
+        if (site.name.trim().toLowerCase() == wanted) {
+          siteId = site.id;
+          break;
+        }
+      }
+    }
+    if (siteId != null && siteId > 0) {
+      _onAssignedSiteChanged(siteId);
+    }
+
+    setState(() {
+      _joiningDate = joining ?? _joiningDate;
+      _employmentType = type;
+      _foodAllowance = kyc.foodAllowance;
+      _stayAllowance = kyc.stayAllowance;
+    });
+  }
+
+  void _applyAssignedSites(List<SiteModel> sites, {bool notify = true}) {
+    final unique = <SiteModel>[];
+    final seen = <int>{};
+    for (final site in sites) {
+      final name = site.name.trim();
+      if (name.isEmpty || seen.contains(site.id)) continue;
+      seen.add(site.id);
+      unique.add(site);
+    }
+
+    final user = cachedUser();
+    final currentId = selectedSiteId() ??
+        (user != null && user.siteId > 0 ? user.siteId : null);
+
+    if (currentId != null &&
+        currentId > 0 &&
+        !seen.contains(currentId)) {
+      final primaryName = siteNameById(sites, currentId)?.trim() ??
+          selectedSiteName()?.trim();
+      if (primaryName != null && primaryName.isNotEmpty) {
+        unique.insert(
+          0,
+          SiteModel(
+            id: currentId,
+            name: primaryName,
+            address: '',
+            status: '',
+          ),
+        );
+        seen.add(currentId);
+      }
+    }
+
+    final ordered = [
+      ...unique.where((site) => site.id == currentId),
+      ...unique.where((site) => site.id != currentId),
+    ];
+
+    final previous = _selectedAssignedSiteId;
+    int? nextId;
+    if (previous != null && ordered.any((site) => site.id == previous)) {
+      nextId = previous;
+    } else if (currentId != null &&
+        ordered.any((site) => site.id == currentId)) {
+      nextId = currentId;
+    } else if (ordered.isNotEmpty) {
+      nextId = ordered.first.id;
+    }
+
+    String selectedName = '';
+    for (final site in ordered) {
+      if (site.id == nextId) {
+        selectedName = site.name.trim();
+        break;
+      }
+    }
+
+    _assignedSites = ordered;
+    _selectedAssignedSiteId = nextId;
+    _assignedSiteCtrl.text = selectedName;
+    if (notify && mounted) setState(() {});
+  }
+
+  void _onAssignedSiteChanged(int? siteId) {
+    if (siteId == null) return;
+    String name = '';
+    for (final site in _assignedSites) {
+      if (site.id == siteId) {
+        name = site.name.trim();
+        break;
+      }
+    }
+    setState(() {
+      _selectedAssignedSiteId = siteId;
+      _assignedSiteCtrl.text = name;
+      _saved = false;
+    });
   }
 
   DateTime? _parseJoinDate(String? raw) {
@@ -139,6 +318,10 @@ class _EmployeeKycScreenState extends State<EmployeeKycScreen> {
   void dispose() {
     _pageController.dispose();
     _employeeIdCtrl.dispose();
+    _emailCtrl.dispose();
+    _phoneCtrl.dispose();
+    _passwordCtrl.dispose();
+    _confirmPasswordCtrl.dispose();
     _assignedSiteCtrl.dispose();
     _salaryCtrl.removeListener(_onAmountChanged);
     _foodEmployeeCtrl.removeListener(_onAmountChanged);
@@ -226,12 +409,24 @@ class _EmployeeKycScreenState extends State<EmployeeKycScreen> {
 
   bool _validateDetails() {
     if (!(_detailsKey.currentState?.validate() ?? false)) return false;
-    if (_employeeIdCtrl.text.trim().isEmpty) {
-      _snack('Employee ID is required.');
-      return false;
-    }
     if (_joiningDate == null) {
       _snack('Please select joining date.');
+      return false;
+    }
+    if (_emailCtrl.text.trim().isEmpty) {
+      _snack('Please enter email.');
+      return false;
+    }
+    if (_phoneCtrl.text.trim().length != 10) {
+      _snack('Please enter a 10-digit phone number.');
+      return false;
+    }
+    if (_passwordCtrl.text.length < 8) {
+      _snack('Password must be at least 8 characters.');
+      return false;
+    }
+    if (_passwordCtrl.text != _confirmPasswordCtrl.text) {
+      _snack('Password and confirm password do not match.');
       return false;
     }
     return true;
@@ -350,15 +545,85 @@ class _EmployeeKycScreenState extends State<EmployeeKycScreen> {
     );
   }
 
+  String _formatJoinDateApi(DateTime? date) {
+    if (date == null) return '';
+    return DateFormat('yyyy-MM-dd').format(date);
+  }
+
   Future<void> _submit() async {
     if (_saving) return;
+
+    final pan = _panCard;
+    final aadhaarFront = _aadhaarFront;
+    final aadhaarBack = _aadhaarBack;
+    final marksheet10 = _marksheet10;
+    final marksheet12 = _marksheet12;
+    final bankCheque = _bankCheque;
+    if (pan == null ||
+        aadhaarFront == null ||
+        aadhaarBack == null ||
+        marksheet10 == null ||
+        marksheet12 == null ||
+        bankCheque == null) {
+      _snack('Please upload all required KYC documents.');
+      return;
+    }
+
+    final siteId = _selectedAssignedSiteId ?? selectedSiteId();
+    if (siteId == null || siteId <= 0) {
+      _snack('Please select an assigned site.');
+      return;
+    }
+
+    final user = cachedUser();
+    final employeeId = user != null && user.id > 0
+        ? user.id.toString()
+        : _employeeIdCtrl.text.trim();
+
     setState(() => _saving = true);
+    final ok = await employeeKycApi(
+      context,
+      siteId: siteId,
+      employeeId: employeeId.isEmpty ? null : employeeId,
+      monthlySalary: _salaryCtrl.text.trim(),
+      leaveAllocation: _leaveCtrl.text.trim(),
+      employmentType: _employmentType,
+      joiningDate: _formatJoinDateApi(_joiningDate),
+      foodAllowance: _foodAllowance,
+      foodEmployeeAmount: _foodEmployeeCtrl.text.trim(),
+      foodCompanyAmount: _foodCompanyCtrl.text.trim(),
+      stayAllowance: _stayAllowance,
+      stayEmployeeAmount: _stayEmployeeCtrl.text.trim(),
+      stayCompanyAmount: _stayCompanyCtrl.text.trim(),
+      emergencyContact: _emergencyCtrl.text.trim(),
+      accountHolderName: _accountHolderCtrl.text.trim(),
+      bankName: _bankNameCtrl.text.trim(),
+      accountNumber: _accountNumberCtrl.text.trim(),
+      ifscCode: _ifscCtrl.text.trim().toUpperCase(),
+      password: _passwordCtrl.text,
+      roleId: currentRoleId() ?? user?.roleId,
+      pan: pan,
+      aadhaarFront: aadhaarFront,
+      aadhaarBack: aadhaarBack,
+      marksheet10: marksheet10,
+      marksheet12: marksheet12,
+      bankCheque: bankCheque,
+    );
+    if (!mounted) return;
+    if (!ok) {
+      setState(() => _saving = false);
+      return;
+    }
+
     await _store.save(
       EmployeeKycConfig(
         employeeId: _employeeIdCtrl.text.trim(),
         employeeName: widget.employeeName ??
             Preference.pref.getString('name') ??
             '',
+        email: _emailCtrl.text.trim(),
+        phoneNumber: _phoneCtrl.text.trim(),
+        kycPassword: _passwordCtrl.text,
         assignedSite: _assignedSiteCtrl.text.trim(),
         monthlySalary: _salaryCtrl.text.trim(),
         leaveAllocation: _leaveCtrl.text.trim(),
@@ -379,12 +644,12 @@ class _EmployeeKycScreenState extends State<EmployeeKycScreen> {
         accountNumber: _accountNumberCtrl.text.trim(),
         ifscCode: _ifscCtrl.text.trim().toUpperCase(),
         emergencyContact: _emergencyCtrl.text.trim(),
-        panPath: _panCard?.path ?? '',
-        aadhaarFrontPath: _aadhaarFront?.path ?? '',
-        aadhaarBackPath: _aadhaarBack?.path ?? '',
-        marksheet10Path: _marksheet10?.path ?? '',
-        marksheet12Path: _marksheet12?.path ?? '',
-        bankChequePath: _bankCheque?.path ?? '',
+        panPath: pan.path,
+        aadhaarFrontPath: aadhaarFront.path,
+        aadhaarBackPath: aadhaarBack.path,
+        marksheet10Path: marksheet10.path,
+        marksheet12Path: marksheet12.path,
+        bankChequePath: bankCheque.path,
         configuredAt: DateTime.now(),
       ),
     );
@@ -453,8 +718,13 @@ class _EmployeeKycScreenState extends State<EmployeeKycScreen> {
                         key: _detailsKey,
                         child: _DetailsStep(
                           hPad: hPad,
-                          employeeIdCtrl: _employeeIdCtrl,
-                          assignedSiteCtrl: _assignedSiteCtrl,
+                          emailCtrl: _emailCtrl,
+                          phoneCtrl: _phoneCtrl,
+                          passwordCtrl: _passwordCtrl,
+                          confirmPasswordCtrl: _confirmPasswordCtrl,
+                          assignedSites: _assignedSites,
+                          selectedAssignedSiteId: _selectedAssignedSiteId,
+                          onAssignedSiteChanged: _onAssignedSiteChanged,
                           salaryCtrl: _salaryCtrl,
                           leaveCtrl: _leaveCtrl,
                           joiningDateLabel: _formatJoinDate(_joiningDate),
@@ -578,7 +848,9 @@ class _EmployeeKycScreenState extends State<EmployeeKycScreen> {
                       ),
                       _SummaryStep(
                         hPad: hPad,
-                        employeeId: _employeeIdCtrl.text.trim(),
+                        email: _emailCtrl.text.trim(),
+                        phoneNumber: _phoneCtrl.text.trim(),
+                        passwordSet: _passwordCtrl.text.isNotEmpty,
                         assignedSite: _assignedSiteCtrl.text.trim(),
                         monthlySalary: _salaryCtrl.text.trim(),
                         leaveAllocation: _leaveCtrl.text.trim(),
@@ -708,8 +980,13 @@ class _ProgressHeader extends StatelessWidget {
 class _DetailsStep extends StatelessWidget {
   const _DetailsStep({
     required this.hPad,
-    required this.employeeIdCtrl,
-    required this.assignedSiteCtrl,
+    required this.emailCtrl,
+    required this.phoneCtrl,
+    required this.passwordCtrl,
+    required this.confirmPasswordCtrl,
+    required this.assignedSites,
+    required this.selectedAssignedSiteId,
+    required this.onAssignedSiteChanged,
     required this.salaryCtrl,
     required this.leaveCtrl,
     required this.joiningDateLabel,
@@ -729,8 +1006,13 @@ class _DetailsStep extends StatelessWidget {
   });
 
   final double hPad;
-  final TextEditingController employeeIdCtrl;
-  final TextEditingController assignedSiteCtrl;
+  final TextEditingController emailCtrl;
+  final TextEditingController phoneCtrl;
+  final TextEditingController passwordCtrl;
+  final TextEditingController confirmPasswordCtrl;
+  final List<SiteModel> assignedSites;
+  final int? selectedAssignedSiteId;
+  final ValueChanged<int?> onAssignedSiteChanged;
   final TextEditingController salaryCtrl;
   final TextEditingController leaveCtrl;
   final String joiningDateLabel;
@@ -757,23 +1039,101 @@ class _DetailsStep extends StatelessWidget {
         _SectionCard(
           icon: Icons.badge_outlined,
           title: 'Employee Details',
-          subtitle: 'Employee ID, salary, site and employment details.',
+          subtitle: 'Contact, password, assigned sites and employment details.',
           child: Column(
             children: [
               TextFormField(
-                controller: employeeIdCtrl,
-                readOnly: true,
-                decoration: decoration('Employee ID'),
-                validator: (v) =>
-                    (v ?? '').trim().isEmpty ? 'Employee ID is required' : null,
+                controller: emailCtrl,
+                keyboardType: TextInputType.emailAddress,
+                textInputAction: TextInputAction.next,
+                decoration: decoration(
+                  'Email',
+                  hint: 'name@example.com',
+                ),
+                validator: (v) {
+                  final t = (v ?? '').trim();
+                  if (t.isEmpty) return 'Email is required';
+                  final ok = RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$').hasMatch(t);
+                  if (!ok) return 'Enter a valid email';
+                  return null;
+                },
               ),
               const SizedBox(height: 12),
               TextFormField(
-                controller: assignedSiteCtrl,
-                readOnly: true,
+                controller: phoneCtrl,
+                keyboardType: TextInputType.number,
+                textInputAction: TextInputAction.next,
+                inputFormatters: [
+                  FilteringTextInputFormatter.digitsOnly,
+                  LengthLimitingTextInputFormatter(10),
+                ],
+                decoration: decoration(
+                  'Phone Number',
+                  hint: '10-digit mobile number',
+                ),
+                validator: (v) {
+                  final t = (v ?? '').trim();
+                  if (t.isEmpty) return 'Phone number is required';
+                  if (t.length != 10) return 'Enter a valid 10-digit number';
+                  return null;
+                },
+              ),
+              const SizedBox(height: 12),
+              _PasswordField(
+                controller: passwordCtrl,
+                label: 'Password',
+                hint: 'Min. 8 characters',
+                decoration: decoration,
+                validator: (v) {
+                  final t = v ?? '';
+                  if (t.isEmpty) return 'Password is required';
+                  if (t.length < 8) return 'Password must be at least 8 characters';
+                  return null;
+                },
+              ),
+              const SizedBox(height: 12),
+              _PasswordField(
+                controller: confirmPasswordCtrl,
+                label: 'Confirm Password',
+                hint: 'Re-enter password',
+                decoration: decoration,
+                validator: (v) {
+                  final t = v ?? '';
+                  if (t.isEmpty) return 'Confirm your password';
+                  if (t != passwordCtrl.text) return 'Passwords do not match';
+                  return null;
+                },
+              ),
+              const SizedBox(height: 12),
+              DropdownButtonFormField<int>(
+                value: assignedSites.any(
+                  (site) => site.id == selectedAssignedSiteId,
+                )
+                    ? selectedAssignedSiteId
+                    : null,
+                isExpanded: true,
+                menuMaxHeight: 320,
                 decoration: decoration(
                   'Assigned Site',
                   hint: 'Site not assigned',
+                ),
+                items: assignedSites
+                    .map(
+                      (site) => DropdownMenuItem<int>(
+                        value: site.id,
+                        child: Text(
+                          site.name,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: GoogleFonts.poppins(fontSize: 14),
+                        ),
+                      ),
+                    )
+                    .toList(),
+                onChanged: assignedSites.isEmpty ? null : onAssignedSiteChanged,
+                style: GoogleFonts.poppins(
+                  fontSize: 14,
+                  color: AppColors.headingBlack,
                 ),
               ),
               const SizedBox(height: 12),
@@ -1128,6 +1488,55 @@ class _AmountField extends StatelessWidget {
         errorBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(14),
           borderSide: const BorderSide(color: Color(0xFFDC2626)),
+        ),
+      ),
+    );
+  }
+}
+
+class _PasswordField extends StatefulWidget {
+  const _PasswordField({
+    required this.controller,
+    required this.label,
+    required this.hint,
+    required this.decoration,
+    this.validator,
+  });
+
+  final TextEditingController controller;
+  final String label;
+  final String hint;
+  final InputDecoration Function(String, {String? hint, String? prefixText})
+      decoration;
+  final String? Function(String?)? validator;
+
+  @override
+  State<_PasswordField> createState() => _PasswordFieldState();
+}
+
+class _PasswordFieldState extends State<_PasswordField> {
+  bool _obscure = true;
+
+  @override
+  Widget build(BuildContext context) {
+    return TextFormField(
+      controller: widget.controller,
+      obscureText: _obscure,
+      textInputAction: TextInputAction.next,
+      validator: widget.validator,
+      style: GoogleFonts.poppins(
+        fontSize: 14.5,
+        fontWeight: FontWeight.w600,
+        color: AppColors.headingBlack,
+      ),
+      decoration: widget.decoration(widget.label, hint: widget.hint).copyWith(
+        suffixIcon: IconButton(
+          icon: Icon(
+            _obscure ? Icons.visibility_off_outlined : Icons.visibility_outlined,
+            color: AppColors.textSecondary,
+            size: 20,
+          ),
+          onPressed: () => setState(() => _obscure = !_obscure),
         ),
       ),
     );
@@ -1729,7 +2138,9 @@ class _ImagePreviewScreen extends StatelessWidget {
 class _SummaryStep extends StatelessWidget {
   const _SummaryStep({
     required this.hPad,
-    required this.employeeId,
+    required this.email,
+    required this.phoneNumber,
+    required this.passwordSet,
     required this.assignedSite,
     required this.monthlySalary,
     required this.leaveAllocation,
@@ -1756,7 +2167,9 @@ class _SummaryStep extends StatelessWidget {
   });
 
   final double hPad;
-  final String employeeId;
+  final String email;
+  final String phoneNumber;
+  final bool passwordSet;
   final String assignedSite;
   final String monthlySalary;
   final String leaveAllocation;
@@ -1809,7 +2222,12 @@ class _SummaryStep extends StatelessWidget {
         _SummarySection(
           title: 'Employee Information',
           children: [
-            _SummaryRow(label: 'Employee ID', value: employeeId),
+            _SummaryRow(label: 'Email', value: email),
+            _SummaryRow(label: 'Phone Number', value: phoneNumber),
+            _SummaryRow(
+              label: 'Password',
+              value: passwordSet ? '••••••••' : '—',
+            ),
             _SummaryRow(label: 'Assigned Site', value: assignedSite),
             _SummaryRow(label: 'Joining Date', value: joiningDate),
             _SummaryRow(label: 'Monthly Salary', value: _rupee(monthlySalary)),

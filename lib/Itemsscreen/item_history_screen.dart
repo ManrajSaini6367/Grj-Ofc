@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:grjoffice_apps/core/app_colors.dart';
 import 'package:grjoffice_apps/Itemsscreen/item.dart';
@@ -23,10 +24,16 @@ class _ItemHistoryScreenState extends State<ItemHistoryScreen> {
   static const _debitBg = Color(0xFFFEF2F2);
 
   final _searchController = TextEditingController();
+  final _qtyController = TextEditingController();
+  final _issueToController = TextEditingController();
+  final _remarkController = TextEditingController();
   String _searchQuery = '';
   List<ItemTransaction> _transactions = [];
   bool _isLoading = true;
+  bool _isSavingHistory = false;
+  bool _confirmIssue = false;
   ItemHistoryItemInfo? _apiItem;
+  DateTime? _issueDateTime;
 
   ItemTransactionType? _typeFilter;
   String? _issueToFilter;
@@ -97,6 +104,9 @@ class _ItemHistoryScreenState extends State<ItemHistoryScreen> {
   @override
   void dispose() {
     _searchController.dispose();
+    _qtyController.dispose();
+    _issueToController.dispose();
+    _remarkController.dispose();
     super.dispose();
   }
 
@@ -239,6 +249,8 @@ class _ItemHistoryScreenState extends State<ItemHistoryScreen> {
                                 children: [
                                   _buildItemHeader(),
                                   const SizedBox(height: 14),
+                                  _buildIssueItemButton(),
+                                  const SizedBox(height: 14),
                                   _buildStatsRow(),
                                   const SizedBox(height: 14),
                                   _buildToolbar(),
@@ -359,6 +371,418 @@ class _ItemHistoryScreenState extends State<ItemHistoryScreen> {
               ),
             ),
           ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildIssueItemButton() {
+    return SizedBox(
+      height: 46,
+      width: double.infinity,
+      child: ElevatedButton.icon(
+        onPressed: _showIssueItemSheet,
+        icon: const Icon(Icons.outbox_outlined, size: 20),
+        label: Text(
+          'Issue Item',
+          style: GoogleFonts.poppins(fontSize: 14, fontWeight: FontWeight.w600),
+        ),
+        style: ElevatedButton.styleFrom(
+          backgroundColor: AppColors.primaryRed,
+          foregroundColor: AppColors.white,
+          elevation: 0,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        ),
+      ),
+    );
+  }
+
+  void _showIssueItemSheet() {
+    _qtyController.clear();
+    _issueToController.clear();
+    _remarkController.clear();
+    _issueDateTime = null;
+    _isSavingHistory = false;
+    _confirmIssue = false;
+
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (sheetContext) {
+        return Padding(
+          padding: EdgeInsets.only(
+            bottom: MediaQuery.viewInsetsOf(sheetContext).bottom,
+          ),
+          child: StatefulBuilder(
+            builder: (context, setSheetState) {
+              return Container(
+                decoration: const BoxDecoration(
+                  color: AppColors.cardWhite,
+                  borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+                ),
+                child: SafeArea(
+                  top: false,
+                  child: SingleChildScrollView(
+                    padding: const EdgeInsets.fromLTRB(16, 10, 16, 20),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Center(
+                          child: Container(
+                            width: 40,
+                            height: 4,
+                            decoration: BoxDecoration(
+                              color: AppColors.borderGray.withValues(alpha: 0.7),
+                              borderRadius: BorderRadius.circular(2),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 14),
+                        Text(
+                          'Issue Item',
+                          style: GoogleFonts.poppins(
+                            fontSize: 18,
+                            fontWeight: FontWeight.w700,
+                            color: AppColors.headingBlack,
+                          ),
+                        ),
+                        const SizedBox(height: 14),
+                        _qtyField(),
+                        const SizedBox(height: 10),
+                        _dateField(setSheetState),
+                        const SizedBox(height: 10),
+                        _labeledField(
+                          label: 'Issue To',
+                          child: _issueTextField(
+                            controller: _issueToController,
+                            hint: 'Issue To',
+                          ),
+                        ),
+                        const SizedBox(height: 10),
+                        _labeledField(
+                          label: 'description',
+                          child: _issueTextField(
+                            controller: _remarkController,
+                            hint: 'Remark',
+                          ),
+                        ),
+                        const SizedBox(height: 14),
+                        _confirmIssueCheckbox(setSheetState),
+                        const SizedBox(height: 16),
+                        SizedBox(
+                          height: 46,
+                          child: ElevatedButton.icon(
+                            onPressed: _isSavingHistory
+                                ? null
+                                : () => _saveIssueHistory(
+                                      sheetContext: sheetContext,
+                                      setSheetState: setSheetState,
+                                    ),
+                            icon: _isSavingHistory
+                                ? const SizedBox(
+                                    width: 16,
+                                    height: 16,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                      color: AppColors.white,
+                                    ),
+                                  )
+                                : const Icon(Icons.assignment_turned_in_outlined, size: 18),
+                            label: Text(
+                              'Save',
+                              style: GoogleFonts.poppins(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: AppColors.primaryRed,
+                              foregroundColor: AppColors.white,
+                              disabledBackgroundColor:
+                                  AppColors.primaryRed.withValues(alpha: 0.6),
+                              elevation: 0,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              );
+            },
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _labeledField({required String label, required Widget child}) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          style: GoogleFonts.poppins(
+            fontSize: 12,
+            fontWeight: FontWeight.w700,
+            color: AppColors.headingBlack,
+          ),
+        ),
+        const SizedBox(height: 6),
+        child,
+      ],
+    );
+  }
+
+  InputDecoration _issueInputDecoration(String hint) {
+    return InputDecoration(
+      hintText: hint,
+      hintStyle: GoogleFonts.poppins(color: AppColors.inputHint, fontSize: 13),
+      filled: true,
+      fillColor: AppColors.cardWhite,
+      isDense: true,
+      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+      enabledBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(8),
+        borderSide: BorderSide(color: AppColors.borderGray.withValues(alpha: 0.8)),
+      ),
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(8),
+        borderSide: const BorderSide(color: AppColors.primaryRed, width: 1.4),
+      ),
+    );
+  }
+
+  Widget _issueTextField({
+    required TextEditingController controller,
+    required String hint,
+    TextInputType? keyboardType,
+    List<TextInputFormatter>? inputFormatters,
+  }) {
+    return TextField(
+      controller: controller,
+      keyboardType: keyboardType,
+      inputFormatters: inputFormatters,
+      style: GoogleFonts.poppins(fontSize: 13, color: AppColors.textDark),
+      decoration: _issueInputDecoration(hint),
+    );
+  }
+
+  Widget _qtyField() {
+    return _labeledField(
+      label: 'Qty',
+      child: _issueTextField(
+        controller: _qtyController,
+        hint: 'Qty',
+        keyboardType: const TextInputType.numberWithOptions(decimal: true),
+        inputFormatters: [
+          FilteringTextInputFormatter.allow(RegExp(r'[0-9.]')),
+        ],
+      ),
+    );
+  }
+
+  Widget _dateField(StateSetter setSheetState) {
+    return _labeledField(
+      label: 'Date',
+      child: InkWell(
+        onTap: () => _pickIssueDateTime(setSheetState),
+        borderRadius: BorderRadius.circular(8),
+        child: InputDecorator(
+          decoration: _issueInputDecoration('mm / dd / yyyy, -- : -- --').copyWith(
+            suffixIcon: const Icon(
+              Icons.calendar_today_outlined,
+              size: 16,
+              color: AppColors.textSecondary,
+            ),
+          ),
+          child: Text(
+            _issueDateTime == null
+                ? 'mm / dd / yyyy, -- : -- --'
+                : _formatIssueDateTime(_issueDateTime!),
+            style: GoogleFonts.poppins(
+              fontSize: 13,
+              color: _issueDateTime == null
+                  ? AppColors.inputHint
+                  : AppColors.textDark,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  String _formatIssueDateTime(DateTime dt) {
+    final mm = dt.month.toString().padLeft(2, '0');
+    final dd = dt.day.toString().padLeft(2, '0');
+    final yyyy = dt.year.toString();
+    final hour12 = dt.hour % 12 == 0 ? 12 : dt.hour % 12;
+    final min = dt.minute.toString().padLeft(2, '0');
+    final period = dt.hour >= 12 ? 'PM' : 'AM';
+    return '$mm / $dd / $yyyy, ${hour12.toString().padLeft(2, '0')} : $min $period';
+  }
+
+  String _apiDateTime(DateTime dt) {
+    final y = dt.year.toString().padLeft(4, '0');
+    final m = dt.month.toString().padLeft(2, '0');
+    final d = dt.day.toString().padLeft(2, '0');
+    final h = dt.hour.toString().padLeft(2, '0');
+    final min = dt.minute.toString().padLeft(2, '0');
+    final s = dt.second.toString().padLeft(2, '0');
+    return '$y-$m-$d $h:$min:$s';
+  }
+
+  Future<void> _pickIssueDateTime(StateSetter setSheetState) async {
+    final now = DateTime.now();
+    final pickedDate = await showDatePicker(
+      context: context,
+      initialDate: _issueDateTime ?? now,
+      firstDate: DateTime(2020),
+      lastDate: DateTime(2100),
+      builder: (context, child) {
+        return Theme(
+          data: Theme.of(context).copyWith(
+            colorScheme: const ColorScheme.light(
+              primary: AppColors.primaryRed,
+              onPrimary: AppColors.white,
+            ),
+          ),
+          child: child!,
+        );
+      },
+    );
+    if (pickedDate == null || !mounted) return;
+
+    final pickedTime = await showTimePicker(
+      context: context,
+      initialTime: _issueDateTime != null
+          ? TimeOfDay.fromDateTime(_issueDateTime!)
+          : TimeOfDay.fromDateTime(now),
+    );
+    if (!mounted) return;
+
+    final time = pickedTime ?? const TimeOfDay(hour: 0, minute: 0);
+    setSheetState(() {
+      _issueDateTime = DateTime(
+        pickedDate.year,
+        pickedDate.month,
+        pickedDate.day,
+        time.hour,
+        time.minute,
+      );
+    });
+  }
+
+  Future<void> _saveIssueHistory({
+    required BuildContext sheetContext,
+    required StateSetter setSheetState,
+  }) async {
+    final itemId = int.tryParse(widget.item.id);
+    if (itemId == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Item id is not valid.', style: GoogleFonts.poppins())),
+      );
+      return;
+    }
+
+    final qty = double.tryParse(_qtyController.text.trim());
+    if (qty == null || qty <= 0) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Please enter Qty.', style: GoogleFonts.poppins())),
+      );
+      return;
+    }
+    if (_issueDateTime == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Please select Date.', style: GoogleFonts.poppins())),
+      );
+      return;
+    }
+
+    final issueTo = _issueToController.text.trim();
+    if (issueTo.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Please enter Issue To.', style: GoogleFonts.poppins())),
+      );
+      return;
+    }
+
+    setSheetState(() => _isSavingHistory = true);
+    final ok = await createItemHistoryApi(
+      context,
+      itemId: itemId,
+      qty: qty,
+      date: _apiDateTime(_issueDateTime!),
+      issueTo: issueTo,
+      remark: _remarkController.text.trim(),
+      type: _confirmIssue ? 'issue' : 'debit',
+    );
+    if (!mounted) return;
+    setSheetState(() => _isSavingHistory = false);
+    if (!ok) return;
+
+    _qtyController.clear();
+    _issueToController.clear();
+    _remarkController.clear();
+    _issueDateTime = null;
+    _confirmIssue = false;
+    if (sheetContext.mounted) Navigator.pop(sheetContext);
+    await _loadHistory(showLoader: false);
+  }
+
+  Widget _confirmIssueCheckbox(StateSetter setSheetState) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: _isSavingHistory
+            ? null
+            : () => setSheetState(() => _confirmIssue = !_confirmIssue),
+        borderRadius: BorderRadius.circular(8),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 4),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              SizedBox(
+                width: 22,
+                height: 22,
+                child: Checkbox(
+                  value: _confirmIssue,
+                  onChanged: _isSavingHistory
+                      ? null
+                      : (value) {
+                          setSheetState(() => _confirmIssue = value ?? false);
+                        },
+                  activeColor: AppColors.primaryRed,
+                  side: const BorderSide(
+                    color: AppColors.checkboxBorder,
+                    width: 1.5,
+                  ),
+                  materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  visualDensity: VisualDensity.compact,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  'Issue this item',
+                  style: GoogleFonts.poppins(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w500,
+                    color: AppColors.textDark,
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );

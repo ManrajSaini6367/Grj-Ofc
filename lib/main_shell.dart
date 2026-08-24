@@ -86,13 +86,17 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
 
   void _onAttendanceChanged() {
     if (!mounted) return;
-    if (PunchInGate.isRequired && !PunchInGate.canAccessApp) {
-      _shellNavigatorKey.currentState?.popUntil((route) => route.isFirst);
-      if (_selectedIndex != MainTab.dashboard) {
-        _activateTab(MainTab.dashboard, reload: true);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      if (PunchInGate.isRequired && !PunchInGate.canAccessApp) {
+        _shellNavigatorKey.currentState?.popUntil((route) => route.isFirst);
+        if (_selectedIndex != MainTab.dashboard) {
+          _activateTab(MainTab.dashboard, reload: true);
+          return;
+        }
       }
-    }
-    setState(() {});
+      setState(() {});
+    });
   }
 
   @override

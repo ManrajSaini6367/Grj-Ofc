@@ -1,8 +1,8 @@
-import 'package:flutter/foundation.dart';
+import 'package:grjoffice_apps/core/safe_change_notifier.dart';
 import 'package:grjoffice_apps/models/user_model.dart';
 
 /// Notifies UI when the logged-in user profile/role changes.
-class UserSession extends ChangeNotifier {
+class UserSession extends SafeChangeNotifier {
   UserSession._();
 
   static final UserSession instance = UserSession._();

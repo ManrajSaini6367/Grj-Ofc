@@ -2,11 +2,14 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:grjoffice_apps/core/api_config.dart';
 import 'package:grjoffice_apps/core/app_colors.dart';
 import 'package:grjoffice_apps/drawer/app_end_drawer.dart';
 import 'package:grjoffice_apps/drawer/drawer.dart';
 import 'package:grjoffice_apps/kycscreens/employee_kyc_store.dart';
+import 'package:grjoffice_apps/models/mykycdatamodal.dart';
 import 'package:grjoffice_apps/navigation/app_navigation.dart';
+import 'package:grjoffice_apps/services/api_auth.dart';
 import 'package:grjoffice_apps/widgets/app_top_bar.dart';
 import 'package:intl/intl.dart';
 
@@ -19,35 +22,65 @@ class EmployeeKycRequestsScreen extends StatefulWidget {
 }
 
 class _EmployeeKycRequestsScreenState extends State<EmployeeKycRequestsScreen> {
-  final _store = EmployeeKycStore.instance;
   final _scaffoldKey = GlobalKey<ScaffoldState>();
   bool _loading = true;
+  List<EmployeeKycConfig> _items = [];
 
   @override
   void initState() {
     super.initState();
-    _store.addListener(_onUpdated);
-    WidgetsBinding.instance.addPostFrameCallback((_) => _bootstrap());
+    WidgetsBinding.instance.addPostFrameCallback((_) => _load());
   }
 
-  Future<void> _bootstrap() async {
-    await _store.ensureLoaded();
+  Future<void> _load({bool showSpinner = true}) async {
+    if (showSpinner && mounted) setState(() => _loading = true);
+    final result = await getMyEmployeeKycRequestApi(context, perPage: 50);
     if (!mounted) return;
-    setState(() => _loading = false);
-  }
-
-  void _onUpdated() {
-    if (mounted) setState(() {});
-  }
-
-  @override
-  void dispose() {
-    _store.removeListener(_onUpdated);
-    super.dispose();
+    final items = result?.items ?? const <MyKycModalData>[];
+    setState(() {
+      _items = items.map(_fromApiItem).toList();
+      _loading = false;
+    });
   }
 
   void _onDrawerItemTap(int index) {
     navigateFromDrawer(context, index);
+  }
+
+  EmployeeKycConfig _fromApiItem(MyKycModalData kyc) {
+    return EmployeeKycConfig(
+      employeeId: kyc.employeeId ?? '',
+      employeeName: kyc.employeeName ?? '',
+      email: kyc.email ?? '',
+      phoneNumber: kyc.mobile ?? '',
+      assignedSite: kyc.assignedSite ?? '',
+      monthlySalary: kyc.monthlySalary ?? '',
+      leaveAllocation: kyc.leaveAllocation ?? '',
+      employmentType: kyc.employmentType ?? '',
+      joiningDate: kyc.joiningDate ?? '',
+      foodAllowance: kyc.foodAllowance,
+      foodEmployeeAmount: kyc.foodEmployeeAmount ?? '',
+      foodCompanyAmount: kyc.foodCompanyAmount ?? '',
+      stayAllowance: kyc.stayAllowance,
+      stayEmployeeAmount: kyc.stayEmployeeAmount ?? '',
+      stayCompanyAmount: kyc.stayCompanyAmount ?? '',
+      emergencyContact: kyc.emergencyContact ?? '',
+      accountHolderName: kyc.accountHolderName ?? '',
+      bankName: kyc.bankName ?? '',
+      accountNumber: kyc.accountNumber ?? '',
+      ifscCode: kyc.ifscCode ?? '',
+      panPath: kyc.panPath ?? '',
+      aadhaarFrontPath: kyc.aadhaarFrontPath ?? '',
+      aadhaarBackPath: kyc.aadhaarBackPath ?? '',
+      marksheet10Path: kyc.marksheet10Path ?? '',
+      marksheet12Path: kyc.marksheet12Path ?? '',
+      bankChequePath: kyc.bankChequePath ?? '',
+      configuredAt: kyc.kycSubmittedAt ?? kyc.savedAt ?? DateTime.now(),
+      status: (kyc.kycStatus ?? kyc.status ?? 'Submitted').trim().isEmpty
+          ? 'Submitted'
+          : (kyc.kycStatus ?? kyc.status ?? 'Submitted'),
+      kycId: kyc.id ?? 0,
+    );
   }
 
   double _hPad(BuildContext context) {
@@ -66,7 +99,7 @@ class _EmployeeKycRequestsScreenState extends State<EmployeeKycRequestsScreen> {
         : width >= 900
             ? 760.0
             : double.infinity;
-    final items = _store.items;
+    final items = _items;
     final bottomInset = MediaQuery.paddingOf(context).bottom;
 
     return Scaffold(
@@ -92,37 +125,55 @@ class _EmployeeKycRequestsScreenState extends State<EmployeeKycRequestsScreen> {
                         color: AppColors.primaryRed,
                       ),
                     )
-                  : items.isEmpty
-                      ? _EmptyState(hPad: hPad)
-                      : ListView.separated(
-                          padding: EdgeInsets.fromLTRB(
-                            hPad,
-                            12,
-                            hPad,
-                            20 + bottomInset,
-                          ),
-                          itemCount: items.length,
-                          separatorBuilder: (_, __) =>
-                              const SizedBox(height: 10),
-                          itemBuilder: (context, index) {
-                            final item = items[index];
-                            return Center(
-                              child: ConstrainedBox(
-                                constraints:
-                                    BoxConstraints(maxWidth: contentMax),
-                                child: _ConfigCard(
-                                  config: item,
-                                  onTap: () {
-                                    pushInShell(
-                                      context,
-                                      EmployeeKycDetailScreen(config: item),
-                                    );
-                                  },
+                  : RefreshIndicator(
+                      color: AppColors.primaryRed,
+                      onRefresh: () => _load(showSpinner: false),
+                      child: items.isEmpty
+                          ? ListView(
+                              physics: const AlwaysScrollableScrollPhysics(),
+                              children: [
+                                SizedBox(
+                                  height:
+                                      MediaQuery.sizeOf(context).height * 0.25,
                                 ),
+                                _EmptyState(hPad: hPad),
+                              ],
+                            )
+                          : ListView.separated(
+                              physics: const AlwaysScrollableScrollPhysics(),
+                              padding: EdgeInsets.fromLTRB(
+                                hPad,
+                                12,
+                                hPad,
+                                20 + bottomInset,
                               ),
-                            );
-                          },
-                        ),
+                              itemCount: items.length,
+                              separatorBuilder: (_, __) =>
+                                  const SizedBox(height: 10),
+                              itemBuilder: (context, index) {
+                                final item = items[index];
+                                return Center(
+                                  child: ConstrainedBox(
+                                    constraints:
+                                        BoxConstraints(maxWidth: contentMax),
+                                    child: _ConfigCard(
+                                      config: item,
+                                      onTap: () {
+                                        pushInShell(
+                                          context,
+                                          EmployeeKycDetailScreen(
+                                            config: item,
+                                            onUpdated: () =>
+                                                _load(showSpinner: false),
+                                          ),
+                                        );
+                                      },
+                                    ),
+                                  ),
+                                );
+                              },
+                            ),
+                    ),
             ),
           ],
         ),
@@ -200,6 +251,22 @@ class _ConfigCard extends StatelessWidget {
     final dateFmt = DateFormat('dd MMM yyyy');
     final width = MediaQuery.sizeOf(context).width;
     final pad = width < 360 ? 12.0 : 14.0;
+    final headerSource = config.employeeName.isNotEmpty
+        ? config.employeeName
+        : (config.email.isNotEmpty ? config.email : 'E');
+    final avatarLetter = headerSource.substring(0, 1).toUpperCase();
+    final status = config.status.trim().isEmpty ? 'Submitted' : config.status;
+    final statusLower = status.toLowerCase();
+    final statusBg = statusLower.contains('reject')
+        ? const Color(0xFFFEF2F2)
+        : statusLower.contains('pending')
+            ? const Color(0xFFFFF7ED)
+            : const Color(0xFFECFDF5);
+    final statusFg = statusLower.contains('reject')
+        ? const Color(0xFFDC2626)
+        : statusLower.contains('pending')
+            ? const Color(0xFFEA580C)
+            : const Color(0xFF059669);
 
     String yesNo(bool v) => v ? 'Yes' : 'No';
 
@@ -232,9 +299,7 @@ class _ConfigCard extends StatelessWidget {
                       borderRadius: BorderRadius.circular(11),
                     ),
                     child: Text(
-                      config.employeeId.isEmpty
-                          ? 'E'
-                          : config.employeeId.substring(0, 1).toUpperCase(),
+                      avatarLetter,
                       style: GoogleFonts.poppins(
                         fontSize: 12.5,
                         fontWeight: FontWeight.w800,
@@ -248,14 +313,18 @@ class _ConfigCard extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          'Employee ID',
+                          config.employeeName.isNotEmpty
+                              ? 'Employee'
+                              : 'Email',
                           style: GoogleFonts.poppins(
                             fontSize: 11.5,
                             color: AppColors.textSecondary,
                           ),
                         ),
                         Text(
-                          config.employeeId.isEmpty ? '—' : config.employeeId,
+                          config.employeeName.isNotEmpty
+                              ? config.employeeName
+                              : (config.email.isEmpty ? '—' : config.email),
                           style: GoogleFonts.poppins(
                             fontSize: 14.5,
                             fontWeight: FontWeight.w800,
@@ -271,15 +340,15 @@ class _ConfigCard extends StatelessWidget {
                       vertical: 5,
                     ),
                     decoration: BoxDecoration(
-                      color: const Color(0xFFECFDF5),
+                      color: statusBg,
                       borderRadius: BorderRadius.circular(16),
                     ),
                     child: Text(
-                      config.status,
+                      status,
                       style: GoogleFonts.poppins(
                         fontSize: 11,
                         fontWeight: FontWeight.w800,
-                        color: const Color(0xFF059669),
+                        color: statusFg,
                       ),
                     ),
                   ),
@@ -295,6 +364,18 @@ class _ConfigCard extends StatelessWidget {
                 ),
                 child: Column(
                   children: [
+                    _MiniRow(
+                      label: 'Phone',
+                      value: config.phoneNumber.isEmpty
+                          ? '—'
+                          : config.phoneNumber,
+                    ),
+                    _MiniRow(
+                      label: 'Assigned Site',
+                      value: config.assignedSite.isEmpty
+                          ? '—'
+                          : config.assignedSite,
+                    ),
                     _MiniRow(
                       label: 'Salary',
                       value: config.monthlySalary.isEmpty
@@ -415,15 +496,208 @@ class _MiniRow extends StatelessWidget {
   }
 }
 
-class EmployeeKycDetailScreen extends StatelessWidget {
-  const EmployeeKycDetailScreen({super.key, required this.config});
+class EmployeeKycDetailScreen extends StatefulWidget {
+  const EmployeeKycDetailScreen({
+    super.key,
+    required this.config,
+    this.onUpdated,
+  });
 
   final EmployeeKycConfig config;
+  final VoidCallback? onUpdated;
+
+  @override
+  State<EmployeeKycDetailScreen> createState() =>
+      _EmployeeKycDetailScreenState();
+}
+
+class _EmployeeKycDetailScreenState extends State<EmployeeKycDetailScreen> {
+  late EmployeeKycConfig _config;
+  bool _loading = false;
+  bool _actioning = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _config = widget.config;
+    WidgetsBinding.instance.addPostFrameCallback((_) => _loadDetails());
+  }
+
+  bool get _isPending {
+    final status = _config.status.toLowerCase();
+    return !status.contains('approv') && !status.contains('reject');
+  }
+
+  Future<void> _loadDetails() async {
+    final id = widget.config.kycId;
+    if (id <= 0) return;
+    setState(() => _loading = true);
+    final result = await showEmployeeKycApi(context, employeeId: id);
+    if (!mounted) return;
+    final data = result?.data;
+    setState(() {
+      if (data != null) _config = _fromShowApi(data);
+      _loading = false;
+    });
+  }
+
+  EmployeeKycConfig _fromShowApi(MyKycModalData kyc) {
+    return EmployeeKycConfig(
+      employeeId: kyc.employeeId ?? _config.employeeId,
+      employeeName: kyc.employeeName ?? _config.employeeName,
+      email: kyc.email ?? _config.email,
+      phoneNumber: kyc.mobile ?? _config.phoneNumber,
+      assignedSite: kyc.assignedSite ?? _config.assignedSite,
+      monthlySalary: kyc.monthlySalary ?? _config.monthlySalary,
+      leaveAllocation: kyc.leaveAllocation ?? _config.leaveAllocation,
+      employmentType: kyc.employmentType ?? _config.employmentType,
+      joiningDate: kyc.joiningDate ?? _config.joiningDate,
+      foodAllowance: kyc.foodAllowance,
+      foodEmployeeAmount: kyc.foodEmployeeAmount ?? _config.foodEmployeeAmount,
+      foodCompanyAmount: kyc.foodCompanyAmount ?? _config.foodCompanyAmount,
+      stayAllowance: kyc.stayAllowance,
+      stayEmployeeAmount: kyc.stayEmployeeAmount ?? _config.stayEmployeeAmount,
+      stayCompanyAmount: kyc.stayCompanyAmount ?? _config.stayCompanyAmount,
+      emergencyContact: kyc.emergencyContact ?? _config.emergencyContact,
+      accountHolderName: kyc.accountHolderName ?? _config.accountHolderName,
+      bankName: kyc.bankName ?? _config.bankName,
+      accountNumber: kyc.accountNumber ?? _config.accountNumber,
+      ifscCode: kyc.ifscCode ?? _config.ifscCode,
+      panPath: kyc.panPath ?? _config.panPath,
+      aadhaarFrontPath: kyc.aadhaarFrontPath ?? _config.aadhaarFrontPath,
+      aadhaarBackPath: kyc.aadhaarBackPath ?? _config.aadhaarBackPath,
+      marksheet10Path: kyc.marksheet10Path ?? _config.marksheet10Path,
+      marksheet12Path: kyc.marksheet12Path ?? _config.marksheet12Path,
+      bankChequePath: kyc.bankChequePath ?? _config.bankChequePath,
+      configuredAt: kyc.kycSubmittedAt ?? kyc.savedAt ?? _config.configuredAt,
+      status: (kyc.kycStatus ?? kyc.status ?? _config.status).trim().isEmpty
+          ? _config.status
+          : (kyc.kycStatus ?? kyc.status ?? _config.status),
+      kycId: kyc.id ?? _config.kycId,
+    );
+  }
+
+  Future<void> _confirmApprove() async {
+    if (_actioning || !_isPending) return;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(
+          'Approve KYC',
+          style: GoogleFonts.poppins(fontWeight: FontWeight.w800),
+        ),
+        content: Text(
+          'Approve this employee KYC request?',
+          style: GoogleFonts.poppins(fontSize: 14),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: Text(
+              'Cancel',
+              style: GoogleFonts.poppins(fontWeight: FontWeight.w700),
+            ),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: Text(
+              'Approve',
+              style: GoogleFonts.poppins(
+                fontWeight: FontWeight.w800,
+                color: const Color(0xFF059669),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+    await _approve();
+  }
+
+  Future<void> _approve() async {
+    if (_actioning) return;
+    setState(() => _actioning = true);
+    final result = await approveEmployeeKycApi(
+      context,
+      employeeId: _config.kycId,
+    );
+    if (!mounted) return;
+    setState(() {
+      _actioning = false;
+      if (result != null) {
+        final data = result.data;
+        _config = data != null
+            ? _fromShowApi(data)
+            : _config.copyWith(status: 'Approved');
+      }
+    });
+    if (result != null) widget.onUpdated?.call();
+  }
+
+  Future<void> _confirmReject() async {
+    if (_actioning || !_isPending) return;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(
+          'Reject KYC',
+          style: GoogleFonts.poppins(fontWeight: FontWeight.w800),
+        ),
+        content: Text(
+          'Reject this employee KYC request?',
+          style: GoogleFonts.poppins(fontSize: 14),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: Text(
+              'Cancel',
+              style: GoogleFonts.poppins(fontWeight: FontWeight.w700),
+            ),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: Text(
+              'Reject',
+              style: GoogleFonts.poppins(
+                fontWeight: FontWeight.w800,
+                color: const Color(0xFFDC2626),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+    await _reject();
+  }
+
+  Future<void> _reject() async {
+    if (_actioning) return;
+    setState(() => _actioning = true);
+    final result = await rejectEmployeeKycApi(
+      context,
+      employeeId: _config.kycId,
+    );
+    if (!mounted) return;
+    setState(() {
+      _actioning = false;
+      if (result != null) {
+        final data = result.data;
+        _config = data != null
+            ? _fromShowApi(data)
+            : _config.copyWith(status: 'Rejected');
+      }
+    });
+    if (result != null) widget.onUpdated?.call();
+  }
 
   @override
   Widget build(BuildContext context) {
     final width = MediaQuery.sizeOf(context).width;
     final hPad = width < 600 ? 16.0 : 24.0;
+    final config = _config;
 
     String yesNo(bool v) => v ? 'Yes' : 'No';
 
@@ -439,7 +713,11 @@ class EmployeeKycDetailScreen extends StatelessWidget {
         ),
       ),
       body: SafeArea(
-        child: ListView(
+        child: _loading
+            ? const Center(
+                child: CircularProgressIndicator(color: AppColors.primaryRed),
+              )
+            : ListView(
           padding: EdgeInsets.fromLTRB(hPad, 16, hPad, 24),
           children: [
             Center(
@@ -451,8 +729,24 @@ class EmployeeKycDetailScreen extends StatelessWidget {
                     _DetailSection(
                       title: 'Employee Information',
                       rows: [
-                        ('Employee ID', config.employeeId),
-                        ('Assigned Site', config.assignedSite),
+                        (
+                          'Email',
+                          config.email.isEmpty ? '—' : config.email,
+                        ),
+                        (
+                          'Phone Number',
+                          config.phoneNumber.isEmpty ? '—' : config.phoneNumber,
+                        ),
+                        (
+                          'Password',
+                          config.kycPassword.isEmpty ? '—' : '••••••••',
+                        ),
+                        (
+                          'Assigned Site',
+                          config.assignedSite.isEmpty
+                              ? '—'
+                              : config.assignedSite,
+                        ),
                         ('Joining Date', config.joiningDate),
                         (
                           'Monthly Salary',
@@ -544,6 +838,13 @@ class EmployeeKycDetailScreen extends StatelessWidget {
                       label: 'Cancelled Cheque',
                       path: config.bankChequePath,
                     ),
+                    const SizedBox(height: 8),
+                    _EmployeeKycStatusActions(
+                      status: config.status,
+                      actioning: _actioning,
+                      onApprove: _confirmApprove,
+                      onReject: _confirmReject,
+                    ),
                   ],
                 ),
               ),
@@ -551,6 +852,124 @@ class EmployeeKycDetailScreen extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+class _EmployeeKycStatusActions extends StatelessWidget {
+  const _EmployeeKycStatusActions({
+    required this.status,
+    required this.actioning,
+    required this.onApprove,
+    required this.onReject,
+  });
+
+  final String status;
+  final bool actioning;
+  final VoidCallback onApprove;
+  final VoidCallback onReject;
+
+  bool get _isPending {
+    final value = status.toLowerCase();
+    return !value.contains('approv') && !value.contains('reject');
+  }
+
+  Color get _statusColor {
+    final value = status.toLowerCase();
+    if (value.contains('reject')) return const Color(0xFFDC2626);
+    if (value.contains('approv')) return const Color(0xFF059669);
+    return const Color(0xFFD97706);
+  }
+
+  Color get _statusBg {
+    final value = status.toLowerCase();
+    if (value.contains('reject')) return const Color(0xFFFEF2F2);
+    if (value.contains('approv')) return const Color(0xFFECFDF5);
+    return const Color(0xFFFFF7ED);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          decoration: BoxDecoration(
+            color: _statusBg,
+            borderRadius: BorderRadius.circular(999),
+          ),
+          child: Text(
+            status.trim().isEmpty ? 'Submitted' : status,
+            style: GoogleFonts.poppins(
+              fontWeight: FontWeight.w900,
+              color: _statusColor,
+            ),
+          ),
+        ),
+        if (_isPending) ...[
+          const SizedBox(height: 14),
+          Row(
+            children: [
+              Expanded(
+                child: ElevatedButton(
+                  onPressed: actioning ? null : onApprove,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF059669),
+                    foregroundColor: Colors.white,
+                    disabledBackgroundColor:
+                        const Color(0xFF059669).withValues(alpha: 0.5),
+                    elevation: 0,
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                  ),
+                  child: actioning
+                      ? const SizedBox(
+                          height: 18,
+                          width: 18,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Colors.white,
+                          ),
+                        )
+                      : Text(
+                          'Approve',
+                          style: GoogleFonts.poppins(
+                            fontSize: 13.5,
+                            fontWeight: FontWeight.w900,
+                          ),
+                        ),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: OutlinedButton(
+                  onPressed: actioning ? null : onReject,
+                  style: OutlinedButton.styleFrom(
+                    side: BorderSide(
+                      color: const Color(0xFFDC2626).withValues(alpha: 0.85),
+                    ),
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                  ),
+                  child: Text(
+                    'Reject',
+                    style: GoogleFonts.poppins(
+                      fontSize: 13.5,
+                      fontWeight: FontWeight.w900,
+                      color: const Color(0xFFDC2626),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ],
     );
   }
 }
@@ -632,6 +1051,29 @@ class _DetailImage extends StatelessWidget {
   Widget build(BuildContext context) {
     final file = path.trim().isEmpty ? null : File(path);
     final hasFile = file != null && file.existsSync();
+    final networkUrl = mediaUrl(path);
+    final isNetwork = networkUrl.startsWith('http://') ||
+        networkUrl.startsWith('https://');
+
+    Widget image;
+    if (hasFile) {
+      image = Image.file(
+        file,
+        height: 160,
+        width: double.infinity,
+        fit: BoxFit.cover,
+      );
+    } else if (isNetwork) {
+      image = Image.network(
+        networkUrl,
+        height: 160,
+        width: double.infinity,
+        fit: BoxFit.cover,
+        errorBuilder: (_, __, ___) => _missingImage(),
+      );
+    } else {
+      image = _missingImage();
+    }
 
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
@@ -649,27 +1091,24 @@ class _DetailImage extends StatelessWidget {
           const SizedBox(height: 6),
           ClipRRect(
             borderRadius: BorderRadius.circular(12),
-            child: hasFile
-                ? Image.file(
-                    file,
-                    height: 160,
-                    width: double.infinity,
-                    fit: BoxFit.cover,
-                  )
-                : Container(
-                    height: 90,
-                    width: double.infinity,
-                    alignment: Alignment.center,
-                    color: AppColors.cardWhite,
-                    child: Text(
-                      'No image',
-                      style: GoogleFonts.poppins(
-                        color: AppColors.textSecondary,
-                      ),
-                    ),
-                  ),
+            child: image,
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _missingImage() {
+    return Container(
+      height: 90,
+      width: double.infinity,
+      alignment: Alignment.center,
+      color: AppColors.cardWhite,
+      child: Text(
+        'No image',
+        style: GoogleFonts.poppins(
+          color: AppColors.textSecondary,
+        ),
       ),
     );
   }

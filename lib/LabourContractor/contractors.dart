@@ -210,7 +210,7 @@ class _ContractorsScreenState extends State<ContractorsScreen> {
         child: Column(
           children: [
             AppTopBar.shell(
-              title: 'Contractor List',
+              title: 'Labour List',
               scaffoldKey: _scaffoldKey,
               horizontalPadding: hPad,
             ),
@@ -925,7 +925,7 @@ class _ContractorsScreenState extends State<ContractorsScreen> {
           onPressed: _openCreate,
           icon: const Icon(Icons.groups_outlined, size: 20),
           label: Text(
-            'Create Contractor',
+            'Create Labour',
             style: GoogleFonts.poppins(
               fontSize: 14,
               fontWeight: FontWeight.w600,

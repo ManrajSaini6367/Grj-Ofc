@@ -4,6 +4,7 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:grjoffice_apps/core/api_config.dart';
 import 'package:grjoffice_apps/core/preference.dart';
+import 'package:grjoffice_apps/core/safe_change_notifier.dart';
 import 'package:grjoffice_apps/models/mypermission.dart';
 import 'package:grjoffice_apps/services/user_session.dart';
 import 'package:http/http.dart' as http;
@@ -70,7 +71,7 @@ class AppPermissions {
 }
 
 /// Loads and caches the logged-in user's role permissions for RBAC checks.
-class PermissionService extends ChangeNotifier {
+class PermissionService extends SafeChangeNotifier {
   PermissionService._();
 
   static final PermissionService instance = PermissionService._();
