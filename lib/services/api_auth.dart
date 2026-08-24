@@ -20,6 +20,8 @@ import 'package:grjoffice_apps/models/getcalendermodal.dart';
 import 'package:grjoffice_apps/models/getcontractor.dart';
 import 'package:grjoffice_apps/models/getemployeemodal.dart';
 import 'package:grjoffice_apps/models/getempoyeeskycrequest.dart';
+import 'package:grjoffice_apps/models/getlistnotificationmodal.dart';
+import 'package:grjoffice_apps/models/getnotificationmodal.dart';
 import 'package:grjoffice_apps/models/getleavetypemodal.dart';
 import 'package:grjoffice_apps/models/getmyleavemodal.dart';
 import 'package:grjoffice_apps/models/getoriginalcontractor.dart';
@@ -6680,6 +6682,243 @@ Future<Approvekycmodal?> rejectEmployeeKycApi(
   } catch (e, stack) {
     print('[rejectEmployeeKycApi] error: $e');
     print('[rejectEmployeeKycApi] stack: $stack');
+    if (!context.mounted) return null;
+    message(context, 'Something went wrong');
+    return null;
+  }
+}
+
+
+//getlistnotificationapi — GET /api/v1/notifications
+Future<GetListNotification?> getListNotificationApi(
+  BuildContext context, {
+  String? unread,
+  String? mode,
+  int? siteId,
+  int perPage = 20,
+  int page = 1,
+}) async {
+  try {
+    final queryParams = <String, String>{
+      'per_page': perPage.toString(),
+      'page': page.toString(),
+    };
+    if (unread != null && unread.trim().isNotEmpty) {
+      queryParams['unread'] = unread.trim();
+    }
+    if (mode != null && mode.trim().isNotEmpty) {
+      queryParams['mode'] = mode.trim();
+    }
+    final resolvedSiteId = siteId ?? selectedSiteId();
+    if (resolvedSiteId != null) {
+      queryParams['site_id'] = resolvedSiteId.toString();
+    }
+
+    final uri = Uri.parse('$baseUrl/api/v1/notifications').replace(
+      queryParameters: queryParams,
+    );
+    print('[getListNotificationApi] GET $uri');
+
+    final response = await http
+        .get(uri, headers: authHeaders)
+        .timeout(const Duration(seconds: 30));
+
+    print('[getListNotificationApi] statusCode: ${response.statusCode}');
+    print('[getListNotificationApi] response: ${response.body}');
+
+    final decoded = decodeApiJson(response.body);
+    final apiMessage = decoded?['message']?.toString();
+
+    if (response.statusCode == 200 &&
+        decoded != null &&
+        decoded['success'] == true) {
+      final rawData = decoded['data'];
+      if (rawData is Map) {
+        return GetListNotification.fromJson(Map<String, dynamic>.from(rawData));
+      }
+      if (rawData is List) {
+        return GetListNotification.fromJson({'items': rawData});
+      }
+      return GetListNotification.fromJson(decoded);
+    }
+
+    if (!context.mounted) return null;
+    message(
+      context,
+      _firstApiError(decoded) ??
+          apiMessage ??
+          'Failed to load notifications.',
+    );
+    return null;
+  } on TimeoutException {
+    print('[getListNotificationApi] request timed out');
+    if (!context.mounted) return null;
+    message(context, 'Request timed out. Please try again.');
+    return null;
+  } catch (e, stack) {
+    print('[getListNotificationApi] error: $e');
+    print('[getListNotificationApi] stack: $stack');
+    if (!context.mounted) return null;
+    message(context, 'Something went wrong');
+    return null;
+  }
+}
+
+//marknotificationreadapi — POST /api/v1/notifications/{id}/read
+Future<bool> markNotificationReadApi(
+  BuildContext context, {
+  required String notificationId,
+  bool showError = true,
+}) async {
+  try {
+    final id = notificationId.trim();
+    if (id.isEmpty) {
+      if (showError && context.mounted) {
+        message(context, 'Notification id is missing.');
+      }
+      return false;
+    }
+
+    final url = '$baseUrl/api/v1/notifications/$id/read';
+    print('[markNotificationReadApi] POST $url');
+
+    final response = await http
+        .post(Uri.parse(url), headers: authHeaders)
+        .timeout(const Duration(seconds: 30));
+
+    print('[markNotificationReadApi] statusCode: ${response.statusCode}');
+    print('[markNotificationReadApi] response: ${response.body}');
+
+    final decoded = decodeApiJson(response.body);
+    final apiMessage = decoded?['message']?.toString();
+
+    if ((response.statusCode == 200 || response.statusCode == 201) &&
+        decoded != null &&
+        decoded['success'] != false) {
+      return true;
+    }
+
+    if (showError && context.mounted) {
+      message(
+        context,
+        _firstApiError(decoded) ??
+            apiMessage ??
+            'Failed to mark notification as read.',
+      );
+    }
+    return false;
+  } on TimeoutException {
+    print('[markNotificationReadApi] request timed out');
+    if (showError && context.mounted) {
+      message(context, 'Request timed out. Please try again.');
+    }
+    return false;
+  } catch (e, stack) {
+    print('[markNotificationReadApi] error: $e');
+    print('[markNotificationReadApi] stack: $stack');
+    if (showError && context.mounted) {
+      message(context, 'Something went wrong');
+    }
+    return false;
+  }
+}
+
+//markallreadnotificationapi — POST /api/v1/notifications/mark-read
+Future<bool> markAllNotificationsReadApi(BuildContext context) async {
+  try {
+    final url = '$baseUrl/api/v1/notifications/mark-read';
+    print('[markAllNotificationsReadApi] POST $url');
+
+    final response = await http
+        .post(Uri.parse(url), headers: authHeaders)
+        .timeout(const Duration(seconds: 30));
+
+    print('[markAllNotificationsReadApi] statusCode: ${response.statusCode}');
+    print('[markAllNotificationsReadApi] response: ${response.body}');
+
+    final decoded = decodeApiJson(response.body);
+    final apiMessage = decoded?['message']?.toString();
+
+    if ((response.statusCode == 200 || response.statusCode == 201) &&
+        decoded != null &&
+        decoded['success'] != false) {
+      return true;
+    }
+
+    if (context.mounted) {
+      message(
+        context,
+        _firstApiError(decoded) ??
+            apiMessage ??
+            'Failed to mark all notifications as read.',
+      );
+    }
+    return false;
+  } on TimeoutException {
+    print('[markAllNotificationsReadApi] request timed out');
+    if (context.mounted) {
+      message(context, 'Request timed out. Please try again.');
+    }
+    return false;
+  } catch (e, stack) {
+    print('[markAllNotificationsReadApi] error: $e');
+    print('[markAllNotificationsReadApi] stack: $stack');
+    if (context.mounted) {
+      message(context, 'Something went wrong');
+    }
+    return false;
+  }
+}
+
+//getnotificationapi — GET /api/v1/notifications/{id}
+Future<Getnotificationmodaldata?> getNotificationApi(
+  BuildContext context, {
+  required String notificationId,
+}) async {
+  try {
+    final id = notificationId.trim();
+    if (id.isEmpty || id == '0') {
+      if (context.mounted) {
+        message(context, 'Notification id is missing.');
+      }
+      return null;
+    }
+
+    final url = '$baseUrl/api/v1/notifications/$id';
+    print('[getNotificationApi] GET $url');
+
+    final response = await http
+        .get(Uri.parse(url), headers: authHeaders)
+        .timeout(const Duration(seconds: 30));
+
+    print('[getNotificationApi] statusCode: ${response.statusCode}');
+    print('[getNotificationApi] response: ${response.body}');
+
+    final decoded = decodeApiJson(response.body);
+    final apiMessage = decoded?['message']?.toString();
+
+    if (response.statusCode == 200 &&
+        decoded != null &&
+        decoded['success'] != false) {
+      return Getnotificationmodaldata.fromJson(decoded);
+    }
+
+    if (!context.mounted) return null;
+    message(
+      context,
+      _firstApiError(decoded) ??
+          apiMessage ??
+          'Failed to load notification.',
+    );
+    return null;
+  } on TimeoutException {
+    print('[getNotificationApi] request timed out');
+    if (!context.mounted) return null;
+    message(context, 'Request timed out. Please try again.');
+    return null;
+  } catch (e, stack) {
+    print('[getNotificationApi] error: $e');
+    print('[getNotificationApi] stack: $stack');
     if (!context.mounted) return null;
     message(context, 'Something went wrong');
     return null;
