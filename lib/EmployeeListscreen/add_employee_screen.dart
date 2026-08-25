@@ -174,7 +174,7 @@ class _AddEmployeeScreenState extends State<AddEmployeeScreen> {
         dateOfSuspended:
             _dateSuspended != null ? _formatApiDate(_dateSuspended!) : null,
         attendanceAllow: _attendanceAllowed,
-        status: 1,
+        status: 'published',
       );
 
       if (!mounted) return;

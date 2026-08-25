@@ -47,67 +47,6 @@ class _ViewPurchaseScreenState extends State<ViewPurchaseScreen> {
 
   Purchase get _purchase => _detail ?? widget.purchase;
 
-  Future<void> _deletePurchase() async {
-    final purchase = _purchase;
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (dialogContext) {
-        return AlertDialog(
-          backgroundColor: AppColors.cardWhite,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-          title: Text(
-            'Delete Purchase',
-            style: GoogleFonts.poppins(
-              fontWeight: FontWeight.w700,
-              color: AppColors.headingBlack,
-            ),
-          ),
-          content: Text(
-            'Are you sure you want to delete "${purchase.challanNo}"?',
-            style: GoogleFonts.poppins(fontSize: 14, color: AppColors.textDark),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(dialogContext).pop(false),
-              child: Text(
-                'Cancel',
-                style: GoogleFonts.poppins(
-                  color: AppColors.textSecondary,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ),
-            TextButton(
-              onPressed: () => Navigator.of(dialogContext).pop(true),
-              child: Text(
-                'Delete',
-                style: GoogleFonts.poppins(
-                  color: AppColors.primaryRed,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-            ),
-          ],
-        );
-      },
-    );
-
-    if (confirmed != true || !mounted) return;
-
-    final purchaseId = int.tryParse(purchase.id);
-    if (purchaseId == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Invalid purchase id.', style: GoogleFonts.poppins())),
-      );
-      return;
-    }
-
-    final ok = await deletePurchaseApi(context, purchaseId);
-    if (!mounted || !ok) return;
-
-    Navigator.pop(context, 'deleted');
-  }
-
   String _text(String? value, {String fallback = '—'}) {
     if (value == null || value.trim().isEmpty) return fallback;
     return value.trim();
@@ -126,6 +65,15 @@ class _ViewPurchaseScreenState extends State<ViewPurchaseScreen> {
 
   bool _isNetworkImage(String? value) =>
       value != null && (value.startsWith('http://') || value.startsWith('https://'));
+
+  bool _hasPurchaseImage(String? image) =>
+      resolvePurchaseImageUrl(image).isNotEmpty;
+
+  bool _hasAnyPurchaseImage(Purchase purchase) =>
+      _hasPurchaseImage(purchase.loadingVehicleImage) ||
+      _hasPurchaseImage(purchase.unloadingVehicleImage) ||
+      _hasPurchaseImage(purchase.vehicleAtKantaImage) ||
+      _hasPurchaseImage(purchase.kantaSlipImage);
 
   void _openFullImage(String label, String imageUrl) {
     if (!_isNetworkImage(imageUrl)) return;
@@ -160,12 +108,6 @@ class _ViewPurchaseScreenState extends State<ViewPurchaseScreen> {
               title: 'Purchase Details',
               onBack: () => Navigator.pop(context),
               horizontalPadding: hPad,
-              actions: [
-                IconButton(
-                  onPressed: _isLoading ? null : _deletePurchase,
-                  icon: const Icon(Icons.delete_outline_rounded, color: AppColors.primaryRed),
-                ),
-              ],
             ),
             Expanded(
               child: _isLoading
@@ -193,7 +135,12 @@ class _ViewPurchaseScreenState extends State<ViewPurchaseScreen> {
                                   title: 'Purchase Info',
                                   icon: Icons.shopping_cart_outlined,
                                   children: [
-                                    _infoTile(Icons.tag_rounded, 'Purchase ID', '#${purchase.id}'),
+                                    _infoTile(
+                                      Icons.receipt_outlined,
+                                      'Challan No',
+                                      purchase.challanNo,
+                                      valueFontSize: 16,
+                                    ),
                                     _infoTile(Icons.calendar_today_outlined, 'Date', _formatDate(purchase.date)),
                                     _infoTile(Icons.route_outlined, 'Flow', _flowLabel(purchase)),
                                     _infoTile(
@@ -201,9 +148,6 @@ class _ViewPurchaseScreenState extends State<ViewPurchaseScreen> {
                                       'Stage',
                                       _text(purchase.flowStageLabel ?? purchase.stage),
                                     ),
-                                    _infoTile(Icons.verified_outlined, 'Status', purchase.statusLabel),
-                                    if (purchase.step != null)
-                                      _infoTile(Icons.linear_scale_rounded, 'Step', '${purchase.step}'),
                                   ],
                                 ),
                                 const SizedBox(height: 14),
@@ -213,7 +157,6 @@ class _ViewPurchaseScreenState extends State<ViewPurchaseScreen> {
                                   children: [
                                     _infoTile(Icons.storefront_outlined, 'Supplier', purchase.supplierName),
                                     _infoTile(Icons.directions_car_outlined, 'Vehicle No', _text(purchase.vehicleNo)),
-                                    _infoTile(Icons.receipt_outlined, 'Challan No', purchase.challanNo),
                                     _infoTile(Icons.description_outlined, 'Invoice No', purchase.invoiceNo),
                                     if ((purchase.kantaNo ?? '').trim().isNotEmpty)
                                       _infoTile(Icons.scale_outlined, 'Kanta No', purchase.kantaNo!),
@@ -252,17 +195,39 @@ class _ViewPurchaseScreenState extends State<ViewPurchaseScreen> {
                                       ),
                                   ],
                                 ),
-                                const SizedBox(height: 14),
-                                _buildSection(
-                                  title: 'Images',
-                                  icon: Icons.photo_library_outlined,
-                                  children: [
-                                    _imageTile('Loading', purchase.loadingVehicleImage, purchase.loadingVehicleImageAt),
-                                    _imageTile('Unloading', purchase.unloadingVehicleImage, purchase.unloadingVehicleImageAt),
-                                    _imageTile('Vehicle at Kanta', purchase.vehicleAtKantaImage, purchase.vehicleAtKantaImageAt),
-                                    _imageTile('Kanta Slip', purchase.kantaSlipImage, purchase.kantaSlipImageAt),
-                                  ],
-                                ),
+                                if (_hasAnyPurchaseImage(purchase)) ...[
+                                  const SizedBox(height: 14),
+                                  _buildSection(
+                                    title: 'Images',
+                                    icon: Icons.photo_library_outlined,
+                                    children: [
+                                      if (_hasPurchaseImage(purchase.loadingVehicleImage))
+                                        _imageTile(
+                                          'Loading',
+                                          purchase.loadingVehicleImage,
+                                          purchase.loadingVehicleImageAt,
+                                        ),
+                                      if (_hasPurchaseImage(purchase.unloadingVehicleImage))
+                                        _imageTile(
+                                          'Unloading',
+                                          purchase.unloadingVehicleImage,
+                                          purchase.unloadingVehicleImageAt,
+                                        ),
+                                      if (_hasPurchaseImage(purchase.vehicleAtKantaImage))
+                                        _imageTile(
+                                          'Vehicle at Kanta',
+                                          purchase.vehicleAtKantaImage,
+                                          purchase.vehicleAtKantaImageAt,
+                                        ),
+                                      if (_hasPurchaseImage(purchase.kantaSlipImage))
+                                        _imageTile(
+                                          'Kanta Slip',
+                                          purchase.kantaSlipImage,
+                                          purchase.kantaSlipImageAt,
+                                        ),
+                                    ],
+                                  ),
+                                ],
                               ],
                             ),
                           ),
@@ -310,25 +275,23 @@ class _ViewPurchaseScreenState extends State<ViewPurchaseScreen> {
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  _text(purchase.vehicleNo, fallback: purchase.challanNo),
-                  style: GoogleFonts.poppins(fontSize: 13, color: AppColors.textSecondary),
+                  'Challan No',
+                  style: GoogleFonts.poppins(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.textSecondary,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  purchase.challanNo.trim().isEmpty ? '—' : purchase.challanNo,
+                  style: GoogleFonts.poppins(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.headingBlack,
+                  ),
                 ),
               ],
-            ),
-          ),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-            decoration: BoxDecoration(
-              color: AppColors.primaryRed.withValues(alpha: 0.1),
-              borderRadius: BorderRadius.circular(20),
-            ),
-            child: Text(
-              purchase.flowStageLabel ?? purchase.statusLabel,
-              style: GoogleFonts.poppins(
-                fontSize: 11,
-                fontWeight: FontWeight.w600,
-                color: AppColors.primaryRed,
-              ),
             ),
           ),
         ],
@@ -372,7 +335,12 @@ class _ViewPurchaseScreenState extends State<ViewPurchaseScreen> {
     );
   }
 
-  Widget _infoTile(IconData icon, String label, String value) {
+  Widget _infoTile(
+    IconData icon,
+    String label,
+    String value, {
+    double valueFontSize = 14,
+  }) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
       child: Row(
@@ -396,7 +364,7 @@ class _ViewPurchaseScreenState extends State<ViewPurchaseScreen> {
                 Text(
                   value,
                   style: GoogleFonts.poppins(
-                    fontSize: 14,
+                    fontSize: valueFontSize,
                     fontWeight: FontWeight.w600,
                     color: AppColors.headingBlack,
                   ),
@@ -410,7 +378,9 @@ class _ViewPurchaseScreenState extends State<ViewPurchaseScreen> {
   }
 
   Widget _imageTile(String label, String? image, DateTime? capturedAt) {
-    final hasImage = image != null && image.trim().isNotEmpty;
+    final imageUrl = resolvePurchaseImageUrl(image);
+    if (imageUrl.isEmpty) return const SizedBox.shrink();
+
     return Padding(
       padding: const EdgeInsets.only(bottom: 14),
       child: Column(
@@ -425,92 +395,64 @@ class _ViewPurchaseScreenState extends State<ViewPurchaseScreen> {
             ),
           ),
           const SizedBox(height: 8),
-          if (!hasImage)
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.symmetric(vertical: 28),
-              decoration: BoxDecoration(
-                color: AppColors.operationsCardBg,
+          Material(
+            color: Colors.transparent,
+            child: InkWell(
+              onTap: () => _openFullImage(label, imageUrl),
+              borderRadius: BorderRadius.circular(10),
+              child: ClipRRect(
                 borderRadius: BorderRadius.circular(10),
-                border: Border.all(color: AppColors.borderGray.withValues(alpha: 0.5)),
-              ),
-              child: Column(
-                children: [
-                  Icon(Icons.image_not_supported_outlined, color: AppColors.textSecondary.withValues(alpha: 0.6)),
-                  const SizedBox(height: 6),
-                  Text('No image', style: GoogleFonts.poppins(fontSize: 12, color: AppColors.textSecondary)),
-                ],
-              ),
-            )
-          else ...[
-            Material(
-              color: Colors.transparent,
-              child: InkWell(
-                onTap: _isNetworkImage(image) ? () => _openFullImage(label, image) : null,
-                borderRadius: BorderRadius.circular(10),
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(10),
-                  child: AspectRatio(
-                    aspectRatio: 16 / 9,
-                    child: Stack(
-                      fit: StackFit.expand,
-                      children: [
-                        _isNetworkImage(image)
-                            ? Image.network(
-                                image,
-                                fit: BoxFit.cover,
-                                errorBuilder: (_, __, ___) => Container(
-                                  color: AppColors.operationsCardBg,
-                                  alignment: Alignment.center,
-                                  child: Text(image, style: GoogleFonts.poppins(fontSize: 12)),
-                                ),
-                              )
-                            : Container(
-                                color: AppColors.operationsCardBg,
-                                alignment: Alignment.center,
-                                padding: const EdgeInsets.all(12),
-                                child: Text(
-                                  image,
-                                  textAlign: TextAlign.center,
-                                  style: GoogleFonts.poppins(fontSize: 12, color: AppColors.textDark),
-                                ),
-                              ),
-                        if (_isNetworkImage(image))
-                          Positioned(
-                            right: 8,
-                            bottom: 8,
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                              decoration: BoxDecoration(
-                                color: Colors.black.withValues(alpha: 0.55),
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  const Icon(Icons.fullscreen, size: 14, color: AppColors.white),
-                                  const SizedBox(width: 4),
-                                  Text(
-                                    'View',
-                                    style: GoogleFonts.poppins(fontSize: 11, color: AppColors.white),
-                                  ),
-                                ],
-                              ),
-                            ),
+                child: AspectRatio(
+                  aspectRatio: 16 / 9,
+                  child: Stack(
+                    fit: StackFit.expand,
+                    children: [
+                      Image.network(
+                        imageUrl,
+                        fit: BoxFit.cover,
+                        errorBuilder: (_, __, ___) => Container(
+                          color: AppColors.operationsCardBg,
+                          alignment: Alignment.center,
+                          child: Icon(
+                            Icons.broken_image_outlined,
+                            color: AppColors.textSecondary.withValues(alpha: 0.7),
                           ),
-                      ],
-                    ),
+                        ),
+                      ),
+                      Positioned(
+                        right: 8,
+                        bottom: 8,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: Colors.black.withValues(alpha: 0.55),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Icon(Icons.fullscreen, size: 14, color: AppColors.white),
+                              const SizedBox(width: 4),
+                              Text(
+                                'View',
+                                style: GoogleFonts.poppins(fontSize: 11, color: AppColors.white),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ),
             ),
-            if (capturedAt != null) ...[
-              const SizedBox(height: 6),
-              Text(
-                formatPurchaseImageDateTime(capturedAt),
-                style: GoogleFonts.poppins(fontSize: 11, color: AppColors.textSecondary),
-              ),
-            ],
+          ),
+          if (capturedAt != null) ...[
+            const SizedBox(height: 6),
+            Text(
+              formatPurchaseImageDateTime(capturedAt),
+              style: GoogleFonts.poppins(fontSize: 11, color: AppColors.textSecondary),
+            ),
           ],
         ],
       ),

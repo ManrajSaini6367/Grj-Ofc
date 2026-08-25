@@ -277,6 +277,9 @@ class Purchase {
   bool get hasFlowStage =>
       withoutKantaStage != null || withKantaStage != null || directPurchaseStage != null;
 
+  /// True when API stage/status maps to a fully completed purchase.
+  bool get isFullyCompleted => listStage == PurchaseListStage.completed;
+
   /// Maps API `stage` / `status` / `status_code` / `step` to list stage keys.
   /// Numeric: Initial = 2, Processing = 3, Completed = 4.
   static String _normalizeListStageKey(Map<String, dynamic> json) {

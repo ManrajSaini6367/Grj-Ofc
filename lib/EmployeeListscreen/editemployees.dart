@@ -148,7 +148,7 @@ class _EditEmployeeScreenState extends State<EditEmployeeScreen> {
         password: password.isNotEmpty ? password : null,
         passwordConfirmation: password.isNotEmpty ? password : null,
         attendanceAllow: _attendanceAllowed,
-        status: _isActive ? 1 : 0,
+        status: _isActive ? 'published' : 'unpublished',
       );
 
       if (!mounted) return;

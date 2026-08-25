@@ -3,7 +3,6 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:grjoffice_apps/core/app_colors.dart';
 import 'package:grjoffice_apps/drawer/drawer.dart';
 import 'package:grjoffice_apps/drawer/app_end_drawer.dart';
-import 'package:grjoffice_apps/attendancescreen/view_attendance_screen.dart';
 import 'package:grjoffice_apps/models/attendance_model.dart';
 import 'package:grjoffice_apps/navigation/app_navigation.dart';
 import 'package:grjoffice_apps/services/api_auth.dart';
@@ -146,23 +145,6 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
 
   String _formatDate(DateTime date) {
     return DateFormat('dd MMM yyyy').format(date);
-  }
-
-  String _formatTime(DateTime? time, {String? label}) {
-    if (label != null && label.trim().isNotEmpty) {
-      try {
-        final parts = label.trim().split(':');
-        if (parts.length >= 2) {
-          final hour = int.tryParse(parts[0]) ?? 0;
-          final minute = int.tryParse(parts[1]) ?? 0;
-          final period = hour >= 12 ? 'PM' : 'AM';
-          final h12 = hour % 12 == 0 ? 12 : hour % 12;
-          return '${h12.toString().padLeft(2, '0')}:${minute.toString().padLeft(2, '0')} $period';
-        }
-      } catch (_) {}
-    }
-    if (time == null) return '--:--';
-    return DateFormat('hh:mm a').format(time);
   }
 
   @override
@@ -482,10 +464,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
 
     final avatar = mediaUrl(att.employeeAvatarUrl);
 
-    return InkWell(
-      onTap: () => _openAttendanceDetails(att),
-      borderRadius: BorderRadius.circular(16),
-      child: Container(
+    return Container(
       margin: const EdgeInsets.only(bottom: 12),
       decoration: BoxDecoration(
         color: Colors.white,
@@ -549,77 +528,11 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
                     ],
                   ),
                 ),
-                IconButton(
-                  icon: const Icon(Icons.chevron_right_rounded, color: AppColors.textSecondary),
-                  onPressed: () => _openAttendanceDetails(att),
-                ),
               ],
             ),
-            
-            if (att.status == AttendanceStatus.present) ...[
-              const SizedBox(height: 16),
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: AppColors.backgroundGray.withOpacity(0.5),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceAround,
-                  children: [
-                    _buildTimeColumn(
-                      'Punch In',
-                      _formatTime(att.punchInTime, label: att.punchInTimeLabel),
-                      Icons.login_rounded,
-                      const Color(0xFF3B82F6),
-                    ),
-                    Container(width: 1, height: 30, color: AppColors.borderGray),
-                    _buildTimeColumn(
-                      'Punch Out',
-                      _formatTime(att.punchOutTime, label: att.punchOutTimeLabel),
-                      Icons.logout_rounded,
-                      const Color(0xFFF59E0B),
-                    ),
-                    Container(width: 1, height: 30, color: AppColors.borderGray),
-                    _buildTimeColumn('Total Hrs', att.totalHours, Icons.timer_outlined, const Color(0xFF8B5CF6)),
-                  ],
-                ),
-              ),
-            ]
           ],
         ),
       ),
-    ),
-    );
-  }
-
-  Future<void> _openAttendanceDetails(Attendance attendance) async {
-    await Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (_) => ViewAttendanceScreen(attendance: attendance),
-      ),
-    );
-  }
-
-  Widget _buildTimeColumn(String label, String value, IconData icon, Color color) {
-    return Column(
-      children: [
-        Row(
-          children: [
-            Icon(icon, size: 12, color: color),
-            const SizedBox(width: 4),
-            Text(
-              label,
-              style: GoogleFonts.poppins(fontSize: 11, color: AppColors.textSecondary, fontWeight: FontWeight.w500),
-            ),
-          ],
-        ),
-        const SizedBox(height: 4),
-        Text(
-          value,
-          style: GoogleFonts.poppins(fontSize: 13, fontWeight: FontWeight.w600, color: AppColors.headingBlack),
-        ),
-      ],
     );
   }
 

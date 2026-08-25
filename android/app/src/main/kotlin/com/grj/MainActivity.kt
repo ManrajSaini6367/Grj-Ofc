@@ -149,11 +149,9 @@ class MainActivity : FlutterActivity() {
             values.put(MediaStore.Downloads.IS_PENDING, 0)
             resolver.update(uri, values, null, null)
 
-            @Suppress("DEPRECATION")
-            val downloads = Environment.getExternalStoragePublicDirectory(
-                Environment.DIRECTORY_DOWNLOADS
-            )
-            File(downloads, "GRJ_Purchases/$fileName").absolutePath
+            // Return content:// URI — guessed File(...) paths are not readable under
+            // scoped storage and cause PDF viewers to open then immediately close.
+            uri.toString()
         } else {
             @Suppress("DEPRECATION")
             val downloads = Environment.getExternalStoragePublicDirectory(

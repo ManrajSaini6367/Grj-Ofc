@@ -196,7 +196,7 @@ class _AddContractorScreenState extends State<AddContractorScreen> {
         child: Column(
           children: [
             AppTopBar.page(
-              title: widget.isEditing ? 'Edit Contractor' : 'Create Contractor',
+              title: widget.isEditing ? 'Edit Labour' : 'Create Labour',
               onBack: () => Navigator.pop(context),
               horizontalPadding: hPad,
             ),
@@ -212,7 +212,7 @@ class _AddContractorScreenState extends State<AddContractorScreen> {
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
                           Text(
-                            widget.isEditing ? 'Update Contractor' : 'New Contractor',
+                            widget.isEditing ? 'Update Labour' : 'New Labour',
                             style: GoogleFonts.poppins(fontSize: 24, fontWeight: FontWeight.w700),
                           ),
                           const SizedBox(height: 20),
@@ -253,7 +253,7 @@ class _AddContractorScreenState extends State<AddContractorScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          _buildTextField(label: 'Name', controller: _nameController, hint: 'Contractor name', required: true),
+          _buildTextField(label: 'Name', controller: _nameController, hint: 'Labour name', required: true),
           const SizedBox(height: 16),
           _buildTextField(
             label: 'Mobile',
@@ -473,8 +473,11 @@ class _AddContractorScreenState extends State<AddContractorScreen> {
           clipBehavior: Clip.none,
           child: TextFormField(
             controller: controller,
-            keyboardType: keyboardType,
+            keyboardType:
+                maxLines > 1 ? TextInputType.multiline : keyboardType,
             maxLines: maxLines,
+            textInputAction:
+                maxLines > 1 ? TextInputAction.newline : TextInputAction.next,
             validator: required
                 ? (v) => (v == null || v.trim().isEmpty) ? '$label is required' : null
                 : null,
@@ -610,7 +613,7 @@ class _AddContractorScreenState extends State<AddContractorScreen> {
                 ),
               )
             : Text(
-                widget.isEditing ? 'UPDATE CONTRACTOR' : 'SAVE CONTRACTOR',
+                widget.isEditing ? 'UPDATE LABOUR' : 'SAVE LABOUR',
                 style: GoogleFonts.poppins(
                   fontSize: 14,
                   fontWeight: FontWeight.w700,

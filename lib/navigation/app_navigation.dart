@@ -116,7 +116,15 @@ void navigateToMainTab(BuildContext context, int index) {
 }
 
 /// Pushes a secondary screen above the tab stack while keeping the bottom bar visible.
-void pushInShell(BuildContext context, Widget screen) {
+///
+/// When [clearStack] is true (default), replaces any existing shell routes so the
+/// new screen sits directly above the tab root. Pass `false` for nested screens
+/// (e.g. list → details) so Back returns to the previous shell route.
+void pushInShell(
+  BuildContext context,
+  Widget screen, {
+  bool clearStack = true,
+}) {
   if (!KycGate.canAccessApp) {
     pushAndRevoveUntil(context, KycGate.homeScreen());
     return;
@@ -126,7 +134,9 @@ void pushInShell(BuildContext context, Widget screen) {
   final shell = AppShellScope.maybeOf(context);
   if (shell != null) {
     final nav = shell.shellNavigatorKey.currentState;
-    nav?.popUntil((route) => route.isFirst);
+    if (clearStack) {
+      nav?.popUntil((route) => route.isFirst);
+    }
     nav?.push(MaterialPageRoute(builder: (_) => screen));
     return;
   }

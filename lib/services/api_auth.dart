@@ -2034,7 +2034,7 @@ Future<bool> createEmployeeApi(
   required String dateOfJoin,
   String? dateOfSuspended,
   required bool attendanceAllow,
-  required int status,
+  required String status,
 }) async {
   try {
     final url = '$baseUrl/api/v1/employees';
@@ -2206,7 +2206,7 @@ Future<bool> updateEmployeeApi(
   String? password,
   String? passwordConfirmation,
   required bool attendanceAllow,
-  required int status,
+  required String status,
 }) async {
   try {
     final uri = Uri.parse('$baseUrl/api/v1/employees/$employeeId');

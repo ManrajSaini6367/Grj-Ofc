@@ -42,6 +42,29 @@ Future<void> main() async {
   runApp(const MyApp());
 }
 
+/// Unfocuses the active input only when the pointer lands outside it.
+void _dismissKeyboardIfTapOutsideFocusedInput(PointerDownEvent event) {
+  final focus = FocusManager.instance.primaryFocus;
+  if (focus == null || !focus.hasFocus) return;
+
+  final focusContext = focus.context;
+  if (focusContext == null) {
+    focus.unfocus();
+    return;
+  }
+
+  final renderObject = focusContext.findRenderObject();
+  if (renderObject is! RenderBox || !renderObject.hasSize) {
+    focus.unfocus();
+    return;
+  }
+
+  final local = renderObject.globalToLocal(event.position);
+  if (!renderObject.paintBounds.contains(local)) {
+    focus.unfocus();
+  }
+}
+
 /// Shrinks every text `fontSize` by 1px, then applies the platform scaler.
 class _MinusOnePxTextScaler extends TextScaler {
   const _MinusOnePxTextScaler(this.parent);
@@ -92,12 +115,20 @@ class MyApp extends StatelessWidget {
       builder: (context, child) {
         if (child == null) return const SizedBox.shrink();
         final media = MediaQuery.of(context);
-        if (media.textScaler is _MinusOnePxTextScaler) return child;
-        return MediaQuery(
-          data: media.copyWith(
-            textScaler: _MinusOnePxTextScaler(media.textScaler),
-          ),
-          child: child,
+        final content = media.textScaler is _MinusOnePxTextScaler
+            ? child
+            : MediaQuery(
+                data: media.copyWith(
+                  textScaler: _MinusOnePxTextScaler(media.textScaler),
+                ),
+                child: child,
+              );
+
+        // Global: tap/press outside the focused input dismisses the keyboard.
+        return Listener(
+          behavior: HitTestBehavior.translucent,
+          onPointerDown: _dismissKeyboardIfTapOutsideFocusedInput,
+          child: content,
         );
       },
       theme: ThemeData(

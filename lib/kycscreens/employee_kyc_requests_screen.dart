@@ -166,6 +166,7 @@ class _EmployeeKycRequestsScreenState extends State<EmployeeKycRequestsScreen> {
                                             onUpdated: () =>
                                                 _load(showSpinner: false),
                                           ),
+                                          clearStack: false,
                                         );
                                       },
                                     ),
@@ -1045,6 +1046,8 @@ class _DetailImage extends StatelessWidget {
       image = _missingImage();
     }
 
+    final canPreview = hasFile || isNetwork;
+
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
       child: Column(
@@ -1061,9 +1064,40 @@ class _DetailImage extends StatelessWidget {
           const SizedBox(height: 6),
           ClipRRect(
             borderRadius: BorderRadius.circular(12),
-            child: image,
+            child: canPreview
+                ? Material(
+                    color: Colors.transparent,
+                    child: InkWell(
+                      onTap: () => _openPreview(
+                        context,
+                        label: label,
+                        file: hasFile ? file : null,
+                        networkUrl: isNetwork ? networkUrl : null,
+                      ),
+                      child: image,
+                    ),
+                  )
+                : image,
           ),
         ],
+      ),
+    );
+  }
+
+  void _openPreview(
+    BuildContext context, {
+    required String label,
+    File? file,
+    String? networkUrl,
+  }) {
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        fullscreenDialog: true,
+        builder: (_) => _KycDocumentPreviewScreen(
+          title: label,
+          file: file,
+          networkUrl: networkUrl,
+        ),
       ),
     );
   }
@@ -1079,6 +1113,108 @@ class _DetailImage extends StatelessWidget {
         style: GoogleFonts.poppins(
           color: AppColors.textSecondary,
         ),
+      ),
+    );
+  }
+}
+
+class _KycDocumentPreviewScreen extends StatelessWidget {
+  const _KycDocumentPreviewScreen({
+    required this.title,
+    this.file,
+    this.networkUrl,
+  });
+
+  final String title;
+  final File? file;
+  final String? networkUrl;
+
+  @override
+  Widget build(BuildContext context) {
+    final size = MediaQuery.sizeOf(context);
+    final padding = MediaQuery.paddingOf(context);
+
+    Widget image;
+    if (file != null) {
+      image = Image.file(
+        file!,
+        fit: BoxFit.contain,
+        width: size.width,
+        height: size.height,
+      );
+    } else if (networkUrl != null && networkUrl!.isNotEmpty) {
+      image = Image.network(
+        networkUrl!,
+        fit: BoxFit.contain,
+        width: size.width,
+        height: size.height,
+        loadingBuilder: (context, child, progress) {
+          if (progress == null) return child;
+          return const Center(
+            child: CircularProgressIndicator(color: Colors.white),
+          );
+        },
+        errorBuilder: (_, __, ___) => Center(
+          child: Text(
+            'Could not load image',
+            style: GoogleFonts.poppins(color: Colors.white),
+          ),
+        ),
+      );
+    } else {
+      image = Center(
+        child: Text(
+          'No image',
+          style: GoogleFonts.poppins(color: Colors.white),
+        ),
+      );
+    }
+
+    return Scaffold(
+      backgroundColor: Colors.black,
+      body: Stack(
+        children: [
+          Positioned.fill(
+            child: InteractiveViewer(
+              minScale: 0.8,
+              maxScale: 5,
+              child: Center(child: image),
+            ),
+          ),
+          Positioned(
+            top: padding.top + 8,
+            right: 12,
+            child: Material(
+              color: AppColors.primaryRed,
+              shape: const CircleBorder(),
+              clipBehavior: Clip.antiAlias,
+              child: InkWell(
+                onTap: () => Navigator.of(context).pop(),
+                customBorder: const CircleBorder(),
+                child: const SizedBox(
+                  width: 44,
+                  height: 44,
+                  child: Icon(Icons.close, color: Colors.white, size: 24),
+                ),
+              ),
+            ),
+          ),
+          Positioned(
+            top: padding.top + 14,
+            left: 16,
+            right: 68,
+            child: Text(
+              title,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: GoogleFonts.poppins(
+                color: Colors.white,
+                fontSize: 15,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }

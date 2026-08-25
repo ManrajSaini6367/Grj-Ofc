@@ -673,12 +673,11 @@ class _PurchasesScreenState extends State<PurchasesScreen> {
                           ),
                           const SizedBox(height: 4),
                           Text(
-                            purchase.hasFlowStage
-                                ? (purchase.vehicleNo ?? purchase.challanNo)
-                                : purchase.challanNo,
+                            'Challan No: ${purchase.challanNo.trim().isEmpty ? '—' : purchase.challanNo}',
                             style: GoogleFonts.poppins(
-                              color: AppColors.textSecondary,
+                              color: AppColors.headingBlack,
                               fontSize: 13,
+                              fontWeight: FontWeight.w600,
                             ),
                           ),
                         ],
@@ -713,14 +712,9 @@ class _PurchasesScreenState extends State<PurchasesScreen> {
                 _buildMetaRow(Icons.calendar_today_outlined, _formatDate(purchase.date)),
                 const SizedBox(height: 6),
                 _buildMetaRow(Icons.receipt_long_outlined, 'Invoice: ${purchase.invoiceNo}'),
-                const SizedBox(height: 6),
-                _buildMetaRow(
-                  Icons.description_outlined,
-                  'Kanta Slip: ${purchase.isDirectPurchase ? 'Direct' : purchase.hasKantaSlip ? 'Yes' : 'No'}',
-                ),
                 if ((purchase.remark ?? '').isNotEmpty) ...[
                   const SizedBox(height: 6),
-                  _buildMetaRow(Icons.notes_outlined, purchase.remark!, maxLines: 2),
+                  _buildMetaRow(Icons.notes_outlined, 'Remark: ${purchase.remark!}', maxLines: 2),
                 ],
               ],
             ),
@@ -810,6 +804,7 @@ class _PurchasesScreenState extends State<PurchasesScreen> {
       builder: (context) {
         final withKantaFlow = purchase.isWithKanta && purchase.withKantaStage != null;
         final withoutKantaFlow = purchase.isWithoutKanta && purchase.withoutKantaStage != null;
+        final isCompleted = purchase.isFullyCompleted;
         return SafeArea(
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -823,14 +818,15 @@ class _PurchasesScreenState extends State<PurchasesScreen> {
                     _viewVehicleImages(purchase);
                   },
                 ),
-              ListTile(
-                leading: const Icon(Icons.download_outlined, color: AppColors.textDark),
-                title: Text('Download Challan', style: GoogleFonts.poppins(fontSize: 14)),
-                onTap: () {
-                  Navigator.pop(context);
-                  _downloadChallan(purchase);
-                },
-              ),
+              if (isCompleted)
+                ListTile(
+                  leading: const Icon(Icons.download_outlined, color: AppColors.textDark),
+                  title: Text('Download Challan', style: GoogleFonts.poppins(fontSize: 14)),
+                  onTap: () {
+                    Navigator.pop(context);
+                    _downloadChallan(purchase);
+                  },
+                ),
               if (withKantaFlow && _canOpenWithKantaStep3(purchase))
                 ListTile(
                   leading: const Icon(Icons.playlist_add_check_outlined, color: AppColors.primaryRed),
@@ -863,28 +859,6 @@ class _PurchasesScreenState extends State<PurchasesScreen> {
                     _openFlowStep2(purchase);
                   },
                 ),
-              const Divider(height: 1),
-              ListTile(
-                leading: const Icon(Icons.edit_outlined, color: AppColors.textDark),
-                title: Text('Edit Purchase', style: GoogleFonts.poppins(fontSize: 14)),
-                onTap: () {
-                  Navigator.pop(context);
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text('Edit ${purchase.challanNo}')),
-                  );
-                },
-              ),
-              ListTile(
-                leading: const Icon(Icons.delete_outline, color: AppColors.primaryRed),
-                title: Text(
-                  'Delete Purchase',
-                  style: GoogleFonts.poppins(fontSize: 14, color: AppColors.primaryRed),
-                ),
-                onTap: () {
-                  Navigator.pop(context);
-                  _confirmDelete(purchase);
-                },
-              ),
             ],
           ),
         );
@@ -930,8 +904,17 @@ class _PurchasesScreenState extends State<PurchasesScreen> {
   Future<void> _downloadChallan(Purchase purchase) async {
     final purchaseId = int.tryParse(purchase.id);
     var detail = purchase;
+    var loadingVisible = false;
 
-    if (purchaseId != null) {
+    void dismissLoading() {
+      if (!mounted || !loadingVisible) return;
+      loadingVisible = false;
+      Navigator.of(context, rootNavigator: true).pop();
+    }
+
+    void showLoading() {
+      if (!mounted || loadingVisible) return;
+      loadingVisible = true;
       showDialog<void>(
         context: context,
         barrierDismissible: false,
@@ -943,13 +926,17 @@ class _PurchasesScreenState extends State<PurchasesScreen> {
           ),
         ),
       );
+    }
+
+    if (purchaseId != null) {
+      showLoading();
       try {
         final fetched = await getPurchaseApi(context, purchaseId);
         if (fetched != null) detail = fetched;
+      } catch (e) {
+        debugPrint('[Challan] getPurchaseApi error: $e');
       } finally {
-        if (mounted) {
-          Navigator.of(context, rootNavigator: true).pop();
-        }
+        dismissLoading();
       }
     }
 
@@ -961,7 +948,7 @@ class _PurchasesScreenState extends State<PurchasesScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            'Challan URL is not available for ${detail.challanNo}.',
+            'Challan is not available for this purchase.',
             style: GoogleFonts.poppins(fontSize: 13),
           ),
           behavior: SnackBarBehavior.floating,
@@ -970,25 +957,28 @@ class _PurchasesScreenState extends State<PurchasesScreen> {
       return;
     }
 
-    final downloadUrl = Uri.parse(challanUrl).replace(
+    final parsed = Uri.tryParse(challanUrl);
+    if (parsed == null || !(parsed.isScheme('http') || parsed.isScheme('https'))) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Invalid challan URL for this purchase.',
+            style: GoogleFonts.poppins(fontSize: 13),
+          ),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      return;
+    }
+
+    final downloadUrl = parsed.replace(
       queryParameters: {
-        ...Uri.parse(challanUrl).queryParameters,
+        ...parsed.queryParameters,
         '_t': '${DateTime.now().millisecondsSinceEpoch}',
       },
     );
 
-    showDialog<void>(
-      context: context,
-      barrierDismissible: false,
-      useRootNavigator: true,
-      builder: (_) => const PopScope(
-        canPop: false,
-        child: Center(
-          child: CircularProgressIndicator(color: AppColors.primaryRed),
-        ),
-      ),
-    );
-
+    showLoading();
     try {
       debugPrint('[Challan] GET $downloadUrl');
       final response = await http
@@ -1002,23 +992,63 @@ class _PurchasesScreenState extends State<PurchasesScreen> {
         '[Challan] status=${response.statusCode} bytes=${bytes.length} pdf=$looksPdf',
       );
 
-      if (response.statusCode == 200 && looksPdf) {
+      if (response.statusCode == 200 && looksPdf && bytes.isNotEmpty) {
+        final stamp = DateTime.now().millisecondsSinceEpoch;
         final fileName = PurchaseImageDownloadService.sanitizePdfFileName(
           resolvedId != null
-              ? 'challan_purchase_$resolvedId.pdf'
-              : 'challan_${detail.challanNo}.pdf',
+              ? 'challan_purchase_${resolvedId}_$stamp.pdf'
+              : 'challan_${detail.challanNo}_$stamp.pdf',
         );
-        final savedPath = await PurchaseImageDownloadService.downloadToDownloadsFolder(
+
+        // Open from app cache (FileProvider). MediaStore Downloads paths are
+        // often not openable and make the PDF viewer flash then close.
+        final openPath =
+            await PurchaseImageDownloadService.saveToCacheForOpen(
           bytes: bytes,
           fileName: fileName,
         );
+
+        try {
+          await PurchaseImageDownloadService.downloadToDownloadsFolder(
+            bytes: bytes,
+            fileName: fileName,
+          );
+        } catch (e) {
+          debugPrint('[Challan] Downloads save skipped: $e');
+        }
+
+        // Close loader before launching an external PDF viewer so returning
+        // from that app cannot pop the Purchases screen by mistake.
+        dismissLoading();
         if (!mounted) return;
-        final result = await OpenFilex.open(savedPath);
-        if (result.type != ResultType.done) {
+
+        try {
+          final result = await OpenFilex.open(
+            openPath,
+            type: 'application/pdf',
+          );
+          debugPrint(
+            '[Challan] open type=${result.type} message=${result.message}',
+          );
+          if (!mounted) return;
+          if (result.type != ResultType.done) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(
+                  'Challan saved to Downloads/GRJ_Purchases/$fileName',
+                  style: GoogleFonts.poppins(fontSize: 13),
+                ),
+                behavior: SnackBarBehavior.floating,
+              ),
+            );
+          }
+        } catch (e) {
+          debugPrint('[Challan] open file error: $e');
+          if (!mounted) return;
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text(
-                'Saved to Downloads/GRJ_Purchases/$fileName',
+                'Challan saved to Downloads/GRJ_Purchases/$fileName',
                 style: GoogleFonts.poppins(fontSize: 13),
               ),
               behavior: SnackBarBehavior.floating,
@@ -1028,6 +1058,7 @@ class _PurchasesScreenState extends State<PurchasesScreen> {
         return;
       }
 
+      dismissLoading();
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -1040,6 +1071,7 @@ class _PurchasesScreenState extends State<PurchasesScreen> {
       );
     } catch (e) {
       debugPrint('[Challan] pdf download error: $e');
+      dismissLoading();
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -1051,9 +1083,7 @@ class _PurchasesScreenState extends State<PurchasesScreen> {
         ),
       );
     } finally {
-      if (mounted) {
-        Navigator.of(context, rootNavigator: true).pop();
-      }
+      dismissLoading();
     }
   }
   String? _cardFlowActionLabel(Purchase purchase) {
@@ -1212,62 +1242,8 @@ class _PurchasesScreenState extends State<PurchasesScreen> {
   }
 
   Future<void> _showDetails(Purchase purchase) async {
-    final result = await Navigator.of(context).push<Object>(
+    await Navigator.of(context).push<Object>(
       MaterialPageRoute(builder: (_) => ViewPurchaseScreen(purchase: purchase)),
-    );
-    if (!mounted || result == null) return;
-
-    if (result == 'deleted') {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Purchase "${purchase.challanNo}" deleted')),
-      );
-      await _loadPurchases();
-    }
-  }
-
-  Future<void> _confirmDelete(Purchase purchase) async {
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (dialogContext) => AlertDialog(
-        backgroundColor: AppColors.cardWhite,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        title: Text('Delete Purchase', style: GoogleFonts.poppins(fontWeight: FontWeight.w700)),
-        content: Text(
-          'Delete purchase "${purchase.challanNo}"?',
-          style: GoogleFonts.poppins(fontSize: 14),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(dialogContext, false),
-            child: Text('Cancel', style: GoogleFonts.poppins()),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(dialogContext, true),
-            child: Text(
-              'Delete',
-              style: GoogleFonts.poppins(color: AppColors.primaryRed, fontWeight: FontWeight.w600),
-            ),
-          ),
-        ],
-      ),
-    );
-
-    if (confirmed != true || !mounted) return;
-
-    final purchaseId = int.tryParse(purchase.id);
-    if (purchaseId == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Invalid purchase id.', style: GoogleFonts.poppins())),
-      );
-      return;
-    }
-
-    final ok = await deletePurchaseApi(context, purchaseId);
-    if (!mounted || !ok) return;
-
-    setState(() => _purchases.removeWhere((p) => p.id == purchase.id));
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('Purchase "${purchase.challanNo}" deleted')),
     );
   }
 
@@ -1322,42 +1298,32 @@ class _VehicleImagesScreenState extends State<_VehicleImagesScreen> {
 
   List<_VehicleImageItem> _imageItems() {
     final p = widget.purchase;
-    final items = <_VehicleImageItem>[
+    final candidates = <_VehicleImageItem>[
       _VehicleImageItem(
         label: p.isDirectPurchase ? 'Image' : 'Loading',
         imageRef: p.loadingVehicleImage,
         capturedAt: p.loadingVehicleImageAt,
       ),
+      _VehicleImageItem(
+        label: 'Unloading',
+        imageRef: p.unloadingVehicleImage,
+        capturedAt: p.unloadingVehicleImageAt,
+      ),
+      _VehicleImageItem(
+        label: 'Vehicle at Kanta',
+        imageRef: p.vehicleAtKantaImage,
+        capturedAt: p.vehicleAtKantaImageAt,
+      ),
+      _VehicleImageItem(
+        label: 'Kanta Slip',
+        imageRef: p.kantaSlipImage,
+        capturedAt: p.kantaSlipImageAt,
+      ),
     ];
 
-    if (!p.isDirectPurchase) {
-      items.add(
-        _VehicleImageItem(
-          label: 'Unloading',
-          imageRef: p.unloadingVehicleImage,
-          capturedAt: p.unloadingVehicleImageAt,
-        ),
-      );
-    }
-
-    if (p.isWithKanta) {
-      items.add(
-        _VehicleImageItem(
-          label: 'Kanta Slip',
-          imageRef: p.kantaSlipImage,
-          capturedAt: p.kantaSlipImageAt,
-        ),
-      );
-      items.add(
-        _VehicleImageItem(
-          label: 'Vehicle at Kanta',
-          imageRef: p.vehicleAtKantaImage,
-          capturedAt: p.vehicleAtKantaImageAt,
-        ),
-      );
-    }
-
-    return items;
+    return candidates
+        .where((item) => resolvePurchaseImageUrl(item.imageRef).isNotEmpty)
+        .toList();
   }
 
   Future<void> _preloadImages() async {
@@ -1412,18 +1378,30 @@ class _VehicleImagesScreenState extends State<_VehicleImagesScreen> {
             Expanded(
               child: Stack(
                 children: [
-                  ListView.separated(
-                    padding: EdgeInsets.fromLTRB(hPad, 12, hPad, 24),
-                    itemCount: items.length,
-                    separatorBuilder: (_, __) => const SizedBox(height: 10),
-                    itemBuilder: (context, index) {
-                      final item = items[index];
-                      return _VehicleImageListTile(
-                        item: item,
-                        onTap: (url) => _openFullImage(item.label, url),
-                      );
-                    },
-                  ),
+                  if (!_loadingImages && items.isEmpty)
+                    Center(
+                      child: Text(
+                        'No images uploaded for this purchase.',
+                        textAlign: TextAlign.center,
+                        style: GoogleFonts.poppins(
+                          fontSize: 13,
+                          color: AppColors.textSecondary,
+                        ),
+                      ),
+                    )
+                  else
+                    ListView.separated(
+                      padding: EdgeInsets.fromLTRB(hPad, 12, hPad, 24),
+                      itemCount: items.length,
+                      separatorBuilder: (_, __) => const SizedBox(height: 10),
+                      itemBuilder: (context, index) {
+                        final item = items[index];
+                        return _VehicleImageListTile(
+                          item: item,
+                          onTap: (url) => _openFullImage(item.label, url),
+                        );
+                      },
+                    ),
                   if (_loadingImages)
                     Positioned.fill(
                       child: ColoredBox(
@@ -1880,7 +1858,10 @@ class _ChallanWebViewPageState extends State<_ChallanWebViewPage> {
           fileName: _pdfFileName,
         );
         if (!mounted) return;
-        final result = await OpenFilex.open(path);
+        final result = await OpenFilex.open(
+          path,
+          type: 'application/pdf',
+        );
         if (result.type != ResultType.done) {
           _showSnack('Saved to Downloads/GRJ_Purchases/$_pdfFileName');
         }
@@ -1999,14 +1980,25 @@ class _ChallanWebViewPageState extends State<_ChallanWebViewPage> {
 
   Future<void> _saveAndOpenPdf(Uint8List bytes, String fileName) async {
     final safeName = fileName.toLowerCase().endsWith('.pdf') ? fileName : '$fileName.pdf';
-    final savedPath = await PurchaseImageDownloadService.downloadToDownloadsFolder(
+    final openPath = await PurchaseImageDownloadService.saveToCacheForOpen(
       bytes: bytes,
       fileName: safeName,
     );
+    try {
+      await PurchaseImageDownloadService.downloadToDownloadsFolder(
+        bytes: bytes,
+        fileName: safeName,
+      );
+    } catch (e) {
+      debugPrint('[ChallanWebView] Downloads save skipped: $e');
+    }
 
     if (!mounted) return;
 
-    final result = await OpenFilex.open(savedPath);
+    final result = await OpenFilex.open(
+      openPath,
+      type: 'application/pdf',
+    );
     if (result.type != ResultType.done) {
       _showSnack('Saved to Downloads/GRJ_Purchases/$safeName');
     }

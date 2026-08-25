@@ -435,7 +435,8 @@ class _OriginalContractorScreenState extends State<OriginalContractorScreen> {
         const SizedBox(height: 8),
         TextFormField(
           controller: controller,
-          keyboardType: keyboardType,
+          keyboardType:
+              maxLines > 1 ? TextInputType.multiline : keyboardType,
           maxLines: maxLines,
           textInputAction:
               maxLines > 1 ? TextInputAction.newline : TextInputAction.next,

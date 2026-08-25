@@ -92,5 +92,10 @@
         <intent>
             <action android:name="android.intent.action.CHOOSER"/>
         </intent>
+        <!-- Needed so OpenFilex can resolve PDF viewers on Android 11+. -->
+        <intent>
+            <action android:name="android.intent.action.VIEW"/>
+            <data android:mimeType="application/pdf"/>
+        </intent>
     </queries>
 </manifest>

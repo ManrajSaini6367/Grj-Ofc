@@ -20,6 +20,22 @@ class PurchaseImageDownloadService {
     return _saveBytes(bytes, safeName);
   }
 
+  /// Writes bytes to app cache so [OpenFilex] can open via FileProvider.
+  /// Prefer this path for opening; use [downloadToDownloadsFolder] to also
+  /// keep a public copy in Downloads.
+  static Future<String> saveToCacheForOpen({
+    required Uint8List bytes,
+    required String fileName,
+  }) async {
+    final safeName = fileName.toLowerCase().endsWith('.pdf')
+        ? _sanitizeFileName(fileName)
+        : sanitizePdfFileName(fileName);
+    final tempDir = await getTemporaryDirectory();
+    final file = File('${tempDir.path}/$safeName');
+    await file.writeAsBytes(bytes, flush: true);
+    return file.path;
+  }
+
   /// Captures the visible Flutter WebView on Android and saves a PDF copy.
   static Future<String> captureWebViewPdf({required String fileName}) async {
     if (!Platform.isAndroid) {
@@ -41,9 +57,16 @@ class PurchaseImageDownloadService {
 
   static Future<void> _requestPermissions() async {
     if (!Platform.isAndroid) return;
-    // Needed only on older Android versions for public Downloads writes.
-    if (await Permission.storage.isDenied) {
-      await Permission.storage.request();
+    try {
+      // WRITE_EXTERNAL_STORAGE is only declared up to API 28. On newer Android
+      // MediaStore writes do not need this permission; requesting it can log
+      // "No permissions found in manifest" and confuse the UX.
+      final status = await Permission.storage.status;
+      if (status.isDenied) {
+        await Permission.storage.request();
+      }
+    } catch (e) {
+      debugPrint('[PurchaseImageDownloadService] storage permission skipped: $e');
     }
   }
 

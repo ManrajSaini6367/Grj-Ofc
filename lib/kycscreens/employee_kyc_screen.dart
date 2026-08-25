@@ -410,10 +410,6 @@ class _EmployeeKycScreenState extends State<EmployeeKycScreen> {
 
   bool _validateDetails() {
     if (!(_detailsKey.currentState?.validate() ?? false)) return false;
-    if (_joiningDate == null) {
-      _snack('Please select joining date.');
-      return false;
-    }
     if (_emailCtrl.text.trim().isEmpty) {
       _snack('Please enter email.');
       return false;
@@ -435,33 +431,6 @@ class _EmployeeKycScreenState extends State<EmployeeKycScreen> {
       return false;
     }
     return true;
-  }
-
-  Future<void> _pickJoiningDate() async {
-    final now = DateTime.now();
-    final initial = _joiningDate ?? now;
-    final picked = await showDatePicker(
-      context: context,
-      initialDate: initial.isAfter(now) ? now : initial,
-      firstDate: DateTime(now.year - 40),
-      lastDate: now,
-      builder: (context, child) {
-        return Theme(
-          data: Theme.of(context).copyWith(
-            colorScheme: const ColorScheme.light(
-              primary: AppColors.primaryRed,
-              onPrimary: AppColors.white,
-            ),
-          ),
-          child: child!,
-        );
-      },
-    );
-    if (picked == null) return;
-    setState(() {
-      _joiningDate = picked;
-      _saved = false;
-    });
   }
 
   bool _validateDocuments() {
@@ -739,12 +708,8 @@ class _EmployeeKycScreenState extends State<EmployeeKycScreen> {
                           hPad: hPad,
                           emailCtrl: _emailCtrl,
                           phoneCtrl: _phoneCtrl,
-                          assignedSites: _assignedSites,
-                          selectedAssignedSiteId: _selectedAssignedSiteId,
-                          onAssignedSiteChanged: _onAssignedSiteChanged,
                           salaryCtrl: _salaryCtrl,
                           leaveCtrl: _leaveCtrl,
-                          joiningDateLabel: _formatJoinDate(_joiningDate),
                           employmentType: _employmentType,
                           employmentTypes: _employmentTypes,
                           foodAllowance: _foodAllowance,
@@ -754,7 +719,6 @@ class _EmployeeKycScreenState extends State<EmployeeKycScreen> {
                           foodAmountCtrl: _foodAmountCtrl,
                           stayAmountCtrl: _stayAmountCtrl,
                           decoration: _decoration,
-                          onPickJoiningDate: _pickJoiningDate,
                           onEmploymentTypeChanged: (v) {
                             setState(() {
                               _employmentType = v;
@@ -1014,12 +978,8 @@ class _DetailsStep extends StatelessWidget {
     required this.hPad,
     required this.emailCtrl,
     required this.phoneCtrl,
-    required this.assignedSites,
-    required this.selectedAssignedSiteId,
-    required this.onAssignedSiteChanged,
     required this.salaryCtrl,
     required this.leaveCtrl,
-    required this.joiningDateLabel,
     required this.employmentType,
     required this.employmentTypes,
     required this.foodAllowance,
@@ -1029,7 +989,6 @@ class _DetailsStep extends StatelessWidget {
     required this.foodAmountCtrl,
     required this.stayAmountCtrl,
     required this.decoration,
-    required this.onPickJoiningDate,
     required this.onEmploymentTypeChanged,
     required this.onFoodChanged,
     required this.onFoodTypeChanged,
@@ -1040,12 +999,8 @@ class _DetailsStep extends StatelessWidget {
   final double hPad;
   final TextEditingController emailCtrl;
   final TextEditingController phoneCtrl;
-  final List<SiteModel> assignedSites;
-  final int? selectedAssignedSiteId;
-  final ValueChanged<int?> onAssignedSiteChanged;
   final TextEditingController salaryCtrl;
   final TextEditingController leaveCtrl;
-  final String joiningDateLabel;
   final String employmentType;
   final List<String> employmentTypes;
   final bool foodAllowance;
@@ -1056,7 +1011,6 @@ class _DetailsStep extends StatelessWidget {
   final TextEditingController stayAmountCtrl;
   final InputDecoration Function(String, {String? hint, String? prefixText})
       decoration;
-  final VoidCallback onPickJoiningDate;
   final ValueChanged<String> onEmploymentTypeChanged;
   final ValueChanged<bool> onFoodChanged;
   final ValueChanged<String> onFoodTypeChanged;
@@ -1071,7 +1025,7 @@ class _DetailsStep extends StatelessWidget {
         _SectionCard(
           icon: Icons.badge_outlined,
           title: 'Employee Details',
-          subtitle: 'Contact, assigned sites and employment details.',
+          subtitle: 'Contact and employment details.',
           child: Column(
             children: [
               TextFormField(
@@ -1111,62 +1065,6 @@ class _DetailsStep extends StatelessWidget {
                 },
               ),
               const SizedBox(height: 12),
-              DropdownButtonFormField<int>(
-                value: assignedSites.any(
-                  (site) => site.id == selectedAssignedSiteId,
-                )
-                    ? selectedAssignedSiteId
-                    : null,
-                isExpanded: true,
-                menuMaxHeight: 320,
-                decoration: decoration(
-                  'Assigned Site',
-                  hint: 'Site not assigned',
-                ),
-                items: assignedSites
-                    .map(
-                      (site) => DropdownMenuItem<int>(
-                        value: site.id,
-                        child: Text(
-                          site.name,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: GoogleFonts.poppins(fontSize: 14),
-                        ),
-                      ),
-                    )
-                    .toList(),
-                onChanged: assignedSites.isEmpty ? null : onAssignedSiteChanged,
-                style: GoogleFonts.poppins(
-                  fontSize: 14,
-                  color: AppColors.headingBlack,
-                ),
-              ),
-              const SizedBox(height: 12),
-              InkWell(
-                onTap: onPickJoiningDate,
-                borderRadius: BorderRadius.circular(14),
-                child: InputDecorator(
-                  decoration: decoration('Joining Date').copyWith(
-                    suffixIcon: const Icon(
-                      Icons.calendar_today_outlined,
-                      size: 18,
-                      color: AppColors.textSecondary,
-                    ),
-                  ),
-                  child: Text(
-                    joiningDateLabel.isEmpty ? 'Select joining date' : joiningDateLabel,
-                    style: GoogleFonts.poppins(
-                      fontSize: 14.5,
-                      fontWeight: FontWeight.w600,
-                      color: joiningDateLabel.isEmpty
-                          ? AppColors.inputHint
-                          : AppColors.headingBlack,
-                    ),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 12),
               _AmountField(
                 controller: salaryCtrl,
                 label: 'Monthly Salary',
@@ -1193,7 +1091,7 @@ class _DetailsStep extends StatelessWidget {
                   ).copyWith(
                     filled: true,
                     fillColor: const Color(0xFFEEF2F6),
-                    suffixText: 'leaves / year',
+                    suffixText: 'leaves / month',
                     suffixStyle: GoogleFonts.poppins(
                       fontSize: 12,
                       fontWeight: FontWeight.w600,
@@ -2196,7 +2094,7 @@ class _SummaryStep extends StatelessWidget {
               label: 'Leave Allocation',
               value: leaveAllocation.isEmpty
                   ? '—'
-                  : '$leaveAllocation leaves / year',
+                  : '$leaveAllocation leaves / month',
             ),
             _SummaryRow(label: 'Employment Type', value: employmentType),
           ],

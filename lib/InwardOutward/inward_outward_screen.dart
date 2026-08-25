@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:grjoffice_apps/InwardOutward/inward_outward_store.dart';
 import 'package:grjoffice_apps/core/app_colors.dart';
 import 'package:grjoffice_apps/drawer/app_end_drawer.dart';
 import 'package:grjoffice_apps/drawer/drawer.dart';
@@ -10,6 +11,8 @@ import 'package:grjoffice_apps/models/site_model.dart';
 import 'package:grjoffice_apps/navigation/app_navigation.dart';
 import 'package:grjoffice_apps/services/api_auth.dart';
 import 'package:grjoffice_apps/widgets/app_top_bar.dart';
+import 'package:intl/intl.dart';
+import 'package:webview_flutter/webview_flutter.dart';
 
 class InwardOutwardScreen extends StatefulWidget {
   const InwardOutwardScreen({super.key});
@@ -19,6 +22,8 @@ class InwardOutwardScreen extends StatefulWidget {
 }
 
 enum _EntryType { inward, outward }
+
+enum _ListTab { inward, outward }
 
 class _InwardOutwardScreenState extends State<InwardOutwardScreen> {
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
@@ -32,6 +37,11 @@ class _InwardOutwardScreenState extends State<InwardOutwardScreen> {
   late List<String> _units;
 
   _EntryType? _entryType;
+  _ListTab _listTab = _ListTab.inward;
+  List<InwardOutwardRecord> _inwardRecords = [];
+  List<InwardOutwardRecord> _outwardRecords = [];
+  bool _loadingRecords = true;
+
   ItemModel? _selectedItem;
   int? _selectedContractorId;
   int? _selectedSiteId;
@@ -53,6 +63,7 @@ class _InwardOutwardScreenState extends State<InwardOutwardScreen> {
   void initState() {
     super.initState();
     _units = List<String>.from(kAvailableUnits);
+    WidgetsBinding.instance.addPostFrameCallback((_) => _loadRecords());
   }
 
   @override
@@ -67,6 +78,19 @@ class _InwardOutwardScreenState extends State<InwardOutwardScreen> {
     if (width < 360) return 14;
     if (width < 600) return 18;
     return 20;
+  }
+
+  Future<void> _loadRecords() async {
+    setState(() => _loadingRecords = true);
+    final all = await InwardOutwardStore.loadAll();
+    if (!mounted) return;
+    setState(() {
+      _inwardRecords =
+          all.where((r) => r.type == InwardOutwardType.inward).toList();
+      _outwardRecords =
+          all.where((r) => r.type == InwardOutwardType.outward).toList();
+      _loadingRecords = false;
+    });
   }
 
   Future<void> _loadLookups() async {
@@ -124,6 +148,8 @@ class _InwardOutwardScreenState extends State<InwardOutwardScreen> {
   Future<void> _selectEntryType(_EntryType type) async {
     setState(() {
       _entryType = type;
+      _listTab =
+          type == _EntryType.outward ? _ListTab.outward : _ListTab.inward;
       if (!_lookupsLoaded) _loadingLookups = true;
     });
     if (_lookupsLoaded) return;
@@ -158,31 +184,98 @@ class _InwardOutwardScreenState extends State<InwardOutwardScreen> {
 
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
+    if (_entryType == null || _selectedItem == null || _unit == null) return;
 
     setState(() => _isSubmitting = true);
-    await Future<void>.delayed(Duration.zero);
-    if (!mounted) return;
 
-    setState(() => _isSubmitting = false);
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          '$_entryLabel submitted.',
-          style: GoogleFonts.poppins(fontSize: 13),
+    try {
+      String contractorName = '—';
+      for (final c in _contractors) {
+        if (c.id == _selectedContractorId) {
+          contractorName = c.name;
+          break;
+        }
+      }
+
+      String? siteName;
+      if (_entryType == _EntryType.outward) {
+        for (final site in _sites) {
+          if (site.id == _selectedSiteId) {
+            siteName = site.name;
+            break;
+          }
+        }
+      }
+
+      final qty = double.tryParse(_qtyController.text.trim()) ?? 0;
+      final savedType = _entryType == _EntryType.outward
+          ? InwardOutwardType.outward
+          : InwardOutwardType.inward;
+      final entryLabel = _entryLabel;
+
+      final record = InwardOutwardRecord(
+        id: DateTime.now().millisecondsSinceEpoch.toString(),
+        type: savedType,
+        itemId: _selectedItem!.id,
+        itemName: _selectedItem!.displayName,
+        qty: qty,
+        unit: _unit!,
+        contractorId: _selectedContractorId,
+        contractorName: contractorName,
+        siteId: savedType == InwardOutwardType.outward ? _selectedSiteId : null,
+        siteName: siteName,
+        remark: _remarkController.text.trim(),
+        createdAt: DateTime.now(),
+      );
+
+      // Local-only for UI testing; API integration later.
+      await InwardOutwardStore.add(record);
+
+      if (!mounted) return;
+
+      _formKey.currentState?.reset();
+      _qtyController.clear();
+      _remarkController.clear();
+
+      setState(() {
+        if (savedType == InwardOutwardType.outward) {
+          _outwardRecords = [record, ..._outwardRecords];
+          _listTab = _ListTab.outward;
+        } else {
+          _inwardRecords = [record, ..._inwardRecords];
+          _listTab = _ListTab.inward;
+        }
+        _selectedItem = null;
+        _selectedContractorId = null;
+        _selectedSiteId = null;
+        _unit = null;
+        _entryType = null;
+        _isSubmitting = false;
+      });
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            '$entryLabel saved.',
+            style: GoogleFonts.poppins(fontSize: 13),
+          ),
+          behavior: SnackBarBehavior.floating,
         ),
-        behavior: SnackBarBehavior.floating,
-      ),
-    );
-
-    _formKey.currentState?.reset();
-    _qtyController.clear();
-    _remarkController.clear();
-    setState(() {
-      _selectedItem = null;
-      _selectedContractorId = null;
-      _selectedSiteId = null;
-      _unit = null;
-    });
+      );
+    } catch (e) {
+      debugPrint('[InwardOutward] save error: $e');
+      if (!mounted) return;
+      setState(() => _isSubmitting = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Could not save. Please try again.',
+            style: GoogleFonts.poppins(fontSize: 13),
+          ),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    }
   }
 
   @override
@@ -197,180 +290,323 @@ class _InwardOutwardScreenState extends State<InwardOutwardScreen> {
         if (!didPop) _backToChoice();
       },
       child: Scaffold(
-      key: _scaffoldKey,
-      backgroundColor: AppColors.backgroundGray,
-      drawer: AppDrawer(
-        selectedIndex: DrawerIndex.inwardOutward,
-        onItemTap: (index) => navigateFromDrawer(context, index),
-      ),
-      endDrawer: const AppEndDrawer(),
-      body: SafeArea(
-        child: Column(
-          children: [
-            _entryType == null
-                ? AppTopBar.shell(
-                    title: 'Inward / Outward',
-                    scaffoldKey: _scaffoldKey,
-                    horizontalPadding: hPad,
-                  )
-                : AppTopBar.page(
-                    title: _entryLabel,
-                    onBack: _backToChoice,
-                    showProfile: true,
-                    scaffoldKey: _scaffoldKey,
-                    horizontalPadding: hPad,
-                  ),
-            Expanded(
-              child: _entryType == null
-                  ? _buildTypeChoice()
-                  : _loadingLookups
-                      ? const Center(
-                          child: CircularProgressIndicator(
-                            color: AppColors.primaryRed,
-                          ),
-                        )
-                      : SingleChildScrollView(
-                      padding: EdgeInsets.fromLTRB(
-                        hPad,
-                        16,
-                        hPad,
-                        24 + MediaQuery.viewInsetsOf(context).bottom,
-                      ),
-                      child: Center(
-                        child: ConstrainedBox(
-                          constraints: const BoxConstraints(maxWidth: 960),
-                          child: Form(
-                            key: _formKey,
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.stretch,
-                              children: [
-                                Container(
-                                  padding: const EdgeInsets.all(16),
-                                  decoration: BoxDecoration(
-                                    color: AppColors.cardWhite,
-                                    borderRadius: BorderRadius.circular(12),
-                                    border: Border.all(
-                                      color: AppColors.borderGray
-                                          .withValues(alpha: 0.5),
-                                    ),
-                                  ),
+        key: _scaffoldKey,
+        backgroundColor: AppColors.backgroundGray,
+        drawer: AppDrawer(
+          selectedIndex: DrawerIndex.inwardOutward,
+          onItemTap: (index) => navigateFromDrawer(context, index),
+        ),
+        endDrawer: const AppEndDrawer(),
+        body: SafeArea(
+          child: Column(
+            children: [
+              _entryType == null
+                  ? AppTopBar.shell(
+                      title: 'Inward / Outward',
+                      scaffoldKey: _scaffoldKey,
+                      horizontalPadding: hPad,
+                    )
+                  : AppTopBar.page(
+                      title: _entryLabel,
+                      onBack: _backToChoice,
+                      showProfile: true,
+                      scaffoldKey: _scaffoldKey,
+                      horizontalPadding: hPad,
+                    ),
+              Expanded(
+                child: _entryType == null
+                    ? _buildHome()
+                    : _loadingLookups
+                        ? const Center(
+                            child: CircularProgressIndicator(
+                              color: AppColors.primaryRed,
+                            ),
+                          )
+                        : SingleChildScrollView(
+                            padding: EdgeInsets.fromLTRB(
+                              hPad,
+                              16,
+                              hPad,
+                              24 + MediaQuery.viewInsetsOf(context).bottom,
+                            ),
+                            child: Center(
+                              child: ConstrainedBox(
+                                constraints: const BoxConstraints(maxWidth: 960),
+                                child: Form(
+                                  key: _formKey,
                                   child: Column(
                                     crossAxisAlignment:
                                         CrossAxisAlignment.stretch,
                                     children: [
-                                      Text(
-                                        _entryLabel,
-                                        style: GoogleFonts.poppins(
-                                          fontSize: 16,
-                                          fontWeight: FontWeight.w700,
-                                          color: AppColors.headingBlack,
+                                      Container(
+                                        padding: const EdgeInsets.all(16),
+                                        decoration: BoxDecoration(
+                                          color: AppColors.cardWhite,
+                                          borderRadius:
+                                              BorderRadius.circular(12),
+                                          border: Border.all(
+                                            color: AppColors.borderGray
+                                                .withValues(alpha: 0.5),
+                                          ),
+                                        ),
+                                        child: Column(
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.stretch,
+                                          children: [
+                                            Text(
+                                              _entryLabel,
+                                              style: GoogleFonts.poppins(
+                                                fontSize: 16,
+                                                fontWeight: FontWeight.w700,
+                                                color: AppColors.headingBlack,
+                                              ),
+                                            ),
+                                            const SizedBox(height: 16),
+                                            if (isWide) ...[
+                                              Row(
+                                                crossAxisAlignment:
+                                                    CrossAxisAlignment.start,
+                                                children: [
+                                                  Expanded(
+                                                      child: _buildItemField()),
+                                                  const SizedBox(width: 12),
+                                                  Expanded(
+                                                      child: _buildQtyField()),
+                                                ],
+                                              ),
+                                              const SizedBox(height: 16),
+                                              Row(
+                                                crossAxisAlignment:
+                                                    CrossAxisAlignment.start,
+                                                children: [
+                                                  Expanded(
+                                                      child: _buildToField()),
+                                                  const SizedBox(width: 12),
+                                                  Expanded(
+                                                      child: _buildUnitField()),
+                                                ],
+                                              ),
+                                            ] else ...[
+                                              _buildItemField(),
+                                              const SizedBox(height: 16),
+                                              _buildQtyField(),
+                                              const SizedBox(height: 16),
+                                              _buildToField(),
+                                              const SizedBox(height: 16),
+                                              _buildUnitField(),
+                                            ],
+                                            if (_entryType ==
+                                                _EntryType.outward) ...[
+                                              const SizedBox(height: 16),
+                                              _buildSiteField(),
+                                            ],
+                                            const SizedBox(height: 16),
+                                            _buildRemarkField(),
+                                          ],
                                         ),
                                       ),
-                                      const SizedBox(height: 16),
-                                      if (isWide) ...[
-                                        Row(
-                                          crossAxisAlignment:
-                                              CrossAxisAlignment.start,
-                                          children: [
-                                            Expanded(child: _buildItemField()),
-                                            const SizedBox(width: 12),
-                                            Expanded(child: _buildQtyField()),
-                                          ],
-                                        ),
-                                        const SizedBox(height: 16),
-                                        Row(
-                                          crossAxisAlignment:
-                                              CrossAxisAlignment.start,
-                                          children: [
-                                            Expanded(child: _buildToField()),
-                                            const SizedBox(width: 12),
-                                            Expanded(child: _buildUnitField()),
-                                          ],
-                                        ),
-                                      ] else ...[
-                                        _buildItemField(),
-                                        const SizedBox(height: 16),
-                                        _buildQtyField(),
-                                        const SizedBox(height: 16),
-                                        _buildToField(),
-                                        const SizedBox(height: 16),
-                                        _buildUnitField(),
-                                      ],
-                                      if (_entryType == _EntryType.outward) ...[
-                                        const SizedBox(height: 16),
-                                        _buildSiteField(),
-                                      ],
-                                      const SizedBox(height: 16),
-                                      _buildRemarkField(),
+                                      const SizedBox(height: 24),
+                                      _buildSubmitButton(),
                                     ],
                                   ),
                                 ),
-                                const SizedBox(height: 24),
-                                _buildSubmitButton(),
-                              ],
+                              ),
                             ),
                           ),
-                        ),
-                      ),
-                    ),
-            ),
-          ],
+              ),
+            ],
+          ),
         ),
-      ),
       ),
     );
   }
 
-  Widget _buildTypeChoice() {
+  Widget _buildHome() {
     final compact = MediaQuery.sizeOf(context).width < 360;
+    final hPad = _hPad(context);
+    final records =
+        _listTab == _ListTab.outward ? _outwardRecords : _inwardRecords;
 
-    return SingleChildScrollView(
-      padding: EdgeInsets.fromLTRB(_hPad(context), 20, _hPad(context), 24),
-      child: Center(
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 960),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
+    return Column(
+      children: [
+        Padding(
+          padding: EdgeInsets.fromLTRB(hPad, 20, hPad, 0),
+          child: Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 960),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Text(
+                    'Select type',
+                    style: GoogleFonts.poppins(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w700,
+                      color: AppColors.headingBlack,
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    'Choose Inward or Outward to continue.',
+                    style: GoogleFonts.poppins(
+                      fontSize: 13,
+                      color: AppColors.textSecondary,
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: _typeCard(
+                          title: 'Inward',
+                          subtitle: 'Receive',
+                          icon: Icons.south_west_rounded,
+                          compact: compact,
+                          onTap: () => _selectEntryType(_EntryType.inward),
+                        ),
+                      ),
+                      SizedBox(width: compact ? 8 : 12),
+                      Expanded(
+                        child: _typeCard(
+                          title: 'Outward',
+                          subtitle: 'Issue',
+                          icon: Icons.north_east_rounded,
+                          compact: compact,
+                          onTap: () => _selectEntryType(_EntryType.outward),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 18),
+                  _buildListTabs(compact: compact),
+                  const SizedBox(height: 12),
+                ],
+              ),
+            ),
+          ),
+        ),
+        Expanded(
+          child: _loadingRecords
+              ? const Center(
+                  child: CircularProgressIndicator(color: AppColors.primaryRed),
+                )
+              : records.isEmpty
+                  ? Center(
+                      child: Padding(
+                        padding: EdgeInsets.symmetric(horizontal: hPad),
+                        child: Text(
+                          _listTab == _ListTab.outward
+                              ? 'No outward records yet.\nTap Outward above to add one.'
+                              : 'No inward records yet.\nTap Inward above to add one.',
+                          textAlign: TextAlign.center,
+                          style: GoogleFonts.poppins(
+                            fontSize: 13,
+                            color: AppColors.textSecondary,
+                            height: 1.4,
+                          ),
+                        ),
+                      ),
+                    )
+                  : RefreshIndicator(
+                      color: AppColors.primaryRed,
+                      onRefresh: _loadRecords,
+                      child: ListView.separated(
+                        padding: EdgeInsets.fromLTRB(hPad, 0, hPad, 24),
+                        itemCount: records.length,
+                        separatorBuilder: (_, __) => const SizedBox(height: 10),
+                        itemBuilder: (context, index) {
+                          final record = records[index];
+                          return _listTab == _ListTab.outward
+                              ? _OutwardRecordCard(record: record)
+                              : _InwardRecordCard(record: record);
+                        },
+                      ),
+                    ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildListTabs({required bool compact}) {
+    return Container(
+      padding: const EdgeInsets.all(4),
+      decoration: BoxDecoration(
+        color: AppColors.cardWhite,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppColors.borderGray.withValues(alpha: 0.5)),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: _listTabButton(
+              label: 'Inward',
+              selected: _listTab == _ListTab.inward,
+              count: _inwardRecords.length,
+              compact: compact,
+              onTap: () => setState(() => _listTab = _ListTab.inward),
+            ),
+          ),
+          Expanded(
+            child: _listTabButton(
+              label: 'Outward',
+              selected: _listTab == _ListTab.outward,
+              count: _outwardRecords.length,
+              compact: compact,
+              onTap: () => setState(() => _listTab = _ListTab.outward),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _listTabButton({
+    required String label,
+    required bool selected,
+    required int count,
+    required bool compact,
+    required VoidCallback onTap,
+  }) {
+    return Material(
+      color: selected
+          ? AppColors.primaryRed.withValues(alpha: 0.1)
+          : Colors.transparent,
+      borderRadius: BorderRadius.circular(10),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(10),
+        child: Padding(
+          padding: EdgeInsets.symmetric(vertical: compact ? 10 : 12),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
             children: [
               Text(
-                'Select type',
+                label,
                 style: GoogleFonts.poppins(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w700,
-                  color: AppColors.headingBlack,
+                  fontSize: compact ? 13 : 14,
+                  fontWeight: FontWeight.w600,
+                  color: selected
+                      ? AppColors.primaryRed
+                      : AppColors.textSecondary,
                 ),
               ),
-              const SizedBox(height: 6),
-              Text(
-                'Choose Inward or Outward to continue.',
-                style: GoogleFonts.poppins(
-                  fontSize: 13,
-                  color: AppColors.textSecondary,
+              const SizedBox(width: 6),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                decoration: BoxDecoration(
+                  color: selected
+                      ? AppColors.primaryRed
+                      : AppColors.backgroundGray,
+                  borderRadius: BorderRadius.circular(10),
                 ),
-              ),
-              const SizedBox(height: 16),
-              Row(
-                children: [
-                  Expanded(
-                    child: _typeCard(
-                      title: 'Inward',
-                      subtitle: 'Receive',
-                      icon: Icons.south_west_rounded,
-                      compact: compact,
-                      onTap: () => _selectEntryType(_EntryType.inward),
-                    ),
+                child: Text(
+                  '$count',
+                  style: GoogleFonts.poppins(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                    color: selected ? AppColors.white : AppColors.textSecondary,
                   ),
-                  SizedBox(width: compact ? 8 : 12),
-                  Expanded(
-                    child: _typeCard(
-                      title: 'Outward',
-                      subtitle: 'Issue',
-                      icon: Icons.north_east_rounded,
-                      compact: compact,
-                      onTap: () => _selectEntryType(_EntryType.outward),
-                    ),
-                  ),
-                ],
+                ),
               ),
             ],
           ),
@@ -400,7 +636,8 @@ class _InwardOutwardScreenState extends State<InwardOutwardScreen> {
           ),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: AppColors.borderGray.withValues(alpha: 0.5)),
+            border:
+                Border.all(color: AppColors.borderGray.withValues(alpha: 0.5)),
             boxShadow: [
               BoxShadow(
                 color: Colors.black.withValues(alpha: 0.04),
@@ -677,7 +914,8 @@ class _InwardOutwardScreenState extends State<InwardOutwardScreen> {
       contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
       enabledBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(8),
-        borderSide: BorderSide(color: AppColors.borderGray.withValues(alpha: 0.6)),
+        borderSide:
+            BorderSide(color: AppColors.borderGray.withValues(alpha: 0.6)),
       ),
       focusedBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(8),
@@ -700,4 +938,301 @@ class _ContractorOption {
 
   final int id;
   final String name;
+}
+
+class _InwardRecordCard extends StatelessWidget {
+  const _InwardRecordCard({required this.record});
+
+  final InwardOutwardRecord record;
+
+  @override
+  Widget build(BuildContext context) {
+    final qtyText = record.qty == record.qty.roundToDouble()
+        ? '${record.qty.toInt()}'
+        : record.qty.toString();
+
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: AppColors.cardWhite,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppColors.borderGray.withValues(alpha: 0.5)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.03),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  record.itemName,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: GoogleFonts.poppins(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.headingBlack,
+                  ),
+                ),
+              ),
+              Text(
+                DateFormat('dd MMM yyyy').format(record.createdAt),
+                style: GoogleFonts.poppins(
+                  fontSize: 11,
+                  color: AppColors.textSecondary,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          _metaRow(Icons.inventory_2_outlined, 'Qty', '$qtyText ${record.unit}'),
+          const SizedBox(height: 6),
+          _metaRow(Icons.person_outline, 'To', record.contractorName),
+          if (record.remark.trim().isNotEmpty) ...[
+            const SizedBox(height: 6),
+            _metaRow(Icons.notes_outlined, 'Remark', record.remark),
+          ],
+          const SizedBox(height: 10),
+          const Align(
+            alignment: Alignment.centerRight,
+            child: _ReturnButton(),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _OutwardRecordCard extends StatelessWidget {
+  const _OutwardRecordCard({required this.record});
+
+  final InwardOutwardRecord record;
+
+  @override
+  Widget build(BuildContext context) {
+    final qtyText = record.qty == record.qty.roundToDouble()
+        ? '${record.qty.toInt()}'
+        : record.qty.toString();
+    final site = (record.siteName ?? '').trim().isEmpty
+        ? '—'
+        : record.siteName!.trim();
+
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: AppColors.cardWhite,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppColors.borderGray.withValues(alpha: 0.5)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.03),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  record.itemName,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: GoogleFonts.poppins(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.headingBlack,
+                  ),
+                ),
+              ),
+              Text(
+                DateFormat('dd MMM yyyy').format(record.createdAt),
+                style: GoogleFonts.poppins(
+                  fontSize: 11,
+                  color: AppColors.textSecondary,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          _metaRow(Icons.inventory_2_outlined, 'Qty', '$qtyText ${record.unit}'),
+          const SizedBox(height: 6),
+          _metaRow(Icons.person_outline, 'To', record.contractorName),
+          const SizedBox(height: 6),
+          _metaRow(Icons.place_outlined, 'Site', site),
+          if (record.remark.trim().isNotEmpty) ...[
+            const SizedBox(height: 6),
+            _metaRow(Icons.notes_outlined, 'Remark', record.remark),
+          ],
+          const SizedBox(height: 10),
+          const Align(
+            alignment: Alignment.centerRight,
+            child: _ReturnButton(),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Compact Return Slip control — opens slip URL (placeholder for now).
+class _ReturnButton extends StatelessWidget {
+  const _ReturnButton();
+
+  // TODO: replace with real Return Slip URL from API.
+  static const placeholderUrl = 'https://example.com';
+
+  @override
+  Widget build(BuildContext context) {
+    final compact = MediaQuery.sizeOf(context).width < 360;
+
+    return SizedBox(
+      height: compact ? 28 : 30,
+      child: TextButton(
+        onPressed: () {
+          Navigator.of(context).push(
+            MaterialPageRoute<void>(
+              builder: (_) => const _ReturnSlipWebViewPage(
+                url: placeholderUrl,
+              ),
+            ),
+          );
+        },
+        style: TextButton.styleFrom(
+          foregroundColor: AppColors.white,
+          backgroundColor: AppColors.primary,
+          padding: EdgeInsets.symmetric(horizontal: compact ? 10 : 12),
+          minimumSize: Size.zero,
+          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+          visualDensity: VisualDensity.compact,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(8),
+          ),
+        ),
+        child: Text(
+          'Return Slip',
+          style: GoogleFonts.poppins(
+            fontSize: compact ? 11 : 12,
+            fontWeight: FontWeight.w600,
+            height: 1.1,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _ReturnSlipWebViewPage extends StatefulWidget {
+  const _ReturnSlipWebViewPage({required this.url});
+
+  final String url;
+
+  @override
+  State<_ReturnSlipWebViewPage> createState() => _ReturnSlipWebViewPageState();
+}
+
+class _ReturnSlipWebViewPageState extends State<_ReturnSlipWebViewPage> {
+  late final WebViewController _controller;
+  bool _loading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = WebViewController()
+      ..setJavaScriptMode(JavaScriptMode.unrestricted)
+      ..setNavigationDelegate(
+        NavigationDelegate(
+          onPageStarted: (_) {
+            if (mounted) setState(() => _loading = true);
+          },
+          onPageFinished: (_) {
+            if (mounted) setState(() => _loading = false);
+          },
+          onWebResourceError: (_) {
+            if (mounted) setState(() => _loading = false);
+          },
+        ),
+      )
+      ..loadRequest(Uri.parse(widget.url));
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final width = MediaQuery.sizeOf(context).width;
+    final hPad = width < 360 ? 14.0 : width < 600 ? 18.0 : 20.0;
+
+    return Scaffold(
+      backgroundColor: AppColors.backgroundGray,
+      body: SafeArea(
+        child: Column(
+          children: [
+            AppTopBar.page(
+              title: 'Return Slip',
+              onBack: () => Navigator.pop(context),
+              horizontalPadding: hPad,
+            ),
+            Expanded(
+              child: Stack(
+                children: [
+                  WebViewWidget(controller: _controller),
+                  if (_loading)
+                    const Center(
+                      child: CircularProgressIndicator(
+                        color: AppColors.primaryRed,
+                      ),
+                    ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+Widget _metaRow(IconData icon, String label, String value) {
+  return Row(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      Icon(icon, size: 15, color: AppColors.textSecondary),
+      const SizedBox(width: 6),
+      Expanded(
+        child: RichText(
+          maxLines: 2,
+          overflow: TextOverflow.ellipsis,
+          text: TextSpan(
+            style: GoogleFonts.poppins(
+              fontSize: 12,
+              color: AppColors.textSecondary,
+            ),
+            children: [
+              TextSpan(
+                text: '$label: ',
+                style: const TextStyle(fontWeight: FontWeight.w600),
+              ),
+              TextSpan(
+                text: value,
+                style: GoogleFonts.poppins(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w500,
+                  color: AppColors.textDark,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    ],
+  );
 }
