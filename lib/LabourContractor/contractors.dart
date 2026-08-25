@@ -116,6 +116,9 @@ class _ContractorsScreenState extends State<ContractorsScreen> {
       status: item.status == 'published'
           ? ContractorStatus.published
           : ContractorStatus.unpublished,
+      agreements: item.agreements ?? const [],
+      documents: item.documents ?? const [],
+      cancelCheque: item.cancelCheque,
     );
   }
 

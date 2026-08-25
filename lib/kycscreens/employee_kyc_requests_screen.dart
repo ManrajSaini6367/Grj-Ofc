@@ -59,11 +59,11 @@ class _EmployeeKycRequestsScreenState extends State<EmployeeKycRequestsScreen> {
       employmentType: kyc.employmentType ?? '',
       joiningDate: kyc.joiningDate ?? '',
       foodAllowance: kyc.foodAllowance,
+      foodAllowanceType: kyc.foodAllowanceType ?? '',
       foodEmployeeAmount: kyc.foodEmployeeAmount ?? '',
-      foodCompanyAmount: kyc.foodCompanyAmount ?? '',
       stayAllowance: kyc.stayAllowance,
+      stayAllowanceType: kyc.stayAllowanceType ?? '',
       stayEmployeeAmount: kyc.stayEmployeeAmount ?? '',
-      stayCompanyAmount: kyc.stayCompanyAmount ?? '',
       emergencyContact: kyc.emergencyContact ?? '',
       accountHolderName: kyc.accountHolderName ?? '',
       bankName: kyc.bankName ?? '',
@@ -390,32 +390,16 @@ class _ConfigCard extends StatelessWidget {
                     ),
                     _MiniRow(
                       label: 'Food Allowance',
-                      value: yesNo(config.foodAllowance),
+                      value: config.foodAllowance
+                          ? config.foodTypeLabel
+                          : yesNo(config.foodAllowance),
                     ),
-                    if (config.foodAllowance) ...[
-                      _MiniRow(
-                        label: 'Food Employee',
-                        value: '₹ ${config.foodEmployeeAmount}',
-                      ),
-                      _MiniRow(
-                        label: 'Food Company',
-                        value: '₹ ${config.foodCompanyAmount}',
-                      ),
-                    ],
                     _MiniRow(
                       label: 'Stay Allowance',
-                      value: yesNo(config.stayAllowance),
+                      value: config.stayAllowance
+                          ? config.stayTypeLabel
+                          : yesNo(config.stayAllowance),
                     ),
-                    if (config.stayAllowance) ...[
-                      _MiniRow(
-                        label: 'Stay Employee',
-                        value: '₹ ${config.stayEmployeeAmount}',
-                      ),
-                      _MiniRow(
-                        label: 'Stay Company',
-                        value: '₹ ${config.stayCompanyAmount}',
-                      ),
-                    ],
                     _MiniRow(
                       label: 'Emergency',
                       value: config.emergencyContact.isEmpty
@@ -553,11 +537,11 @@ class _EmployeeKycDetailScreenState extends State<EmployeeKycDetailScreen> {
       employmentType: kyc.employmentType ?? _config.employmentType,
       joiningDate: kyc.joiningDate ?? _config.joiningDate,
       foodAllowance: kyc.foodAllowance,
+      foodAllowanceType: kyc.foodAllowanceType ?? _config.foodAllowanceType,
       foodEmployeeAmount: kyc.foodEmployeeAmount ?? _config.foodEmployeeAmount,
-      foodCompanyAmount: kyc.foodCompanyAmount ?? _config.foodCompanyAmount,
       stayAllowance: kyc.stayAllowance,
+      stayAllowanceType: kyc.stayAllowanceType ?? _config.stayAllowanceType,
       stayEmployeeAmount: kyc.stayEmployeeAmount ?? _config.stayEmployeeAmount,
-      stayCompanyAmount: kyc.stayCompanyAmount ?? _config.stayCompanyAmount,
       emergencyContact: kyc.emergencyContact ?? _config.emergencyContact,
       accountHolderName: kyc.accountHolderName ?? _config.accountHolderName,
       bankName: kyc.bankName ?? _config.bankName,
@@ -738,10 +722,6 @@ class _EmployeeKycDetailScreenState extends State<EmployeeKycDetailScreen> {
                           config.phoneNumber.isEmpty ? '—' : config.phoneNumber,
                         ),
                         (
-                          'Password',
-                          config.kycPassword.isEmpty ? '—' : '••••••••',
-                        ),
-                        (
                           'Assigned Site',
                           config.assignedSite.isEmpty
                               ? '—'
@@ -761,28 +741,18 @@ class _EmployeeKycDetailScreenState extends State<EmployeeKycDetailScreen> {
                               : '${config.leaveAllocation} leaves / year'
                         ),
                         ('Employment Type', config.employmentType),
-                        ('Food Allowance', yesNo(config.foodAllowance)),
-                        if (config.foodAllowance) ...[
-                          (
-                            'Food Employee Amount',
-                            '₹ ${config.foodEmployeeAmount}'
-                          ),
-                          (
-                            'Food Company Provides',
-                            '₹ ${config.foodCompanyAmount}'
-                          ),
-                        ],
-                        ('Stay Allowance', yesNo(config.stayAllowance)),
-                        if (config.stayAllowance) ...[
-                          (
-                            'Stay Employee Amount',
-                            '₹ ${config.stayEmployeeAmount}'
-                          ),
-                          (
-                            'Stay Company Provides',
-                            '₹ ${config.stayCompanyAmount}'
-                          ),
-                        ],
+                        (
+                          'Food Allowance',
+                          config.foodAllowance
+                              ? config.foodTypeLabel
+                              : yesNo(config.foodAllowance),
+                        ),
+                        (
+                          'Stay Allowance',
+                          config.stayAllowance
+                              ? config.stayTypeLabel
+                              : yesNo(config.stayAllowance),
+                        ),
                       ],
                     ),
                     const SizedBox(height: 12),

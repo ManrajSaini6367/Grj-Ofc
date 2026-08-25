@@ -20,6 +20,7 @@ import 'package:grjoffice_apps/leavescreens/leavescreen.dart';
 import 'package:grjoffice_apps/main_shell.dart';
 import 'package:grjoffice_apps/reportscreen/reports_list_screen.dart';
 import 'package:grjoffice_apps/rolesscreen/roles_screen.dart';
+import 'package:grjoffice_apps/services/kyc_gate.dart';
 import 'package:grjoffice_apps/services/punch_in_gate.dart';
 import 'package:grjoffice_apps/tasksscreen/tasks_screen.dart';
 import 'package:grjoffice_apps/widgets/app_bottom_nav.dart';
@@ -89,6 +90,10 @@ void showComingSoon(BuildContext context, String label) {
 
 /// Switches tab when already inside [MainShell], otherwise opens [MainShell].
 void navigateToMainTab(BuildContext context, int index) {
+  if (!KycGate.canAccessApp) {
+    pushAndRevoveUntil(context, KycGate.homeScreen());
+    return;
+  }
   if (index != MainTab.dashboard && !PunchInGate.ensureAccess(context)) {
     return;
   }
@@ -112,6 +117,10 @@ void navigateToMainTab(BuildContext context, int index) {
 
 /// Pushes a secondary screen above the tab stack while keeping the bottom bar visible.
 void pushInShell(BuildContext context, Widget screen) {
+  if (!KycGate.canAccessApp) {
+    pushAndRevoveUntil(context, KycGate.homeScreen());
+    return;
+  }
   if (!PunchInGate.ensureAccess(context)) return;
 
   final shell = AppShellScope.maybeOf(context);
@@ -127,6 +136,10 @@ void pushInShell(BuildContext context, Widget screen) {
 
 /// Handles [AppDrawer] menu taps consistently while keeping the bottom bar visible.
 void navigateFromDrawer(BuildContext context, int drawerIndex) {
+  if (!KycGate.canAccessApp) {
+    pushAndRevoveUntil(context, KycGate.homeScreen());
+    return;
+  }
   if (drawerIndex != DrawerIndex.dashboard &&
       !PunchInGate.ensureAccess(context)) {
     return;

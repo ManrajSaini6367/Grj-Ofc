@@ -13,7 +13,6 @@ import 'package:grjoffice_apps/core/app_navigator.dart';
 import 'package:grjoffice_apps/core/api_config.dart';
 import 'package:grjoffice_apps/core/preference.dart';
 import 'package:grjoffice_apps/loginpage/loginpage.dart';
-import 'package:grjoffice_apps/main_shell.dart';
 import 'package:grjoffice_apps/LabourContractor/labour_contractor.dart';
 import 'package:grjoffice_apps/Itemsscreen/item.dart';
 import 'package:grjoffice_apps/models/getcalendermodal.dart';
@@ -53,6 +52,7 @@ import 'package:grjoffice_apps/models/attendance_model.dart';
 import 'package:grjoffice_apps/models/getreportmodal.dart';
 import 'package:grjoffice_apps/models/viewemployeeprofile.dart';
 import 'package:grjoffice_apps/SupplierList/supplier.dart';
+import 'package:grjoffice_apps/services/kyc_gate.dart';
 import 'package:grjoffice_apps/services/permission_service.dart';
 import 'package:grjoffice_apps/services/user_session.dart';
 import 'package:grjoffice_apps/utils/app_helpers.dart';
@@ -161,6 +161,9 @@ LabourContractor labourContractorFromApiData(
   required double beldarOverRate,
   required double coolieOverRate,
   required ContractorStatus status,
+  List<String> agreements = const [],
+  List<String> documents = const [],
+  String? cancelCheque,
 }) {
   return LabourContractor(
     id: responseData['id']?.toString() ?? fallbackId,
@@ -174,7 +177,24 @@ LabourContractor labourContractorFromApiData(
     beldarOtRatePerHour: apiToDouble(responseData['beldar_over_rate'], beldarOverRate),
     coolieOtRatePerHour: apiToDouble(responseData['coolie_over_rate'], coolieOverRate),
     status: status,
+    agreements: _stringListFromApi(responseData['agreements'], agreements),
+    documents: _stringListFromApi(responseData['documents'], documents),
+    cancelCheque: responseData['cancel_cheque']?.toString().trim().isNotEmpty == true
+        ? responseData['cancel_cheque']?.toString()
+        : (responseData['cancel_cheque_url']?.toString().trim().isNotEmpty == true
+            ? responseData['cancel_cheque_url']?.toString()
+            : cancelCheque),
   );
+}
+
+List<String> _stringListFromApi(dynamic value, [List<String> fallback = const []]) {
+  if (value is! List) return fallback;
+  final out = <String>[];
+  for (final item in value) {
+    final s = item?.toString().trim() ?? '';
+    if (s.isNotEmpty && s != 'null') out.add(s);
+  }
+  return out.isEmpty ? fallback : out;
 }
 
 int? selectedSiteId() =>
@@ -212,6 +232,16 @@ Future<void> _saveUser(UserModel user) async {
   }
   await saveSiteIdFromUser(user);
   UserSession.instance.setUser(user);
+}
+
+Future<void> updateCachedKycStatus(String? status) async {
+  final user = cachedUser();
+  if (user == null) return;
+  final next = (status ?? '').trim();
+  final updated = next.isEmpty
+      ? user.copyWith(clearKycStatus: true)
+      : user.copyWith(kycStatus: next.toLowerCase());
+  await _saveUser(updated);
 }
 
 UserModel? cachedUser() {
@@ -356,7 +386,7 @@ Future logInApi(
 
       if (!context.mounted) return;
       message(context, data['message']?.toString() ?? 'Logged in successfully.');
-      pushAndRevoveUntil(context, const MainShell());
+      pushAndRevoveUntil(context, KycGate.homeScreen());
       return;
     }
 
@@ -1162,32 +1192,68 @@ Future<LabourContractor?> createContractorApi(
   required int masonOverRate,
   required int beldarOverRate,
   required int coolieOverRate,
+  List<File> agreementFiles = const [],
+  List<File> documentFiles = const [],
+  File? cancelChequeFile,
 }) async {
   try {
     final url = '$baseUrl/api/v1/contractors';
+    final hasFiles = agreementFiles.isNotEmpty ||
+        documentFiles.isNotEmpty ||
+        cancelChequeFile != null;
 
-    print('[createContractorApi] POST $url');
-    print('[createContractorApi] siteId: $siteId');
+    print('[createContractorApi] POST $url files=$hasFiles');
 
-    final response = await http
-        .post(
-          Uri.parse(url),
-          headers: authHeaders,
-          body: jsonEncode({
-            'site_id': siteId,
-            'name': name,
-            'mobile': mobile,
-            'address': address,
-            'status': status,
-            'mason_rate': masonRate,
-            'beldar_rate': beldarRate,
-            'coolie_rate': coolieRate,
-            'mason_over_rate': masonOverRate,
-            'beldar_over_rate': beldarOverRate,
-            'coolie_over_rate': coolieOverRate,
-          }),
-        )
-        .timeout(const Duration(seconds: 30));
+    late final http.Response response;
+    if (hasFiles) {
+      final files = <http.MultipartFile>[];
+      for (final f in agreementFiles) {
+        files.add(await _multipartImage('agreements[]', f));
+      }
+      for (final f in documentFiles) {
+        files.add(await _multipartImage('documents[]', f));
+      }
+      if (cancelChequeFile != null) {
+        files.add(await _multipartImage('cancel_cheque', cancelChequeFile));
+      }
+      response = await _sendMultipart(
+        Uri.parse(url),
+        fields: {
+          'site_id': siteId.toString(),
+          'name': name,
+          'mobile': mobile,
+          'address': address,
+          'status': status,
+          'mason_rate': masonRate.toString(),
+          'beldar_rate': beldarRate.toString(),
+          'coolie_rate': coolieRate.toString(),
+          'mason_over_rate': masonOverRate.toString(),
+          'beldar_over_rate': beldarOverRate.toString(),
+          'coolie_over_rate': coolieOverRate.toString(),
+        },
+        files: files,
+      );
+    } else {
+      response = await http
+          .post(
+            Uri.parse(url),
+            headers: authHeaders,
+            body: jsonEncode({
+              'site_id': siteId,
+              'name': name,
+              'mobile': mobile,
+              'address': address,
+              'status': status,
+              'mason_rate': masonRate,
+              'beldar_rate': beldarRate,
+              'coolie_rate': coolieRate,
+              'mason_over_rate': masonOverRate,
+              'beldar_over_rate': beldarOverRate,
+              'coolie_over_rate': coolieOverRate,
+            }),
+          )
+          .timeout(const Duration(seconds: 30));
+    }
 
     print('[createContractorApi] statusCode: ${response.statusCode}');
     print('[createContractorApi] response body: ${response.body}');
@@ -1345,31 +1411,64 @@ Future<LabourContractor?> updateContractorApi(
   required int masonOverRate,
   required int beldarOverRate,
   required int coolieOverRate,
+  List<File> agreementFiles = const [],
+  List<File> documentFiles = const [],
+  File? cancelChequeFile,
 }) async {
   try {
-    // Postman uses: PUT /api/v1/contractors/{id}  (no trailing slash)
     final uri = Uri.parse('$baseUrl/api/v1/contractors/$contractorId');
-    final body = jsonEncode({
-      'name': name,
-      'mobile': mobile,
-      'address': address,
-      'status': status,
-      'mason_rate': masonRate,
-      'beldar_rate': beldarRate,
-      'coolie_rate': coolieRate,
-      'mason_over_rate': masonOverRate,
-      'beldar_over_rate': beldarOverRate,
-      'coolie_over_rate': coolieOverRate,
-    });
+    final hasFiles = agreementFiles.isNotEmpty ||
+        documentFiles.isNotEmpty ||
+        cancelChequeFile != null;
 
-    print('[updateContractorApi] PUT $uri');
-    print('[updateContractorApi] contractorId: $contractorId');
+    print('[updateContractorApi] ${hasFiles ? 'POST' : 'PUT'} $uri');
 
-    final response = await apiPut(
-      uri,
-      headers: authHeaders,
-      body: body,
-    );
+    late final http.Response response;
+    if (hasFiles) {
+      final files = <http.MultipartFile>[];
+      for (final f in agreementFiles) {
+        files.add(await _multipartImage('agreements[]', f));
+      }
+      for (final f in documentFiles) {
+        files.add(await _multipartImage('documents[]', f));
+      }
+      if (cancelChequeFile != null) {
+        files.add(await _multipartImage('cancel_cheque', cancelChequeFile));
+      }
+      response = await _sendMultipart(
+        uri,
+        fields: {
+          'name': name,
+          'mobile': mobile,
+          'address': address,
+          'status': status,
+          'mason_rate': masonRate.toString(),
+          'beldar_rate': beldarRate.toString(),
+          'coolie_rate': coolieRate.toString(),
+          'mason_over_rate': masonOverRate.toString(),
+          'beldar_over_rate': beldarOverRate.toString(),
+          'coolie_over_rate': coolieOverRate.toString(),
+        },
+        files: files,
+      );
+    } else {
+      response = await apiPut(
+        uri,
+        headers: authHeaders,
+        body: jsonEncode({
+          'name': name,
+          'mobile': mobile,
+          'address': address,
+          'status': status,
+          'mason_rate': masonRate,
+          'beldar_rate': beldarRate,
+          'coolie_rate': coolieRate,
+          'mason_over_rate': masonOverRate,
+          'beldar_over_rate': beldarOverRate,
+          'coolie_over_rate': coolieOverRate,
+        }),
+      );
+    }
 
     print('[updateContractorApi] statusCode: ${response.statusCode}');
     print('[updateContractorApi] response body: ${response.body}');
@@ -5996,38 +6095,51 @@ Future<OriginalContractorItem?> createOriginalContractorApi(
   BuildContext context, {
   required int siteId,
   required String name,
+  required String phone,
+  required String address,
   required String status,
   required List<Map<String, dynamic>> works,
+  required List<File> agreementFiles,
+  required List<File> documentFiles,
+  required File cancelChequeFile,
 }) async {
   try {
     final url = '$baseUrl/api/v1/original-contractors';
-    final body = <String, dynamic>{
-      'site_id': siteId,
-      'name': name.trim(),
-      'status': status,
-      'works': works
-          .map(
-            (item) => {
-              'work': item['work']?.toString().trim() ?? '',
-              'rate': item['rate'] is num
-                  ? (item['rate'] as num).toInt()
-                  : int.tryParse(item['rate']?.toString() ?? '') ?? 0,
-            },
-          )
-          .where((item) => (item['work'] as String).isNotEmpty)
-          .toList(),
-    };
-
-    print('[createOriginalContractorApi] POST $url');
-    print('[createOriginalContractorApi] body: ${jsonEncode(body)}');
-
-    final response = await http
-        .post(
-          Uri.parse(url),
-          headers: authHeaders,
-          body: jsonEncode(body),
+    final worksPayload = works
+        .map(
+          (item) => {
+            'work': item['work']?.toString().trim() ?? '',
+            'rate': item['rate'] is num
+                ? (item['rate'] as num).toInt()
+                : int.tryParse(item['rate']?.toString() ?? '') ?? 0,
+          },
         )
-        .timeout(const Duration(seconds: 30));
+        .where((item) => (item['work'] as String).isNotEmpty)
+        .toList();
+
+    final files = <http.MultipartFile>[];
+    for (final f in agreementFiles) {
+      files.add(await _multipartImage('agreements[]', f));
+    }
+    for (final f in documentFiles) {
+      files.add(await _multipartImage('documents[]', f));
+    }
+    files.add(await _multipartImage('cancel_cheque', cancelChequeFile));
+
+    print('[createOriginalContractorApi] POST $url multipart');
+
+    final response = await _sendMultipart(
+      Uri.parse(url),
+      fields: {
+        'site_id': siteId.toString(),
+        'name': name.trim(),
+        'phone': phone.trim(),
+        'address': address.trim(),
+        'status': status,
+        'works': jsonEncode(worksPayload),
+      },
+      files: files,
+    );
 
     print('[createOriginalContractorApi] statusCode: ${response.statusCode}');
     print('[createOriginalContractorApi] response body: ${response.body}');
@@ -6049,6 +6161,8 @@ Future<OriginalContractorItem?> createOriginalContractorApi(
       return OriginalContractorItem(
         siteId: siteId,
         name: name.trim(),
+        phone: phone.trim(),
+        address: address.trim(),
         status: status,
       );
     }
@@ -6137,37 +6251,72 @@ Future<Getcclist?> updateOriginalContractorApi(
   BuildContext context, {
   required int originalContractorId,
   required String name,
+  required String phone,
+  required String address,
   required String status,
   required List<Map<String, dynamic>> works,
+  List<File> agreementFiles = const [],
+  List<File> documentFiles = const [],
+  File? cancelChequeFile,
 }) async {
   try {
     final url = Uri.parse(
       '$baseUrl/api/v1/original-contractors/$originalContractorId',
     );
-    final body = <String, dynamic>{
-      'name': name.trim(),
-      'status': status,
-      'works': works
-          .map(
-            (item) => {
-              'work': item['work']?.toString().trim() ?? '',
-              'rate': item['rate'] is num
-                  ? (item['rate'] as num).toInt()
-                  : int.tryParse(item['rate']?.toString() ?? '') ?? 0,
-            },
-          )
-          .where((item) => (item['work'] as String).isNotEmpty)
-          .toList(),
-    };
+    final worksPayload = works
+        .map(
+          (item) => {
+            'work': item['work']?.toString().trim() ?? '',
+            'rate': item['rate'] is num
+                ? (item['rate'] as num).toInt()
+                : int.tryParse(item['rate']?.toString() ?? '') ?? 0,
+          },
+        )
+        .where((item) => (item['work'] as String).isNotEmpty)
+        .toList();
 
-    print('[updateOriginalContractorApi] PUT $url');
-    print('[updateOriginalContractorApi] body: ${jsonEncode(body)}');
+    final hasFiles = agreementFiles.isNotEmpty ||
+        documentFiles.isNotEmpty ||
+        cancelChequeFile != null;
 
-    final response = await apiPut(
-      url,
-      headers: authHeaders,
-      body: jsonEncode(body),
-    ).timeout(const Duration(seconds: 30));
+    print('[updateOriginalContractorApi] ${hasFiles ? 'POST' : 'PUT'} $url');
+
+    late final http.Response response;
+    if (hasFiles) {
+      final files = <http.MultipartFile>[];
+      for (final f in agreementFiles) {
+        files.add(await _multipartImage('agreements[]', f));
+      }
+      for (final f in documentFiles) {
+        files.add(await _multipartImage('documents[]', f));
+      }
+      if (cancelChequeFile != null) {
+        files.add(await _multipartImage('cancel_cheque', cancelChequeFile));
+      }
+      response = await _sendMultipart(
+        url,
+        fields: {
+          'name': name.trim(),
+          'phone': phone.trim(),
+          'address': address.trim(),
+          'status': status,
+          'works': jsonEncode(worksPayload),
+        },
+        files: files,
+      );
+    } else {
+      response = await apiPut(
+        url,
+        headers: authHeaders,
+        body: jsonEncode({
+          'name': name.trim(),
+          'phone': phone.trim(),
+          'address': address.trim(),
+          'status': status,
+          'works': worksPayload,
+        }),
+      ).timeout(const Duration(seconds: 30));
+    }
 
     print('[updateOriginalContractorApi] statusCode: ${response.statusCode}');
     print('[updateOriginalContractorApi] response body: ${response.body}');
@@ -6252,28 +6401,29 @@ Future<bool> deleteOriginalContractorApi(
   }
 }
 
-//employeekycapi — POST /api/v1/employee-kycs
+//employeekycapi — POST /api/v1/employee-kycs (updates authenticated user)
 Future<bool> employeeKycApi(
   BuildContext context, {
+  required String firstName,
+  required String lastName,
+  required String email,
+  String? mobile,
   required int siteId,
-  String? employeeId,
   required String monthlySalary,
   required String leaveAllocation,
   required String employmentType,
   required String joiningDate,
   required bool foodAllowance,
+  String foodAllowanceType = '',
   String foodEmployeeAmount = '',
-  String foodCompanyAmount = '',
   required bool stayAllowance,
+  String stayAllowanceType = '',
   String stayEmployeeAmount = '',
-  String stayCompanyAmount = '',
   required String emergencyContact,
   required String accountHolderName,
   required String bankName,
   required String accountNumber,
   required String ifscCode,
-  required String password,
-  int? roleId,
   required File pan,
   required File aadhaarFront,
   required File aadhaarBack,
@@ -6284,42 +6434,31 @@ Future<bool> employeeKycApi(
   try {
     final url = '$baseUrl/api/v1/employee-kycs';
     final fields = <String, String>{
+      'first_name': firstName.trim(),
+      'last_name': lastName.trim(),
+      'email': email.trim(),
+      'mobile': (mobile ?? '').trim(),
       'site_id': siteId.toString(),
       'monthly_salary': monthlySalary.trim(),
       'leave_allocation': leaveAllocation.trim(),
       'employment_type': employmentType.trim(),
       'joining_date': joiningDate.trim(),
       'food_allowance': foodAllowance ? '1' : '0',
-      'food_employee_amount': foodAllowance
+      if (foodAllowance) 'food_allowance_type': foodAllowanceType.trim(),
+      'food_employee_amount': foodAllowance && foodAllowanceType == 'amount'
           ? foodEmployeeAmount.trim()
           : '0',
-      'food_company_amount': foodAllowance
-          ? foodCompanyAmount.trim()
-          : '0',
       'stay_allowance': stayAllowance ? '1' : '0',
-      'stay_employee_amount': stayAllowance
+      if (stayAllowance) 'stay_allowance_type': stayAllowanceType.trim(),
+      'stay_employee_amount': stayAllowance && stayAllowanceType == 'amount'
           ? stayEmployeeAmount.trim()
-          : '0',
-      'stay_company_amount': stayAllowance
-          ? stayCompanyAmount.trim()
           : '0',
       'emergency_contact': emergencyContact.trim(),
       'account_holder_name': accountHolderName.trim(),
       'bank_name': bankName.trim(),
       'account_number': accountNumber.trim(),
       'ifsc_code': ifscCode.trim().toUpperCase(),
-      'password': password,
-      'password_confirmation': password,
     };
-
-    if (roleId != null && roleId > 0) {
-      fields['role_id'] = roleId.toString();
-    }
-
-    final resolvedEmployeeId = (employeeId ?? '').trim();
-    if (resolvedEmployeeId.isNotEmpty) {
-      fields['employee_id'] = resolvedEmployeeId;
-    }
 
     final files = [
       await _multipartImage('pan', pan, fallbackName: 'pan.jpg'),
@@ -6351,11 +6490,7 @@ Future<bool> employeeKycApi(
     ];
 
     print('[employeeKycApi] POST $url');
-    print('[employeeKycApi] fields: ${{
-      ...fields,
-      'password': '********',
-      'password_confirmation': '********',
-    }}');
+    print('[employeeKycApi] fields: $fields');
     print('[employeeKycApi] files: pan, aadhaar_front, aadhaar_back, marksheet_10, marksheet_12, bank_cheque');
 
     final response = await _sendMultipart(

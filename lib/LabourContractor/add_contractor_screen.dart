@@ -1,9 +1,12 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:grjoffice_apps/LabourContractor/labour_contractor.dart';
 import 'package:grjoffice_apps/core/app_colors.dart';
 import 'package:grjoffice_apps/services/api_auth.dart';
+import 'package:grjoffice_apps/services/image_pick_helper.dart';
 import 'package:grjoffice_apps/widgets/app_top_bar.dart';
 
 class AddContractorScreen extends StatefulWidget {
@@ -32,6 +35,13 @@ class _AddContractorScreenState extends State<AddContractorScreen> {
   ContractorStatus _status = ContractorStatus.published;
   bool _isSaving = false;
 
+  final List<File> _agreementFiles = [];
+  final List<File> _documentFiles = [];
+  File? _cancelChequeFile;
+  List<String> _existingAgreements = [];
+  List<String> _existingDocuments = [];
+  String? _existingCancelCheque;
+
   @override
   void initState() {
     super.initState();
@@ -47,6 +57,9 @@ class _AddContractorScreenState extends State<AddContractorScreen> {
       _beldarOtController.text = c.beldarOtRatePerHour.toStringAsFixed(0);
       _coolieOtController.text = c.coolieOtRatePerHour.toStringAsFixed(0);
       _status = c.status;
+      _existingAgreements = List<String>.from(c.agreements);
+      _existingDocuments = List<String>.from(c.documents);
+      _existingCancelCheque = c.cancelCheque;
     }
   }
 
@@ -67,6 +80,18 @@ class _AddContractorScreenState extends State<AddContractorScreen> {
   double? _parseRate(String? value) {
     if (value == null || value.trim().isEmpty) return null;
     return double.tryParse(value.trim());
+  }
+
+  Future<void> _pickMulti(List<File> target, {required String title}) async {
+    final file = await pickPurchaseImageFile(context, title: title);
+    if (file == null || !mounted) return;
+    setState(() => target.add(file));
+  }
+
+  Future<void> _pickCancelCheque() async {
+    final file = await pickPurchaseImageFile(context, title: 'Cancel Cheque');
+    if (file == null || !mounted) return;
+    setState(() => _cancelChequeFile = file);
   }
 
   Future<void> _submit() async {
@@ -105,6 +130,9 @@ class _AddContractorScreenState extends State<AddContractorScreen> {
           masonOverRate: masonOverRate,
           beldarOverRate: beldarOverRate,
           coolieOverRate: coolieOverRate,
+          agreementFiles: _agreementFiles,
+          documentFiles: _documentFiles,
+          cancelChequeFile: _cancelChequeFile,
         );
 
         if (!mounted) return;
@@ -142,6 +170,9 @@ class _AddContractorScreenState extends State<AddContractorScreen> {
         masonOverRate: masonOverRate,
         beldarOverRate: beldarOverRate,
         coolieOverRate: coolieOverRate,
+        agreementFiles: _agreementFiles,
+        documentFiles: _documentFiles,
+        cancelChequeFile: _cancelChequeFile,
       );
 
       if (!mounted) return;
@@ -256,6 +287,32 @@ class _AddContractorScreenState extends State<AddContractorScreen> {
           const SizedBox(height: 12),
           _buildRateField('Coolie Over Time Rate (Per Hour)', _coolieOtController),
           const SizedBox(height: 20),
+          _buildSectionTitle('Documents (optional)'),
+          const SizedBox(height: 10),
+          _buildMultiImageField(
+            label: 'Agreements',
+            existingUrls: _existingAgreements,
+            files: _agreementFiles,
+            onAdd: () => _pickMulti(_agreementFiles, title: 'Agreement Photo'),
+            onRemoveFile: (i) => setState(() => _agreementFiles.removeAt(i)),
+          ),
+          const SizedBox(height: 14),
+          _buildMultiImageField(
+            label: 'Documents',
+            existingUrls: _existingDocuments,
+            files: _documentFiles,
+            onAdd: () => _pickMulti(_documentFiles, title: 'Document Photo'),
+            onRemoveFile: (i) => setState(() => _documentFiles.removeAt(i)),
+          ),
+          const SizedBox(height: 14),
+          _buildSingleImageField(
+            label: 'Cancel Cheque',
+            existingUrl: _existingCancelCheque,
+            file: _cancelChequeFile,
+            onAdd: _pickCancelCheque,
+            onClear: () => setState(() => _cancelChequeFile = null),
+          ),
+          const SizedBox(height: 20),
           _buildStatusField(),
         ],
       ),
@@ -266,6 +323,135 @@ class _AddContractorScreenState extends State<AddContractorScreen> {
     return Text(
       title,
       style: GoogleFonts.poppins(fontSize: 14, fontWeight: FontWeight.w600, color: AppColors.headingBlack),
+    );
+  }
+
+  Widget _buildMultiImageField({
+    required String label,
+    required List<String> existingUrls,
+    required List<File> files,
+    required VoidCallback onAdd,
+    required void Function(int index) onRemoveFile,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(label, style: GoogleFonts.poppins(fontSize: 13, fontWeight: FontWeight.w500)),
+        const SizedBox(height: 8),
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: [
+            for (final url in existingUrls)
+              _thumbNetwork(url),
+            for (var i = 0; i < files.length; i++)
+              _thumbFile(files[i], onRemove: () => onRemoveFile(i)),
+            _addThumb(onAdd),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget _buildSingleImageField({
+    required String label,
+    required String? existingUrl,
+    required File? file,
+    required VoidCallback onAdd,
+    required VoidCallback onClear,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(label, style: GoogleFonts.poppins(fontSize: 13, fontWeight: FontWeight.w500)),
+        const SizedBox(height: 8),
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: [
+            if (file != null)
+              _thumbFile(file, onRemove: onClear)
+            else if (existingUrl != null && existingUrl.trim().isNotEmpty)
+              _thumbNetwork(existingUrl)
+            else
+              _addThumb(onAdd),
+            if (file != null || (existingUrl != null && existingUrl.trim().isNotEmpty))
+              _addThumb(onAdd, label: 'Replace'),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget _thumbNetwork(String url) {
+    final src = mediaUrl(url);
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(8),
+      child: Image.network(
+        src,
+        width: 72,
+        height: 72,
+        fit: BoxFit.cover,
+        errorBuilder: (_, __, ___) => _brokenThumb(),
+      ),
+    );
+  }
+
+  Widget _thumbFile(File file, {required VoidCallback onRemove}) {
+    return Stack(
+      children: [
+        ClipRRect(
+          borderRadius: BorderRadius.circular(8),
+          child: Image.file(file, width: 72, height: 72, fit: BoxFit.cover),
+        ),
+        Positioned(
+          top: 2,
+          right: 2,
+          child: InkWell(
+            onTap: onRemove,
+            child: Container(
+              padding: const EdgeInsets.all(2),
+              decoration: const BoxDecoration(color: Colors.black54, shape: BoxShape.circle),
+              child: const Icon(Icons.close, size: 14, color: Colors.white),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _addThumb(VoidCallback onTap, {String label = 'Add'}) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(8),
+      child: Container(
+        width: 72,
+        height: 72,
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          color: AppColors.operationsCardBg,
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: AppColors.borderGray.withValues(alpha: 0.7)),
+        ),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Icon(Icons.add_a_photo_outlined, size: 20, color: AppColors.primaryRed),
+            const SizedBox(height: 4),
+            Text(label, style: GoogleFonts.poppins(fontSize: 10, fontWeight: FontWeight.w500)),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _brokenThumb() {
+    return Container(
+      width: 72,
+      height: 72,
+      color: AppColors.operationsCardBg,
+      alignment: Alignment.center,
+      child: const Icon(Icons.broken_image_outlined, color: AppColors.inputHint),
     );
   }
 

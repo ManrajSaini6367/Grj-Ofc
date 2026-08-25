@@ -31,8 +31,13 @@ class GetcclistData {
     this.id,
     this.siteId,
     this.name,
+    this.phone,
+    this.address,
     this.works,
     this.status,
+    this.agreements,
+    this.documents,
+    this.cancelCheque,
     this.site,
     this.createdAt,
     this.updatedAt,
@@ -41,8 +46,13 @@ class GetcclistData {
   int? id;
   int? siteId;
   String? name;
+  String? phone;
+  String? address;
   List<GetcclistWork>? works;
   String? status;
+  List<String>? agreements;
+  List<String>? documents;
+  String? cancelCheque;
   GetcclistSite? site;
   DateTime? createdAt;
   DateTime? updatedAt;
@@ -53,6 +63,8 @@ class GetcclistData {
       id: _toInt(json['id']),
       siteId: _toInt(json['site_id']),
       name: json['name']?.toString(),
+      phone: json['phone']?.toString(),
+      address: json['address']?.toString(),
       works: rawWorks is List
           ? rawWorks
               .whereType<Map>()
@@ -64,6 +76,15 @@ class GetcclistData {
               .toList()
           : null,
       status: json['status']?.toString(),
+      agreements: _stringList(json['agreements']),
+      documents: _stringList(json['documents']),
+      cancelCheque: () {
+        final a = json['cancel_cheque']?.toString().trim();
+        if (a != null && a.isNotEmpty && a != 'null') return a;
+        final b = json['cancel_cheque_url']?.toString().trim();
+        if (b != null && b.isNotEmpty && b != 'null') return b;
+        return null;
+      }(),
       site: json['site'] is Map
           ? GetcclistSite.fromJson(Map<String, dynamic>.from(json['site'] as Map))
           : null,
@@ -76,8 +97,13 @@ class GetcclistData {
         'id': id,
         'site_id': siteId,
         'name': name,
+        'phone': phone,
+        'address': address,
         'status': status,
         if (works != null) 'works': works!.map((w) => w.toJson()).toList(),
+        if (agreements != null) 'agreements': agreements,
+        if (documents != null) 'documents': documents,
+        if (cancelCheque != null) 'cancel_cheque': cancelCheque,
         if (site != null) 'site': site!.toJson(),
         'created_at': createdAt?.toIso8601String(),
         'updated_at': updatedAt?.toIso8601String(),
@@ -197,4 +223,14 @@ double? _toDouble(dynamic value) {
 DateTime? _toDate(dynamic value) {
   if (value == null) return null;
   return DateTime.tryParse(value.toString());
+}
+
+List<String>? _stringList(dynamic value) {
+  if (value is! List) return null;
+  final out = <String>[];
+  for (final item in value) {
+    final s = item?.toString().trim() ?? '';
+    if (s.isNotEmpty && s != 'null') out.add(s);
+  }
+  return out;
 }

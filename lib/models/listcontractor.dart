@@ -79,6 +79,9 @@ class ContractorListItem {
     this.masonOverRate,
     this.beldarOverRate,
     this.coolieOverRate,
+    this.agreements,
+    this.documents,
+    this.cancelCheque,
     this.createdAt,
     this.updatedAt,
     this.site,
@@ -96,6 +99,9 @@ class ContractorListItem {
   final dynamic masonOverRate;
   final dynamic beldarOverRate;
   final dynamic coolieOverRate;
+  final List<String>? agreements;
+  final List<String>? documents;
+  final String? cancelCheque;
   final DateTime? createdAt;
   final DateTime? updatedAt;
   final ContractorListSite? site;
@@ -114,6 +120,15 @@ class ContractorListItem {
         masonOverRate: json['mason_over_rate'],
         beldarOverRate: json['beldar_over_rate'],
         coolieOverRate: json['coolie_over_rate'],
+        agreements: _parseStringList(json['agreements']),
+        documents: _parseStringList(json['documents']),
+        cancelCheque: () {
+          final a = json['cancel_cheque']?.toString().trim();
+          if (a != null && a.isNotEmpty && a != 'null') return a;
+          final b = json['cancel_cheque_url']?.toString().trim();
+          if (b != null && b.isNotEmpty && b != 'null') return b;
+          return null;
+        }(),
         createdAt: _parseDate(json['created_at']),
         updatedAt: _parseDate(json['updated_at']),
         site: json['site'] is Map<String, dynamic>
@@ -134,6 +149,9 @@ class ContractorListItem {
         'mason_over_rate': masonOverRate,
         'beldar_over_rate': beldarOverRate,
         'coolie_over_rate': coolieOverRate,
+        if (agreements != null) 'agreements': agreements,
+        if (documents != null) 'documents': documents,
+        if (cancelCheque != null) 'cancel_cheque': cancelCheque,
         if (createdAt != null) 'created_at': createdAt!.toIso8601String(),
         if (updatedAt != null) 'updated_at': updatedAt!.toIso8601String(),
         if (site != null) 'site': site!.toJson(),
@@ -237,6 +255,16 @@ class ContractorListPagination {
 DateTime? _parseDate(dynamic value) {
   if (value == null) return null;
   return DateTime.tryParse(value.toString());
+}
+
+List<String>? _parseStringList(dynamic value) {
+  if (value is! List) return null;
+  final out = <String>[];
+  for (final item in value) {
+    final s = item?.toString().trim() ?? '';
+    if (s.isNotEmpty && s != 'null') out.add(s);
+  }
+  return out;
 }
 
 double _parseRateValue(dynamic value) {

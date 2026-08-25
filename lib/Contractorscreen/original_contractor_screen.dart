@@ -1,9 +1,12 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:grjoffice_apps/Contractorscreen/original_contractor.dart';
 import 'package:grjoffice_apps/core/app_colors.dart';
 import 'package:grjoffice_apps/services/api_auth.dart';
+import 'package:grjoffice_apps/services/image_pick_helper.dart';
 import 'package:grjoffice_apps/widgets/app_top_bar.dart';
 
 class OriginalContractorScreen extends StatefulWidget {
@@ -25,9 +28,18 @@ class _OriginalContractorScreenState extends State<OriginalContractorScreen> {
 
   final _formKey = GlobalKey<FormState>();
   final _nameController = TextEditingController();
+  final _phoneController = TextEditingController();
+  final _addressController = TextEditingController();
   OriginalContractorStatus _status = OriginalContractorStatus.published;
   final List<_WorkRateEntry> _rows = [];
   bool _isSaving = false;
+
+  final List<File> _agreementFiles = [];
+  final List<File> _documentFiles = [];
+  File? _cancelChequeFile;
+  List<String> _existingAgreements = [];
+  List<String> _existingDocuments = [];
+  String? _existingCancelCheque;
 
   double _hPad(BuildContext context) {
     final width = MediaQuery.sizeOf(context).width;
@@ -42,7 +54,12 @@ class _OriginalContractorScreenState extends State<OriginalContractorScreen> {
     final existing = widget.contractor;
     if (existing != null) {
       _nameController.text = existing.name;
+      _phoneController.text = existing.phone;
+      _addressController.text = existing.address;
       _status = existing.status;
+      _existingAgreements = List<String>.from(existing.agreements);
+      _existingDocuments = List<String>.from(existing.documents);
+      _existingCancelCheque = existing.cancelCheque;
       if (existing.works.isEmpty) {
         _rows.add(_WorkRateEntry());
       } else {
@@ -63,6 +80,8 @@ class _OriginalContractorScreenState extends State<OriginalContractorScreen> {
   @override
   void dispose() {
     _nameController.dispose();
+    _phoneController.dispose();
+    _addressController.dispose();
     for (final row in _rows) {
       row.dispose();
     }
@@ -81,8 +100,42 @@ class _OriginalContractorScreenState extends State<OriginalContractorScreen> {
     });
   }
 
+  Future<void> _pickMulti(List<File> target, {required String title}) async {
+    final file = await pickPurchaseImageFile(context, title: title);
+    if (file == null || !mounted) return;
+    setState(() => target.add(file));
+  }
+
+  Future<void> _pickCancelCheque() async {
+    final file = await pickPurchaseImageFile(context, title: 'Cancel Cheque');
+    if (file == null || !mounted) return;
+    setState(() => _cancelChequeFile = file);
+  }
+
+  bool _docsValid() {
+    final hasAgreements =
+        _agreementFiles.isNotEmpty || _existingAgreements.isNotEmpty;
+    final hasDocuments =
+        _documentFiles.isNotEmpty || _existingDocuments.isNotEmpty;
+    final hasCheque = _cancelChequeFile != null ||
+        (_existingCancelCheque != null &&
+            _existingCancelCheque!.trim().isNotEmpty);
+    if (!hasAgreements || !hasDocuments || !hasCheque) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Agreements, documents and cancel cheque are required.',
+          ),
+        ),
+      );
+      return false;
+    }
+    return true;
+  }
+
   Future<void> _submit() async {
     if (!(_formKey.currentState?.validate() ?? false)) return;
+    if (!_docsValid()) return;
 
     final works = _rows
         .map(
@@ -116,10 +169,15 @@ class _OriginalContractorScreenState extends State<OriginalContractorScreen> {
           context,
           originalContractorId: contractorId,
           name: _nameController.text.trim(),
+          phone: _phoneController.text.trim(),
+          address: _addressController.text.trim(),
           status: _status == OriginalContractorStatus.published
               ? 'published'
               : 'unpublished',
           works: works,
+          agreementFiles: _agreementFiles,
+          documentFiles: _documentFiles,
+          cancelChequeFile: _cancelChequeFile,
         );
         if (!mounted) return;
         if (updated != null) {
@@ -139,6 +197,12 @@ class _OriginalContractorScreenState extends State<OriginalContractorScreen> {
               name: data?.name?.trim().isNotEmpty == true
                   ? data!.name!.trim()
                   : _nameController.text.trim(),
+              phone: data?.phone?.trim().isNotEmpty == true
+                  ? data!.phone!.trim()
+                  : _phoneController.text.trim(),
+              address: data?.address?.trim().isNotEmpty == true
+                  ? data!.address!.trim()
+                  : _addressController.text.trim(),
               status: (data?.status ?? '').toLowerCase() == 'unpublished'
                   ? OriginalContractorStatus.unpublished
                   : _status,
@@ -152,6 +216,9 @@ class _OriginalContractorScreenState extends State<OriginalContractorScreen> {
                         ),
                       )
                       .toList(),
+              agreements: data?.agreements ?? _existingAgreements,
+              documents: data?.documents ?? _existingDocuments,
+              cancelCheque: data?.cancelCheque ?? _existingCancelCheque,
             ),
           );
         }
@@ -175,10 +242,15 @@ class _OriginalContractorScreenState extends State<OriginalContractorScreen> {
         context,
         siteId: siteId,
         name: _nameController.text.trim(),
+        phone: _phoneController.text.trim(),
+        address: _addressController.text.trim(),
         status: _status == OriginalContractorStatus.published
             ? 'published'
             : 'unpublished',
         works: works,
+        agreementFiles: _agreementFiles,
+        documentFiles: _documentFiles,
+        cancelChequeFile: _cancelChequeFile!,
       );
       if (!mounted) return;
       if (created != null) {
@@ -264,7 +336,61 @@ class _OriginalContractorScreenState extends State<OriginalContractorScreen> {
             ),
           ),
           const SizedBox(height: 16),
-          _buildNameField(),
+          _buildTextField(
+            label: 'Name',
+            controller: _nameController,
+            hint: 'name',
+            required: true,
+          ),
+          const SizedBox(height: 16),
+          _buildTextField(
+            label: 'Phone',
+            controller: _phoneController,
+            hint: 'phone',
+            keyboardType: TextInputType.phone,
+            required: true,
+          ),
+          const SizedBox(height: 16),
+          _buildTextField(
+            label: 'Address',
+            controller: _addressController,
+            hint: 'address',
+            maxLines: 2,
+            required: true,
+          ),
+          const SizedBox(height: 16),
+          Text(
+            'Documents',
+            style: GoogleFonts.poppins(
+              fontSize: 14,
+              fontWeight: FontWeight.w600,
+              color: AppColors.headingBlack,
+            ),
+          ),
+          const SizedBox(height: 10),
+          _buildMultiImageField(
+            label: 'Agreements *',
+            existingUrls: _existingAgreements,
+            files: _agreementFiles,
+            onAdd: () => _pickMulti(_agreementFiles, title: 'Agreement Photo'),
+            onRemoveFile: (i) => setState(() => _agreementFiles.removeAt(i)),
+          ),
+          const SizedBox(height: 14),
+          _buildMultiImageField(
+            label: 'Documents *',
+            existingUrls: _existingDocuments,
+            files: _documentFiles,
+            onAdd: () => _pickMulti(_documentFiles, title: 'Document Photo'),
+            onRemoveFile: (i) => setState(() => _documentFiles.removeAt(i)),
+          ),
+          const SizedBox(height: 14),
+          _buildSingleImageField(
+            label: 'Cancel Cheque *',
+            existingUrl: _existingCancelCheque,
+            file: _cancelChequeFile,
+            onAdd: _pickCancelCheque,
+            onClear: () => setState(() => _cancelChequeFile = null),
+          ),
           const SizedBox(height: 16),
           _buildStatusField(),
           const SizedBox(height: 20),
@@ -291,28 +417,167 @@ class _OriginalContractorScreenState extends State<OriginalContractorScreen> {
     );
   }
 
-  Widget _buildNameField() {
+  Widget _buildTextField({
+    required String label,
+    required TextEditingController controller,
+    required String hint,
+    TextInputType keyboardType = TextInputType.text,
+    int maxLines = 1,
+    bool required = false,
+  }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          'Name',
+          label,
           style: GoogleFonts.poppins(fontSize: 13, fontWeight: FontWeight.w500),
         ),
         const SizedBox(height: 8),
         TextFormField(
-          controller: _nameController,
-          textInputAction: TextInputAction.next,
-          validator: (value) {
-            if (value == null || value.trim().isEmpty) {
-              return 'Name is required';
-            }
-            return null;
-          },
+          controller: controller,
+          keyboardType: keyboardType,
+          maxLines: maxLines,
+          textInputAction:
+              maxLines > 1 ? TextInputAction.newline : TextInputAction.next,
+          validator: required
+              ? (value) {
+                  if (value == null || value.trim().isEmpty) {
+                    return '$label is required';
+                  }
+                  return null;
+                }
+              : null,
           style: GoogleFonts.poppins(fontSize: 14),
-          decoration: _inputDecoration('name'),
+          decoration: _inputDecoration(hint),
         ),
       ],
+    );
+  }
+
+  Widget _buildMultiImageField({
+    required String label,
+    required List<String> existingUrls,
+    required List<File> files,
+    required VoidCallback onAdd,
+    required void Function(int index) onRemoveFile,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(label, style: GoogleFonts.poppins(fontSize: 13, fontWeight: FontWeight.w500)),
+        const SizedBox(height: 8),
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: [
+            for (final url in existingUrls) _thumbNetwork(url),
+            for (var i = 0; i < files.length; i++)
+              _thumbFile(files[i], onRemove: () => onRemoveFile(i)),
+            _addThumb(onAdd),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget _buildSingleImageField({
+    required String label,
+    required String? existingUrl,
+    required File? file,
+    required VoidCallback onAdd,
+    required VoidCallback onClear,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(label, style: GoogleFonts.poppins(fontSize: 13, fontWeight: FontWeight.w500)),
+        const SizedBox(height: 8),
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: [
+            if (file != null)
+              _thumbFile(file, onRemove: onClear)
+            else if (existingUrl != null && existingUrl.trim().isNotEmpty)
+              _thumbNetwork(existingUrl)
+            else
+              _addThumb(onAdd),
+            if (file != null ||
+                (existingUrl != null && existingUrl.trim().isNotEmpty))
+              _addThumb(onAdd, label: 'Replace'),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget _thumbNetwork(String url) {
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(8),
+      child: Image.network(
+        mediaUrl(url),
+        width: 72,
+        height: 72,
+        fit: BoxFit.cover,
+        errorBuilder: (_, __, ___) => Container(
+          width: 72,
+          height: 72,
+          color: AppColors.operationsCardBg,
+          alignment: Alignment.center,
+          child: const Icon(Icons.broken_image_outlined),
+        ),
+      ),
+    );
+  }
+
+  Widget _thumbFile(File file, {required VoidCallback onRemove}) {
+    return Stack(
+      children: [
+        ClipRRect(
+          borderRadius: BorderRadius.circular(8),
+          child: Image.file(file, width: 72, height: 72, fit: BoxFit.cover),
+        ),
+        Positioned(
+          top: 2,
+          right: 2,
+          child: InkWell(
+            onTap: onRemove,
+            child: Container(
+              padding: const EdgeInsets.all(2),
+              decoration: const BoxDecoration(
+                color: Colors.black54,
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(Icons.close, size: 14, color: Colors.white),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _addThumb(VoidCallback onTap, {String label = 'Add'}) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(8),
+      child: Container(
+        width: 72,
+        height: 72,
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          color: AppColors.operationsCardBg,
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: AppColors.borderGray.withValues(alpha: 0.7)),
+        ),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Icon(Icons.add_a_photo_outlined, size: 20, color: AppColors.primaryRed),
+            const SizedBox(height: 4),
+            Text(label, style: GoogleFonts.poppins(fontSize: 10, fontWeight: FontWeight.w500)),
+          ],
+        ),
+      ),
     );
   }
 
@@ -450,7 +715,7 @@ class _OriginalContractorScreenState extends State<OriginalContractorScreen> {
           label,
           style: GoogleFonts.poppins(fontSize: 13, fontWeight: FontWeight.w500),
         ),
-        const SizedBox(height: 8),
+        const SizedBox(height: 4),
         child,
       ],
     );
@@ -472,7 +737,7 @@ class _OriginalContractorScreenState extends State<OriginalContractorScreen> {
       filled: true,
       fillColor: AppColors.operationsCardBg,
       isDense: true,
-      contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
       border: normalBorder,
       enabledBorder: normalBorder,
       focusedBorder: focusBorder,
@@ -480,6 +745,7 @@ class _OriginalContractorScreenState extends State<OriginalContractorScreen> {
         borderSide: const BorderSide(color: AppColors.primaryRed),
       ),
       focusedErrorBorder: focusBorder,
+      disabledBorder: normalBorder,
     );
   }
 
@@ -537,13 +803,12 @@ class _OriginalContractorScreenState extends State<OriginalContractorScreen> {
 }
 
 class _WorkRateEntry {
-  _WorkRateEntry({String work = '', String rate = ''}) {
-    workController.text = work;
-    rateController.text = rate;
-  }
+  _WorkRateEntry({String work = '', String rate = ''})
+      : workController = TextEditingController(text: work),
+        rateController = TextEditingController(text: rate);
 
-  final TextEditingController workController = TextEditingController();
-  final TextEditingController rateController = TextEditingController();
+  final TextEditingController workController;
+  final TextEditingController rateController;
 
   void dispose() {
     workController.dispose();
@@ -564,25 +829,20 @@ class _RowActionButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox.expand(
-      child: ElevatedButton(
-        onPressed: onTap,
-        style: ElevatedButton.styleFrom(
-          backgroundColor: color,
-          foregroundColor: AppColors.white,
-          elevation: 0,
-          padding: const EdgeInsets.symmetric(horizontal: 8),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(8),
-          ),
-        ),
-        child: Text(
-          label,
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          style: GoogleFonts.poppins(
-            fontSize: 13,
-            fontWeight: FontWeight.w600,
+    return Material(
+      color: color,
+      borderRadius: BorderRadius.circular(8),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(8),
+        child: Center(
+          child: Text(
+            label,
+            style: GoogleFonts.poppins(
+              color: Colors.white,
+              fontWeight: FontWeight.w600,
+              fontSize: 13,
+            ),
           ),
         ),
       ),

@@ -12,6 +12,8 @@ import 'package:grjoffice_apps/Storescreens/store.dart';
 import 'package:grjoffice_apps/services/permission_service.dart';
 import 'package:grjoffice_apps/services/api_auth.dart';
 import 'package:grjoffice_apps/services/attendance_service.dart';
+import 'package:grjoffice_apps/services/kyc_gate.dart';
+import 'package:grjoffice_apps/services/permission_service.dart';
 import 'package:grjoffice_apps/services/punch_in_gate.dart';
 import 'package:grjoffice_apps/services/user_session.dart';
 import 'package:grjoffice_apps/utils/app_helpers.dart';
@@ -65,6 +67,13 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
       (_) => unawaited(PermissionService.instance.refreshIfStale()),
     );
 
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      if (!KycGate.canAccessApp) {
+        pushAndRevoveUntil(context, KycGate.homeScreen());
+      }
+    });
+
     final initialPush = widget.initialPush;
     if (initialPush != null) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -102,7 +111,17 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
-      unawaited(PermissionService.instance.refresh());
+      unawaited(_onResumed());
+    }
+  }
+
+  Future<void> _onResumed() async {
+    unawaited(PermissionService.instance.refresh());
+    if (!mounted) return;
+    await profileApi(context);
+    if (!mounted) return;
+    if (!KycGate.canAccessApp) {
+      pushAndRevoveUntil(context, KycGate.homeScreen());
     }
   }
 

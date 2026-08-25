@@ -13,6 +13,9 @@ class LabourContractor {
     required this.beldarOtRatePerHour,
     required this.coolieOtRatePerHour,
     this.status = ContractorStatus.published,
+    this.agreements = const [],
+    this.documents = const [],
+    this.cancelCheque,
   });
 
   final String id;
@@ -26,6 +29,9 @@ class LabourContractor {
   final double beldarOtRatePerHour;
   final double coolieOtRatePerHour;
   final ContractorStatus status;
+  final List<String> agreements;
+  final List<String> documents;
+  final String? cancelCheque;
 }
 
 const kMockContractors = [

@@ -16,6 +16,7 @@ class UserModel {
     this.dateOfJoin,
     this.dateOfSuspended,
     required this.attendanceAllow,
+    this.kycStatus,
   });
 
   final int id;
@@ -34,6 +35,7 @@ class UserModel {
   final String? dateOfJoin;
   final String? dateOfSuspended;
   final bool attendanceAllow;
+  final String? kycStatus;
 
   factory UserModel.fromJson(Map<String, dynamic> json) {
     return UserModel(
@@ -56,7 +58,14 @@ class UserModel {
       dateOfJoin: json['date_of_join']?.toString(),
       dateOfSuspended: json['date_of_suspended']?.toString(),
       attendanceAllow: _parseBool(json['attendance_allow']),
+      kycStatus: _parseStringOrNull(json['kyc_status'] ?? json['kycStatus']),
     );
+  }
+
+  static String? _parseStringOrNull(dynamic value) {
+    if (value == null) return null;
+    final t = value.toString().trim();
+    return t.isEmpty ? null : t;
   }
 
   static int _parseInt(dynamic value, [int fallback = 0]) {
@@ -126,6 +135,7 @@ class UserModel {
       'date_of_join': dateOfJoin,
       'date_of_suspended': dateOfSuspended,
       'attendance_allow': attendanceAllow,
+      'kyc_status': kycStatus,
     };
   }
 
@@ -160,6 +170,8 @@ class UserModel {
     String? dateOfJoin,
     String? dateOfSuspended,
     bool? attendanceAllow,
+    String? kycStatus,
+    bool clearKycStatus = false,
   }) {
     return UserModel(
       id: id ?? this.id,
@@ -178,6 +190,7 @@ class UserModel {
       dateOfJoin: dateOfJoin ?? this.dateOfJoin,
       dateOfSuspended: dateOfSuspended ?? this.dateOfSuspended,
       attendanceAllow: attendanceAllow ?? this.attendanceAllow,
+      kycStatus: clearKycStatus ? null : (kycStatus ?? this.kycStatus),
     );
   }
 }

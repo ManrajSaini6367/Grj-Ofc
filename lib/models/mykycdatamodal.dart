@@ -39,9 +39,11 @@ class MyKycModalData {
     this.employmentType,
     this.joiningDate,
     this.foodAllowance = false,
+    this.foodAllowanceType,
     this.foodEmployeeAmount,
     this.foodCompanyAmount,
     this.stayAllowance = false,
+    this.stayAllowanceType,
     this.stayEmployeeAmount,
     this.stayCompanyAmount,
     this.emergencyContact,
@@ -75,9 +77,11 @@ class MyKycModalData {
   String? employmentType;
   String? joiningDate;
   bool foodAllowance;
+  String? foodAllowanceType;
   String? foodEmployeeAmount;
   String? foodCompanyAmount;
   bool stayAllowance;
+  String? stayAllowanceType;
   String? stayEmployeeAmount;
   String? stayCompanyAmount;
   String? emergencyContact;
@@ -144,6 +148,9 @@ class MyKycModalData {
             json['foodAllowance'] ??
             json['dataFoodAllowance'],
       ),
+      foodAllowanceType: _parseString(
+        json['food_allowance_type'] ?? json['foodAllowanceType'],
+      ),
       foodEmployeeAmount: _parseString(
         json['food_employee_amount'] ??
             json['foodEmployeeAmount'] ??
@@ -158,6 +165,9 @@ class MyKycModalData {
         json['stay_allowance'] ??
             json['stayAllowance'] ??
             json['dataStayAllowance'],
+      ),
+      stayAllowanceType: _parseString(
+        json['stay_allowance_type'] ?? json['stayAllowanceType'],
       ),
       stayEmployeeAmount: _parseString(
         json['stay_employee_amount'] ??
@@ -256,9 +266,11 @@ class MyKycModalData {
         'employment_type': employmentType,
         'joining_date': joiningDate,
         'food_allowance': foodAllowance,
+        'food_allowance_type': foodAllowanceType,
         'food_employee_amount': foodEmployeeAmount,
         'food_company_amount': foodCompanyAmount,
         'stay_allowance': stayAllowance,
+        'stay_allowance_type': stayAllowanceType,
         'stay_employee_amount': stayEmployeeAmount,
         'stay_company_amount': stayCompanyAmount,
         'emergency_contact': emergencyContact,

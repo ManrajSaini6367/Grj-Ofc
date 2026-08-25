@@ -77,15 +77,25 @@ class OriginalContractorItem {
     this.id,
     this.siteId,
     this.name,
+    this.phone,
+    this.address,
     this.status,
     this.works,
+    this.agreements,
+    this.documents,
+    this.cancelCheque,
   });
 
   int? id;
   int? siteId;
   String? name;
+  String? phone;
+  String? address;
   String? status;
   List<OriginalContractorWork>? works;
+  List<String>? agreements;
+  List<String>? documents;
+  String? cancelCheque;
 
   factory OriginalContractorItem.fromJson(Map<String, dynamic> json) {
     final rawWorks = json['works'] ??
@@ -95,10 +105,21 @@ class OriginalContractorItem {
       id: _toInt(json['id']),
       siteId: _toInt(json['site_id']),
       name: json['name']?.toString(),
+      phone: json['phone']?.toString(),
+      address: json['address']?.toString(),
       status: json['status']?.toString(),
       works: rawWorks is List
           ? rawWorks.map(_parseWork).whereType<OriginalContractorWork>().toList()
           : const [],
+      agreements: _stringList(json['agreements']),
+      documents: _stringList(json['documents']),
+      cancelCheque: () {
+        final a = json['cancel_cheque']?.toString().trim();
+        if (a != null && a.isNotEmpty && a != 'null') return a;
+        final b = json['cancel_cheque_url']?.toString().trim();
+        if (b != null && b.isNotEmpty && b != 'null') return b;
+        return null;
+      }(),
     );
   }
 
@@ -106,9 +127,14 @@ class OriginalContractorItem {
         'id': id,
         'site_id': siteId,
         'name': name,
+        'phone': phone,
+        'address': address,
         'status': status,
         if (works != null)
           'works': works!.map((work) => work.toJson()).toList(),
+        if (agreements != null) 'agreements': agreements,
+        if (documents != null) 'documents': documents,
+        if (cancelCheque != null) 'cancel_cheque': cancelCheque,
       };
 }
 
@@ -189,4 +215,14 @@ int? _toInt(dynamic value) {
   if (value is int) return value;
   if (value is num) return value.toInt();
   return int.tryParse(value.toString());
+}
+
+List<String>? _stringList(dynamic value) {
+  if (value is! List) return null;
+  final out = <String>[];
+  for (final item in value) {
+    final s = item?.toString().trim() ?? '';
+    if (s.isNotEmpty && s != 'null') out.add(s);
+  }
+  return out;
 }

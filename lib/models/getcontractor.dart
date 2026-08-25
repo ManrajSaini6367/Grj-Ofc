@@ -38,6 +38,9 @@ class ContractorDetailData {
     this.masonOverRate,
     this.beldarOverRate,
     this.coolieOverRate,
+    this.agreements,
+    this.documents,
+    this.cancelCheque,
     this.createdAt,
     this.updatedAt,
     this.site,
@@ -55,6 +58,9 @@ class ContractorDetailData {
   final String? masonOverRate;
   final String? beldarOverRate;
   final String? coolieOverRate;
+  final List<String>? agreements;
+  final List<String>? documents;
+  final String? cancelCheque;
   final DateTime? createdAt;
   final DateTime? updatedAt;
   final ContractorSiteInfo? site;
@@ -73,6 +79,15 @@ class ContractorDetailData {
         masonOverRate: json['mason_over_rate']?.toString(),
         beldarOverRate: json['beldar_over_rate']?.toString(),
         coolieOverRate: json['coolie_over_rate']?.toString(),
+        agreements: _parseStringList(json['agreements']),
+        documents: _parseStringList(json['documents']),
+        cancelCheque: () {
+          final a = json['cancel_cheque']?.toString().trim();
+          if (a != null && a.isNotEmpty && a != 'null') return a;
+          final b = json['cancel_cheque_url']?.toString().trim();
+          if (b != null && b.isNotEmpty && b != 'null') return b;
+          return null;
+        }(),
         createdAt: _parseDate(json['created_at']),
         updatedAt: _parseDate(json['updated_at']),
         site: json['site'] is Map<String, dynamic>
@@ -123,4 +138,14 @@ int? _parseInt(dynamic value) {
 double _parseRate(String? value) {
   if (value == null || value.isEmpty) return 0;
   return double.tryParse(value) ?? 0;
+}
+
+List<String>? _parseStringList(dynamic value) {
+  if (value is! List) return null;
+  final out = <String>[];
+  for (final item in value) {
+    final s = item?.toString().trim() ?? '';
+    if (s.isNotEmpty && s != 'null') out.add(s);
+  }
+  return out;
 }

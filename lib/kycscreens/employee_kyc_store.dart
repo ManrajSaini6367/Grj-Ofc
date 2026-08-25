@@ -13,16 +13,15 @@ class EmployeeKycConfig {
     this.employeeName = '',
     this.email = '',
     this.phoneNumber = '',
-    this.kycPassword = '',
     this.assignedSite = '',
     this.monthlySalary = '',
     this.leaveAllocation = '',
     this.employmentType = '',
     this.joiningDate = '',
+    this.foodAllowanceType = '',
     this.foodEmployeeAmount = '',
-    this.foodCompanyAmount = '',
+    this.stayAllowanceType = '',
     this.stayEmployeeAmount = '',
-    this.stayCompanyAmount = '',
     this.panPath = '',
     this.aadhaarFrontPath = '',
     this.aadhaarBackPath = '',
@@ -41,18 +40,17 @@ class EmployeeKycConfig {
   final String employeeName;
   final String email;
   final String phoneNumber;
-  final String kycPassword;
   final String assignedSite;
   final String monthlySalary;
   final String leaveAllocation;
   final String employmentType;
   final String joiningDate;
   final bool foodAllowance;
+  final String foodAllowanceType;
   final String foodEmployeeAmount;
-  final String foodCompanyAmount;
   final bool stayAllowance;
+  final String stayAllowanceType;
   final String stayEmployeeAmount;
-  final String stayCompanyAmount;
   final String emergencyContact;
   final String panPath;
   final String aadhaarFrontPath;
@@ -68,23 +66,42 @@ class EmployeeKycConfig {
   final String status;
   final int kycId;
 
+  String get foodTypeLabel {
+    if (!foodAllowance) return 'No';
+    if (foodAllowanceType == 'amount') {
+      return foodEmployeeAmount.isEmpty
+          ? 'Amount'
+          : 'Amount ₹ $foodEmployeeAmount';
+    }
+    return 'Company Mess';
+  }
+
+  String get stayTypeLabel {
+    if (!stayAllowance) return 'No';
+    if (stayAllowanceType == 'amount') {
+      return stayEmployeeAmount.isEmpty
+          ? 'Amount'
+          : 'Amount ₹ $stayEmployeeAmount';
+    }
+    return 'Company Hostel';
+  }
+
   Map<String, dynamic> toJson() => {
         'employeeId': employeeId,
         'employeeName': employeeName,
         'email': email,
         'phoneNumber': phoneNumber,
-        'password': kycPassword,
         'assignedSite': assignedSite,
         'monthlySalary': monthlySalary,
         'leaveAllocation': leaveAllocation,
         'employmentType': employmentType,
         'joiningDate': joiningDate,
         'foodAllowance': foodAllowance,
+        'foodAllowanceType': foodAllowanceType,
         'foodEmployeeAmount': foodEmployeeAmount,
-        'foodCompanyAmount': foodCompanyAmount,
         'stayAllowance': stayAllowance,
+        'stayAllowanceType': stayAllowanceType,
         'stayEmployeeAmount': stayEmployeeAmount,
-        'stayCompanyAmount': stayCompanyAmount,
         'emergencyContact': emergencyContact,
         'panPath': panPath,
         'aadhaarFrontPath': aadhaarFrontPath,
@@ -107,26 +124,23 @@ class EmployeeKycConfig {
       employeeName: json['employeeName']?.toString() ?? '',
       email: json['email']?.toString() ?? '',
       phoneNumber: json['phoneNumber']?.toString() ?? '',
-      kycPassword: json['password']?.toString() ??
-          json['kycPassword']?.toString() ??
-          '',
       assignedSite: json['assignedSite']?.toString() ?? '',
       monthlySalary: json['monthlySalary']?.toString() ?? '',
       leaveAllocation: json['leaveAllocation']?.toString() ?? '',
       employmentType: json['employmentType']?.toString() ?? '',
       joiningDate: json['joiningDate']?.toString() ?? '',
       foodAllowance: json['foodAllowance'] == true,
+      foodAllowanceType: json['foodAllowanceType']?.toString() ?? '',
       foodEmployeeAmount: (json['foodEmployeeAmount'] ??
               json['foodAllowanceAmount'])
           ?.toString() ??
           '',
-      foodCompanyAmount: json['foodCompanyAmount']?.toString() ?? '',
       stayAllowance: json['stayAllowance'] == true,
+      stayAllowanceType: json['stayAllowanceType']?.toString() ?? '',
       stayEmployeeAmount: (json['stayEmployeeAmount'] ??
               json['stayAllowanceAmount'])
           ?.toString() ??
           '',
-      stayCompanyAmount: json['stayCompanyAmount']?.toString() ?? '',
       emergencyContact: json['emergencyContact']?.toString() ?? '',
       panPath: json['panPath']?.toString() ?? '',
       aadhaarFrontPath: json['aadhaarFrontPath']?.toString() ?? '',
@@ -157,18 +171,17 @@ class EmployeeKycConfig {
       employeeName: employeeName,
       email: email,
       phoneNumber: phoneNumber,
-      kycPassword: kycPassword,
       assignedSite: assignedSite,
       monthlySalary: monthlySalary,
       leaveAllocation: leaveAllocation,
       employmentType: employmentType,
       joiningDate: joiningDate,
       foodAllowance: foodAllowance,
+      foodAllowanceType: foodAllowanceType,
       foodEmployeeAmount: foodEmployeeAmount,
-      foodCompanyAmount: foodCompanyAmount,
       stayAllowance: stayAllowance,
+      stayAllowanceType: stayAllowanceType,
       stayEmployeeAmount: stayEmployeeAmount,
-      stayCompanyAmount: stayCompanyAmount,
       emergencyContact: emergencyContact,
       panPath: panPath,
       aadhaarFrontPath: aadhaarFrontPath,

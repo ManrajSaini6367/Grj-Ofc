@@ -7,13 +7,15 @@ import 'package:grjoffice_apps/core/app_colors.dart';
 import 'package:grjoffice_apps/core/preference.dart';
 import 'package:grjoffice_apps/drawer/app_end_drawer.dart';
 import 'package:grjoffice_apps/drawer/drawer.dart';
-import 'package:grjoffice_apps/kycscreens/employee_kyc_requests_screen.dart';
+import 'package:grjoffice_apps/kycscreens/employee_kyc_pending_screen.dart';
 import 'package:grjoffice_apps/kycscreens/employee_kyc_store.dart';
 import 'package:grjoffice_apps/models/mykycdatamodal.dart';
 import 'package:grjoffice_apps/models/site_model.dart';
 import 'package:grjoffice_apps/navigation/app_navigation.dart';
 import 'package:grjoffice_apps/services/api_auth.dart';
 import 'package:grjoffice_apps/services/image_pick_helper.dart';
+import 'package:grjoffice_apps/services/kyc_gate.dart';
+import 'package:grjoffice_apps/utils/app_helpers.dart';
 import 'package:grjoffice_apps/widgets/app_top_bar.dart';
 import 'package:intl/intl.dart';
 
@@ -38,10 +40,13 @@ class _EmployeeKycScreenState extends State<EmployeeKycScreen> {
     'KYC Summary',
   ];
 
-  /// Company-provided allowance amounts (not editable by employee).
-  static const _companyFoodAmount = '2500';
-  static const _companyStayAmount = '4000';
+  /// Company-provided leave allocation (not editable by employee).
   static const _companyLeaveAllocation = '12';
+
+  static const _foodTypeMess = 'company_mess';
+  static const _foodTypeAmount = 'amount';
+  static const _stayTypeHostel = 'company_hostel';
+  static const _stayTypeAmount = 'amount';
 
   final _scaffoldKey = GlobalKey<ScaffoldState>();
   final _detailsKey = GlobalKey<FormState>();
@@ -54,15 +59,11 @@ class _EmployeeKycScreenState extends State<EmployeeKycScreen> {
   final _employeeIdCtrl = TextEditingController();
   final _emailCtrl = TextEditingController();
   final _phoneCtrl = TextEditingController();
-  final _passwordCtrl = TextEditingController();
-  final _confirmPasswordCtrl = TextEditingController();
   final _assignedSiteCtrl = TextEditingController();
   final _salaryCtrl = TextEditingController();
   final _leaveCtrl = TextEditingController();
-  final _foodEmployeeCtrl = TextEditingController();
-  final _foodCompanyCtrl = TextEditingController();
-  final _stayEmployeeCtrl = TextEditingController();
-  final _stayCompanyCtrl = TextEditingController();
+  final _foodAmountCtrl = TextEditingController();
+  final _stayAmountCtrl = TextEditingController();
   final _accountHolderCtrl = TextEditingController();
   final _bankNameCtrl = TextEditingController();
   final _accountNumberCtrl = TextEditingController();
@@ -74,6 +75,8 @@ class _EmployeeKycScreenState extends State<EmployeeKycScreen> {
   bool _saved = false;
   bool _foodAllowance = false;
   bool _stayAllowance = false;
+  String _foodAllowanceType = _foodTypeMess;
+  String _stayAllowanceType = _stayTypeHostel;
   String _employmentType = 'Full-Time';
   DateTime? _joiningDate;
   List<SiteModel> _assignedSites = [];
@@ -109,12 +112,10 @@ class _EmployeeKycScreenState extends State<EmployeeKycScreen> {
     );
     _applyAssignedSites(cachedSites() ?? const [], notify: false);
     _joiningDate = _parseJoinDate(cachedUser()?.dateOfJoin);
-    _foodCompanyCtrl.text = _companyFoodAmount;
-    _stayCompanyCtrl.text = _companyStayAmount;
     _leaveCtrl.text = _companyLeaveAllocation;
     _salaryCtrl.addListener(_onAmountChanged);
-    _foodEmployeeCtrl.addListener(_onAmountChanged);
-    _stayEmployeeCtrl.addListener(_onAmountChanged);
+    _foodAmountCtrl.addListener(_onAmountChanged);
+    _stayAmountCtrl.addListener(_onAmountChanged);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) _loadInitialData();
     });
@@ -176,18 +177,22 @@ class _EmployeeKycScreenState extends State<EmployeeKycScreen> {
         : _employmentType;
 
     if (kyc.foodAllowance) {
-      _foodEmployeeCtrl.text = (kyc.foodEmployeeAmount ?? '').trim();
-      _foodCompanyCtrl.text =
-          (kyc.foodCompanyAmount ?? '').trim().isNotEmpty
-              ? kyc.foodCompanyAmount!.trim()
-              : _companyFoodAmount;
+      final foodType = (kyc.foodAllowanceType ?? '').trim();
+      _foodAllowanceType = foodType == _foodTypeAmount
+          ? _foodTypeAmount
+          : _foodTypeMess;
+      if (_foodAllowanceType == _foodTypeAmount) {
+        _foodAmountCtrl.text = (kyc.foodEmployeeAmount ?? '').trim();
+      }
     }
     if (kyc.stayAllowance) {
-      _stayEmployeeCtrl.text = (kyc.stayEmployeeAmount ?? '').trim();
-      _stayCompanyCtrl.text =
-          (kyc.stayCompanyAmount ?? '').trim().isNotEmpty
-              ? kyc.stayCompanyAmount!.trim()
-              : _companyStayAmount;
+      final stayType = (kyc.stayAllowanceType ?? '').trim();
+      _stayAllowanceType = stayType == _stayTypeAmount
+          ? _stayTypeAmount
+          : _stayTypeHostel;
+      if (_stayAllowanceType == _stayTypeAmount) {
+        _stayAmountCtrl.text = (kyc.stayEmployeeAmount ?? '').trim();
+      }
     }
 
     int? siteId = kyc.siteId;
@@ -320,18 +325,14 @@ class _EmployeeKycScreenState extends State<EmployeeKycScreen> {
     _employeeIdCtrl.dispose();
     _emailCtrl.dispose();
     _phoneCtrl.dispose();
-    _passwordCtrl.dispose();
-    _confirmPasswordCtrl.dispose();
     _assignedSiteCtrl.dispose();
     _salaryCtrl.removeListener(_onAmountChanged);
-    _foodEmployeeCtrl.removeListener(_onAmountChanged);
-    _stayEmployeeCtrl.removeListener(_onAmountChanged);
+    _foodAmountCtrl.removeListener(_onAmountChanged);
+    _stayAmountCtrl.removeListener(_onAmountChanged);
     _salaryCtrl.dispose();
     _leaveCtrl.dispose();
-    _foodEmployeeCtrl.dispose();
-    _foodCompanyCtrl.dispose();
-    _stayEmployeeCtrl.dispose();
-    _stayCompanyCtrl.dispose();
+    _foodAmountCtrl.dispose();
+    _stayAmountCtrl.dispose();
     _accountHolderCtrl.dispose();
     _bankNameCtrl.dispose();
     _accountNumberCtrl.dispose();
@@ -421,12 +422,16 @@ class _EmployeeKycScreenState extends State<EmployeeKycScreen> {
       _snack('Please enter a 10-digit phone number.');
       return false;
     }
-    if (_passwordCtrl.text.length < 8) {
-      _snack('Password must be at least 8 characters.');
+    if (_foodAllowance &&
+        _foodAllowanceType == _foodTypeAmount &&
+        (double.tryParse(_foodAmountCtrl.text.trim()) ?? 0) <= 0) {
+      _snack('Please enter food allowance amount.');
       return false;
     }
-    if (_passwordCtrl.text != _confirmPasswordCtrl.text) {
-      _snack('Password and confirm password do not match.');
+    if (_stayAllowance &&
+        _stayAllowanceType == _stayTypeAmount &&
+        (double.tryParse(_stayAmountCtrl.text.trim()) ?? 0) <= 0) {
+      _snack('Please enter stay allowance amount.');
       return false;
     }
     return true;
@@ -576,32 +581,49 @@ class _EmployeeKycScreenState extends State<EmployeeKycScreen> {
     }
 
     final user = cachedUser();
-    final employeeId = user != null && user.id > 0
-        ? user.id.toString()
-        : _employeeIdCtrl.text.trim();
+    var firstName = (user?.firstName ?? '').trim();
+    var lastName = (user?.lastName ?? '').trim();
+    if (firstName.isEmpty || lastName.isEmpty) {
+      final parts = (user?.name ?? Preference.pref.getString('name') ?? '')
+          .trim()
+          .split(RegExp(r'\s+'));
+      if (firstName.isEmpty && parts.isNotEmpty) firstName = parts.first;
+      if (lastName.isEmpty && parts.length > 1) {
+        lastName = parts.sublist(1).join(' ');
+      }
+    }
+    if (firstName.length < 3 || lastName.length < 3) {
+      _snack('Please update your first and last name in your profile first.');
+      return;
+    }
 
     setState(() => _saving = true);
     final ok = await employeeKycApi(
       context,
+      firstName: firstName,
+      lastName: lastName,
+      email: _emailCtrl.text.trim(),
+      mobile: _phoneCtrl.text.trim(),
       siteId: siteId,
-      employeeId: employeeId.isEmpty ? null : employeeId,
       monthlySalary: _salaryCtrl.text.trim(),
       leaveAllocation: _leaveCtrl.text.trim(),
       employmentType: _employmentType,
       joiningDate: _formatJoinDateApi(_joiningDate),
       foodAllowance: _foodAllowance,
-      foodEmployeeAmount: _foodEmployeeCtrl.text.trim(),
-      foodCompanyAmount: _foodCompanyCtrl.text.trim(),
+      foodAllowanceType: _foodAllowance ? _foodAllowanceType : '',
+      foodEmployeeAmount: _foodAllowance && _foodAllowanceType == _foodTypeAmount
+          ? _foodAmountCtrl.text.trim()
+          : '',
       stayAllowance: _stayAllowance,
-      stayEmployeeAmount: _stayEmployeeCtrl.text.trim(),
-      stayCompanyAmount: _stayCompanyCtrl.text.trim(),
+      stayAllowanceType: _stayAllowance ? _stayAllowanceType : '',
+      stayEmployeeAmount: _stayAllowance && _stayAllowanceType == _stayTypeAmount
+          ? _stayAmountCtrl.text.trim()
+          : '',
       emergencyContact: _emergencyCtrl.text.trim(),
       accountHolderName: _accountHolderCtrl.text.trim(),
       bankName: _bankNameCtrl.text.trim(),
       accountNumber: _accountNumberCtrl.text.trim(),
       ifscCode: _ifscCtrl.text.trim().toUpperCase(),
-      password: _passwordCtrl.text,
-      roleId: currentRoleId() ?? user?.roleId,
       pan: pan,
       aadhaarFront: aadhaarFront,
       aadhaarBack: aadhaarBack,
@@ -623,22 +645,21 @@ class _EmployeeKycScreenState extends State<EmployeeKycScreen> {
             '',
         email: _emailCtrl.text.trim(),
         phoneNumber: _phoneCtrl.text.trim(),
-        kycPassword: _passwordCtrl.text,
         assignedSite: _assignedSiteCtrl.text.trim(),
         monthlySalary: _salaryCtrl.text.trim(),
         leaveAllocation: _leaveCtrl.text.trim(),
         employmentType: _employmentType,
         joiningDate: _formatJoinDate(_joiningDate),
         foodAllowance: _foodAllowance,
-        foodEmployeeAmount:
-            _foodAllowance ? _foodEmployeeCtrl.text.trim() : '',
-        foodCompanyAmount:
-            _foodAllowance ? _foodCompanyCtrl.text.trim() : '',
+        foodAllowanceType: _foodAllowance ? _foodAllowanceType : '',
+        foodEmployeeAmount: _foodAllowance && _foodAllowanceType == _foodTypeAmount
+            ? _foodAmountCtrl.text.trim()
+            : '',
         stayAllowance: _stayAllowance,
-        stayEmployeeAmount:
-            _stayAllowance ? _stayEmployeeCtrl.text.trim() : '',
-        stayCompanyAmount:
-            _stayAllowance ? _stayCompanyCtrl.text.trim() : '',
+        stayAllowanceType: _stayAllowance ? _stayAllowanceType : '',
+        stayEmployeeAmount: _stayAllowance && _stayAllowanceType == _stayTypeAmount
+            ? _stayAmountCtrl.text.trim()
+            : '',
         accountHolderName: _accountHolderCtrl.text.trim(),
         bankName: _bankNameCtrl.text.trim(),
         accountNumber: _accountNumberCtrl.text.trim(),
@@ -658,20 +679,18 @@ class _EmployeeKycScreenState extends State<EmployeeKycScreen> {
       _saving = false;
       _saved = true;
     });
-    _snack('Employee KYC submitted successfully.');
+    await KycGate.syncStatus(KycGate.submitted);
+    if (!mounted) return;
+    pushAndRevoveUntil(context, const EmployeeKycPendingScreen());
   }
 
   String get _primaryCta {
     if (_stepIndex == 0) return 'Next →';
     if (_stepIndex == 1) return 'Accept';
-    return _saved ? 'View Requests' : 'Done';
+    return 'Submit';
   }
 
   void _onPrimary() {
-    if (_isLastStep && _saved) {
-      pushInShell(context, const EmployeeKycRequestsScreen());
-      return;
-    }
     _goNext();
   }
 
@@ -720,8 +739,6 @@ class _EmployeeKycScreenState extends State<EmployeeKycScreen> {
                           hPad: hPad,
                           emailCtrl: _emailCtrl,
                           phoneCtrl: _phoneCtrl,
-                          passwordCtrl: _passwordCtrl,
-                          confirmPasswordCtrl: _confirmPasswordCtrl,
                           assignedSites: _assignedSites,
                           selectedAssignedSiteId: _selectedAssignedSiteId,
                           onAssignedSiteChanged: _onAssignedSiteChanged,
@@ -731,11 +748,11 @@ class _EmployeeKycScreenState extends State<EmployeeKycScreen> {
                           employmentType: _employmentType,
                           employmentTypes: _employmentTypes,
                           foodAllowance: _foodAllowance,
+                          foodAllowanceType: _foodAllowanceType,
                           stayAllowance: _stayAllowance,
-                          foodEmployeeCtrl: _foodEmployeeCtrl,
-                          foodCompanyCtrl: _foodCompanyCtrl,
-                          stayEmployeeCtrl: _stayEmployeeCtrl,
-                          stayCompanyCtrl: _stayCompanyCtrl,
+                          stayAllowanceType: _stayAllowanceType,
+                          foodAmountCtrl: _foodAmountCtrl,
+                          stayAmountCtrl: _stayAmountCtrl,
                           decoration: _decoration,
                           onPickJoiningDate: _pickJoiningDate,
                           onEmploymentTypeChanged: (v) {
@@ -749,9 +766,17 @@ class _EmployeeKycScreenState extends State<EmployeeKycScreen> {
                               _foodAllowance = v;
                               _saved = false;
                               if (!v) {
-                                _foodEmployeeCtrl.clear();
-                              } else {
-                                _foodCompanyCtrl.text = _companyFoodAmount;
+                                _foodAmountCtrl.clear();
+                                _foodAllowanceType = _foodTypeMess;
+                              }
+                            });
+                          },
+                          onFoodTypeChanged: (v) {
+                            setState(() {
+                              _foodAllowanceType = v;
+                              _saved = false;
+                              if (v != _foodTypeAmount) {
+                                _foodAmountCtrl.clear();
                               }
                             });
                           },
@@ -760,9 +785,17 @@ class _EmployeeKycScreenState extends State<EmployeeKycScreen> {
                               _stayAllowance = v;
                               _saved = false;
                               if (!v) {
-                                _stayEmployeeCtrl.clear();
-                              } else {
-                                _stayCompanyCtrl.text = _companyStayAmount;
+                                _stayAmountCtrl.clear();
+                                _stayAllowanceType = _stayTypeHostel;
+                              }
+                            });
+                          },
+                          onStayTypeChanged: (v) {
+                            setState(() {
+                              _stayAllowanceType = v;
+                              _saved = false;
+                              if (v != _stayTypeAmount) {
+                                _stayAmountCtrl.clear();
                               }
                             });
                           },
@@ -850,18 +883,17 @@ class _EmployeeKycScreenState extends State<EmployeeKycScreen> {
                         hPad: hPad,
                         email: _emailCtrl.text.trim(),
                         phoneNumber: _phoneCtrl.text.trim(),
-                        passwordSet: _passwordCtrl.text.isNotEmpty,
                         assignedSite: _assignedSiteCtrl.text.trim(),
                         monthlySalary: _salaryCtrl.text.trim(),
                         leaveAllocation: _leaveCtrl.text.trim(),
                         employmentType: _employmentType,
                         joiningDate: _formatJoinDate(_joiningDate),
                         foodAllowance: _foodAllowance,
-                        foodEmployeeAmount: _foodEmployeeCtrl.text.trim(),
-                        foodCompanyAmount: _foodCompanyCtrl.text.trim(),
+                        foodAllowanceType: _foodAllowanceType,
+                        foodEmployeeAmount: _foodAmountCtrl.text.trim(),
                         stayAllowance: _stayAllowance,
-                        stayEmployeeAmount: _stayEmployeeCtrl.text.trim(),
-                        stayCompanyAmount: _stayCompanyCtrl.text.trim(),
+                        stayAllowanceType: _stayAllowanceType,
+                        stayEmployeeAmount: _stayAmountCtrl.text.trim(),
                         accountHolderName: _accountHolderCtrl.text.trim(),
                         bankName: _bankNameCtrl.text.trim(),
                         accountNumber: _accountNumberCtrl.text.trim(),
@@ -982,8 +1014,6 @@ class _DetailsStep extends StatelessWidget {
     required this.hPad,
     required this.emailCtrl,
     required this.phoneCtrl,
-    required this.passwordCtrl,
-    required this.confirmPasswordCtrl,
     required this.assignedSites,
     required this.selectedAssignedSiteId,
     required this.onAssignedSiteChanged,
@@ -993,23 +1023,23 @@ class _DetailsStep extends StatelessWidget {
     required this.employmentType,
     required this.employmentTypes,
     required this.foodAllowance,
+    required this.foodAllowanceType,
     required this.stayAllowance,
-    required this.foodEmployeeCtrl,
-    required this.foodCompanyCtrl,
-    required this.stayEmployeeCtrl,
-    required this.stayCompanyCtrl,
+    required this.stayAllowanceType,
+    required this.foodAmountCtrl,
+    required this.stayAmountCtrl,
     required this.decoration,
     required this.onPickJoiningDate,
     required this.onEmploymentTypeChanged,
     required this.onFoodChanged,
+    required this.onFoodTypeChanged,
     required this.onStayChanged,
+    required this.onStayTypeChanged,
   });
 
   final double hPad;
   final TextEditingController emailCtrl;
   final TextEditingController phoneCtrl;
-  final TextEditingController passwordCtrl;
-  final TextEditingController confirmPasswordCtrl;
   final List<SiteModel> assignedSites;
   final int? selectedAssignedSiteId;
   final ValueChanged<int?> onAssignedSiteChanged;
@@ -1019,17 +1049,19 @@ class _DetailsStep extends StatelessWidget {
   final String employmentType;
   final List<String> employmentTypes;
   final bool foodAllowance;
+  final String foodAllowanceType;
   final bool stayAllowance;
-  final TextEditingController foodEmployeeCtrl;
-  final TextEditingController foodCompanyCtrl;
-  final TextEditingController stayEmployeeCtrl;
-  final TextEditingController stayCompanyCtrl;
+  final String stayAllowanceType;
+  final TextEditingController foodAmountCtrl;
+  final TextEditingController stayAmountCtrl;
   final InputDecoration Function(String, {String? hint, String? prefixText})
       decoration;
   final VoidCallback onPickJoiningDate;
   final ValueChanged<String> onEmploymentTypeChanged;
   final ValueChanged<bool> onFoodChanged;
+  final ValueChanged<String> onFoodTypeChanged;
   final ValueChanged<bool> onStayChanged;
+  final ValueChanged<String> onStayTypeChanged;
 
   @override
   Widget build(BuildContext context) {
@@ -1039,7 +1071,7 @@ class _DetailsStep extends StatelessWidget {
         _SectionCard(
           icon: Icons.badge_outlined,
           title: 'Employee Details',
-          subtitle: 'Contact, password, assigned sites and employment details.',
+          subtitle: 'Contact, assigned sites and employment details.',
           child: Column(
             children: [
               TextFormField(
@@ -1075,32 +1107,6 @@ class _DetailsStep extends StatelessWidget {
                   final t = (v ?? '').trim();
                   if (t.isEmpty) return 'Phone number is required';
                   if (t.length != 10) return 'Enter a valid 10-digit number';
-                  return null;
-                },
-              ),
-              const SizedBox(height: 12),
-              _PasswordField(
-                controller: passwordCtrl,
-                label: 'Password',
-                hint: 'Min. 8 characters',
-                decoration: decoration,
-                validator: (v) {
-                  final t = v ?? '';
-                  if (t.isEmpty) return 'Password is required';
-                  if (t.length < 8) return 'Password must be at least 8 characters';
-                  return null;
-                },
-              ),
-              const SizedBox(height: 12),
-              _PasswordField(
-                controller: confirmPasswordCtrl,
-                label: 'Confirm Password',
-                hint: 'Re-enter password',
-                decoration: decoration,
-                validator: (v) {
-                  final t = v ?? '';
-                  if (t.isEmpty) return 'Confirm your password';
-                  if (t != passwordCtrl.text) return 'Passwords do not match';
                   return null;
                 },
               ),
@@ -1224,11 +1230,15 @@ class _DetailsStep extends StatelessWidget {
           subtitle: 'Select Yes if food allowance is applicable.',
           enabled: foodAllowance,
           onChanged: onFoodChanged,
-          employeeCtrl: foodEmployeeCtrl,
-          companyCtrl: foodCompanyCtrl,
-          employeeLabel: 'Employee Amount',
-          companyLabel: 'Company Provides',
-          decoration: decoration,
+          typeValue: foodAllowanceType,
+          typeOptions: const [
+            ('company_mess', 'Company Mess'),
+            ('amount', 'Amount'),
+          ],
+          onTypeChanged: onFoodTypeChanged,
+          amountCtrl: foodAmountCtrl,
+          amountLabel: 'Amount',
+          showAmount: foodAllowanceType == 'amount',
         ),
         const SizedBox(height: 14),
         _AllowanceCard(
@@ -1237,11 +1247,15 @@ class _DetailsStep extends StatelessWidget {
           subtitle: 'Select Yes if stay allowance is applicable.',
           enabled: stayAllowance,
           onChanged: onStayChanged,
-          employeeCtrl: stayEmployeeCtrl,
-          companyCtrl: stayCompanyCtrl,
-          employeeLabel: 'Employee Amount',
-          companyLabel: 'Company Provides',
-          decoration: decoration,
+          typeValue: stayAllowanceType,
+          typeOptions: const [
+            ('company_hostel', 'Company Hostel'),
+            ('amount', 'Amount'),
+          ],
+          onTypeChanged: onStayTypeChanged,
+          amountCtrl: stayAmountCtrl,
+          amountLabel: 'Amount',
+          showAmount: stayAllowanceType == 'amount',
         ),
       ],
     );
@@ -1335,11 +1349,12 @@ class _AllowanceCard extends StatelessWidget {
     required this.subtitle,
     required this.enabled,
     required this.onChanged,
-    required this.employeeCtrl,
-    required this.companyCtrl,
-    required this.employeeLabel,
-    required this.companyLabel,
-    required this.decoration,
+    required this.typeValue,
+    required this.typeOptions,
+    required this.onTypeChanged,
+    required this.amountCtrl,
+    required this.amountLabel,
+    required this.showAmount,
   });
 
   final IconData icon;
@@ -1347,17 +1362,17 @@ class _AllowanceCard extends StatelessWidget {
   final String subtitle;
   final bool enabled;
   final ValueChanged<bool> onChanged;
-  final TextEditingController employeeCtrl;
-  final TextEditingController companyCtrl;
-  final String employeeLabel;
-  final String companyLabel;
-  final InputDecoration Function(String, {String? hint, String? prefixText})
-      decoration;
+  final String typeValue;
+  final List<(String value, String label)> typeOptions;
+  final ValueChanged<String> onTypeChanged;
+  final TextEditingController amountCtrl;
+  final String amountLabel;
+  final bool showAmount;
 
-  String? _amountValidator(bool required, String? value, String emptyMsg) {
-    if (!required) return null;
+  String? _amountValidator(String? value) {
+    if (!enabled || !showAmount) return null;
     final t = (value ?? '').trim();
-    if (t.isEmpty) return emptyMsg;
+    if (t.isEmpty) return 'Enter amount';
     final n = double.tryParse(t);
     if (n == null || n <= 0) return 'Enter a valid amount';
     return null;
@@ -1374,26 +1389,24 @@ class _AllowanceCard extends StatelessWidget {
           _YesNoToggle(value: enabled, onChanged: onChanged),
           if (enabled) ...[
             const SizedBox(height: 16),
-            _AmountField(
-              controller: employeeCtrl,
-              label: employeeLabel,
-              hint: '0.00',
-              readOnly: false,
-              validator: (v) => _amountValidator(
-                enabled,
-                v,
-                'Enter employee amount',
-              ),
+            _EmploymentTypeToggle(
+              value: typeValue,
+              options: typeOptions.map((e) => e.$1).toList(),
+              labels: {
+                for (final e in typeOptions) e.$1: e.$2,
+              },
+              onChanged: onTypeChanged,
             ),
-            const SizedBox(height: 12),
-            IgnorePointer(
-              child: _AmountField(
-                controller: companyCtrl,
-                label: companyLabel,
+            if (showAmount) ...[
+              const SizedBox(height: 16),
+              _AmountField(
+                controller: amountCtrl,
+                label: amountLabel,
                 hint: '0.00',
-                readOnly: true,
+                readOnly: false,
+                validator: _amountValidator,
               ),
-            ),
+            ],
           ],
         ],
       ),
@@ -1494,65 +1507,18 @@ class _AmountField extends StatelessWidget {
   }
 }
 
-class _PasswordField extends StatefulWidget {
-  const _PasswordField({
-    required this.controller,
-    required this.label,
-    required this.hint,
-    required this.decoration,
-    this.validator,
-  });
-
-  final TextEditingController controller;
-  final String label;
-  final String hint;
-  final InputDecoration Function(String, {String? hint, String? prefixText})
-      decoration;
-  final String? Function(String?)? validator;
-
-  @override
-  State<_PasswordField> createState() => _PasswordFieldState();
-}
-
-class _PasswordFieldState extends State<_PasswordField> {
-  bool _obscure = true;
-
-  @override
-  Widget build(BuildContext context) {
-    return TextFormField(
-      controller: widget.controller,
-      obscureText: _obscure,
-      textInputAction: TextInputAction.next,
-      validator: widget.validator,
-      style: GoogleFonts.poppins(
-        fontSize: 14.5,
-        fontWeight: FontWeight.w600,
-        color: AppColors.headingBlack,
-      ),
-      decoration: widget.decoration(widget.label, hint: widget.hint).copyWith(
-        suffixIcon: IconButton(
-          icon: Icon(
-            _obscure ? Icons.visibility_off_outlined : Icons.visibility_outlined,
-            color: AppColors.textSecondary,
-            size: 20,
-          ),
-          onPressed: () => setState(() => _obscure = !_obscure),
-        ),
-      ),
-    );
-  }
-}
-
 class _EmploymentTypeToggle extends StatelessWidget {
   const _EmploymentTypeToggle({
     required this.value,
     required this.options,
     required this.onChanged,
+    this.labels,
   });
 
   final String value;
   final List<String> options;
   final ValueChanged<String> onChanged;
+  final Map<String, String>? labels;
 
   @override
   Widget build(BuildContext context) {
@@ -1560,6 +1526,7 @@ class _EmploymentTypeToggle extends StatelessWidget {
 
     Widget chip(String option) {
       final selected = option == value;
+      final label = labels?[option] ?? option;
       return Material(
         color: selected ? AppColors.primaryRed : Colors.transparent,
         borderRadius: BorderRadius.circular(11),
@@ -1569,7 +1536,7 @@ class _EmploymentTypeToggle extends StatelessWidget {
           child: Padding(
             padding: const EdgeInsets.symmetric(vertical: 10),
             child: Text(
-              option,
+              label,
               textAlign: TextAlign.center,
               style: GoogleFonts.poppins(
                 fontSize: 13,
@@ -2140,18 +2107,17 @@ class _SummaryStep extends StatelessWidget {
     required this.hPad,
     required this.email,
     required this.phoneNumber,
-    required this.passwordSet,
     required this.assignedSite,
     required this.monthlySalary,
     required this.leaveAllocation,
     required this.employmentType,
     required this.joiningDate,
     required this.foodAllowance,
+    required this.foodAllowanceType,
     required this.foodEmployeeAmount,
-    required this.foodCompanyAmount,
     required this.stayAllowance,
+    required this.stayAllowanceType,
     required this.stayEmployeeAmount,
-    required this.stayCompanyAmount,
     required this.accountHolderName,
     required this.bankName,
     required this.accountNumber,
@@ -2169,18 +2135,17 @@ class _SummaryStep extends StatelessWidget {
   final double hPad;
   final String email;
   final String phoneNumber;
-  final bool passwordSet;
   final String assignedSite;
   final String monthlySalary;
   final String leaveAllocation;
   final String employmentType;
   final String joiningDate;
   final bool foodAllowance;
+  final String foodAllowanceType;
   final String foodEmployeeAmount;
-  final String foodCompanyAmount;
   final bool stayAllowance;
+  final String stayAllowanceType;
   final String stayEmployeeAmount;
-  final String stayCompanyAmount;
   final String accountHolderName;
   final String bankName;
   final String accountNumber;
@@ -2224,10 +2189,6 @@ class _SummaryStep extends StatelessWidget {
           children: [
             _SummaryRow(label: 'Email', value: email),
             _SummaryRow(label: 'Phone Number', value: phoneNumber),
-            _SummaryRow(
-              label: 'Password',
-              value: passwordSet ? '••••••••' : '—',
-            ),
             _SummaryRow(label: 'Assigned Site', value: assignedSite),
             _SummaryRow(label: 'Joining Date', value: joiningDate),
             _SummaryRow(label: 'Monthly Salary', value: _rupee(monthlySalary)),
@@ -2250,13 +2211,16 @@ class _SummaryStep extends StatelessWidget {
             ),
             if (foodAllowance) ...[
               _SummaryRow(
-                label: 'Employee Amount',
-                value: _rupee(foodEmployeeAmount),
+                label: 'Type',
+                value: foodAllowanceType == 'amount'
+                    ? 'Amount'
+                    : 'Company Mess',
               ),
-              _SummaryRow(
-                label: 'Company Provides',
-                value: _rupee(foodCompanyAmount),
-              ),
+              if (foodAllowanceType == 'amount')
+                _SummaryRow(
+                  label: 'Amount',
+                  value: _rupee(foodEmployeeAmount),
+                ),
             ],
           ],
         ),
@@ -2270,13 +2234,16 @@ class _SummaryStep extends StatelessWidget {
             ),
             if (stayAllowance) ...[
               _SummaryRow(
-                label: 'Employee Amount',
-                value: _rupee(stayEmployeeAmount),
+                label: 'Type',
+                value: stayAllowanceType == 'amount'
+                    ? 'Amount'
+                    : 'Company Hostel',
               ),
-              _SummaryRow(
-                label: 'Company Provides',
-                value: _rupee(stayCompanyAmount),
-              ),
+              if (stayAllowanceType == 'amount')
+                _SummaryRow(
+                  label: 'Amount',
+                  value: _rupee(stayEmployeeAmount),
+                ),
             ],
           ],
         ),

@@ -4,9 +4,9 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:grjoffice_apps/core/app_colors.dart';
 import 'package:grjoffice_apps/loginpage/loginpage.dart';
-import 'package:grjoffice_apps/main_shell.dart';
 import 'package:grjoffice_apps/services/api_auth.dart';
 import 'package:grjoffice_apps/services/attendance_service.dart';
+import 'package:grjoffice_apps/services/kyc_gate.dart';
 import 'package:grjoffice_apps/services/permission_service.dart';
 import 'package:grjoffice_apps/widgets/app_logo.dart';
 
@@ -46,8 +46,18 @@ class _SplashScreenState extends State<SplashScreen>
 
   void _goToLogin() {
     if (!mounted) return;
-    final nextScreen =
-        isLoggedIn ? const MainShell() : const LoginPage();
+    unawaited(_navigateNext());
+  }
+
+  Future<void> _navigateNext() async {
+    if (!mounted) return;
+    Widget nextScreen = const LoginPage();
+    if (isLoggedIn) {
+      await profileApi(context);
+      if (!mounted) return;
+      nextScreen = KycGate.homeScreen();
+    }
+    if (!mounted) return;
     Navigator.of(context).pushReplacement(
       PageRouteBuilder<void>(
         pageBuilder: (_, __, ___) => nextScreen,

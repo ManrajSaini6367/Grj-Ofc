@@ -126,6 +126,8 @@ class _ViewContractorScreenState extends State<ViewContractorScreen> {
                                   _infoTile(Icons.work_outline, 'Coolie OT', _rate(d?.coolieOverRateValue ?? 0, c.coolieOtRatePerHour)),
                                 ],
                               ),
+                              const SizedBox(height: 14),
+                              _buildDocsSection(d, c),
                               if (d?.site?.name != null) ...[
                                 const SizedBox(height: 14),
                                 _buildSection(
@@ -146,6 +148,66 @@ class _ViewContractorScreenState extends State<ViewContractorScreen> {
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildDocsSection(ContractorDetailData? d, LabourContractor c) {
+    final agreements = d?.agreements?.isNotEmpty == true ? d!.agreements! : c.agreements;
+    final documents = d?.documents?.isNotEmpty == true ? d!.documents! : c.documents;
+    final cancelCheque = (d?.cancelCheque != null && d!.cancelCheque!.trim().isNotEmpty)
+        ? d.cancelCheque
+        : c.cancelCheque;
+
+    return _buildSection(
+      title: 'Documents',
+      icon: Icons.folder_open_outlined,
+      children: [
+        _imageRow('Agreements', agreements),
+        _imageRow('Documents', documents),
+        _imageRow(
+          'Cancel Cheque',
+          cancelCheque == null || cancelCheque.trim().isEmpty ? const [] : [cancelCheque],
+        ),
+      ],
+    );
+  }
+
+  Widget _imageRow(String label, List<String> urls) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(label, style: GoogleFonts.poppins(fontSize: 12, color: AppColors.textSecondary)),
+          const SizedBox(height: 8),
+          if (urls.isEmpty)
+            Text('—', style: GoogleFonts.poppins(fontSize: 14, fontWeight: FontWeight.w600))
+          else
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                for (final url in urls)
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(8),
+                    child: Image.network(
+                      mediaUrl(url),
+                      width: 72,
+                      height: 72,
+                      fit: BoxFit.cover,
+                      errorBuilder: (_, __, ___) => Container(
+                        width: 72,
+                        height: 72,
+                        color: AppColors.operationsCardBg,
+                        alignment: Alignment.center,
+                        child: const Icon(Icons.broken_image_outlined, size: 20),
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+        ],
       ),
     );
   }

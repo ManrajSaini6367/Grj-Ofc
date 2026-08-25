@@ -177,6 +177,22 @@ class _OriginalContractorViewScreenState
                                       ),
                                     ),
                                   ],
+                                  const SizedBox(height: 16),
+                                  _infoLine('Phone', _phone),
+                                  const SizedBox(height: 8),
+                                  _infoLine('Address', _address),
+                                  const SizedBox(height: 16),
+                                  _imageGroup('Agreements', _agreements),
+                                  const SizedBox(height: 12),
+                                  _imageGroup('Documents', _documents),
+                                  const SizedBox(height: 12),
+                                  _imageGroup(
+                                    'Cancel Cheque',
+                                    _cancelCheque == null ||
+                                            _cancelCheque!.trim().isEmpty
+                                        ? const []
+                                        : [_cancelCheque!],
+                                  ),
                                   const SizedBox(height: 20),
                                   Text(
                                     'Work according to rate',
@@ -229,6 +245,110 @@ class _OriginalContractorViewScreenState
           ],
         ),
       ),
+    );
+  }
+
+  String get _phone {
+    final fromApi = _detail?.phone?.trim();
+    if (fromApi != null && fromApi.isNotEmpty) return fromApi;
+    return widget.contractor.phone.trim().isEmpty
+        ? '—'
+        : widget.contractor.phone;
+  }
+
+  String get _address {
+    final fromApi = _detail?.address?.trim();
+    if (fromApi != null && fromApi.isNotEmpty) return fromApi;
+    return widget.contractor.address.trim().isEmpty
+        ? '—'
+        : widget.contractor.address;
+  }
+
+  List<String> get _agreements {
+    if (_detail?.agreements?.isNotEmpty == true) return _detail!.agreements!;
+    return widget.contractor.agreements;
+  }
+
+  List<String> get _documents {
+    if (_detail?.documents?.isNotEmpty == true) return _detail!.documents!;
+    return widget.contractor.documents;
+  }
+
+  String? get _cancelCheque {
+    final fromApi = _detail?.cancelCheque?.trim();
+    if (fromApi != null && fromApi.isNotEmpty) return fromApi;
+    return widget.contractor.cancelCheque;
+  }
+
+  Widget _infoLine(String label, String value) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          style: GoogleFonts.poppins(
+            fontSize: 12,
+            color: AppColors.textSecondary,
+          ),
+        ),
+        const SizedBox(height: 2),
+        Text(
+          value,
+          style: GoogleFonts.poppins(
+            fontSize: 14,
+            fontWeight: FontWeight.w600,
+            color: AppColors.headingBlack,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _imageGroup(String label, List<String> urls) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          style: GoogleFonts.poppins(
+            fontSize: 12,
+            color: AppColors.textSecondary,
+          ),
+        ),
+        const SizedBox(height: 8),
+        if (urls.isEmpty)
+          Text(
+            '—',
+            style: GoogleFonts.poppins(
+              fontSize: 14,
+              fontWeight: FontWeight.w600,
+            ),
+          )
+        else
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              for (final url in urls)
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(8),
+                  child: Image.network(
+                    mediaUrl(url),
+                    width: 72,
+                    height: 72,
+                    fit: BoxFit.cover,
+                    errorBuilder: (_, __, ___) => Container(
+                      width: 72,
+                      height: 72,
+                      color: AppColors.operationsCardBg,
+                      alignment: Alignment.center,
+                      child: const Icon(Icons.broken_image_outlined, size: 20),
+                    ),
+                  ),
+                ),
+            ],
+          ),
+      ],
     );
   }
 }
