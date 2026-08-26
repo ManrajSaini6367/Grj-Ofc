@@ -260,7 +260,8 @@ List<SiteModel>? cachedSites() {
   if (sitesJson == null) return null;
   try {
     return (jsonDecode(sitesJson) as List<dynamic>)
-        .map((item) => SiteModel.fromJson(item as Map<String, dynamic>))
+        .whereType<Map>()
+        .map((item) => SiteModel.fromJson(Map<String, dynamic>.from(item)))
         .toList();
   } catch (_) {
     return null;
@@ -474,8 +475,12 @@ Future<List<SiteModel>?> sitesApi(
     if (response.statusCode == 200) {
       final data = json.decode(response.body);
       if (data['success'] == true) {
-        final sitesResponse =
-            SitesResponseModel.fromJson(data['data'] as Map<String, dynamic>);
+        final rawData = data['data'];
+        final sitesResponse = SitesResponseModel.fromJson(
+          rawData is Map
+              ? Map<String, dynamic>.from(rawData)
+              : <String, dynamic>{},
+        );
         final items = sitesResponse.items;
 
         await Preference.pref.setString(

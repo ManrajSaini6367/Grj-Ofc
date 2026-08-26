@@ -16,6 +16,7 @@ import 'package:grjoffice_apps/services/api_auth.dart';
 import 'package:grjoffice_apps/services/location_service.dart';
 import 'package:grjoffice_apps/services/permission_service.dart';
 import 'package:grjoffice_apps/services/punch_in_gate.dart';
+import 'package:grjoffice_apps/services/punch_in_location_validator.dart';
 import 'package:grjoffice_apps/services/user_session.dart';
 import 'package:grjoffice_apps/widgets/app_logo.dart';
 import 'package:grjoffice_apps/widgets/site_selection_dialog.dart';
@@ -212,33 +213,105 @@ class _HomePageState extends State<HomePage> {
     });
   }
 
+  SiteModel? _siteForPunchIn([List<SiteModel>? sites]) {
+    final list = sites ?? _siteItems;
+    if (_selectedSite.isNotEmpty) {
+      for (final site in list) {
+        if (site.name == _selectedSite) return site;
+      }
+    }
+    final id = selectedSiteId();
+    if (id != null) {
+      for (final site in list) {
+        if (site.id == id) return site;
+      }
+    }
+    return null;
+  }
+
+  Future<SiteModel?> _resolvePunchSite() async {
+    final fetched = await sitesApi(context, perPage: 100);
+    if (!mounted) return null;
+
+    if (fetched != null && fetched.isNotEmpty) {
+      _siteItems = fetched;
+      _sites = siteNames(fetched);
+    }
+
+    if (_selectedSite.isNotEmpty) {
+      await _saveSelectedSite(_selectedSite);
+    }
+
+    return _siteForPunchIn(_siteItems);
+  }
+
+  void _showPunchMessage(String text) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(text)),
+    );
+    setState(() => _isProcessingPunch = false);
+  }
+
   Future<void> _handlePunchIn() async {
     if (!_attendanceAllowed) return;
     if (_isProcessingPunch || !_attendance.canPunchIn) return;
     setState(() => _isProcessingPunch = true);
 
-    final granted = await _location.initialize();
-    if (!granted && mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Location permission is required to punch in.')),
+    final site = await _resolvePunchSite();
+    if (!mounted) return;
+    if (site == null) {
+      _showPunchMessage('Please select a site first.');
+      return;
+    }
+    if (!site.hasCoordinates) {
+      _showPunchMessage(
+        'Punch-in not allowed you are outside that location.',      );
+      return;
+    }
+    if (!site.hasPunchRadius) {
+      _showPunchMessage(
+        'Allowed punch-in distance is not configured for this site.',
       );
-      setState(() => _isProcessingPunch = false);
       return;
     }
 
-    final position = await _location.getCurrentLocation(reason: 'PUNCH IN location');
+    final access = await _location.prepareForForegroundUse();
+    if (!access.isReady) {
+      _showPunchMessage(access.message);
+      return;
+    }
+
+    final radiusMeters = site.radiusMeters!;
+    final maxAccuracyMeters =
+        PunchInLocationValidator.maxAcceptableAccuracyMeters(radiusMeters);
+    final desiredAccuracyMeters =
+        maxAccuracyMeters < 50 ? maxAccuracyMeters : 50.0;
+    final position = await _location.getAccurateCurrentLocation(
+      reason: 'PUNCH IN location',
+      desiredAccuracyMeters: desiredAccuracyMeters,
+      maxAccuracyMeters: maxAccuracyMeters,
+    );
     if (position == null) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Unable to fetch current location. Try again.')),
-        );
-        setState(() => _isProcessingPunch = false);
-      }
+      _showPunchMessage(
+        'Unable to get an accurate GPS location. Try again in an open area.',
+      );
       return;
     }
 
-    if (selectedSiteId() == null && _selectedSite.isNotEmpty) {
-      await _saveSelectedSite(_selectedSite);
+    final locationCheck = PunchInLocationValidator.validate(
+      userLatitude: position.latitude,
+      userLongitude: position.longitude,
+      allowedLatitude: site.latitude!,
+      allowedLongitude: site.longitude!,
+      radiusKm: site.radiusKm!,
+    );
+    if (!locationCheck.allowed) {
+      _showPunchMessage(
+        locationCheck.message ??
+            'You are outside that location.',
+      );
+      return;
     }
 
     final result = await punchInApi(

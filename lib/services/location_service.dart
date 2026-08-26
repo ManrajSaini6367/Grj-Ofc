@@ -4,6 +4,22 @@ import 'package:flutter/foundation.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+enum LocationAccessStatus {
+  ready,
+  serviceDisabled,
+  permissionDenied,
+  permissionDeniedForever,
+}
+
+class LocationAccessResult {
+  const LocationAccessResult(this.status, this.message);
+
+  final LocationAccessStatus status;
+  final String message;
+
+  bool get isReady => status == LocationAccessStatus.ready;
+}
+
 /// Handles location permissions and background position tracking via geolocator.
 class LocationService {
   LocationService._();
@@ -123,6 +139,164 @@ class LocationService {
     _positionSub = null;
     _isTracking = false;
     debugPrint('[LocationService] Background tracking stopped.');
+  }
+
+  /// Checks GPS services and requests foreground location permission.
+  /// Does not request background permission (used for Punch In validation).
+  Future<LocationAccessResult> prepareForForegroundUse() async {
+    final serviceEnabled = await Geolocator.isLocationServiceEnabled();
+    if (!serviceEnabled) {
+      return const LocationAccessResult(
+        LocationAccessStatus.serviceDisabled,
+        'Location services are turned off. Please enable GPS to punch in.',
+      );
+    }
+
+    var permission = await Geolocator.checkPermission();
+    if (permission == LocationPermission.denied) {
+      permission = await Geolocator.requestPermission();
+    }
+
+    if (permission == LocationPermission.denied) {
+      return const LocationAccessResult(
+        LocationAccessStatus.permissionDenied,
+        'Location permission is required to punch in.',
+      );
+    }
+
+    if (permission == LocationPermission.deniedForever) {
+      return const LocationAccessResult(
+        LocationAccessStatus.permissionDeniedForever,
+        'Location permission is permanently denied. Enable it in Settings to punch in.',
+      );
+    }
+
+    return const LocationAccessResult(
+      LocationAccessStatus.ready,
+      'Location access granted.',
+    );
+  }
+
+  /// Fetches a GPS fix suitable for geofence checks.
+  /// Prefers a recent accurate reading and waits briefly for a better fix
+  /// when the first reading is too coarse.
+  Future<Position?> getAccurateCurrentLocation({
+    String reason = 'location check',
+    Duration timeout = const Duration(seconds: 20),
+    double desiredAccuracyMeters = 50,
+    double maxAccuracyMeters = 120,
+  }) async {
+    final granted = await _ensurePermissions(requestBackground: false);
+    if (!granted) {
+      debugPrint('[LocationService] $reason — permission denied.');
+      return null;
+    }
+
+    final deadline = DateTime.now().add(timeout);
+    Position? best = _usableCachedPosition(
+      maxAge: const Duration(seconds: 20),
+      maxAccuracyMeters: maxAccuracyMeters,
+    );
+
+    try {
+      final firstAttempt = timeout > const Duration(seconds: 12)
+          ? const Duration(seconds: 12)
+          : timeout;
+      final current = await Geolocator.getCurrentPosition(
+        locationSettings: LocationSettings(
+          accuracy: LocationAccuracy.best,
+          timeLimit: firstAttempt,
+        ),
+      );
+      best = _betterPosition(best, current);
+    } catch (e) {
+      debugPrint('[LocationService] $reason — getCurrentPosition failed: $e');
+    }
+
+    if (best != null && best.accuracy <= desiredAccuracyMeters) {
+      await _savePosition(best);
+      _logPosition(reason, best);
+      return best;
+    }
+
+    final remaining = deadline.difference(DateTime.now());
+    if (remaining > const Duration(milliseconds: 400)) {
+      best = await _waitForBetterFix(
+        currentBest: best,
+        timeout: remaining,
+        desiredAccuracyMeters: desiredAccuracyMeters,
+      );
+    }
+
+    if (best == null || best.accuracy > maxAccuracyMeters) {
+      debugPrint(
+        '[LocationService] $reason — GPS accuracy too low '
+        '(${best?.accuracy.toStringAsFixed(1) ?? 'n/a'} m).',
+      );
+      return null;
+    }
+
+    await _savePosition(best);
+    _logPosition(reason, best);
+    return best;
+  }
+
+  Position? _usableCachedPosition({
+    required Duration maxAge,
+    required double maxAccuracyMeters,
+  }) {
+    final last = _lastPosition;
+    if (last == null) return null;
+    final age = DateTime.now().difference(last.timestamp);
+    if (age > maxAge) return null;
+    if (last.accuracy > maxAccuracyMeters) return null;
+    return last;
+  }
+
+  Future<Position?> _waitForBetterFix({
+    required Position? currentBest,
+    required Duration timeout,
+    required double desiredAccuracyMeters,
+  }) async {
+    Position? best = currentBest;
+    final completer = Completer<Position?>();
+    StreamSubscription<Position>? sub;
+    Timer? timer;
+
+    void finish() {
+      if (!completer.isCompleted) completer.complete(best);
+    }
+
+    timer = Timer(timeout, finish);
+    try {
+      sub = Geolocator.getPositionStream(
+        locationSettings: const LocationSettings(
+          accuracy: LocationAccuracy.best,
+          distanceFilter: 0,
+        ),
+      ).listen(
+        (position) {
+          best = _betterPosition(best, position);
+          if (best != null && best!.accuracy <= desiredAccuracyMeters) {
+            finish();
+          }
+        },
+        onError: (error) {
+          debugPrint('[LocationService] accuracy stream error: $error');
+          finish();
+        },
+      );
+      return await completer.future;
+    } finally {
+      timer.cancel();
+      await sub?.cancel();
+    }
+  }
+
+  Position? _betterPosition(Position? current, Position candidate) {
+    if (current == null) return candidate;
+    if (candidate.accuracy < current.accuracy) return candidate;
+    return current;
   }
 
   /// Fetches the user's current GPS position once (used at punch in/out).

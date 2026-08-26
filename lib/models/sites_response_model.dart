@@ -13,10 +13,13 @@ class SitesResponseModel {
   factory SitesResponseModel.fromJson(Map<String, dynamic> json) {
     return SitesResponseModel(
       items: (json['items'] as List<dynamic>? ?? [])
-          .map((item) => SiteModel.fromJson(item as Map<String, dynamic>))
+          .whereType<Map>()
+          .map((item) => SiteModel.fromJson(Map<String, dynamic>.from(item)))
           .toList(),
       pagination: PaginationModel.fromJson(
-        json['pagination'] as Map<String, dynamic>? ?? {},
+        json['pagination'] is Map
+            ? Map<String, dynamic>.from(json['pagination'] as Map)
+            : const {},
       ),
     );
   }
