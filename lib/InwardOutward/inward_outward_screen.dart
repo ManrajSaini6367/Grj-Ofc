@@ -200,6 +200,7 @@ class _InwardOutwardScreenState extends State<InwardOutwardScreen> {
       final qty = double.tryParse(_qtyController.text.trim()) ?? 0;
       final isOutward = _entryType == _EntryType.outward;
       final entryLabel = _entryLabel;
+      final wasSiteTransfer = isOutward && _outwardDestType == 'different';
 
       final saved = await createInboundOutboundApi(
         context,
@@ -212,9 +213,7 @@ class _InwardOutwardScreenState extends State<InwardOutwardScreen> {
             : _selectedContractorKey,
         remark: _remarkController.text.trim(),
         destinationType: isOutward ? _outwardDestType : null,
-        toSiteId: isOutward && _outwardDestType == 'different'
-            ? _selectedSiteId
-            : null,
+        toSiteId: wasSiteTransfer ? _selectedSiteId : null,
       );
 
       if (!mounted) return;
@@ -248,7 +247,9 @@ class _InwardOutwardScreenState extends State<InwardOutwardScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            '$entryLabel submitted.',
+            wasSiteTransfer
+                ? 'Outbound site request submitted.'
+                : '$entryLabel submitted.',
             style: GoogleFonts.poppins(fontSize: 13),
           ),
           behavior: SnackBarBehavior.floating,

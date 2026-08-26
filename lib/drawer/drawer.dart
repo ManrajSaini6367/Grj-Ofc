@@ -158,6 +158,8 @@ class AppDrawer extends StatelessWidget {
         AppPermissions.viewChallanReport,
         AppPermissions.expensesReport,
         AppPermissions.viewDayReport,
+        AppPermissions.labourAttendancesReport,
+        AppPermissions.employerAttendancesReport,
       ],
     ),
     _DrawerMenuItem(

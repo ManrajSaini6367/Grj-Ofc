@@ -2157,7 +2157,12 @@ Future<InwardOutwardRecord?> createInboundOutboundApi(
         decoded['success'] == true) {
       final data = decoded['data'];
       final item = data is Map ? data['item'] : null;
-      if (context.mounted && apiMessage != null) message(context, apiMessage);
+      final siteRequest = data is Map ? data['site_request'] : null;
+      final msg = apiMessage ??
+          (siteRequest != null
+              ? 'Outbound site request submitted'
+              : '$direction submitted');
+      if (context.mounted) message(context, msg);
       if (item is Map) {
         return InwardOutwardRecord.fromApi(
           Map<String, dynamic>.from(item),
@@ -2193,6 +2198,144 @@ Future<InwardOutwardRecord?> createInboundOutboundApi(
     debugPrint('[createInboundOutboundApi] error: $e\n$st');
     if (context.mounted) message(context, 'Something went wrong');
     return null;
+  }
+}
+
+/// GET /api/v1/outbound-site-requests — requests sent from current site.
+Future<List<Map<String, dynamic>>?> outboundSiteRequestsApi(
+  BuildContext context, {
+  String status = 'all',
+  int perPage = 50,
+}) async {
+  try {
+    final siteId = selectedSiteId();
+    final uri = Uri.parse('$baseUrl/api/v1/outbound-site-requests').replace(
+      queryParameters: {
+        'per_page': perPage.toString(),
+        'status': status,
+        if (siteId != null) 'site_id': siteId.toString(),
+      },
+    );
+    final response =
+        await http.get(uri, headers: authHeaders).timeout(const Duration(seconds: 30));
+    final decoded = decodeApiJson(response.body);
+    if (response.statusCode == 200 && decoded?['success'] == true) {
+      final items = decoded?['data']?['items'];
+      if (items is! List) return <Map<String, dynamic>>[];
+      return items
+          .whereType<Map>()
+          .map((e) => Map<String, dynamic>.from(e))
+          .toList();
+    }
+    if (context.mounted) {
+      message(context, decoded?['message']?.toString() ?? 'Failed to load requests.');
+    }
+    return null;
+  } catch (e) {
+    debugPrint('[outboundSiteRequestsApi] $e');
+    if (context.mounted) message(context, 'Something went wrong');
+    return null;
+  }
+}
+
+/// GET /api/v1/outbound-site-receive-requests — incoming for current site.
+Future<List<Map<String, dynamic>>?> outboundSiteReceiveRequestsApi(
+  BuildContext context, {
+  String? status,
+  int perPage = 50,
+}) async {
+  try {
+    final siteId = selectedSiteId();
+    final uri = Uri.parse('$baseUrl/api/v1/outbound-site-receive-requests')
+        .replace(
+      queryParameters: {
+        'per_page': perPage.toString(),
+        if (status != null) 'status': status,
+        if (siteId != null) 'site_id': siteId.toString(),
+      },
+    );
+    final response =
+        await http.get(uri, headers: authHeaders).timeout(const Duration(seconds: 30));
+    final decoded = decodeApiJson(response.body);
+    if (response.statusCode == 200 && decoded?['success'] == true) {
+      final items = decoded?['data']?['items'];
+      if (items is! List) return <Map<String, dynamic>>[];
+      return items
+          .whereType<Map>()
+          .map((e) => Map<String, dynamic>.from(e))
+          .toList();
+    }
+    if (context.mounted) {
+      message(
+        context,
+        decoded?['message']?.toString() ?? 'Failed to load receive requests.',
+      );
+    }
+    return null;
+  } catch (e) {
+    debugPrint('[outboundSiteReceiveRequestsApi] $e');
+    if (context.mounted) message(context, 'Something went wrong');
+    return null;
+  }
+}
+
+Future<bool> acceptOutboundSiteReceiveRequestApi(
+  BuildContext context, {
+  required int id,
+  String? reviewNote,
+}) async {
+  return _reviewOutboundSiteReceiveRequestApi(
+    context,
+    id: id,
+    action: 'accept',
+    reviewNote: reviewNote,
+  );
+}
+
+Future<bool> rejectOutboundSiteReceiveRequestApi(
+  BuildContext context, {
+  required int id,
+  String? reviewNote,
+}) async {
+  return _reviewOutboundSiteReceiveRequestApi(
+    context,
+    id: id,
+    action: 'reject',
+    reviewNote: reviewNote,
+  );
+}
+
+Future<bool> _reviewOutboundSiteReceiveRequestApi(
+  BuildContext context, {
+  required int id,
+  required String action,
+  String? reviewNote,
+}) async {
+  try {
+    final siteId = selectedSiteId();
+    final url = '$baseUrl/api/v1/outbound-site-receive-requests/$id/$action';
+    final body = <String, dynamic>{
+      if (reviewNote != null && reviewNote.trim().isNotEmpty)
+        'review_note': reviewNote.trim(),
+      if (siteId != null) 'site_id': siteId,
+    };
+    final response = await http
+        .post(Uri.parse(url), headers: authHeaders, body: jsonEncode(body))
+        .timeout(const Duration(seconds: 30));
+    final decoded = decodeApiJson(response.body);
+    final apiMessage = decoded?['message']?.toString();
+    if (response.statusCode == 200 && decoded?['success'] == true) {
+      if (context.mounted && apiMessage != null) message(context, apiMessage);
+      return true;
+    }
+    if (context.mounted) {
+      message(context, apiMessage ?? 'Failed to $action receive request.');
+    }
+    return false;
+  } catch (e) {
+    debugPrint('[reviewOutboundSiteReceiveRequestApi] $e');
+    if (context.mounted) message(context, 'Something went wrong');
+    return false;
   }
 }
 
