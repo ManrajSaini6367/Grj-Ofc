@@ -56,6 +56,21 @@ class _ViewEmployeeProfileScreenState extends State<ViewEmployeeProfileScreen> {
 
   bool get _attendanceAllowed => _profile?.attendanceAllow ?? widget.employee.attendanceAllow;
 
+  String get _accessRolesLabel {
+    final fromProfile = _profile?.accessRoles ?? const <String>[];
+    final names = fromProfile.isNotEmpty ? fromProfile : widget.employee.accessRoles;
+    if (names.isEmpty) return '-';
+    return names.map(_titleCase).join(', ');
+  }
+
+  String _titleCase(String value) {
+    return value
+        .split(RegExp(r'\s+'))
+        .where((part) => part.isNotEmpty)
+        .map((part) => '${part[0].toUpperCase()}${part.substring(1)}')
+        .join(' ');
+  }
+
   String get _employeeId => _text(_profile?.username, fallback: widget.employee.id);
 
   double _hPad(BuildContext context) {
@@ -126,6 +141,11 @@ class _ViewEmployeeProfileScreenState extends State<ViewEmployeeProfileScreen> {
                                 title: 'Access & Status',
                                 icon: Icons.verified_user_outlined,
                                 children: [
+                                  _infoTile(
+                                    Icons.admin_panel_settings_outlined,
+                                    'Access Roles',
+                                    _accessRolesLabel,
+                                  ),
                                   _infoTile(
                                     Icons.fingerprint_outlined,
                                     'Attendance',

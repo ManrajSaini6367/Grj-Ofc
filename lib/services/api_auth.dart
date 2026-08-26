@@ -128,7 +128,9 @@ Future<http.Response> apiPut(
 
     request.add(utf8.encode(body));
 
-    final ioResponse = await request.close().timeout(const Duration(seconds: 30));
+    final ioResponse = await request.close().timeout(
+      const Duration(seconds: 30),
+    );
     final responseBody = await ioResponse
         .transform(utf8.decoder)
         .join()
@@ -174,21 +176,35 @@ LabourContractor labourContractorFromApiData(
     masonRatePerDay: apiToDouble(responseData['mason_rate'], masonRate),
     beldarRatePerDay: apiToDouble(responseData['beldar_rate'], beldarRate),
     coolieRatePerDay: apiToDouble(responseData['coolie_rate'], coolieRate),
-    masonOtRatePerHour: apiToDouble(responseData['mason_over_rate'], masonOverRate),
-    beldarOtRatePerHour: apiToDouble(responseData['beldar_over_rate'], beldarOverRate),
-    coolieOtRatePerHour: apiToDouble(responseData['coolie_over_rate'], coolieOverRate),
+    masonOtRatePerHour: apiToDouble(
+      responseData['mason_over_rate'],
+      masonOverRate,
+    ),
+    beldarOtRatePerHour: apiToDouble(
+      responseData['beldar_over_rate'],
+      beldarOverRate,
+    ),
+    coolieOtRatePerHour: apiToDouble(
+      responseData['coolie_over_rate'],
+      coolieOverRate,
+    ),
     status: status,
     agreements: _stringListFromApi(responseData['agreements'], agreements),
     documents: _stringListFromApi(responseData['documents'], documents),
-    cancelCheque: responseData['cancel_cheque']?.toString().trim().isNotEmpty == true
+    cancelCheque:
+        responseData['cancel_cheque']?.toString().trim().isNotEmpty == true
         ? responseData['cancel_cheque']?.toString()
-        : (responseData['cancel_cheque_url']?.toString().trim().isNotEmpty == true
-            ? responseData['cancel_cheque_url']?.toString()
-            : cancelCheque),
+        : (responseData['cancel_cheque_url']?.toString().trim().isNotEmpty ==
+                  true
+              ? responseData['cancel_cheque_url']?.toString()
+              : cancelCheque),
   );
 }
 
-List<String> _stringListFromApi(dynamic value, [List<String> fallback = const []]) {
+List<String> _stringListFromApi(
+  dynamic value, [
+  List<String> fallback = const [],
+]) {
   if (value is! List) return fallback;
   final out = <String>[];
   for (final item in value) {
@@ -199,7 +215,8 @@ List<String> _stringListFromApi(dynamic value, [List<String> fallback = const []
 }
 
 int? selectedSiteId() =>
-    Preference.pref.getInt('site_id') ?? Preference.pref.getInt('selectedSiteId');
+    Preference.pref.getInt('site_id') ??
+    Preference.pref.getInt('selectedSiteId');
 
 int? currentRoleId() =>
     cachedUser()?.roleId ?? Preference.pref.getInt('role_id');
@@ -281,7 +298,10 @@ List<ItemModel>? cachedItems() {
 }
 
 List<String> siteNames(List<SiteModel> sites) {
-  return sites.map((site) => site.name).where((name) => name.isNotEmpty).toList();
+  return sites
+      .map((site) => site.name)
+      .where((name) => name.isNotEmpty)
+      .toList();
 }
 
 String? siteNameById(List<SiteModel> sites, int id) {
@@ -328,18 +348,16 @@ Future logInApi(
     print('[Login] raw email: "$login"');
     print('[Login] trimmed email: "$email"  len=${email.length}');
     print('[Login] raw password: "$rawPassword"  len=${rawPassword.length}');
-    print('[Login] trimmed password: "$trimmedPassword"  len=${trimmedPassword.length}');
+    print(
+      '[Login] trimmed password: "$trimmedPassword"  len=${trimmedPassword.length}',
+    );
     print('[Login] password codeUnits: ${trimmedPassword.codeUnits}');
     print('[Login] device_name: $_deviceName');
     print('[Login] request JSON: $encodedBody');
     print('===================================');
 
     final response = await http
-        .post(
-          Uri.parse(url),
-          headers: headers,
-          body: encodedBody,
-        )
+        .post(Uri.parse(url), headers: headers, body: encodedBody)
         .timeout(const Duration(seconds: 30));
 
     print('========== LOGIN RESPONSE ==========');
@@ -387,7 +405,10 @@ Future logInApi(
       unawaited(PermissionService.instance.refresh());
 
       if (!context.mounted) return;
-      message(context, data['message']?.toString() ?? 'Logged in successfully.');
+      message(
+        context,
+        data['message']?.toString() ?? 'Logged in successfully.',
+      );
       pushAndRevoveUntil(context, KycGate.homeScreen());
       return;
     }
@@ -427,7 +448,9 @@ Future<UserModel?> profileApi(BuildContext context) async {
     if (response.statusCode == 200) {
       final data = json.decode(response.body);
       if (data['success'] == true) {
-        final profile = UserModel.fromJson(data['data'] as Map<String, dynamic>);
+        final profile = UserModel.fromJson(
+          data['data'] as Map<String, dynamic>,
+        );
         await _saveUser(profile);
 
         // Keep RBAC in sync whenever profile/role is refreshed.
@@ -448,7 +471,10 @@ Future<UserModel?> profileApi(BuildContext context) async {
     } else {
       final data = json.decode(response.body);
       if (!context.mounted) return cachedUser();
-      message(context, data['message']?.toString() ?? 'Failed to load profile.');
+      message(
+        context,
+        data['message']?.toString() ?? 'Failed to load profile.',
+      );
       throw Exception('Failed to load data');
     }
   } catch (e) {
@@ -465,10 +491,7 @@ Future<List<SiteModel>?> sitesApi(
 }) async {
   try {
     final uri = Uri.parse('$baseUrl/api/v1/sites').replace(
-      queryParameters: {
-        'search': search,
-        'per_page': perPage.toString(),
-      },
+      queryParameters: {'search': search, 'per_page': perPage.toString()},
     );
     final response = await http.get(uri, headers: authHeaders);
     print(response.body);
@@ -544,9 +567,9 @@ Future<List<ItemModel>?> itemsApi(
         query['purchase'] = purchase.trim();
       }
 
-      final uri = Uri.parse('$baseUrl/api/v1/items').replace(
-        queryParameters: query,
-      );
+      final uri = Uri.parse(
+        '$baseUrl/api/v1/items',
+      ).replace(queryParameters: query);
       debugPrint('[itemsApi] GET $uri');
 
       final response = await http
@@ -636,8 +659,9 @@ Future<List<ItemModel>?> itemsSearchApi(
     if (response.statusCode == 200) {
       final data = json.decode(response.body);
       if (data['success'] == true) {
-        final itemsResponse =
-            ItemsResponseModel.fromJson(data['data'] as Map<String, dynamic>);
+        final itemsResponse = ItemsResponseModel.fromJson(
+          data['data'] as Map<String, dynamic>,
+        );
         return itemsResponse.items;
       } else {
         if (!context.mounted) return null;
@@ -647,7 +671,10 @@ Future<List<ItemModel>?> itemsSearchApi(
     } else {
       final data = json.decode(response.body);
       if (!context.mounted) return null;
-      message(context, data['message']?.toString() ?? 'Failed to search items.');
+      message(
+        context,
+        data['message']?.toString() ?? 'Failed to search items.',
+      );
       throw Exception('Failed to load data');
     }
   } catch (e) {
@@ -665,6 +692,7 @@ String get _deviceName {
   if (Platform.isLinux) return 'linux';
   return 'flutter';
 }
+
 //logout api
 Future<void> logoutApi(BuildContext context) async {
   try {
@@ -672,14 +700,13 @@ Future<void> logoutApi(BuildContext context) async {
     final url = '$baseUrl/api/v1/logout';
 
     print('[logoutApi] POST $url');
-    print('[logoutApi] Authorization: Bearer ${token.isEmpty ? '(empty)' : '***'}');
+    print(
+      '[logoutApi] Authorization: Bearer ${token.isEmpty ? '(empty)' : '***'}',
+    );
 
     final response = await http.post(
       Uri.parse(url),
-      headers: {
-        'Accept': 'application/json',
-        'Authorization': 'Bearer $token',
-      },
+      headers: {'Accept': 'application/json', 'Authorization': 'Bearer $token'},
     );
 
     print('[logoutApi] statusCode: ${response.statusCode}');
@@ -729,7 +756,6 @@ Future<void> _clearSessionData() async {
   await PermissionService.instance.clear();
   UserSession.instance.clear();
 }
-
 
 //create supplierapi
 Future<Supplier?> createSupplierApi(
@@ -827,7 +853,10 @@ Future<Supplier?> createSupplierApi(
 }
 
 //get supplier api
-Future<Getsuppilerdata?> getSupplierApi(BuildContext context, int supplierId) async {
+Future<Getsuppilerdata?> getSupplierApi(
+  BuildContext context,
+  int supplierId,
+) async {
   try {
     final url = '$baseUrl/api/v1/suppliers/$supplierId';
 
@@ -843,7 +872,9 @@ Future<Getsuppilerdata?> getSupplierApi(BuildContext context, int supplierId) as
     final decoded = decodeApiJson(response.body);
     final apiMessage = decoded?['message']?.toString();
 
-    if (response.statusCode == 200 && decoded != null && decoded['success'] == true) {
+    if (response.statusCode == 200 &&
+        decoded != null &&
+        decoded['success'] == true) {
       return Getsuppilerdata.fromJson(decoded);
     }
 
@@ -929,9 +960,9 @@ Future<Getsupplierlistdata?> getSuppliersApi(
         queryParams['search'] = search.trim();
       }
 
-      final uri = Uri.parse('$baseUrl/api/v1/suppliers').replace(
-        queryParameters: queryParams,
-      );
+      final uri = Uri.parse(
+        '$baseUrl/api/v1/suppliers',
+      ).replace(queryParameters: queryParams);
 
       debugPrint('[getSuppliersApi] GET $uri');
 
@@ -1025,9 +1056,9 @@ Future<Getsupplierlistdata?> getSuppliersByItemApi(
       queryParams['search'] = search.trim();
     }
 
-    final uri = Uri.parse('$baseUrl/api/v1/suppliers/by-item').replace(
-      queryParameters: queryParams,
-    );
+    final uri = Uri.parse(
+      '$baseUrl/api/v1/suppliers/by-item',
+    ).replace(queryParameters: queryParams);
 
     print('[getSuppliersByItemApi] GET $uri');
 
@@ -1041,7 +1072,9 @@ Future<Getsupplierlistdata?> getSuppliersByItemApi(
     final decoded = decodeApiJson(response.body);
     final apiMessage = decoded?['message']?.toString();
 
-    if (response.statusCode == 200 && decoded != null && decoded['success'] == true) {
+    if (response.statusCode == 200 &&
+        decoded != null &&
+        decoded['success'] == true) {
       return Getsupplierlistdata.fromJson(decoded);
     }
 
@@ -1146,20 +1179,15 @@ Future<Supplier?> updateSupplierApi(
     return null;
   }
 }
+
 //delete supplier api
-Future<bool> deleteSupplierApi(
-  BuildContext context,
-  int supplierId,
-) async {
+Future<bool> deleteSupplierApi(BuildContext context, int supplierId) async {
   try {
     final url = '$baseUrl/api/v1/suppliers/$supplierId';
 
     print('[deleteSupplierApi] DELETE $url');
 
-    final response = await http.delete(
-      Uri.parse(url),
-      headers: authHeaders,
-    );
+    final response = await http.delete(Uri.parse(url), headers: authHeaders);
 
     print('[deleteSupplierApi] statusCode: ${response.statusCode}');
     print('[deleteSupplierApi] response body: ${response.body}');
@@ -1184,6 +1212,7 @@ Future<bool> deleteSupplierApi(
     return false;
   }
 }
+
 //create contractorapi
 Future<LabourContractor?> createContractorApi(
   BuildContext context, {
@@ -1204,7 +1233,8 @@ Future<LabourContractor?> createContractorApi(
 }) async {
   try {
     final url = '$baseUrl/api/v1/contractors';
-    final hasFiles = agreementFiles.isNotEmpty ||
+    final hasFiles =
+        agreementFiles.isNotEmpty ||
         documentFiles.isNotEmpty ||
         cancelChequeFile != null;
 
@@ -1367,9 +1397,9 @@ Future<Contractorlistdatamodal?> getContractorListApi(
       queryParams['search'] = search.trim();
     }
 
-    final uri = Uri.parse('$baseUrl/api/v1/contractors').replace(
-      queryParameters: queryParams,
-    );
+    final uri = Uri.parse(
+      '$baseUrl/api/v1/contractors',
+    ).replace(queryParameters: queryParams);
 
     print('[getContractorListApi] GET $uri');
 
@@ -1383,7 +1413,9 @@ Future<Contractorlistdatamodal?> getContractorListApi(
     final decoded = decodeApiJson(response.body);
     final apiMessage = decoded?['message']?.toString();
 
-    if (response.statusCode == 200 && decoded != null && decoded['success'] == true) {
+    if (response.statusCode == 200 &&
+        decoded != null &&
+        decoded['success'] == true) {
       return Contractorlistdatamodal.fromJson(decoded);
     }
 
@@ -1403,6 +1435,7 @@ Future<Contractorlistdatamodal?> getContractorListApi(
     return null;
   }
 }
+
 //updatecontractorapi
 Future<LabourContractor?> updateContractorApi(
   BuildContext context, {
@@ -1423,7 +1456,8 @@ Future<LabourContractor?> updateContractorApi(
 }) async {
   try {
     final uri = Uri.parse('$baseUrl/api/v1/contractors/$contractorId');
-    final hasFiles = agreementFiles.isNotEmpty ||
+    final hasFiles =
+        agreementFiles.isNotEmpty ||
         documentFiles.isNotEmpty ||
         cancelChequeFile != null;
 
@@ -1555,20 +1589,15 @@ Future<LabourContractor?> updateContractorApi(
 }
 //deletecontractorapi
 
-
-Future<bool> deleteContractorApi(
-  BuildContext context,
-  int contractorId,
-) async {
+Future<bool> deleteContractorApi(BuildContext context, int contractorId) async {
   try {
     final url = '$baseUrl/api/v1/contractors/$contractorId';
 
     print('[deleteContractorApi] DELETE $url');
 
-    final response = await http.delete(
-      Uri.parse(url),
-      headers: authHeaders,
-    ).timeout(const Duration(seconds: 30));
+    final response = await http
+        .delete(Uri.parse(url), headers: authHeaders)
+        .timeout(const Duration(seconds: 30));
 
     print('[deleteContractorApi] statusCode: ${response.statusCode}');
     print('[deleteContractorApi] response body: ${response.body}');
@@ -1658,7 +1687,8 @@ Future<InventoryItem?> createItemApi(
             name: responseData['name']?.toString() ?? name,
             sku: responseData['sku']?.toString() ?? sku,
             unit: responseData['unit']?.toString() ?? unit,
-            status: (responseData['status']?.toString() ?? status) == 'published'
+            status:
+                (responseData['status']?.toString() ?? status) == 'published'
                 ? ItemStatus.published
                 : ItemStatus.unpublished,
             directPurchase: (responseData['purchase'] ?? purchase) == 1,
@@ -1757,11 +1787,7 @@ Future<InventoryItem?> updateItemApi(
     print('[updateItemApi] PUT $uri');
     print('[updateItemApi] itemId: $itemId');
 
-    final response = await apiPut(
-      uri,
-      headers: authHeaders,
-      body: body,
-    );
+    final response = await apiPut(uri, headers: authHeaders, body: body);
 
     print('[updateItemApi] statusCode: ${response.statusCode}');
     print('[updateItemApi] response body: ${response.body}');
@@ -1834,20 +1860,14 @@ Future<InventoryItem?> updateItemApi(
 }
 
 //itemdeleteapi
-Future<bool> deleteItemApi(
-  BuildContext context,
-  int itemId,
-) async {
+Future<bool> deleteItemApi(BuildContext context, int itemId) async {
   try {
     final url = '$baseUrl/api/v1/items/$itemId';
 
     print('[deleteItemApi] DELETE $url');
 
     final response = await http
-        .delete(
-          Uri.parse(url),
-          headers: authHeaders,
-        )
+        .delete(Uri.parse(url), headers: authHeaders)
         .timeout(const Duration(seconds: 30));
 
     print('[deleteItemApi] statusCode: ${response.statusCode}');
@@ -1879,6 +1899,7 @@ Future<bool> deleteItemApi(
     return false;
   }
 }
+
 //itemhistoryapi
 Future<Itemhistorydata?> itemHistoryApi(
   BuildContext context, {
@@ -1896,9 +1917,9 @@ Future<Itemhistorydata?> itemHistoryApi(
       };
       if (type.trim().isNotEmpty) query['type'] = type.trim();
 
-      final uri = Uri.parse('$baseUrl/api/v1/items/$itemId/history').replace(
-        queryParameters: query,
-      );
+      final uri = Uri.parse(
+        '$baseUrl/api/v1/items/$itemId/history',
+      ).replace(queryParameters: query);
 
       debugPrint('[itemHistoryApi] GET $uri');
 
@@ -1990,11 +2011,7 @@ Future<bool> createItemHistoryApi(
     debugPrint('[createItemHistoryApi] body: $body');
 
     final response = await http
-        .post(
-          Uri.parse(url),
-          headers: authHeaders,
-          body: jsonEncode(body),
-        )
+        .post(Uri.parse(url), headers: authHeaders, body: jsonEncode(body))
         .timeout(const Duration(seconds: 30));
 
     debugPrint('[createItemHistoryApi] statusCode: ${response.statusCode}');
@@ -2016,7 +2033,8 @@ Future<bool> createItemHistoryApi(
     return false;
   } on TimeoutException {
     debugPrint('[createItemHistoryApi] request timed out');
-    if (context.mounted) message(context, 'Request timed out. Please try again.');
+    if (context.mounted)
+      message(context, 'Request timed out. Please try again.');
     return false;
   } catch (e, stack) {
     debugPrint('[createItemHistoryApi] error: $e');
@@ -2045,16 +2063,14 @@ Future<List<InwardOutwardRecord>?> inboundOutboundListApi(
         'page': pageNo.toString(),
         if (siteId != null) 'site_id': siteId.toString(),
       };
-      final uri = Uri.parse('$baseUrl/api/v1/$direction').replace(
-        queryParameters: query,
-      );
+      final uri = Uri.parse(
+        '$baseUrl/api/v1/$direction',
+      ).replace(queryParameters: query);
       debugPrint('[inboundOutboundListApi] GET $uri');
       final response = await http
           .get(uri, headers: authHeaders)
           .timeout(const Duration(seconds: 30));
-      debugPrint(
-        '[inboundOutboundListApi] status=${response.statusCode}',
-      );
+      debugPrint('[inboundOutboundListApi] status=${response.statusCode}');
       final decoded = decodeApiJson(response.body);
       final apiMessage = decoded?['message']?.toString();
       if (response.statusCode == 200 &&
@@ -2101,7 +2117,8 @@ Future<List<InwardOutwardRecord>?> inboundOutboundListApi(
     return all;
   } on TimeoutException {
     debugPrint('[inboundOutboundListApi] timed out');
-    if (context.mounted) message(context, 'Request timed out. Please try again.');
+    if (context.mounted)
+      message(context, 'Request timed out. Please try again.');
     return null;
   } catch (e, st) {
     debugPrint('[inboundOutboundListApi] error: $e\n$st');
@@ -2142,16 +2159,10 @@ Future<InwardOutwardRecord?> createInboundOutboundApi(
     debugPrint('[createInboundOutboundApi] body: $body');
 
     final response = await http
-        .post(
-          Uri.parse(url),
-          headers: authHeaders,
-          body: jsonEncode(body),
-        )
+        .post(Uri.parse(url), headers: authHeaders, body: jsonEncode(body))
         .timeout(const Duration(seconds: 30));
 
-    debugPrint(
-      '[createInboundOutboundApi] status=${response.statusCode}',
-    );
+    debugPrint('[createInboundOutboundApi] status=${response.statusCode}');
     debugPrint('[createInboundOutboundApi] body=${response.body}');
 
     final decoded = decodeApiJson(response.body);
@@ -2163,7 +2174,8 @@ Future<InwardOutwardRecord?> createInboundOutboundApi(
       final data = decoded['data'];
       final item = data is Map ? data['item'] : null;
       final siteRequest = data is Map ? data['site_request'] : null;
-      final msg = apiMessage ??
+      final msg =
+          apiMessage ??
           (siteRequest != null
               ? 'Outbound site request submitted'
               : '$direction submitted');
@@ -2197,7 +2209,8 @@ Future<InwardOutwardRecord?> createInboundOutboundApi(
     return null;
   } on TimeoutException {
     debugPrint('[createInboundOutboundApi] timed out');
-    if (context.mounted) message(context, 'Request timed out. Please try again.');
+    if (context.mounted)
+      message(context, 'Request timed out. Please try again.');
     return null;
   } catch (e, st) {
     debugPrint('[createInboundOutboundApi] error: $e\n$st');
@@ -2221,8 +2234,9 @@ Future<List<Map<String, dynamic>>?> outboundSiteRequestsApi(
         if (siteId != null) 'site_id': siteId.toString(),
       },
     );
-    final response =
-        await http.get(uri, headers: authHeaders).timeout(const Duration(seconds: 30));
+    final response = await http
+        .get(uri, headers: authHeaders)
+        .timeout(const Duration(seconds: 30));
     final decoded = decodeApiJson(response.body);
     if (response.statusCode == 200 && decoded?['success'] == true) {
       final items = decoded?['data']?['items'];
@@ -2233,7 +2247,10 @@ Future<List<Map<String, dynamic>>?> outboundSiteRequestsApi(
           .toList();
     }
     if (context.mounted) {
-      message(context, decoded?['message']?.toString() ?? 'Failed to load requests.');
+      message(
+        context,
+        decoded?['message']?.toString() ?? 'Failed to load requests.',
+      );
     }
     return null;
   } catch (e) {
@@ -2253,14 +2270,15 @@ Future<List<Map<String, dynamic>>?> outboundSiteReceiveRequestsApi(
     final siteId = selectedSiteId();
     final uri = Uri.parse('$baseUrl/api/v1/outbound-site-receive-requests')
         .replace(
-      queryParameters: {
-        'per_page': perPage.toString(),
-        if (status != null) 'status': status,
-        if (siteId != null) 'site_id': siteId.toString(),
-      },
-    );
-    final response =
-        await http.get(uri, headers: authHeaders).timeout(const Duration(seconds: 30));
+          queryParameters: {
+            'per_page': perPage.toString(),
+            if (status != null) 'status': status,
+            if (siteId != null) 'site_id': siteId.toString(),
+          },
+        );
+    final response = await http
+        .get(uri, headers: authHeaders)
+        .timeout(const Duration(seconds: 30));
     final decoded = decodeApiJson(response.body);
     if (response.statusCode == 200 && decoded?['success'] == true) {
       final items = decoded?['data']?['items'];
@@ -2344,10 +2362,39 @@ Future<bool> _reviewOutboundSiteReceiveRequestApi(
   }
 }
 
+Future<List<Map<String, dynamic>>?> getEmployeeRolesApi(
+  BuildContext context,
+) async {
+  try {
+    final response = await http
+        .get(
+          Uri.parse('$baseUrl/api/v1/roles?per_page=100'),
+          headers: authHeaders,
+        )
+        .timeout(const Duration(seconds: 30));
+    final json = decodeApiJson(response.body);
+    final items = json?['data']?['items'];
+
+    if (response.statusCode == 200 && items is List) {
+      return items.whereType<Map<String, dynamic>>().toList();
+    }
+
+    if (context.mounted) {
+      message(context, json?['message']?.toString() ?? 'Failed to load roles.');
+    }
+    return null;
+  } catch (e) {
+    debugPrint('[getEmployeeRolesApi] $e');
+    if (context.mounted) message(context, 'Failed to load roles.');
+    return null;
+  }
+}
+
 // createemployeeapi
 Future<bool> createEmployeeApi(
   BuildContext context, {
   required int siteId,
+  required int roleId,
   required String firstName,
   required String lastName,
   required String email,
@@ -2359,6 +2406,7 @@ Future<bool> createEmployeeApi(
   String? dateOfSuspended,
   required bool attendanceAllow,
   required String status,
+  List<int> accessRoleIds = const [],
 }) async {
   try {
     final url = '$baseUrl/api/v1/employees';
@@ -2368,6 +2416,7 @@ Future<bool> createEmployeeApi(
 
     final body = <String, dynamic>{
       'site_id': siteId,
+      'role_id': roleId,
       'first_name': firstName,
       'last_name': lastName,
       'email': email,
@@ -2378,17 +2427,14 @@ Future<bool> createEmployeeApi(
       'date_of_join': dateOfJoin,
       'attendance_allow': attendanceAllow ? 1 : 0,
       'status': status,
+      'access_roles': accessRoleIds,
     };
     if (dateOfSuspended != null && dateOfSuspended.isNotEmpty) {
       body['date_of_suspended'] = dateOfSuspended;
     }
 
     final response = await http
-        .post(
-          Uri.parse(url),
-          headers: authHeaders,
-          body: jsonEncode(body),
-        )
+        .post(Uri.parse(url), headers: authHeaders, body: jsonEncode(body))
         .timeout(const Duration(seconds: 30));
 
     print('[createEmployeeApi] statusCode: ${response.statusCode}');
@@ -2423,6 +2469,7 @@ Future<bool> createEmployeeApi(
     return false;
   }
 }
+
 // listemployeeapi
 Future<Getemployeesmodal?> getEmployeesApi(
   BuildContext context, {
@@ -2448,9 +2495,9 @@ Future<Getemployeesmodal?> getEmployeesApi(
         queryParams['search'] = search.trim();
       }
 
-      final uri = Uri.parse('$baseUrl/api/v1/employees').replace(
-        queryParameters: queryParams,
-      );
+      final uri = Uri.parse(
+        '$baseUrl/api/v1/employees',
+      ).replace(queryParameters: queryParams);
 
       debugPrint('[getEmployeesApi] GET $uri');
 
@@ -2516,6 +2563,7 @@ Future<Getemployeesmodal?> getEmployeesApi(
     return null;
   }
 }
+
 // editemployeeapi
 Future<bool> updateEmployeeApi(
   BuildContext context, {
@@ -2531,6 +2579,8 @@ Future<bool> updateEmployeeApi(
   String? passwordConfirmation,
   required bool attendanceAllow,
   required String status,
+  int? roleId,
+  List<int> accessRoleIds = const [],
 }) async {
   try {
     final uri = Uri.parse('$baseUrl/api/v1/employees/$employeeId');
@@ -2543,7 +2593,11 @@ Future<bool> updateEmployeeApi(
       'date_of_join': dateOfJoin,
       'attendance_allow': attendanceAllow ? 1 : 0,
       'status': status,
+      'access_roles': accessRoleIds,
     };
+    if (roleId != null) {
+      body['role_id'] = roleId;
+    }
     if (dateOfSuspended != null && dateOfSuspended.isNotEmpty) {
       body['date_of_suspended'] = dateOfSuspended;
     }
@@ -2582,21 +2636,16 @@ Future<bool> updateEmployeeApi(
     return false;
   }
 }
+
 // deleteemployeeapi
-Future<bool> deleteEmployeeApi(
-  BuildContext context,
-  int employeeId,
-) async {
+Future<bool> deleteEmployeeApi(BuildContext context, int employeeId) async {
   try {
     final url = '$baseUrl/api/v1/employees/$employeeId';
 
     print('[deleteEmployeeApi] DELETE $url');
 
     final response = await http
-        .delete(
-          Uri.parse(url),
-          headers: authHeaders,
-        )
+        .delete(Uri.parse(url), headers: authHeaders)
         .timeout(const Duration(seconds: 30));
 
     print('[deleteEmployeeApi] statusCode: ${response.statusCode}');
@@ -2625,6 +2674,7 @@ Future<bool> deleteEmployeeApi(
     return false;
   }
 }
+
 // viewprofileofemployeeapi
 Future<Viewemployeeprofile?> viewProfileOfEmployeeApi(
   BuildContext context,
@@ -2667,6 +2717,7 @@ Future<Viewemployeeprofile?> viewProfileOfEmployeeApi(
     return null;
   }
 }
+
 // getcontractor api
 Future<Getcontractormodal?> getContractorApi(
   BuildContext context,
@@ -2750,9 +2801,9 @@ Future<TasksListResponse?> getTasksApi(
       queryParams['user_id'] = userId.toString();
     }
 
-    final uri = Uri.parse('$baseUrl/api/v1/tasks').replace(
-      queryParameters: queryParams,
-    );
+    final uri = Uri.parse(
+      '$baseUrl/api/v1/tasks',
+    ).replace(queryParameters: queryParams);
 
     print('[getTasksApi] GET $uri');
 
@@ -2826,11 +2877,7 @@ Future<Task?> createTaskApi(
     print('[createTaskApi] body: $body');
 
     final response = await http
-        .post(
-          Uri.parse(url),
-          headers: authHeaders,
-          body: jsonEncode(body),
-        )
+        .post(Uri.parse(url), headers: authHeaders, body: jsonEncode(body))
         .timeout(const Duration(seconds: 30));
 
     print('[createTaskApi] statusCode: ${response.statusCode}');
@@ -2984,9 +3031,7 @@ Future<Task?> updateTaskStatusApi(
 }) async {
   try {
     final url = '$baseUrl/api/v1/tasks/$taskId';
-    final body = <String, dynamic>{
-      'status': status,
-    };
+    final body = <String, dynamic>{'status': status};
 
     print('[updateTaskStatusApi] PUT $url');
     print('[updateTaskStatusApi] body: $body');
@@ -3038,10 +3083,7 @@ Future<bool> deleteTaskApi(BuildContext context, int taskId) async {
     print('[deleteTaskApi] DELETE $url');
 
     final response = await http
-        .delete(
-          Uri.parse(url),
-          headers: authHeaders,
-        )
+        .delete(Uri.parse(url), headers: authHeaders)
         .timeout(const Duration(seconds: 30));
 
     print('[deleteTaskApi] statusCode: ${response.statusCode}');
@@ -3099,9 +3141,9 @@ Future<ActivitiesListResponse?> getActivitiesApi(
       queryParams['search'] = search.trim();
     }
 
-    final uri = Uri.parse('$baseUrl/api/v1/activities').replace(
-      queryParameters: queryParams,
-    );
+    final uri = Uri.parse(
+      '$baseUrl/api/v1/activities',
+    ).replace(queryParameters: queryParams);
 
     print('[getActivitiesApi] GET $uri');
 
@@ -3153,9 +3195,9 @@ Future<ActivityEntry?> getActivityApi(
       return null;
     }
 
-    final uri = Uri.parse('$baseUrl/api/v1/activities/$activityId').replace(
-      queryParameters: {'site_id': resolvedSiteId.toString()},
-    );
+    final uri = Uri.parse(
+      '$baseUrl/api/v1/activities/$activityId',
+    ).replace(queryParameters: {'site_id': resolvedSiteId.toString()});
 
     print('[getActivityApi] GET $uri');
 
@@ -3200,9 +3242,9 @@ Future<TaskMessagesListResponse?> getTaskMessagesApi(
   int perPage = 50,
 }) async {
   try {
-    final uri = Uri.parse('$baseUrl/api/v1/tasks/$taskId/messages').replace(
-      queryParameters: {'per_page': perPage.toString()},
-    );
+    final uri = Uri.parse(
+      '$baseUrl/api/v1/tasks/$taskId/messages',
+    ).replace(queryParameters: {'per_page': perPage.toString()});
 
     print('[getTaskMessagesApi] GET $uri');
 
@@ -3257,11 +3299,7 @@ Future<TaskMessage?> sendTaskMessageApi(
     print('[sendTaskMessageApi] body: $body');
 
     final response = await http
-        .post(
-          Uri.parse(url),
-          headers: authHeaders,
-          body: jsonEncode(body),
-        )
+        .post(Uri.parse(url), headers: authHeaders, body: jsonEncode(body))
         .timeout(const Duration(seconds: 30));
 
     print('[sendTaskMessageApi] statusCode: ${response.statusCode}');
@@ -3465,9 +3503,9 @@ Future<ExpensesListResponse?> getExpensesApi(
         queryParams['search'] = search.trim();
       }
 
-      final uri = Uri.parse('$baseUrl/api/v1/expenses').replace(
-        queryParameters: queryParams,
-      );
+      final uri = Uri.parse(
+        '$baseUrl/api/v1/expenses',
+      ).replace(queryParameters: queryParams);
 
       debugPrint('[getExpensesApi] GET $uri');
 
@@ -3593,11 +3631,7 @@ Future<Expense?> createExpenseApi(
     print('[createExpenseApi] body: $body');
 
     final response = await http
-        .post(
-          Uri.parse(url),
-          headers: authHeaders,
-          body: jsonEncode(body),
-        )
+        .post(Uri.parse(url), headers: authHeaders, body: jsonEncode(body))
         .timeout(const Duration(seconds: 30));
 
     print('[createExpenseApi] statusCode: ${response.statusCode}');
@@ -3767,10 +3801,7 @@ Future<bool> deleteExpenseApi(BuildContext context, int expenseId) async {
     print('[deleteExpenseApi] DELETE $url');
 
     final response = await http
-        .delete(
-          Uri.parse(url),
-          headers: authHeaders,
-        )
+        .delete(Uri.parse(url), headers: authHeaders)
         .timeout(const Duration(seconds: 30));
 
     print('[deleteExpenseApi] statusCode: ${response.statusCode}');
@@ -3929,10 +3960,7 @@ ChatMediaSendResult _parseChatMediaSendResponse(http.Response response) {
       success: jsonData['success'] == true || data != null,
     );
   } catch (e) {
-    return ChatMediaSendResult(
-      success: false,
-      errorMessage: e.toString(),
-    );
+    return ChatMediaSendResult(success: false, errorMessage: e.toString());
   }
 }
 
@@ -3983,9 +4011,9 @@ Future<PurchasesListResponse?> getPurchasesApi(
           'end_date': endDate.trim(),
       };
 
-      final uri = Uri.parse('$baseUrl/api/v1/purchases').replace(
-        queryParameters: queryParams,
-      );
+      final uri = Uri.parse(
+        '$baseUrl/api/v1/purchases',
+      ).replace(queryParameters: queryParams);
 
       debugPrint('[getPurchasesApi] GET $uri');
 
@@ -4105,10 +4133,7 @@ Future<bool> deletePurchaseApi(BuildContext context, int purchaseId) async {
     print('[deletePurchaseApi] DELETE $url');
 
     final response = await http
-        .delete(
-          Uri.parse(url),
-          headers: authHeaders,
-        )
+        .delete(Uri.parse(url), headers: authHeaders)
         .timeout(const Duration(seconds: 30));
 
     print('[deletePurchaseApi] statusCode: ${response.statusCode}');
@@ -4165,9 +4190,9 @@ Future<AttendancesListResponse?> getAttendancesApi(
       'search': search.trim(),
     };
 
-    final uri = Uri.parse('$baseUrl/api/v1/attendances').replace(
-      queryParameters: queryParams,
-    );
+    final uri = Uri.parse(
+      '$baseUrl/api/v1/attendances',
+    ).replace(queryParameters: queryParams);
 
     print('[getAttendancesApi] GET $uri');
 
@@ -4219,11 +4244,9 @@ Future<TodayAttendanceStatus?> getTodayAttendanceApi(
       return null;
     }
 
-    final uri = Uri.parse('$baseUrl/api/v1/attendances/today').replace(
-      queryParameters: {
-        'site_id': resolvedSiteId.toString(),
-      },
-    );
+    final uri = Uri.parse(
+      '$baseUrl/api/v1/attendances/today',
+    ).replace(queryParameters: {'site_id': resolvedSiteId.toString()});
 
     print('[getTodayAttendanceApi] GET $uri');
 
@@ -4296,10 +4319,7 @@ Future<PunchActionResult?> punchInApi(
     print('[punchInApi] POST $url');
     print('[punchInApi] fields: $fields');
 
-    final response = await _sendMultipart(
-      Uri.parse(url),
-      fields: fields,
-    );
+    final response = await _sendMultipart(Uri.parse(url), fields: fields);
 
     print('[punchInApi] statusCode: ${response.statusCode}');
     print('[punchInApi] response body: ${response.body}');
@@ -4373,11 +4393,7 @@ Future<PunchActionResult?> punchOutApi(
     print('[punchOutApi] body: $body');
 
     final response = await http
-        .post(
-          Uri.parse(url),
-          headers: authHeaders,
-          body: jsonEncode(body),
-        )
+        .post(Uri.parse(url), headers: authHeaders, body: jsonEncode(body))
         .timeout(const Duration(seconds: 30));
 
     print('[punchOutApi] statusCode: ${response.statusCode}');
@@ -4426,7 +4442,10 @@ Future<PunchActionResult?> punchOutApi(
 }
 
 //getattendanceapi
-Future<Attendance?> getAttendanceApi(BuildContext context, int attendanceId) async {
+Future<Attendance?> getAttendanceApi(
+  BuildContext context,
+  int attendanceId,
+) async {
   try {
     final url = '$baseUrl/api/v1/attendances/$attendanceId';
 
@@ -4520,9 +4539,7 @@ Future<Purchase?> createPurchaseApi(
     }
 
     final imageField = normalizedFlow == 'direct' ? 'image' : 'loading_image';
-    final files = [
-      await _multipartImage(imageField, imageFile),
-    ];
+    final files = [await _multipartImage(imageField, imageFile)];
 
     print('[createPurchaseApi] POST $url');
     print('[createPurchaseApi] fields: $fields');
@@ -4572,12 +4589,8 @@ Future<Purchase?> purchaseStep2WithKantaApi(
 }) async {
   try {
     final url = '$baseUrl/api/v1/purchases/$purchaseId/step-2';
-    final fields = <String, String>{
-      'vehicle_no': vehicleNo.trim(),
-    };
-    final files = [
-      await _multipartImage('unloading_image', unloadingImage),
-    ];
+    final fields = <String, String>{'vehicle_no': vehicleNo.trim()};
+    final files = [await _multipartImage('unloading_image', unloadingImage)];
 
     print('[purchaseStep2WithKantaApi] POST $url');
     print('[purchaseStep2WithKantaApi] fields: $fields');
@@ -4627,9 +4640,7 @@ Future<Purchase?> purchaseStep2WithoutKantaApi(
 }) async {
   try {
     final url = '$baseUrl/api/v1/purchases/$purchaseId/step-2';
-    final fields = <String, String>{
-      'invoice_no': invoiceNo.trim(),
-    };
+    final fields = <String, String>{'invoice_no': invoiceNo.trim()};
     if (remark != null && remark.trim().isNotEmpty) {
       fields['remark'] = remark.trim();
     }
@@ -4640,9 +4651,7 @@ Future<Purchase?> purchaseStep2WithoutKantaApi(
       fields['materials[$i][unit]'] = m.unit;
     }
 
-    final files = [
-      await _multipartImage('unloading_image', unloadingImage),
-    ];
+    final files = [await _multipartImage('unloading_image', unloadingImage)];
 
     print('[purchaseStep2WithoutKantaApi] POST $url');
     print('[purchaseStep2WithoutKantaApi] fields: $fields');
@@ -4694,9 +4703,7 @@ Future<Purchase?> purchaseStep3WithKantaApi(
 }) async {
   try {
     final url = '$baseUrl/api/v1/purchases/$purchaseId/step-3';
-    final fields = <String, String>{
-      'kanta_no': kantaNo.trim(),
-    };
+    final fields = <String, String>{'kanta_no': kantaNo.trim()};
     final trimmedInvoice = invoiceNo?.trim();
     if (trimmedInvoice != null && trimmedInvoice.isNotEmpty) {
       fields['invoice_no'] = trimmedInvoice;
@@ -4833,11 +4840,7 @@ Future<bool> markLabourAttendanceApi(
     print('[markLabourAttendanceApi] body: $body');
 
     final response = await http
-        .post(
-          Uri.parse(url),
-          headers: authHeaders,
-          body: jsonEncode(body),
-        )
+        .post(Uri.parse(url), headers: authHeaders, body: jsonEncode(body))
         .timeout(const Duration(seconds: 30));
 
     print('[markLabourAttendanceApi] statusCode: ${response.statusCode}');
@@ -4869,7 +4872,6 @@ Future<bool> markLabourAttendanceApi(
   }
 }
 
-
 Future<Mypermissionmodaldata?> getMyPermissionsApi() {
   return PermissionService.instance.fetch();
 }
@@ -4896,10 +4898,7 @@ Future<Getchatlistmodaldata?> getChatListApi({
 
     final response = await http.get(
       uri,
-      headers: {
-        'Accept': 'application/json',
-        'Authorization': 'Bearer $token',
-      },
+      headers: {'Accept': 'application/json', 'Authorization': 'Bearer $token'},
     );
 
     debugPrint('Get Chat List API : ${response.request?.url}');
@@ -4918,7 +4917,6 @@ Future<Getchatlistmodaldata?> getChatListApi({
 
   return null;
 }
-
 
 //getchatthreadlistapi
 
@@ -4944,10 +4942,7 @@ Future<Getchatthreadlistmodal?> getChatThreadListApi({
 
     final response = await http.get(
       uri,
-      headers: {
-        'Accept': 'application/json',
-        'Authorization': 'Bearer $token',
-      },
+      headers: {'Accept': 'application/json', 'Authorization': 'Bearer $token'},
     );
 
     debugPrint('Get Chat Thread List API : ${response.request?.url}');
@@ -4966,7 +4961,6 @@ Future<Getchatthreadlistmodal?> getChatThreadListApi({
 
   return null;
 }
-
 
 //creategroupchatapi
 
@@ -5033,7 +5027,8 @@ Future<CreateGroupApiResult> createGroupApi({
         final data = jsonData!['data'];
         return CreateGroupApiResult(
           success: true,
-          message: jsonData['message']?.toString() ?? 'Group created successfully.',
+          message:
+              jsonData['message']?.toString() ?? 'Group created successfully.',
           data: data is Map<String, dynamic>
               ? data
               : (data is Map ? Map<String, dynamic>.from(data) : null),
@@ -5048,7 +5043,8 @@ Future<CreateGroupApiResult> createGroupApi({
 
     return CreateGroupApiResult(
       success: false,
-      message: jsonData?['message']?.toString() ??
+      message:
+          jsonData?['message']?.toString() ??
           'Failed to create group (${response.statusCode}).',
       data: jsonData,
     );
@@ -5064,10 +5060,7 @@ Future<CreateGroupApiResult> createGroupApi({
 //DELETEGROUPAPI
 
 class DeleteGroupApiResult {
-  const DeleteGroupApiResult({
-    required this.success,
-    required this.message,
-  });
+  const DeleteGroupApiResult({required this.success, required this.message});
 
   final bool success;
   final String message;
@@ -5091,10 +5084,7 @@ Future<DeleteGroupApiResult> deleteGroupApi({
 
     final response = await http.delete(
       uri,
-      headers: {
-        'Accept': 'application/json',
-        'Authorization': 'Bearer $token',
-      },
+      headers: {'Accept': 'application/json', 'Authorization': 'Bearer $token'},
     );
 
     debugPrint('Delete Group API Status Code : ${response.statusCode}');
@@ -5108,21 +5098,21 @@ Future<DeleteGroupApiResult> deleteGroupApi({
       } catch (_) {}
     }
 
-    final okStatus =
-        response.statusCode == 200 || response.statusCode == 204;
+    final okStatus = response.statusCode == 200 || response.statusCode == 204;
     final okFlag = jsonData == null || jsonData['success'] == true;
 
     if (okStatus && okFlag) {
       return DeleteGroupApiResult(
         success: true,
-        message: jsonData?['message']?.toString() ??
-            'Group deleted successfully.',
+        message:
+            jsonData?['message']?.toString() ?? 'Group deleted successfully.',
       );
     }
 
     return DeleteGroupApiResult(
       success: false,
-      message: jsonData?['message']?.toString() ??
+      message:
+          jsonData?['message']?.toString() ??
           'Failed to delete group (${response.statusCode}).',
     );
   } catch (e, st) {
@@ -5134,14 +5124,10 @@ Future<DeleteGroupApiResult> deleteGroupApi({
   }
 }
 
-
 //LEAVEGROUPAPI
 
 class LeaveGroupApiResult {
-  const LeaveGroupApiResult({
-    required this.success,
-    required this.message,
-  });
+  const LeaveGroupApiResult({required this.success, required this.message});
 
   final bool success;
   final String message;
@@ -5165,10 +5151,7 @@ Future<LeaveGroupApiResult> leaveGroupApi({
 
     final response = await http.post(
       uri,
-      headers: {
-        'Accept': 'application/json',
-        'Authorization': 'Bearer $token',
-      },
+      headers: {'Accept': 'application/json', 'Authorization': 'Bearer $token'},
     );
 
     debugPrint('Leave Group API Status Code : ${response.statusCode}');
@@ -5182,21 +5165,20 @@ Future<LeaveGroupApiResult> leaveGroupApi({
       } catch (_) {}
     }
 
-    final okStatus =
-        response.statusCode == 200 || response.statusCode == 201;
+    final okStatus = response.statusCode == 200 || response.statusCode == 201;
     final okFlag = jsonData == null || jsonData['success'] == true;
 
     if (okStatus && okFlag) {
       return LeaveGroupApiResult(
         success: true,
-        message:
-            jsonData?['message']?.toString() ?? 'Left group successfully.',
+        message: jsonData?['message']?.toString() ?? 'Left group successfully.',
       );
     }
 
     return LeaveGroupApiResult(
       success: false,
-      message: jsonData?['message']?.toString() ??
+      message:
+          jsonData?['message']?.toString() ??
           'Failed to leave group (${response.statusCode}).',
     );
   } catch (e, st) {
@@ -5241,10 +5223,7 @@ Future<RemoveGroupMemberApiResult> removeGroupMemberApi({
 
     final response = await http.delete(
       uri,
-      headers: {
-        'Accept': 'application/json',
-        'Authorization': 'Bearer $token',
-      },
+      headers: {'Accept': 'application/json', 'Authorization': 'Bearer $token'},
     );
 
     debugPrint('Remove Group Member API Status Code : ${response.statusCode}');
@@ -5258,21 +5237,21 @@ Future<RemoveGroupMemberApiResult> removeGroupMemberApi({
       } catch (_) {}
     }
 
-    final okStatus =
-        response.statusCode == 200 || response.statusCode == 204;
+    final okStatus = response.statusCode == 200 || response.statusCode == 204;
     final okFlag = jsonData == null || jsonData['success'] == true;
 
     if (okStatus && okFlag) {
       return RemoveGroupMemberApiResult(
         success: true,
-        message: jsonData?['message']?.toString() ??
-            'Member removed successfully.',
+        message:
+            jsonData?['message']?.toString() ?? 'Member removed successfully.',
       );
     }
 
     return RemoveGroupMemberApiResult(
       success: false,
-      message: jsonData?['message']?.toString() ??
+      message:
+          jsonData?['message']?.toString() ??
           'Failed to remove member (${response.statusCode}).',
     );
   } catch (e, st) {
@@ -5300,9 +5279,7 @@ Future<AddGroupMembersApiResult> addGroupMembersApi({
   required String chatThreadId,
   required List<int> memberIds,
 }) async {
-  final requestBody = {
-    'member_ids': memberIds,
-  };
+  final requestBody = {'member_ids': memberIds};
 
   try {
     final token = Preference.pref.getString('token') ?? '';
@@ -5314,9 +5291,7 @@ Future<AddGroupMembersApiResult> addGroupMembersApi({
       );
     }
 
-    final uri = Uri.parse(
-      '$baseUrl/api/v1/chat/groups/$chatThreadId/members',
-    );
+    final uri = Uri.parse('$baseUrl/api/v1/chat/groups/$chatThreadId/members');
     debugPrint('Add Group Members API Request URL : $uri');
     debugPrint(
       'Add Group Members API Request Body : ${jsonEncode(requestBody)}',
@@ -5343,21 +5318,21 @@ Future<AddGroupMembersApiResult> addGroupMembersApi({
       } catch (_) {}
     }
 
-    final okStatus =
-        response.statusCode == 200 || response.statusCode == 201;
+    final okStatus = response.statusCode == 200 || response.statusCode == 201;
     final okFlag = jsonData == null || jsonData['success'] == true;
 
     if (okStatus && okFlag) {
       return AddGroupMembersApiResult(
         success: true,
-        message: jsonData?['message']?.toString() ??
-            'Members added successfully.',
+        message:
+            jsonData?['message']?.toString() ?? 'Members added successfully.',
       );
     }
 
     return AddGroupMembersApiResult(
       success: false,
-      message: jsonData?['message']?.toString() ??
+      message:
+          jsonData?['message']?.toString() ??
           'Failed to add members (${response.statusCode}).',
     );
   } catch (e, st) {
@@ -5369,20 +5344,15 @@ Future<AddGroupMembersApiResult> addGroupMembersApi({
   }
 }
 
-//Markthreadreadapi 
+//Markthreadreadapi
 
-Future<bool> markThreadReadApi({
-  required String chatThreadId,
-}) async {
+Future<bool> markThreadReadApi({required String chatThreadId}) async {
   try {
     final token = Preference.pref.getString('token') ?? '';
 
     final response = await http.post(
       Uri.parse('$baseUrl/api/v1/chat/threads/$chatThreadId/read'),
-      headers: {
-        'Accept': 'application/json',
-        'Authorization': 'Bearer $token',
-      },
+      headers: {'Accept': 'application/json', 'Authorization': 'Bearer $token'},
     );
 
     debugPrint('Mark Thread Read API : ${response.request?.url}');
@@ -5418,9 +5388,7 @@ Future<bool> sendMessageApi({
         'Content-Type': 'application/json',
         'Authorization': 'Bearer $token',
       },
-      body: jsonEncode({
-        'text': message,
-      }),
+      body: jsonEncode({'text': message}),
     );
 
     debugPrint('Send Message API : ${response.request?.url}');
@@ -5440,7 +5408,6 @@ Future<bool> sendMessageApi({
   return false;
 }
 
-
 //getlistmessagesapi
 Future<Getlistmessagemodal?> getListMessageApi({
   required String chatThreadId,
@@ -5456,10 +5423,7 @@ Future<Getlistmessagemodal?> getListMessageApi({
 
     final response = await http.get(
       Uri.parse(url),
-      headers: {
-        'Accept': 'application/json',
-        'Authorization': 'Bearer $token',
-      },
+      headers: {'Accept': 'application/json', 'Authorization': 'Bearer $token'},
     );
 
     debugPrint('Status Code : ${response.statusCode}');
@@ -5488,10 +5452,7 @@ Future<Showthreadmodaldata?> showThreadApi(String threadId) async {
 
     final response = await http.get(
       Uri.parse(url),
-      headers: {
-        'Accept': 'application/json',
-        'Authorization': 'Bearer $token',
-      },
+      headers: {'Accept': 'application/json', 'Authorization': 'Bearer $token'},
     );
 
     debugPrint('Status Code : ${response.statusCode}');
@@ -5674,10 +5635,7 @@ Future<ChatMediaSendResult> sendPhotoMessageApi({
 
     final response = await _sendMultipart(
       uri,
-      fields: {
-        'type': 'photo',
-        'text': caption,
-      },
+      fields: {'type': 'photo', 'text': caption},
       files: [media],
       timeout: const Duration(seconds: 90),
     );
@@ -5788,9 +5746,7 @@ Future<Getleavetypemodal?> getLeaveTypeApi(BuildContext context) async {
         decoded != null &&
         decoded['success'] == true) {
       final model = Getleavetypemodal.fromJson(decoded);
-      debugPrint(
-        '[getLeaveTypeApi] types: ${model.data?.items?.length ?? 0}',
-      );
+      debugPrint('[getLeaveTypeApi] types: ${model.data?.items?.length ?? 0}');
       return model;
     }
 
@@ -5822,9 +5778,9 @@ Future<Getmyleavedata?> getMyLeaveApi(
       if (status.trim().isNotEmpty) 'status': status.trim(),
     };
 
-    final uri = Uri.parse('$baseUrl/api/v1/leaves/mine').replace(
-      queryParameters: query,
-    );
+    final uri = Uri.parse(
+      '$baseUrl/api/v1/leaves/mine',
+    ).replace(queryParameters: query);
     debugPrint('[getMyLeaveApi] GET $uri');
 
     final response = await http
@@ -5841,9 +5797,7 @@ Future<Getmyleavedata?> getMyLeaveApi(
         decoded != null &&
         decoded['success'] == true) {
       final model = Getmyleavedata.fromJson(decoded);
-      debugPrint(
-        '[getMyLeaveApi] leaves: ${model.data?.items?.length ?? 0}',
-      );
+      debugPrint('[getMyLeaveApi] leaves: ${model.data?.items?.length ?? 0}');
       return model;
     }
 
@@ -5862,7 +5816,7 @@ Future<Getmyleavedata?> getMyLeaveApi(
 }
 
 /// GET /api/v1/leaves/{leaveId}
-/// 
+///
 Future<Getshowleavemodal?> getShowLeaveApi(
   BuildContext context,
   String leaveId,
@@ -5912,10 +5866,7 @@ Future<Getshowleavemodal?> getShowLeaveApi(
 }
 
 /// DELETE /api/v1/leaves/{leaveId}
-Future<bool> deleteLeaveApi(
-  BuildContext context,
-  String leaveId,
-) async {
+Future<bool> deleteLeaveApi(BuildContext context, String leaveId) async {
   try {
     final id = leaveId.trim();
     if (id.isEmpty) {
@@ -5976,9 +5927,9 @@ Future<Leaverequesthr?> getLeaveRequestHRListApi(
       'search': search.trim(),
     };
 
-    final uri = Uri.parse('$baseUrl/api/v1/leaves').replace(
-      queryParameters: query,
-    );
+    final uri = Uri.parse(
+      '$baseUrl/api/v1/leaves',
+    ).replace(queryParameters: query);
     debugPrint('[getLeaveRequestHRListApi] GET $uri');
 
     final response = await http
@@ -6014,8 +5965,6 @@ Future<Leaverequesthr?> getLeaveRequestHRListApi(
     return null;
   }
 }
-
-
 
 //approveleave from HR
 
@@ -6067,7 +6016,6 @@ Future<bool> approveLeaveApi(
 
 //Rejectleave from HR
 
-
 Future<bool> rejectLeaveApi(
   BuildContext context, {
   required String leaveId,
@@ -6114,16 +6062,15 @@ Future<bool> rejectLeaveApi(
   }
 }
 
-
 //getreportsapi
 Future<Getreportmodaldata?> getReportsApi(
   BuildContext context, {
   required int siteId,
 }) async {
   try {
-    final uri = Uri.parse('$baseUrl/api/v1/reports').replace(
-      queryParameters: {'site_id': siteId.toString()},
-    );
+    final uri = Uri.parse(
+      '$baseUrl/api/v1/reports',
+    ).replace(queryParameters: {'site_id': siteId.toString()});
 
     print('[getReportsApi] GET $uri');
 
@@ -6174,9 +6121,9 @@ Future<Map<String, dynamic>?> getReportDetailApi(
       ...queryParams,
     }..removeWhere((_, value) => value.trim().isEmpty);
 
-    final uri = Uri.parse('$baseUrl$normalizedPath').replace(
-      queryParameters: params,
-    );
+    final uri = Uri.parse(
+      '$baseUrl$normalizedPath',
+    ).replace(queryParameters: params);
 
     print('[getReportDetailApi] GET $uri');
 
@@ -6254,7 +6201,8 @@ Future<Uint8List?> downloadReportExcelApi(
 
     if (response.statusCode == 200 && response.bodyBytes.isNotEmpty) {
       final bytes = response.bodyBytes;
-      final looksJson = bytes.isNotEmpty &&
+      final looksJson =
+          bytes.isNotEmpty &&
           (bytes[0] == 0x7B || bytes[0] == 0x5B); // '{' or '['
       if (looksJson) {
         final decoded = decodeApiJson(response.body);
@@ -6284,6 +6232,7 @@ Future<Uint8List?> downloadReportExcelApi(
     return null;
   }
 }
+
 //getattendancecalendarapi
 Future<Getcalendermodal?> getAttendanceCalendarApi(
   BuildContext context, {
@@ -6309,9 +6258,9 @@ Future<Getcalendermodal?> getAttendanceCalendarApi(
       queryParams['user_id'] = userId.toString();
     }
 
-    final uri = Uri.parse('$baseUrl/api/v1/attendances/calendar').replace(
-      queryParameters: queryParams,
-    );
+    final uri = Uri.parse(
+      '$baseUrl/api/v1/attendances/calendar',
+    ).replace(queryParameters: queryParams);
 
     print('[getAttendanceCalendarApi] GET $uri');
 
@@ -6375,9 +6324,9 @@ Future<Getoriginalcontractor?> getOriginalContractorsApi(
       queryParams['search'] = search.trim();
     }
 
-    final uri = Uri.parse('$baseUrl/api/v1/original-contractors').replace(
-      queryParameters: queryParams,
-    );
+    final uri = Uri.parse(
+      '$baseUrl/api/v1/original-contractors',
+    ).replace(queryParameters: queryParams);
 
     print('[getOriginalContractorsApi] GET $uri');
 
@@ -6494,9 +6443,7 @@ Future<OriginalContractorItem?> createOriginalContractorApi(
     if (!context.mounted) return null;
     message(
       context,
-      _firstApiError(decoded) ??
-          apiMessage ??
-          'Failed to create contractor.',
+      _firstApiError(decoded) ?? apiMessage ?? 'Failed to create contractor.',
     );
     return null;
   } on TimeoutException {
@@ -6599,7 +6546,8 @@ Future<Getcclist?> updateOriginalContractorApi(
         .where((item) => (item['work'] as String).isNotEmpty)
         .toList();
 
-    final hasFiles = agreementFiles.isNotEmpty ||
+    final hasFiles =
+        agreementFiles.isNotEmpty ||
         documentFiles.isNotEmpty ||
         cancelChequeFile != null;
 
@@ -6660,9 +6608,7 @@ Future<Getcclist?> updateOriginalContractorApi(
     if (!context.mounted) return null;
     message(
       context,
-      _firstApiError(decoded) ??
-          apiMessage ??
-          'Failed to update contractor.',
+      _firstApiError(decoded) ?? apiMessage ?? 'Failed to update contractor.',
     );
     return null;
   } on TimeoutException {
@@ -6706,9 +6652,7 @@ Future<bool> deleteOriginalContractorApi(
     if (!context.mounted) return false;
     message(
       context,
-      _firstApiError(decoded) ??
-          apiMessage ??
-          'Failed to delete contractor.',
+      _firstApiError(decoded) ?? apiMessage ?? 'Failed to delete contractor.',
     );
     return false;
   } on TimeoutException {
@@ -6815,7 +6759,9 @@ Future<bool> employeeKycApi(
 
     print('[employeeKycApi] POST $url');
     print('[employeeKycApi] fields: $fields');
-    print('[employeeKycApi] files: pan, aadhaar_front, aadhaar_back, marksheet_10, marksheet_12, bank_cheque');
+    print(
+      '[employeeKycApi] files: pan, aadhaar_front, aadhaar_back, marksheet_10, marksheet_12, bank_cheque',
+    );
 
     final response = await _sendMultipart(
       Uri.parse(url),
@@ -6838,9 +6784,7 @@ Future<bool> employeeKycApi(
     if (!context.mounted) return false;
     message(
       context,
-      _firstApiError(decoded) ??
-          apiMessage ??
-          'Failed to submit Employee KYC.',
+      _firstApiError(decoded) ?? apiMessage ?? 'Failed to submit Employee KYC.',
     );
     return false;
   } on TimeoutException {
@@ -6856,7 +6800,6 @@ Future<bool> employeeKycApi(
     return false;
   }
 }
-
 
 //mykycdata — GET /api/v1/employee-kycs/mine
 Future<MyKycModalData?> getMyEmployeeKycApi(BuildContext context) async {
@@ -6939,9 +6882,9 @@ Future<GetMyEmployeeKycRequest?> getMyEmployeeKycRequestApi(
       queryParams['search'] = search.trim();
     }
 
-    final uri = Uri.parse('$baseUrl/api/v1/employee-kycs').replace(
-      queryParameters: queryParams,
-    );
+    final uri = Uri.parse(
+      '$baseUrl/api/v1/employee-kycs',
+    ).replace(queryParameters: queryParams);
     print('[getMyEmployeeKycRequestApi] GET $uri');
 
     final response = await http
@@ -6984,7 +6927,6 @@ Future<GetMyEmployeeKycRequest?> getMyEmployeeKycRequestApi(
     return null;
   }
 }
-
 
 //showemployeekycapi — GET /api/v1/employee-kycs/{id}
 Future<Showemployyeskycmodal?> showEmployeeKycApi(
@@ -7128,9 +7070,7 @@ Future<Approvekycmodal?> rejectEmployeeKycApi(
     if (!context.mounted) return null;
     message(
       context,
-      _firstApiError(decoded) ??
-          apiMessage ??
-          'Failed to reject Employee KYC.',
+      _firstApiError(decoded) ?? apiMessage ?? 'Failed to reject Employee KYC.',
     );
     return null;
   } on TimeoutException {
@@ -7146,7 +7086,6 @@ Future<Approvekycmodal?> rejectEmployeeKycApi(
     return null;
   }
 }
-
 
 //getlistnotificationapi — GET /api/v1/notifications
 Future<GetListNotification?> getListNotificationApi(
@@ -7173,9 +7112,9 @@ Future<GetListNotification?> getListNotificationApi(
       queryParams['site_id'] = resolvedSiteId.toString();
     }
 
-    final uri = Uri.parse('$baseUrl/api/v1/notifications').replace(
-      queryParameters: queryParams,
-    );
+    final uri = Uri.parse(
+      '$baseUrl/api/v1/notifications',
+    ).replace(queryParameters: queryParams);
     print('[getListNotificationApi] GET $uri');
 
     final response = await http
@@ -7204,9 +7143,7 @@ Future<GetListNotification?> getListNotificationApi(
     if (!context.mounted) return null;
     message(
       context,
-      _firstApiError(decoded) ??
-          apiMessage ??
-          'Failed to load notifications.',
+      _firstApiError(decoded) ?? apiMessage ?? 'Failed to load notifications.',
     );
     return null;
   } on TimeoutException {
@@ -7365,9 +7302,7 @@ Future<Getnotificationmodaldata?> getNotificationApi(
     if (!context.mounted) return null;
     message(
       context,
-      _firstApiError(decoded) ??
-          apiMessage ??
-          'Failed to load notification.',
+      _firstApiError(decoded) ?? apiMessage ?? 'Failed to load notification.',
     );
     return null;
   } on TimeoutException {

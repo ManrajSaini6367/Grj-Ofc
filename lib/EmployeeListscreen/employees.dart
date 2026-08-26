@@ -101,6 +101,8 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
       status: item.isActiveStatus ? EmployeeStatus.active : EmployeeStatus.inactive,
       dateOfJoin: item.dateOfJoin,
       attendanceAllow: item.attendanceAllow ?? true,
+      accessRoles: item.accessRoles ?? const [],
+      accessRoleIds: item.accessRoleIds ?? const [],
     );
   }
 
@@ -424,6 +426,20 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
                                     fontSize: 13,
                                   ),
                                 ),
+                                if (employee.accessRoles.isNotEmpty) ...[
+                                  const SizedBox(height: 2),
+                                  Text(
+                                    employee.accessRoles
+                                        .map((name) => name.isEmpty
+                                            ? name
+                                            : '${name[0].toUpperCase()}${name.substring(1)}')
+                                        .join(', '),
+                                    style: GoogleFonts.poppins(
+                                      color: AppColors.textSecondary,
+                                      fontSize: 12,
+                                    ),
+                                  ),
+                                ],
                               ],
                             ),
                           ),

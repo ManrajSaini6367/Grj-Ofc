@@ -78,6 +78,8 @@ class EmployeeListItem {
     this.designation,
     this.status,
     this.roles,
+    this.accessRoles,
+    this.accessRoleIds,
     this.dateOfJoin,
     this.dateOfSuspended,
     this.attendanceAllow,
@@ -96,6 +98,8 @@ class EmployeeListItem {
   final String? designation;
   final String? status;
   final List<dynamic>? roles;
+  final List<String>? accessRoles;
+  final List<int>? accessRoleIds;
   final DateTime? dateOfJoin;
   final String? dateOfSuspended;
   final bool? attendanceAllow;
@@ -115,6 +119,8 @@ class EmployeeListItem {
         designation: json['designation']?.toString(),
         status: json['status']?.toString(),
         roles: json['roles'] is List ? List<dynamic>.from(json['roles'] as List) : null,
+        accessRoles: _parseStringList(json['access_roles']),
+        accessRoleIds: _parseIntList(json['access_role_ids']),
         dateOfJoin: _parseDate(json['date_of_join']),
         dateOfSuspended: json['date_of_suspended']?.toString(),
         attendanceAllow: _parseBool(json['attendance_allow']),
@@ -142,6 +148,8 @@ class EmployeeListItem {
         'designation': designation,
         'status': status,
         if (roles != null) 'roles': roles,
+        if (accessRoles != null) 'access_roles': accessRoles,
+        if (accessRoleIds != null) 'access_role_ids': accessRoleIds,
         if (dateOfJoin != null)
           'date_of_join':
               '${dateOfJoin!.year.toString().padLeft(4, '0')}-${dateOfJoin!.month.toString().padLeft(2, '0')}-${dateOfJoin!.day.toString().padLeft(2, '0')}',
@@ -197,4 +205,17 @@ int? _parseInt(dynamic value) {
   if (value == null) return null;
   if (value is int) return value;
   return int.tryParse(value.toString());
+}
+
+List<String> _parseStringList(dynamic value) {
+  if (value is! List) return const [];
+  return value
+      .map((e) => e.toString().trim())
+      .where((e) => e.isNotEmpty)
+      .toList();
+}
+
+List<int> _parseIntList(dynamic value) {
+  if (value is! List) return const [];
+  return value.map(_parseInt).whereType<int>().where((id) => id > 0).toList();
 }

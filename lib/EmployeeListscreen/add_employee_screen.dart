@@ -27,22 +27,12 @@ class _AddEmployeeScreenState extends State<AddEmployeeScreen> {
   bool _obscurePassword = true;
   bool _attendanceAllowed = true;
   bool _isSaving = false;
-  String? _selectedRole;
+  bool _isLoadingRoles = true;
+  int? _selectedRoleId;
+  final Set<int> _selectedAccessRoleIds = {};
+  List<_EmployeeRole> _roles = const [];
   DateTime? _dateOfJoin;
   DateTime? _dateSuspended;
-
-  static const _roles = [
-    'Site Engineer',
-    'Project Architect',
-    'General Foreman',
-    'Safety Compliance Officer',
-    'Structural Specialist',
-    'Director',
-    'Store Manager',
-    'Accountant',
-  ];
-
-
 
   @override
   void initState() {
@@ -51,10 +41,50 @@ class _AddEmployeeScreenState extends State<AddEmployeeScreen> {
     if (employee != null) {
       final parts = employee.name.trim().split(RegExp(r'\s+'));
       _firstNameController.text = parts.isNotEmpty ? parts.first : '';
-      _lastNameController.text = parts.length > 1 ? parts.sublist(1).join(' ') : '';
-      _selectedRole = employee.role;
+      _lastNameController.text = parts.length > 1
+          ? parts.sublist(1).join(' ')
+          : '';
       _dateOfJoin = DateTime.now().subtract(const Duration(days: 365));
     }
+    _loadRoles();
+  }
+
+  Future<void> _loadRoles() async {
+    final data = await getEmployeeRolesApi(context);
+    if (!mounted) return;
+
+    final roles = (data ?? const <Map<String, dynamic>>[])
+        .map(_EmployeeRole.fromJson)
+        .where((role) => role != null)
+        .cast<_EmployeeRole>()
+        .toList();
+    final employeeRole = widget.employee?.role.toLowerCase();
+
+    setState(() {
+      _roles = roles;
+      _selectedRoleId = roles
+          .where((role) => role.name.toLowerCase() == employeeRole)
+          .firstOrNull
+          ?.id;
+      _selectedAccessRoleIds
+        ..clear()
+        ..addAll(_existingAccessRoleIds(roles));
+      _isLoadingRoles = false;
+    });
+  }
+
+  Set<int> _existingAccessRoleIds(List<_EmployeeRole> roles) {
+    final employee = widget.employee;
+    if (employee == null) return {};
+    if (employee.accessRoleIds.isNotEmpty) {
+      return employee.accessRoleIds.toSet();
+    }
+    final names = employee.accessRoles.map((n) => n.toLowerCase()).toSet();
+    if (names.isEmpty) return {};
+    return roles
+        .where((role) => names.contains(role.name.toLowerCase()))
+        .map((role) => role.id)
+        .toSet();
   }
 
   @override
@@ -84,9 +114,7 @@ class _AddEmployeeScreenState extends State<AddEmployeeScreen> {
     return '$d/$m/${date.year}';
   }
 
-  Future<void> _pickDate({
-    required bool isJoinDate,
-  }) async {
+  Future<void> _pickDate({required bool isJoinDate}) async {
     final initial = isJoinDate
         ? (_dateOfJoin ?? DateTime.now())
         : (_dateSuspended ?? DateTime.now());
@@ -127,10 +155,10 @@ class _AddEmployeeScreenState extends State<AddEmployeeScreen> {
 
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
-    if (_selectedRole == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please select role.')),
-      );
+    if (_selectedRoleId == null) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Please select role.')));
       return;
     }
     if (_dateOfJoin == null) {
@@ -163,18 +191,25 @@ class _AddEmployeeScreenState extends State<AddEmployeeScreen> {
       final success = await createEmployeeApi(
         context,
         siteId: siteId,
+        roleId: _selectedRoleId!,
         firstName: _firstNameController.text.trim(),
         lastName: _lastNameController.text.trim(),
         email: _emailController.text.trim(),
         mobile: _phoneController.text.trim(),
         password: _passwordController.text,
         passwordConfirmation: _passwordController.text,
-        designation: _selectedRole!,
+        designation: _roles
+            .firstWhere((role) => role.id == _selectedRoleId)
+            .name,
         dateOfJoin: _formatApiDate(_dateOfJoin!),
-        dateOfSuspended:
-            _dateSuspended != null ? _formatApiDate(_dateSuspended!) : null,
+        dateOfSuspended: _dateSuspended != null
+            ? _formatApiDate(_dateSuspended!)
+            : null,
         attendanceAllow: _attendanceAllowed,
         status: 'published',
+        accessRoleIds: _selectedAccessRoleIds
+            .where((id) => id != _selectedRoleId)
+            .toList(),
       );
 
       if (!mounted) return;
@@ -310,20 +345,17 @@ class _AddEmployeeScreenState extends State<AddEmployeeScreen> {
           const SizedBox(height: 16),
           _buildDropdownField(
             label: 'Role',
-            value: _selectedRole,
+            value: _selectedRoleId,
             items: _roles,
-            onChanged: (value) => setState(() => _selectedRole = value),
+            onChanged: _isLoadingRoles
+                ? null
+                : (value) => setState(() {
+                    _selectedRoleId = value;
+                    if (value != null) _selectedAccessRoleIds.remove(value);
+                  }),
           ),
-          // const SizedBox(height: 16),
-          // if (widget.isEditing)
-          //   _buildDropdownField(
-          //     label: 'Site',
-          //     value: _editSite,
-          //     items: _sites,
-          //     onChanged: (value) => setState(() => _editSite = value),
-          //   )
-          // else
-          //   _buildSiteInfoField(),
+          const SizedBox(height: 16),
+          _buildAccessRolesField(),
           const SizedBox(height: 16),
           _buildDateField(
             label: 'Date of Join',
@@ -362,7 +394,9 @@ class _AddEmployeeScreenState extends State<AddEmployeeScreen> {
         GestureDetector(
           onTap: () {
             ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Photo upload will be available soon.')),
+              const SnackBar(
+                content: Text('Photo upload will be available soon.'),
+              ),
             );
           },
           child: Stack(
@@ -447,11 +481,7 @@ class _AddEmployeeScreenState extends State<AddEmployeeScreen> {
 
         if (stacked) {
           return Column(
-            children: [
-              firstName,
-              const SizedBox(height: 16),
-              lastName,
-            ],
+            children: [firstName, const SizedBox(height: 16), lastName],
           );
         }
 
@@ -492,7 +522,10 @@ class _AddEmployeeScreenState extends State<AddEmployeeScreen> {
           keyboardType: keyboardType,
           validator: validator,
           onChanged: onChanged,
-          style: GoogleFonts.poppins(color: AppColors.headingBlack, fontSize: 14),
+          style: GoogleFonts.poppins(
+            color: AppColors.headingBlack,
+            fontSize: 14,
+          ),
           decoration: _inputDecoration(hint),
         ),
       ],
@@ -524,7 +557,10 @@ class _AddEmployeeScreenState extends State<AddEmployeeScreen> {
             }
             return null;
           },
-          style: GoogleFonts.poppins(color: AppColors.headingBlack, fontSize: 14),
+          style: GoogleFonts.poppins(
+            color: AppColors.headingBlack,
+            fontSize: 14,
+          ),
           decoration: _inputDecoration('Min. 8 characters').copyWith(
             suffixIcon: IconButton(
               icon: Icon(
@@ -534,7 +570,8 @@ class _AddEmployeeScreenState extends State<AddEmployeeScreen> {
                 color: AppColors.textSecondary,
                 size: 20,
               ),
-              onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
+              onPressed: () =>
+                  setState(() => _obscurePassword = !_obscurePassword),
             ),
           ),
         ),
@@ -542,12 +579,11 @@ class _AddEmployeeScreenState extends State<AddEmployeeScreen> {
     );
   }
 
-
   Widget _buildDropdownField({
     required String label,
-    required String? value,
-    required List<String> items,
-    required ValueChanged<String?> onChanged,
+    required int? value,
+    required List<_EmployeeRole> items,
+    required ValueChanged<int?>? onChanged,
   }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -561,25 +597,118 @@ class _AddEmployeeScreenState extends State<AddEmployeeScreen> {
           ),
         ),
         const SizedBox(height: 8),
-        DropdownButtonFormField<String>(
+        DropdownButtonFormField<int>(
           initialValue: value,
           items: items
               .map(
                 (item) => DropdownMenuItem(
-                  value: item,
+                  value: item.id,
                   child: Text(
-                    item,
+                    item.name,
                     style: GoogleFonts.poppins(fontSize: 14),
                   ),
                 ),
               )
               .toList(),
           onChanged: onChanged,
-          decoration: _inputDecoration('Select $label'),
-          style: GoogleFonts.poppins(color: AppColors.headingBlack, fontSize: 14),
-          icon: const Icon(Icons.keyboard_arrow_down_rounded, color: AppColors.textSecondary),
+          decoration: _inputDecoration(
+            _isLoadingRoles ? 'Loading roles...' : 'Select $label',
+          ),
+          style: GoogleFonts.poppins(
+            color: AppColors.headingBlack,
+            fontSize: 14,
+          ),
+          icon: const Icon(
+            Icons.keyboard_arrow_down_rounded,
+            color: AppColors.textSecondary,
+          ),
           dropdownColor: AppColors.cardWhite,
         ),
+      ],
+    );
+  }
+
+  Widget _buildAccessRolesField() {
+    final options = _roles.where((role) => role.id != _selectedRoleId).toList();
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Text(
+              'Access Roles',
+              style: GoogleFonts.poppins(
+                color: AppColors.textDark,
+                fontSize: 13,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+            const SizedBox(width: 6),
+            Text(
+              '(Optional)',
+              style: GoogleFonts.poppins(
+                color: AppColors.textSecondary,
+                fontSize: 11,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        if (_isLoadingRoles)
+          Text(
+            'Loading roles...',
+            style: GoogleFonts.poppins(
+              color: AppColors.textSecondary,
+              fontSize: 13,
+            ),
+          )
+        else if (options.isEmpty)
+          Text(
+            'No extra roles available.',
+            style: GoogleFonts.poppins(
+              color: AppColors.textSecondary,
+              fontSize: 13,
+            ),
+          )
+        else
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: options.map((role) {
+              final selected = _selectedAccessRoleIds.contains(role.id);
+              return FilterChip(
+                label: Text(
+                  role.name,
+                  style: GoogleFonts.poppins(
+                    fontSize: 12,
+                    fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
+                    color: selected ? AppColors.primaryRed : AppColors.textDark,
+                  ),
+                ),
+                selected: selected,
+                onSelected: (value) {
+                  setState(() {
+                    if (value) {
+                      _selectedAccessRoleIds.add(role.id);
+                    } else {
+                      _selectedAccessRoleIds.remove(role.id);
+                    }
+                  });
+                },
+                selectedColor: AppColors.primaryRed.withValues(alpha: 0.12),
+                checkmarkColor: AppColors.primaryRed,
+                backgroundColor: AppColors.cardWhite,
+                side: BorderSide(
+                  color: selected
+                      ? AppColors.primaryRed.withValues(alpha: 0.4)
+                      : AppColors.borderGray.withValues(alpha: 0.5),
+                ),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(20),
+                ),
+              );
+            }).toList(),
+          ),
       ],
     );
   }
@@ -704,7 +833,9 @@ class _AddEmployeeScreenState extends State<AddEmployeeScreen> {
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(8),
               border: Border.all(
-                color: selected ? AppColors.primaryRed : AppColors.borderGray.withValues(alpha: 0.6),
+                color: selected
+                    ? AppColors.primaryRed
+                    : AppColors.borderGray.withValues(alpha: 0.6),
                 width: selected ? 1.5 : 1,
               ),
             ),
@@ -731,7 +862,9 @@ class _AddEmployeeScreenState extends State<AddEmployeeScreen> {
       contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
       enabledBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(8),
-        borderSide: BorderSide(color: AppColors.borderGray.withValues(alpha: 0.6)),
+        borderSide: BorderSide(
+          color: AppColors.borderGray.withValues(alpha: 0.6),
+        ),
       ),
       focusedBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(8),
@@ -753,7 +886,9 @@ class _AddEmployeeScreenState extends State<AddEmployeeScreen> {
           backgroundColor: AppColors.primaryRed,
           foregroundColor: AppColors.white,
           elevation: 0,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(10),
+          ),
         ),
         child: _isSaving
             ? const SizedBox(
@@ -784,7 +919,9 @@ class _AddEmployeeScreenState extends State<AddEmployeeScreen> {
         style: OutlinedButton.styleFrom(
           foregroundColor: AppColors.textDark,
           side: BorderSide(color: AppColors.borderGray.withValues(alpha: 0.8)),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(10),
+          ),
         ),
         child: Text(
           'CANCEL',
@@ -796,5 +933,19 @@ class _AddEmployeeScreenState extends State<AddEmployeeScreen> {
         ),
       ),
     );
+  }
+}
+
+class _EmployeeRole {
+  const _EmployeeRole({required this.id, required this.name});
+
+  final int id;
+  final String name;
+
+  static _EmployeeRole? fromJson(Map<String, dynamic> json) {
+    final id = int.tryParse(json['id']?.toString() ?? '');
+    final name = (json['label'] ?? json['name'])?.toString().trim();
+    if (id == null || name == null || name.isEmpty) return null;
+    return _EmployeeRole(id: id, name: name);
   }
 }

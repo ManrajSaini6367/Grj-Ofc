@@ -22,18 +22,10 @@ class _EditEmployeeScreenState extends State<EditEmployeeScreen> {
   late final TextEditingController _phone;
   late final TextEditingController _password;
 
-  static const _roles = [
-    'Site Engineer',
-    'Project Architect',
-    'General Foreman',
-    'Safety Compliance Officer',
-    'Structural Specialist',
-    'Director',
-    'Store Manager',
-    'Accountant',
-  ];
-
-  String? _role;
+  bool _isLoadingRoles = true;
+  int? _selectedRoleId;
+  final Set<int> _selectedAccessRoleIds = {};
+  List<_EditRole> _roles = const [];
   DateTime? _dateOfJoin;
   DateTime? _dateSuspended;
   bool _attendanceAllowed = true;
@@ -51,10 +43,36 @@ class _EditEmployeeScreenState extends State<EditEmployeeScreen> {
     _email = TextEditingController(text: e.email ?? '');
     _phone = TextEditingController(text: e.mobile ?? '');
     _password = TextEditingController();
-    _role = e.role.isNotEmpty ? e.role : null;
     _dateOfJoin = e.dateOfJoin ?? DateTime.now();
     _attendanceAllowed = e.attendanceAllow;
     _isActive = e.status == EmployeeStatus.active;
+    _selectedAccessRoleIds.addAll(e.accessRoleIds);
+    _loadRoles();
+  }
+
+  Future<void> _loadRoles() async {
+    final data = await getEmployeeRolesApi(context);
+    if (!mounted) return;
+    final roles = (data ?? const <Map<String, dynamic>>[])
+        .map(_EditRole.fromJson)
+        .whereType<_EditRole>()
+        .toList();
+    final currentName = widget.employee.role.toLowerCase();
+    setState(() {
+      _roles = roles;
+      _selectedRoleId = roles
+          .where((role) => role.name.toLowerCase() == currentName)
+          .firstOrNull
+          ?.id;
+      if (_selectedAccessRoleIds.isEmpty && widget.employee.accessRoles.isNotEmpty) {
+        final names = widget.employee.accessRoles.map((n) => n.toLowerCase()).toSet();
+        _selectedAccessRoleIds.addAll(
+          roles.where((role) => names.contains(role.name.toLowerCase())).map((role) => role.id),
+        );
+      }
+      if (_selectedRoleId != null) _selectedAccessRoleIds.remove(_selectedRoleId);
+      _isLoadingRoles = false;
+    });
   }
 
   @override
@@ -108,7 +126,7 @@ class _EditEmployeeScreenState extends State<EditEmployeeScreen> {
 
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
-    if (_role == null) {
+    if (_selectedRoleId == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Please select role.')),
       );
@@ -141,7 +159,9 @@ class _EditEmployeeScreenState extends State<EditEmployeeScreen> {
         lastName: _lastName.text.trim(),
         email: _email.text.trim(),
         mobile: _phone.text.trim(),
-        designation: _role!,
+        designation: _roles
+            .firstWhere((role) => role.id == _selectedRoleId)
+            .name,
         dateOfJoin: _formatApiDate(_dateOfJoin!),
         dateOfSuspended:
             _dateSuspended != null ? _formatApiDate(_dateSuspended!) : null,
@@ -149,6 +169,10 @@ class _EditEmployeeScreenState extends State<EditEmployeeScreen> {
         passwordConfirmation: password.isNotEmpty ? password : null,
         attendanceAllow: _attendanceAllowed,
         status: _isActive ? 'published' : 'unpublished',
+        roleId: _selectedRoleId,
+        accessRoleIds: _selectedAccessRoleIds
+            .where((id) => id != _selectedRoleId)
+            .toList(),
       );
 
       if (!mounted) return;
@@ -266,13 +290,34 @@ class _EditEmployeeScreenState extends State<EditEmployeeScreen> {
                             ),
                             const SizedBox(height: 16),
                             _label('Role'),
-                            DropdownButtonFormField<String>(
-                              initialValue: _roles.contains(_role) ? _role : null,
-                              items: _roles.map((r) => DropdownMenuItem(value: r, child: Text(r))).toList(),
-                              onChanged: (v) => setState(() => _role = v),
-                              decoration: _decoration('Select role', inputBorder),
+                            DropdownButtonFormField<int>(
+                              key: ValueKey('edit-role-$_selectedRoleId-${_roles.length}'),
+                              initialValue: _roles.any((r) => r.id == _selectedRoleId)
+                                  ? _selectedRoleId
+                                  : null,
+                              items: _roles
+                                  .map(
+                                    (r) => DropdownMenuItem(
+                                      value: r.id,
+                                      child: Text(r.name),
+                                    ),
+                                  )
+                                  .toList(),
+                              onChanged: _isLoadingRoles
+                                  ? null
+                                  : (v) => setState(() {
+                                        _selectedRoleId = v;
+                                        if (v != null) _selectedAccessRoleIds.remove(v);
+                                      }),
+                              decoration: _decoration(
+                                _isLoadingRoles ? 'Loading roles...' : 'Select role',
+                                inputBorder,
+                              ),
                               icon: const Icon(Icons.keyboard_arrow_down_rounded),
                             ),
+                            const SizedBox(height: 16),
+                            _label('Access Roles (Optional)'),
+                            _buildAccessRolesChips(),
                             const SizedBox(height: 16),
                             _label('Site'),
                             _readOnly(widget.employee.site),
@@ -433,4 +478,70 @@ class _EditEmployeeScreenState extends State<EditEmployeeScreen> {
           ),
         ),
       );
+
+  Widget _buildAccessRolesChips() {
+    final options = _roles.where((role) => role.id != _selectedRoleId).toList();
+    if (_isLoadingRoles) {
+      return Text(
+        'Loading roles...',
+        style: GoogleFonts.poppins(color: AppColors.textSecondary, fontSize: 13),
+      );
+    }
+    if (options.isEmpty) {
+      return Text(
+        'No extra roles available.',
+        style: GoogleFonts.poppins(color: AppColors.textSecondary, fontSize: 13),
+      );
+    }
+    return Wrap(
+      spacing: 8,
+      runSpacing: 8,
+      children: options.map((role) {
+        final selected = _selectedAccessRoleIds.contains(role.id);
+        return FilterChip(
+          label: Text(
+            role.name,
+            style: GoogleFonts.poppins(
+              fontSize: 12,
+              fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
+              color: selected ? AppColors.primaryRed : AppColors.textDark,
+            ),
+          ),
+          selected: selected,
+          onSelected: (value) {
+            setState(() {
+              if (value) {
+                _selectedAccessRoleIds.add(role.id);
+              } else {
+                _selectedAccessRoleIds.remove(role.id);
+              }
+            });
+          },
+          selectedColor: AppColors.primaryRed.withValues(alpha: 0.12),
+          checkmarkColor: AppColors.primaryRed,
+          backgroundColor: AppColors.cardWhite,
+          side: BorderSide(
+            color: selected
+                ? AppColors.primaryRed.withValues(alpha: 0.4)
+                : AppColors.borderGray.withValues(alpha: 0.5),
+          ),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        );
+      }).toList(),
+    );
+  }
+}
+
+class _EditRole {
+  const _EditRole({required this.id, required this.name});
+
+  final int id;
+  final String name;
+
+  static _EditRole? fromJson(Map<String, dynamic> json) {
+    final id = int.tryParse(json['id']?.toString() ?? '');
+    final name = (json['label'] ?? json['name'])?.toString().trim();
+    if (id == null || name == null || name.isEmpty) return null;
+    return _EditRole(id: id, name: name);
+  }
 }
