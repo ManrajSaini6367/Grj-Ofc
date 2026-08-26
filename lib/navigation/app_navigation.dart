@@ -13,6 +13,7 @@ import 'package:grjoffice_apps/core/app_navigator.dart';
 import 'package:grjoffice_apps/kycscreens/employee_kyc_requests_screen.dart';
 import 'package:grjoffice_apps/kycscreens/employee_kyc_screen.dart';
 import 'package:grjoffice_apps/InwardOutward/inward_outward_screen.dart';
+import 'package:grjoffice_apps/InwardOutward/outward_requests_hub_screen.dart';
 import 'package:grjoffice_apps/kycscreens/kyc_requests_screen.dart';
 import 'package:grjoffice_apps/kycscreens/kyc_status_screen.dart';
 import 'package:grjoffice_apps/leavescreens/leave_requests_screen.dart';
@@ -60,6 +61,7 @@ abstract final class DrawerIndex {
   static const myAttendance = 20;
   static const originalContractors = 21;
   static const inwardOutward = 22;
+  static const outwardRequests = 23;
 }
 
 bool shellCanPop(BuildContext context) {
@@ -202,6 +204,8 @@ void navigateFromDrawer(BuildContext context, int drawerIndex) {
       pushInShell(context, const OriginalContractorsListScreen());
     case DrawerIndex.inwardOutward:
       pushInShell(context, const InwardOutwardScreen());
+    case DrawerIndex.outwardRequests:
+      pushInShell(context, const OutwardRequestsHubScreen());
     default:
       break;
   }

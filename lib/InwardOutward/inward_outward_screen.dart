@@ -12,7 +12,6 @@ import 'package:grjoffice_apps/navigation/app_navigation.dart';
 import 'package:grjoffice_apps/services/api_auth.dart';
 import 'package:grjoffice_apps/widgets/app_top_bar.dart';
 import 'package:intl/intl.dart';
-import 'package:webview_flutter/webview_flutter.dart';
 
 class InwardOutwardScreen extends StatefulWidget {
   const InwardOutwardScreen({super.key});
@@ -1043,11 +1042,6 @@ class _InwardRecordCard extends StatelessWidget {
             const SizedBox(height: 6),
             _metaRow(Icons.notes_outlined, 'Remark', record.remark),
           ],
-          const SizedBox(height: 10),
-          const Align(
-            alignment: Alignment.centerRight,
-            child: _ReturnButton(),
-          ),
         ],
       ),
     );
@@ -1121,128 +1115,7 @@ class _OutwardRecordCard extends StatelessWidget {
             const SizedBox(height: 6),
             _metaRow(Icons.notes_outlined, 'Remark', record.remark),
           ],
-          const SizedBox(height: 10),
-          const Align(
-            alignment: Alignment.centerRight,
-            child: _ReturnButton(),
-          ),
         ],
-      ),
-    );
-  }
-}
-
-/// Compact Return Slip control — opens slip URL (placeholder for now).
-class _ReturnButton extends StatelessWidget {
-  const _ReturnButton();
-
-  // TODO: replace with real Return Slip URL from API.
-  static const placeholderUrl = 'https://example.com';
-
-  @override
-  Widget build(BuildContext context) {
-    final compact = MediaQuery.sizeOf(context).width < 360;
-
-    return SizedBox(
-      height: compact ? 28 : 30,
-      child: TextButton(
-        onPressed: () {
-          Navigator.of(context).push(
-            MaterialPageRoute<void>(
-              builder: (_) => const _ReturnSlipWebViewPage(
-                url: placeholderUrl,
-              ),
-            ),
-          );
-        },
-        style: TextButton.styleFrom(
-          foregroundColor: AppColors.white,
-          backgroundColor: AppColors.primary,
-          padding: EdgeInsets.symmetric(horizontal: compact ? 10 : 12),
-          minimumSize: Size.zero,
-          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-          visualDensity: VisualDensity.compact,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(8),
-          ),
-        ),
-        child: Text(
-          'Return Slip',
-          style: GoogleFonts.poppins(
-            fontSize: compact ? 11 : 12,
-            fontWeight: FontWeight.w600,
-            height: 1.1,
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _ReturnSlipWebViewPage extends StatefulWidget {
-  const _ReturnSlipWebViewPage({required this.url});
-
-  final String url;
-
-  @override
-  State<_ReturnSlipWebViewPage> createState() => _ReturnSlipWebViewPageState();
-}
-
-class _ReturnSlipWebViewPageState extends State<_ReturnSlipWebViewPage> {
-  late final WebViewController _controller;
-  bool _loading = true;
-
-  @override
-  void initState() {
-    super.initState();
-    _controller = WebViewController()
-      ..setJavaScriptMode(JavaScriptMode.unrestricted)
-      ..setNavigationDelegate(
-        NavigationDelegate(
-          onPageStarted: (_) {
-            if (mounted) setState(() => _loading = true);
-          },
-          onPageFinished: (_) {
-            if (mounted) setState(() => _loading = false);
-          },
-          onWebResourceError: (_) {
-            if (mounted) setState(() => _loading = false);
-          },
-        ),
-      )
-      ..loadRequest(Uri.parse(widget.url));
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final width = MediaQuery.sizeOf(context).width;
-    final hPad = width < 360 ? 14.0 : width < 600 ? 18.0 : 20.0;
-
-    return Scaffold(
-      backgroundColor: AppColors.backgroundGray,
-      body: SafeArea(
-        child: Column(
-          children: [
-            AppTopBar.page(
-              title: 'Return Slip',
-              onBack: () => Navigator.pop(context),
-              horizontalPadding: hPad,
-            ),
-            Expanded(
-              child: Stack(
-                children: [
-                  WebViewWidget(controller: _controller),
-                  if (_loading)
-                    const Center(
-                      child: CircularProgressIndicator(
-                        color: AppColors.primaryRed,
-                      ),
-                    ),
-                ],
-              ),
-            ),
-          ],
-        ),
       ),
     );
   }

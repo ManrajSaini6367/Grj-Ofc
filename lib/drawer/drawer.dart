@@ -77,6 +77,12 @@ class AppDrawer extends StatelessWidget {
       anyOf: [AppPermissions.itemsView],
     ),
     _DrawerMenuItem(
+      DrawerIndex.outwardRequests,
+      Icons.assignment_turned_in_outlined,
+      'Outward Requests',
+      anyOf: [AppPermissions.itemsView],
+    ),
+    _DrawerMenuItem(
       DrawerIndex.expenses,
       Icons.account_balance_wallet_outlined,
       'Expenses',
