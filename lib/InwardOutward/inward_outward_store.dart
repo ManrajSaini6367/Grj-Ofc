@@ -49,12 +49,13 @@ class InwardOutwardRecord {
       };
 
   factory InwardOutwardRecord.fromJson(Map<String, dynamic> json) {
-    final typeRaw = (json['type'] ?? 'inward').toString().toLowerCase();
+    final typeRaw = (json['type'] ?? json['direction'] ?? 'inward')
+        .toString()
+        .toLowerCase();
+    final isOut = typeRaw == 'outward' || typeRaw == 'outbound';
     return InwardOutwardRecord(
       id: (json['id'] ?? '').toString(),
-      type: typeRaw == 'outward'
-          ? InwardOutwardType.outward
-          : InwardOutwardType.inward,
+      type: isOut ? InwardOutwardType.outward : InwardOutwardType.inward,
       itemId: json['item_id'] is int
           ? json['item_id'] as int
           : int.tryParse('${json['item_id'] ?? ''}'),
@@ -67,14 +68,25 @@ class InwardOutwardRecord {
           ? json['contractor_id'] as int
           : int.tryParse('${json['contractor_id'] ?? ''}'),
       contractorName: (json['contractor_name'] ?? '').toString(),
-      siteId: json['site_id'] is int
-          ? json['site_id'] as int
-          : int.tryParse('${json['site_id'] ?? ''}'),
-      siteName: json['site_name']?.toString(),
-      remark: (json['remark'] ?? '').toString(),
+      siteId: () {
+        final to = json['to_site_id'];
+        if (to == null || '$to' == '' || '$to' == 'null') return null;
+        return to is int ? to : int.tryParse('$to');
+      }(),
+      siteName: json['to_site_name']?.toString(),
+      remark: (json['remark'] ?? json['description'] ?? '').toString(),
       createdAt: DateTime.tryParse('${json['created_at'] ?? ''}') ??
           DateTime.now(),
     );
+  }
+
+  factory InwardOutwardRecord.fromApi(
+    Map<String, dynamic> json, {
+    required String direction,
+  }) {
+    final mapped = Map<String, dynamic>.from(json);
+    mapped['direction'] = mapped['direction'] ?? direction;
+    return InwardOutwardRecord.fromJson(mapped);
   }
 }
 

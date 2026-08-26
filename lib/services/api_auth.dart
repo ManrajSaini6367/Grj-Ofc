@@ -4,6 +4,7 @@ import 'dart:io';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:grjoffice_apps/InwardOutward/inward_outward_store.dart';
 import 'package:grjoffice_apps/chatmodalsclasses/createopendirectmodal.dart';
 import 'package:grjoffice_apps/chatmodalsclasses/getchatlistmodal.dart';
 import 'package:grjoffice_apps/chatmodalsclasses/getlistmessagesmodal.dart';
@@ -2017,6 +2018,181 @@ Future<bool> createItemHistoryApi(
     debugPrint('[createItemHistoryApi] stack: $stack');
     if (context.mounted) message(context, 'Something went wrong');
     return false;
+  }
+}
+
+/// GET /api/v1/inbound or /outbound — list stock movements for current site.
+Future<List<InwardOutwardRecord>?> inboundOutboundListApi(
+  BuildContext context, {
+  required String direction, // inbound | outbound
+  int perPage = 50,
+  int page = 1,
+  bool fetchAllPages = true,
+}) async {
+  assert(direction == 'inbound' || direction == 'outbound');
+  try {
+    final siteId = selectedSiteId();
+    Future<({List<InwardOutwardRecord> items, int lastPage})?> fetchPage(
+      int pageNo,
+    ) async {
+      final query = <String, String>{
+        'per_page': perPage.toString(),
+        'page': pageNo.toString(),
+        if (siteId != null) 'site_id': siteId.toString(),
+      };
+      final uri = Uri.parse('$baseUrl/api/v1/$direction').replace(
+        queryParameters: query,
+      );
+      debugPrint('[inboundOutboundListApi] GET $uri');
+      final response = await http
+          .get(uri, headers: authHeaders)
+          .timeout(const Duration(seconds: 30));
+      debugPrint(
+        '[inboundOutboundListApi] status=${response.statusCode}',
+      );
+      final decoded = decodeApiJson(response.body);
+      final apiMessage = decoded?['message']?.toString();
+      if (response.statusCode == 200 &&
+          decoded != null &&
+          decoded['success'] == true) {
+        final data = decoded['data'];
+        final rawItems = (data is Map ? data['items'] : null);
+        final items = <InwardOutwardRecord>[];
+        if (rawItems is List) {
+          for (final row in rawItems) {
+            if (row is Map) {
+              items.add(
+                InwardOutwardRecord.fromApi(
+                  Map<String, dynamic>.from(row),
+                  direction: direction,
+                ),
+              );
+            }
+          }
+        }
+        final pagination = data is Map ? data['pagination'] : null;
+        final lastPage = pagination is Map
+            ? (pagination['last_page'] as num?)?.toInt() ?? 1
+            : 1;
+        return (items: items, lastPage: lastPage);
+      }
+      if (context.mounted) {
+        message(context, apiMessage ?? 'Failed to load $direction list.');
+      }
+      return null;
+    }
+
+    final first = await fetchPage(page);
+    if (first == null) return null;
+    if (!fetchAllPages) return first.items;
+
+    final all = <InwardOutwardRecord>[...first.items];
+    for (var p = page + 1; p <= first.lastPage; p++) {
+      if (!context.mounted) break;
+      final next = await fetchPage(p);
+      if (next == null) break;
+      all.addAll(next.items);
+    }
+    return all;
+  } on TimeoutException {
+    debugPrint('[inboundOutboundListApi] timed out');
+    if (context.mounted) message(context, 'Request timed out. Please try again.');
+    return null;
+  } catch (e, st) {
+    debugPrint('[inboundOutboundListApi] error: $e\n$st');
+    if (context.mounted) message(context, 'Something went wrong');
+    return null;
+  }
+}
+
+/// POST /api/v1/inbound or /outbound
+Future<InwardOutwardRecord?> createInboundOutboundApi(
+  BuildContext context, {
+  required String direction, // inbound | outbound
+  required int itemId,
+  required double qty,
+  required String unit,
+  String? contractorKey,
+  String? remark,
+  String? destinationType,
+  int? toSiteId,
+}) async {
+  assert(direction == 'inbound' || direction == 'outbound');
+  try {
+    final siteId = selectedSiteId();
+    final body = <String, dynamic>{
+      'item_id': itemId,
+      'qty': qty,
+      'unit': unit,
+      if (remark != null && remark.trim().isNotEmpty) 'remark': remark.trim(),
+      if (contractorKey != null && contractorKey.isNotEmpty)
+        'contractor_key': contractorKey,
+      if (destinationType != null) 'destination_type': destinationType,
+      if (toSiteId != null) 'to_site_id': toSiteId,
+      if (siteId != null) 'site_id': siteId,
+    };
+
+    final url = '$baseUrl/api/v1/$direction';
+    debugPrint('[createInboundOutboundApi] POST $url');
+    debugPrint('[createInboundOutboundApi] body: $body');
+
+    final response = await http
+        .post(
+          Uri.parse(url),
+          headers: authHeaders,
+          body: jsonEncode(body),
+        )
+        .timeout(const Duration(seconds: 30));
+
+    debugPrint(
+      '[createInboundOutboundApi] status=${response.statusCode}',
+    );
+    debugPrint('[createInboundOutboundApi] body=${response.body}');
+
+    final decoded = decodeApiJson(response.body);
+    final apiMessage = decoded?['message']?.toString();
+
+    if ((response.statusCode == 201 || response.statusCode == 200) &&
+        decoded != null &&
+        decoded['success'] == true) {
+      final data = decoded['data'];
+      final item = data is Map ? data['item'] : null;
+      if (context.mounted && apiMessage != null) message(context, apiMessage);
+      if (item is Map) {
+        return InwardOutwardRecord.fromApi(
+          Map<String, dynamic>.from(item),
+          direction: direction,
+        );
+      }
+      return InwardOutwardRecord(
+        id: DateTime.now().millisecondsSinceEpoch.toString(),
+        type: direction == 'outbound'
+            ? InwardOutwardType.outward
+            : InwardOutwardType.inward,
+        itemId: itemId,
+        itemName: '',
+        qty: qty,
+        unit: unit,
+        contractorId: null,
+        contractorName: '',
+        remark: remark ?? '',
+        createdAt: DateTime.now(),
+        siteId: toSiteId,
+      );
+    }
+
+    if (context.mounted) {
+      message(context, apiMessage ?? 'Failed to submit $direction.');
+    }
+    return null;
+  } on TimeoutException {
+    debugPrint('[createInboundOutboundApi] timed out');
+    if (context.mounted) message(context, 'Request timed out. Please try again.');
+    return null;
+  } catch (e, st) {
+    debugPrint('[createInboundOutboundApi] error: $e\n$st');
+    if (context.mounted) message(context, 'Something went wrong');
+    return null;
   }
 }
 

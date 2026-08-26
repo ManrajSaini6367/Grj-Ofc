@@ -43,8 +43,10 @@ class _InwardOutwardScreenState extends State<InwardOutwardScreen> {
   bool _loadingRecords = true;
 
   ItemModel? _selectedItem;
-  int? _selectedContractorId;
+  String? _selectedContractorKey;
   int? _selectedSiteId;
+  /// Outward only: `same` = issue to contractor, `different` = transfer to site.
+  String _outwardDestType = 'same';
   String? _unit;
   bool _loadingLookups = false;
   bool _lookupsLoaded = false;
@@ -52,6 +54,13 @@ class _InwardOutwardScreenState extends State<InwardOutwardScreen> {
 
   String get _entryLabel =>
       _entryType == _EntryType.outward ? 'Outward' : 'Inward';
+
+  bool get _showToField =>
+      _entryType == _EntryType.inward ||
+      (_entryType == _EntryType.outward && _outwardDestType == 'same');
+
+  bool get _showSiteField =>
+      _entryType == _EntryType.outward && _outwardDestType == 'different';
 
   List<SiteModel> get _outwardSites {
     final currentSiteId = selectedSiteId();
@@ -82,13 +91,14 @@ class _InwardOutwardScreenState extends State<InwardOutwardScreen> {
 
   Future<void> _loadRecords() async {
     setState(() => _loadingRecords = true);
-    final all = await InwardOutwardStore.loadAll();
+    final inbound = await inboundOutboundListApi(context, direction: 'inbound');
+    if (!mounted) return;
+    final outbound =
+        await inboundOutboundListApi(context, direction: 'outbound');
     if (!mounted) return;
     setState(() {
-      _inwardRecords =
-          all.where((r) => r.type == InwardOutwardType.inward).toList();
-      _outwardRecords =
-          all.where((r) => r.type == InwardOutwardType.outward).toList();
+      _inwardRecords = inbound ?? const [];
+      _outwardRecords = outbound ?? const [];
       _loadingRecords = false;
     });
   }
@@ -105,32 +115,30 @@ class _InwardOutwardScreenState extends State<InwardOutwardScreen> {
       consumable: '',
     );
 
+    final contractors = <_ContractorOption>[];
     final original = await getOriginalContractorsApi(context, perPage: 100);
-    var contractors = (original?.data?.items ?? const [])
-        .where((c) => c.id != null)
-        .map(
-          (c) => _ContractorOption(
-            id: c.id!,
-            name: (c.name?.trim().isNotEmpty == true)
-                ? c.name!.trim()
-                : 'Contractor #${c.id}',
-          ),
-        )
-        .toList();
-
-    if (contractors.isEmpty) {
-      final labour = await getContractorListApi(context, perPage: 100);
-      contractors = (labour?.data?.items ?? const [])
-          .where((c) => c.id != null)
-          .map(
-            (c) => _ContractorOption(
-              id: c.id!,
-              name: (c.name?.trim().isNotEmpty == true)
-                  ? c.name!.trim()
-                  : 'Contractor #${c.id}',
-            ),
-          )
-          .toList();
+    for (final c in original?.data?.items ?? const []) {
+      if (c.id == null) continue;
+      contractors.add(
+        _ContractorOption(
+          key: 'original-${c.id}',
+          name: (c.name?.trim().isNotEmpty == true)
+              ? c.name!.trim()
+              : 'Contractor #${c.id}',
+        ),
+      );
+    }
+    final labour = await getContractorListApi(context, perPage: 100);
+    for (final c in labour?.data?.items ?? const []) {
+      if (c.id == null) continue;
+      contractors.add(
+        _ContractorOption(
+          key: 'labour-${c.id}',
+          name: (c.name?.trim().isNotEmpty == true)
+              ? c.name!.trim()
+              : 'Contractor #${c.id}',
+        ),
+      );
     }
 
     final sitesResult = await sitesApi(context, perPage: 100);
@@ -163,8 +171,9 @@ class _InwardOutwardScreenState extends State<InwardOutwardScreen> {
     setState(() {
       _entryType = null;
       _selectedItem = null;
-      _selectedContractorId = null;
+      _selectedContractorKey = null;
       _selectedSiteId = null;
+      _outwardDestType = 'same';
       _unit = null;
     });
   }
@@ -189,65 +198,49 @@ class _InwardOutwardScreenState extends State<InwardOutwardScreen> {
     setState(() => _isSubmitting = true);
 
     try {
-      String contractorName = '—';
-      for (final c in _contractors) {
-        if (c.id == _selectedContractorId) {
-          contractorName = c.name;
-          break;
-        }
-      }
-
-      String? siteName;
-      if (_entryType == _EntryType.outward) {
-        for (final site in _sites) {
-          if (site.id == _selectedSiteId) {
-            siteName = site.name;
-            break;
-          }
-        }
-      }
-
       final qty = double.tryParse(_qtyController.text.trim()) ?? 0;
-      final savedType = _entryType == _EntryType.outward
-          ? InwardOutwardType.outward
-          : InwardOutwardType.inward;
+      final isOutward = _entryType == _EntryType.outward;
       final entryLabel = _entryLabel;
 
-      final record = InwardOutwardRecord(
-        id: DateTime.now().millisecondsSinceEpoch.toString(),
-        type: savedType,
+      final saved = await createInboundOutboundApi(
+        context,
+        direction: isOutward ? 'outbound' : 'inbound',
         itemId: _selectedItem!.id,
-        itemName: _selectedItem!.displayName,
         qty: qty,
         unit: _unit!,
-        contractorId: _selectedContractorId,
-        contractorName: contractorName,
-        siteId: savedType == InwardOutwardType.outward ? _selectedSiteId : null,
-        siteName: siteName,
+        contractorKey: isOutward
+            ? (_outwardDestType == 'same' ? _selectedContractorKey : null)
+            : _selectedContractorKey,
         remark: _remarkController.text.trim(),
-        createdAt: DateTime.now(),
+        destinationType: isOutward ? _outwardDestType : null,
+        toSiteId: isOutward && _outwardDestType == 'different'
+            ? _selectedSiteId
+            : null,
       );
 
-      // Local-only for UI testing; API integration later.
-      await InwardOutwardStore.add(record);
-
       if (!mounted) return;
+
+      if (saved == null) {
+        setState(() => _isSubmitting = false);
+        return;
+      }
 
       _formKey.currentState?.reset();
       _qtyController.clear();
       _remarkController.clear();
 
       setState(() {
-        if (savedType == InwardOutwardType.outward) {
-          _outwardRecords = [record, ..._outwardRecords];
+        if (isOutward) {
+          _outwardRecords = [saved, ..._outwardRecords];
           _listTab = _ListTab.outward;
         } else {
-          _inwardRecords = [record, ..._inwardRecords];
+          _inwardRecords = [saved, ..._inwardRecords];
           _listTab = _ListTab.inward;
         }
         _selectedItem = null;
-        _selectedContractorId = null;
+        _selectedContractorKey = null;
         _selectedSiteId = null;
+        _outwardDestType = 'same';
         _unit = null;
         _entryType = null;
         _isSubmitting = false;
@@ -256,7 +249,7 @@ class _InwardOutwardScreenState extends State<InwardOutwardScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            '$entryLabel saved.',
+            '$entryLabel submitted.',
             style: GoogleFonts.poppins(fontSize: 13),
           ),
           behavior: SnackBarBehavior.floating,
@@ -375,30 +368,49 @@ class _InwardOutwardScreenState extends State<InwardOutwardScreen> {
                                                 ],
                                               ),
                                               const SizedBox(height: 16),
+                                              if (_entryType ==
+                                                  _EntryType.outward) ...[
+                                                _buildDestinationField(),
+                                                const SizedBox(height: 16),
+                                              ],
                                               Row(
                                                 crossAxisAlignment:
                                                     CrossAxisAlignment.start,
                                                 children: [
-                                                  Expanded(
-                                                      child: _buildToField()),
-                                                  const SizedBox(width: 12),
+                                                  if (_showToField) ...[
+                                                    Expanded(
+                                                        child: _buildToField()),
+                                                    const SizedBox(width: 12),
+                                                  ],
                                                   Expanded(
                                                       child: _buildUnitField()),
+                                                  if (_showSiteField) ...[
+                                                    const SizedBox(width: 12),
+                                                    Expanded(
+                                                        child:
+                                                            _buildSiteField()),
+                                                  ],
                                                 ],
                                               ),
                                             ] else ...[
                                               _buildItemField(),
                                               const SizedBox(height: 16),
                                               _buildQtyField(),
-                                              const SizedBox(height: 16),
-                                              _buildToField(),
+                                              if (_entryType ==
+                                                  _EntryType.outward) ...[
+                                                const SizedBox(height: 16),
+                                                _buildDestinationField(),
+                                              ],
+                                              if (_showToField) ...[
+                                                const SizedBox(height: 16),
+                                                _buildToField(),
+                                              ],
                                               const SizedBox(height: 16),
                                               _buildUnitField(),
-                                            ],
-                                            if (_entryType ==
-                                                _EntryType.outward) ...[
-                                              const SizedBox(height: 16),
-                                              _buildSiteField(),
+                                              if (_showSiteField) ...[
+                                                const SizedBox(height: 16),
+                                                _buildSiteField(),
+                                              ],
                                             ],
                                             const SizedBox(height: 16),
                                             _buildRemarkField(),
@@ -749,18 +761,49 @@ class _InwardOutwardScreenState extends State<InwardOutwardScreen> {
     );
   }
 
+  Widget _buildDestinationField() {
+    return _labeledField(
+      label: 'Destination',
+      child: DropdownButtonFormField<String>(
+        value: _outwardDestType,
+        isExpanded: true,
+        decoration: _inputDecoration('Select destination'),
+        items: const [
+          DropdownMenuItem(value: 'same', child: Text('Same site')),
+          DropdownMenuItem(value: 'different', child: Text('Different site')),
+        ],
+        onChanged: (value) {
+          if (value == null) return;
+          setState(() {
+            _outwardDestType = value;
+            if (value == 'same') {
+              _selectedSiteId = null;
+            } else {
+              _selectedContractorKey = null;
+            }
+          });
+        },
+        style: GoogleFonts.poppins(fontSize: 14, color: AppColors.textDark),
+      ),
+    );
+  }
+
   Widget _buildToField() {
+    final currentValue = _contractors.any((c) => c.key == _selectedContractorKey)
+        ? _selectedContractorKey
+        : null;
+
     return _labeledField(
       label: 'To',
-      child: DropdownButtonFormField<int>(
-        value: _selectedContractorId,
+      child: DropdownButtonFormField<String>(
+        value: currentValue,
         isExpanded: true,
         menuMaxHeight: 320,
         decoration: _inputDecoration('Select contractor'),
         items: _contractors
             .map(
-              (contractor) => DropdownMenuItem<int>(
-                value: contractor.id,
+              (contractor) => DropdownMenuItem<String>(
+                value: contractor.key,
                 child: Text(
                   contractor.name,
                   maxLines: 1,
@@ -770,8 +813,11 @@ class _InwardOutwardScreenState extends State<InwardOutwardScreen> {
               ),
             )
             .toList(),
-        onChanged: (value) => setState(() => _selectedContractorId = value),
-        validator: (value) => value == null ? 'Contractor is required' : null,
+        onChanged: (value) => setState(() => _selectedContractorKey = value),
+        validator: (value) =>
+            _showToField && (value == null || value.isEmpty)
+                ? 'Contractor is required'
+                : null,
         style: GoogleFonts.poppins(fontSize: 14, color: AppColors.textDark),
       ),
     );
@@ -830,9 +876,7 @@ class _InwardOutwardScreenState extends State<InwardOutwardScreen> {
             .toList(),
         onChanged: (value) => setState(() => _selectedSiteId = value),
         validator: (value) =>
-            _entryType == _EntryType.outward && value == null
-                ? 'Site is required'
-                : null,
+            _showSiteField && value == null ? 'Site is required' : null,
         style: GoogleFonts.poppins(fontSize: 14, color: AppColors.textDark),
       ),
     );
@@ -934,9 +978,9 @@ class _InwardOutwardScreenState extends State<InwardOutwardScreen> {
 }
 
 class _ContractorOption {
-  const _ContractorOption({required this.id, required this.name});
+  const _ContractorOption({required this.key, required this.name});
 
-  final int id;
+  final String key;
   final String name;
 }
 
@@ -1020,9 +1064,8 @@ class _OutwardRecordCard extends StatelessWidget {
     final qtyText = record.qty == record.qty.roundToDouble()
         ? '${record.qty.toInt()}'
         : record.qty.toString();
-    final site = (record.siteName ?? '').trim().isEmpty
-        ? '—'
-        : record.siteName!.trim();
+    final toName = record.contractorName.trim();
+    final siteName = (record.siteName ?? '').trim();
 
     return Container(
       padding: const EdgeInsets.all(14),
@@ -1066,10 +1109,14 @@ class _OutwardRecordCard extends StatelessWidget {
           ),
           const SizedBox(height: 10),
           _metaRow(Icons.inventory_2_outlined, 'Qty', '$qtyText ${record.unit}'),
-          const SizedBox(height: 6),
-          _metaRow(Icons.person_outline, 'To', record.contractorName),
-          const SizedBox(height: 6),
-          _metaRow(Icons.place_outlined, 'Site', site),
+          if (toName.isNotEmpty) ...[
+            const SizedBox(height: 6),
+            _metaRow(Icons.person_outline, 'To', toName),
+          ],
+          if (siteName.isNotEmpty) ...[
+            const SizedBox(height: 6),
+            _metaRow(Icons.place_outlined, 'Site', siteName),
+          ],
           if (record.remark.trim().isNotEmpty) ...[
             const SizedBox(height: 6),
             _metaRow(Icons.notes_outlined, 'Remark', record.remark),
