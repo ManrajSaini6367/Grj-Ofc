@@ -37,7 +37,7 @@ class _OutwardRequestScreenState extends State<OutwardRequestScreen> {
 
   Future<void> _load() async {
     setState(() => _loading = true);
-    final items = await OutwardRequestStore.loadSent();
+    final items = await OutwardRequestStore.loadSent(context);
     if (!mounted) return;
     setState(() {
       _requests = items;
@@ -128,7 +128,6 @@ class _CreateOutwardRequestPageState extends State<CreateOutwardRequestPage> {
   final _formKey = GlobalKey<FormState>();
   final _qtyController = TextEditingController();
   final _remarkController = TextEditingController();
-  final _toController = TextEditingController();
 
   List<ItemModel> _items = [];
   List<SiteModel> _sites = [];
@@ -138,6 +137,12 @@ class _CreateOutwardRequestPageState extends State<CreateOutwardRequestPage> {
   String? _unit;
   bool _loading = true;
   bool _saving = false;
+
+  List<SiteModel> get _destinationSites {
+    final currentSiteId = selectedSiteId();
+    if (currentSiteId == null) return _sites;
+    return _sites.where((site) => site.id != currentSiteId).toList();
+  }
 
   @override
   void initState() {
@@ -150,7 +155,6 @@ class _CreateOutwardRequestPageState extends State<CreateOutwardRequestPage> {
   void dispose() {
     _qtyController.dispose();
     _remarkController.dispose();
-    _toController.dispose();
     super.dispose();
   }
 
@@ -182,41 +186,32 @@ class _CreateOutwardRequestPageState extends State<CreateOutwardRequestPage> {
 
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
-    if (_selectedItem == null || _unit == null) return;
+    if (_selectedItem == null || _unit == null || _selectedSiteId == null) {
+      return;
+    }
 
     setState(() => _saving = true);
 
-    String? siteName;
-    for (final site in _sites) {
-      if (site.id == _selectedSiteId) {
-        siteName = site.name;
-        break;
-      }
-    }
-
     final qty = double.tryParse(_qtyController.text.trim()) ?? 0;
-    final request = OutwardRequest(
-      id: DateTime.now().millisecondsSinceEpoch.toString(),
-      itemId: _selectedItem!.id,
-      itemName: _selectedItem!.displayName,
-      qty: qty,
-      unit: _unit!,
-      toName: _toController.text.trim(),
-      siteId: _selectedSiteId,
-      siteName: siteName ?? '',
-      remark: _remarkController.text.trim(),
-      status: OutwardRequestStatus.pending,
-      isIncoming: false,
-      createdAt: DateTime.now(),
-    );
 
     try {
-      await OutwardRequestStore.createRequest(request);
+      final ok = await OutwardRequestStore.createSiteTransfer(
+        context,
+        itemId: _selectedItem!.id,
+        qty: qty,
+        unit: _unit!,
+        toSiteId: _selectedSiteId!,
+        remark: _remarkController.text.trim(),
+      );
       if (!mounted) return;
+      if (!ok) {
+        setState(() => _saving = false);
+        return;
+      }
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            'Outward request created.',
+            'Outward site request submitted.',
             style: GoogleFonts.poppins(fontSize: 13),
           ),
           behavior: SnackBarBehavior.floating,
@@ -424,22 +419,15 @@ class _CreateOutwardRequestPageState extends State<CreateOutwardRequestPage> {
                               ),
                               const SizedBox(height: 16),
                               _labeled(
-                                'To',
-                                TextFormField(
-                                  controller: _toController,
-                                  style: GoogleFonts.poppins(fontSize: 14),
-                                  decoration:
-                                      _decoration('Contractor / receiver'),
-                                ),
-                              ),
-                              const SizedBox(height: 16),
-                              _labeled(
                                 'Site',
                                 DropdownButtonFormField<int>(
-                                  value: _selectedSiteId,
+                                  value: _destinationSites
+                                          .any((s) => s.id == _selectedSiteId)
+                                      ? _selectedSiteId
+                                      : null,
                                   isExpanded: true,
                                   decoration: _decoration('Select site'),
-                                  items: _sites
+                                  items: _destinationSites
                                       .map(
                                         (site) => DropdownMenuItem<int>(
                                           value: site.id,
@@ -583,13 +571,9 @@ class _OutwardRequestCard extends StatelessWidget {
           ),
           const SizedBox(height: 10),
           _line('Qty', '$qtyText ${request.unit}'),
-          if (request.toName.trim().isNotEmpty) ...[
-            const SizedBox(height: 6),
-            _line('To', request.toName),
-          ],
           if (request.siteName.trim().isNotEmpty) ...[
             const SizedBox(height: 6),
-            _line('Site', request.siteName),
+            _line('To site', request.siteName),
           ],
           if (request.remark.trim().isNotEmpty) ...[
             const SizedBox(height: 6),

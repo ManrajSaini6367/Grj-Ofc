@@ -44,8 +44,9 @@ class _OutwardRequestsHubScreenState extends State<OutwardRequestsHubScreen> {
 
   Future<void> _load() async {
     setState(() => _loading = true);
-    final sent = await OutwardRequestStore.loadSent();
-    final incoming = await OutwardRequestStore.loadIncoming();
+    final sent = await OutwardRequestStore.loadSent(context);
+    if (!mounted) return;
+    final incoming = await OutwardRequestStore.loadIncoming(context);
     if (!mounted) return;
     setState(() {
       _sent = sent;
@@ -101,14 +102,17 @@ class _OutwardRequestsHubScreenState extends State<OutwardRequestsHubScreen> {
     );
     if (ok != true || !mounted) return;
 
+    final receiveId = request.actionId;
+    if (receiveId == null) return;
+
     setState(() => _actionId = request.id);
-    await OutwardRequestStore.updateStatus(
-      id: request.id,
-      status: OutwardRequestStatus.approved,
+    final success = await OutwardRequestStore.acceptIncoming(
+      context,
+      receiveRequestId: receiveId,
     );
     if (!mounted) return;
     setState(() => _actionId = null);
-    await _load();
+    if (success) await _load();
   }
 
   Future<void> _reject(OutwardRequest request) async {
@@ -172,15 +176,18 @@ class _OutwardRequestsHubScreenState extends State<OutwardRequestsHubScreen> {
     reasonController.dispose();
     if (ok != true || !mounted) return;
 
+    final receiveId = request.actionId;
+    if (receiveId == null) return;
+
     setState(() => _actionId = request.id);
-    await OutwardRequestStore.updateStatus(
-      id: request.id,
-      status: OutwardRequestStatus.rejected,
-      rejectionReason: reason,
+    final success = await OutwardRequestStore.rejectIncoming(
+      context,
+      receiveRequestId: receiveId,
+      reviewNote: reason.isNotEmpty ? reason : null,
     );
     if (!mounted) return;
     setState(() => _actionId = null);
-    await _load();
+    if (success) await _load();
   }
 
   @override
@@ -451,12 +458,43 @@ class _RequestListCard extends StatelessWidget {
             'Qty: $qtyText ${request.unit}',
             style: GoogleFonts.poppins(fontSize: 12, color: AppColors.textDark),
           ),
+          if (request.fromSiteName.trim().isNotEmpty) ...[
+            const SizedBox(height: 6),
+            Text(
+              'From: ${request.fromSiteName}',
+              style:
+                  GoogleFonts.poppins(fontSize: 12, color: AppColors.textDark),
+            ),
+          ],
           if (request.siteName.trim().isNotEmpty) ...[
             const SizedBox(height: 6),
             Text(
-              'Site: ${request.siteName}',
+              request.isIncoming
+                  ? 'To: ${request.siteName}'
+                  : 'Site: ${request.siteName}',
               style:
                   GoogleFonts.poppins(fontSize: 12, color: AppColors.textDark),
+            ),
+          ],
+          if (request.remark.trim().isNotEmpty) ...[
+            const SizedBox(height: 6),
+            Text(
+              'Remark: ${request.remark}',
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style:
+                  GoogleFonts.poppins(fontSize: 12, color: AppColors.textDark),
+            ),
+          ],
+          if (request.status == OutwardRequestStatus.rejected &&
+              request.rejectionReason.trim().isNotEmpty) ...[
+            const SizedBox(height: 6),
+            Text(
+              'Reject reason: ${request.rejectionReason}',
+              style: GoogleFonts.poppins(
+                fontSize: 12,
+                color: const Color(0xFFDC2626),
+              ),
             ),
           ],
           if (showActions) ...[

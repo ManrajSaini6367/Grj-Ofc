@@ -36,29 +36,24 @@ class _ReceiveOutwardRequestScreenState
     return 20;
   }
 
+  String? get _apiStatus => switch (_filter) {
+        _ReceiveFilter.all => 'all',
+        _ReceiveFilter.pending => 'pending',
+        _ReceiveFilter.approved => 'accepted',
+        _ReceiveFilter.rejected => 'rejected',
+      };
+
   Future<void> _load() async {
     setState(() => _loading = true);
-    final items = await OutwardRequestStore.loadIncoming();
+    final items = await OutwardRequestStore.loadIncoming(
+      context,
+      status: _apiStatus,
+    );
     if (!mounted) return;
     setState(() {
       _requests = items;
       _loading = false;
     });
-  }
-
-  List<OutwardRequest> get _filtered {
-    return switch (_filter) {
-      _ReceiveFilter.pending => _requests
-          .where((r) => r.status == OutwardRequestStatus.pending)
-          .toList(),
-      _ReceiveFilter.approved => _requests
-          .where((r) => r.status == OutwardRequestStatus.approved)
-          .toList(),
-      _ReceiveFilter.rejected => _requests
-          .where((r) => r.status == OutwardRequestStatus.rejected)
-          .toList(),
-      _ReceiveFilter.all => _requests,
-    };
   }
 
   Future<void> _approve(OutwardRequest request) async {
@@ -95,24 +90,29 @@ class _ReceiveOutwardRequestScreenState
     );
     if (ok != true || !mounted) return;
 
+    final receiveId = request.actionId;
+    if (receiveId == null) return;
+
     setState(() => _actionId = request.id);
-    await OutwardRequestStore.updateStatus(
-      id: request.id,
-      status: OutwardRequestStatus.approved,
+    final success = await OutwardRequestStore.acceptIncoming(
+      context,
+      receiveRequestId: receiveId,
     );
     if (!mounted) return;
     setState(() => _actionId = null);
-    await _load();
-    if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          'Request approved.',
-          style: GoogleFonts.poppins(fontSize: 13),
+    if (success) {
+      await _load();
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Request approved.',
+            style: GoogleFonts.poppins(fontSize: 13),
+          ),
+          behavior: SnackBarBehavior.floating,
         ),
-        behavior: SnackBarBehavior.floating,
-      ),
-    );
+      );
+    }
   }
 
   Future<void> _reject(OutwardRequest request) async {
@@ -178,31 +178,36 @@ class _ReceiveOutwardRequestScreenState
     reasonController.dispose();
     if (ok != true || !mounted) return;
 
+    final receiveId = request.actionId;
+    if (receiveId == null) return;
+
     setState(() => _actionId = request.id);
-    await OutwardRequestStore.updateStatus(
-      id: request.id,
-      status: OutwardRequestStatus.rejected,
-      rejectionReason: reason,
+    final success = await OutwardRequestStore.rejectIncoming(
+      context,
+      receiveRequestId: receiveId,
+      reviewNote: reason.isNotEmpty ? reason : null,
     );
     if (!mounted) return;
     setState(() => _actionId = null);
-    await _load();
-    if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          'Request rejected.',
-          style: GoogleFonts.poppins(fontSize: 13),
+    if (success) {
+      await _load();
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Request rejected.',
+            style: GoogleFonts.poppins(fontSize: 13),
+          ),
+          behavior: SnackBarBehavior.floating,
         ),
-        behavior: SnackBarBehavior.floating,
-      ),
-    );
+      );
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     final hPad = _hPad(context);
-    final items = _filtered;
+    final items = _requests;
     final compact = MediaQuery.sizeOf(context).width < 360;
 
     return Scaffold(
@@ -283,7 +288,10 @@ class _ReceiveOutwardRequestScreenState
           : AppColors.cardWhite,
       borderRadius: BorderRadius.circular(20),
       child: InkWell(
-        onTap: () => setState(() => _filter = value),
+        onTap: () {
+          setState(() => _filter = value);
+          _load();
+        },
         borderRadius: BorderRadius.circular(20),
         child: Container(
           padding: EdgeInsets.symmetric(
@@ -394,18 +402,10 @@ class _ReceiveRequestCard extends StatelessWidget {
             'Qty: $qtyText ${request.unit}',
             style: GoogleFonts.poppins(fontSize: 12, color: AppColors.textDark),
           ),
-          if (request.toName.trim().isNotEmpty) ...[
+          if (request.fromSiteName.trim().isNotEmpty) ...[
             const SizedBox(height: 6),
             Text(
-              'To: ${request.toName}',
-              style:
-                  GoogleFonts.poppins(fontSize: 12, color: AppColors.textDark),
-            ),
-          ],
-          if (request.siteName.trim().isNotEmpty) ...[
-            const SizedBox(height: 6),
-            Text(
-              'Site: ${request.siteName}',
+              'From: ${request.fromSiteName}',
               style:
                   GoogleFonts.poppins(fontSize: 12, color: AppColors.textDark),
             ),
