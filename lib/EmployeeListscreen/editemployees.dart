@@ -55,36 +55,8 @@ class _EditEmployeeScreenState extends State<EditEmployeeScreen> {
     _isActive = e.status == EmployeeStatus.active;
     _selectedAccessRoleIds.addAll(e.accessRoleIds);
     _selectedSiteIds.addAll(e.siteIds);
-    _loadRoles();
     _loadAccessRoles();
     _loadSites();
-  }
-
-  Future<void> _loadRoles() async {
-    final data = await getEmployeeRolesApi(context);
-    if (!mounted) return;
-    final roles = (data ?? const <Map<String, dynamic>>[])
-        .map(_EditRole.fromJson)
-        .whereType<_EditRole>()
-        .toList();
-    final currentName = widget.employee.role.toLowerCase();
-    setState(() {
-      _roles = roles;
-      _selectedRoleId = roles
-          .where((role) => role.name.toLowerCase() == currentName)
-          .firstOrNull
-          ?.id;
-      if (_selectedAccessRoleIds.isEmpty && widget.employee.accessRoles.isNotEmpty) {
-        final names = widget.employee.accessRoles.map((n) => n.toLowerCase()).toSet();
-        final source = _accessRoles.isNotEmpty ? _accessRoles : roles;
-        _selectedAccessRoleIds.addAll(
-          source.where((role) => names.contains(role.name.toLowerCase())).map((role) => role.id),
-        );
-      }
-      if (_selectedRoleId != null) _selectedAccessRoleIds.remove(_selectedRoleId);
-      _isLoadingRoles = false;
-    });
-    _applyProfileAccessRoles(cachedUser());
   }
 
   Future<void> _loadAccessRoles() async {
@@ -96,17 +68,27 @@ class _EditEmployeeScreenState extends State<EditEmployeeScreen> {
 
   void _applyProfileAccessRoles(UserModel? user) {
     final fromProfile = user?.assignableAccessRoles ?? const <UserAccessRole>[];
-    final names = user?.accessRoles.map((n) => n.toLowerCase()).toSet() ?? {};
-    final options = fromProfile.isNotEmpty
-        ? fromProfile
-            .map((role) => _EditRole(id: role.id, name: role.name))
-            .toList()
-        : _roles
-            .where((role) => names.contains(role.name.toLowerCase()))
-            .toList();
+    final options = fromProfile
+        .map((role) => _EditRole(id: role.id, name: role.name))
+        .toList();
+    final currentName = widget.employee.role.toLowerCase();
     setState(() {
+      _roles = options;
       _accessRoles = options;
+      _isLoadingRoles = false;
       _isLoadingAccessRoles = false;
+      if (_selectedRoleId == null) {
+        _selectedRoleId = options
+            .where((role) => role.name.toLowerCase() == currentName)
+            .firstOrNull
+            ?.id;
+      }
+      if (_selectedAccessRoleIds.isEmpty && widget.employee.accessRoles.isNotEmpty) {
+        final names = widget.employee.accessRoles.map((n) => n.toLowerCase()).toSet();
+        _selectedAccessRoleIds.addAll(
+          options.where((role) => names.contains(role.name.toLowerCase())).map((role) => role.id),
+        );
+      }
     });
   }
 
@@ -224,8 +206,10 @@ class _EditEmployeeScreenState extends State<EditEmployeeScreen> {
         email: _email.text.trim(),
         mobile: _phone.text.trim(),
         designation: _roles
-            .firstWhere((role) => role.id == roleId)
-            .name,
+            .where((role) => role.id == roleId)
+            .firstOrNull
+            ?.name ??
+            widget.employee.role,
         dateOfJoin: _formatApiDate(_dateOfJoin!),
         dateOfSuspended:
             _dateSuspended != null ? _formatApiDate(_dateSuspended!) : null,
@@ -354,7 +338,7 @@ class _EditEmployeeScreenState extends State<EditEmployeeScreen> {
                             const SizedBox(height: 16),
                             _label('Role'),
                             DropdownButtonFormField<int>(
-                              key: ValueKey('edit-role-$_selectedRoleId-${_roles.length}'),
+                              key: ValueKey('edit-role-${_roles.length}'),
                               initialValue: _roles.any((r) => r.id == _selectedRoleId)
                                   ? _selectedRoleId
                                   : null,
@@ -368,10 +352,7 @@ class _EditEmployeeScreenState extends State<EditEmployeeScreen> {
                                   .toList(),
                               onChanged: _isLoadingRoles
                                   ? null
-                                  : (v) => setState(() {
-                                        _selectedRoleId = v;
-                                        if (v != null) _selectedAccessRoleIds.remove(v);
-                                      }),
+                                  : (v) => setState(() => _selectedRoleId = v),
                               decoration: _decoration(
                                 _isLoadingRoles ? 'Loading roles...' : 'Select role',
                                 inputBorder,
@@ -543,7 +524,7 @@ class _EditEmployeeScreenState extends State<EditEmployeeScreen> {
       );
 
   Widget _buildAccessRolesChips() {
-    final options = _accessRoles.where((role) => role.id != _selectedRoleId).toList();
+    final options = _accessRoles;
     if (_isLoadingAccessRoles) {
       return Text(
         'Loading roles...',
@@ -651,11 +632,4 @@ class _EditRole {
 
   final int id;
   final String name;
-
-  static _EditRole? fromJson(Map<String, dynamic> json) {
-    final id = int.tryParse(json['id']?.toString() ?? '');
-    final name = (json['label'] ?? json['name'])?.toString().trim();
-    if (id == null || name == null || name.isEmpty) return null;
-    return _EditRole(id: id, name: name);
-  }
 }

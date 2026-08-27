@@ -52,6 +52,11 @@ class _ViewEmployeeProfileScreenState extends State<ViewEmployeeProfileScreen> {
     return '${date.day.toString().padLeft(2, '0')}/${date.month.toString().padLeft(2, '0')}/${date.year}';
   }
 
+  String _formatDateString(String? value) {
+    if (value == null || value.trim().isEmpty) return '-';
+    return _formatDate(DateTime.tryParse(value.trim()));
+  }
+
   bool get _isActive => _profile?.isActiveStatus ?? widget.employee.status == EmployeeStatus.active;
 
   bool get _attendanceAllowed => _profile?.attendanceAllow ?? widget.employee.attendanceAllow;
@@ -131,8 +136,8 @@ class _ViewEmployeeProfileScreenState extends State<ViewEmployeeProfileScreen> {
                                   _infoTile(Icons.calendar_today_outlined, 'Date of Join', _formatDate(_profile?.dateOfJoin)),
                                   _infoTile(
                                     Icons.event_busy_outlined,
-                                    'Date Suspended',
-                                    _text(_profile?.dateOfSuspended),
+                                    'Date of Suspended',
+                                    _formatDateString(_profile?.dateOfSuspended),
                                   ),
                                 ],
                               ),

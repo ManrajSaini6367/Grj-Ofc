@@ -40,9 +40,6 @@ class _EmployeeKycScreenState extends State<EmployeeKycScreen> {
     'KYC Summary',
   ];
 
-  /// Company-provided leave allocation (not editable by employee).
-  static const _companyLeaveAllocation = '12';
-
   static const _foodTypeMess = 'company_mess';
   static const _foodTypeAmount = 'amount';
   static const _stayTypeHostel = 'company_hostel';
@@ -112,7 +109,6 @@ class _EmployeeKycScreenState extends State<EmployeeKycScreen> {
     );
     _applyAssignedSites(cachedSites() ?? const [], notify: false);
     _joiningDate = _parseJoinDate(cachedUser()?.dateOfJoin);
-    _leaveCtrl.text = _companyLeaveAllocation;
     _salaryCtrl.addListener(_onAmountChanged);
     _foodAmountCtrl.addListener(_onAmountChanged);
     _stayAmountCtrl.addListener(_onAmountChanged);
@@ -1079,24 +1075,28 @@ class _DetailsStep extends StatelessWidget {
                 },
               ),
               const SizedBox(height: 12),
-              IgnorePointer(
-                child: TextFormField(
-                  controller: leaveCtrl,
-                  readOnly: true,
-                  canRequestFocus: false,
-                  enableInteractiveSelection: false,
-                  decoration: decoration(
-                    'Leave Allocation',
-                    hint: 'Company provided leaves',
-                  ).copyWith(
-                    filled: true,
-                    fillColor: const Color(0xFFEEF2F6),
-                    suffixText: 'leaves / month',
-                    suffixStyle: GoogleFonts.poppins(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
-                      color: AppColors.textSecondary,
-                    ),
+              TextFormField(
+                controller: leaveCtrl,
+                keyboardType: TextInputType.number,
+                inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                validator: (v) {
+                  final t = (v ?? '').trim();
+                  if (t.isEmpty) return 'Enter leave allocation';
+                  final n = int.tryParse(t);
+                  if (n == null || n < 0 || n > 365) {
+                    return 'Enter leaves between 0 and 365';
+                  }
+                  return null;
+                },
+                decoration: decoration(
+                  'Leave Allocation',
+                  hint: 'e.g. 12',
+                ).copyWith(
+                  suffixText: 'leaves / month',
+                  suffixStyle: GoogleFonts.poppins(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.textSecondary,
                   ),
                 ),
               ),

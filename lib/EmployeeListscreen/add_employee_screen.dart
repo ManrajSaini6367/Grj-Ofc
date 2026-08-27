@@ -53,34 +53,8 @@ class _AddEmployeeScreenState extends State<AddEmployeeScreen> {
           : '';
       _dateOfJoin = DateTime.now().subtract(const Duration(days: 365));
     }
-    _loadRoles();
     _loadAccessRoles();
     _loadSites();
-  }
-
-  Future<void> _loadRoles() async {
-    final data = await getEmployeeRolesApi(context);
-    if (!mounted) return;
-
-    final roles = (data ?? const <Map<String, dynamic>>[])
-        .map(_EmployeeRole.fromJson)
-        .where((role) => role != null)
-        .cast<_EmployeeRole>()
-        .toList();
-    final employeeRole = widget.employee?.role.toLowerCase();
-
-    setState(() {
-      _roles = roles;
-      _selectedRoleId = roles
-          .where((role) => role.name.toLowerCase() == employeeRole)
-          .firstOrNull
-          ?.id;
-      _selectedAccessRoleIds
-        ..clear()
-        ..addAll(_existingAccessRoleIds(_accessRoles.isNotEmpty ? _accessRoles : roles));
-      _isLoadingRoles = false;
-    });
-    _applyProfileAccessRoles(cachedUser());
   }
 
   Set<int> _existingAccessRoleIds(List<_EmployeeRole> roles) {
@@ -106,17 +80,24 @@ class _AddEmployeeScreenState extends State<AddEmployeeScreen> {
 
   void _applyProfileAccessRoles(UserModel? user) {
     final fromProfile = user?.assignableAccessRoles ?? const <UserAccessRole>[];
-    final names = user?.accessRoles.map((n) => n.toLowerCase()).toSet() ?? {};
-    final options = fromProfile.isNotEmpty
-        ? fromProfile
-            .map((role) => _EmployeeRole(id: role.id, name: role.name))
-            .toList()
-        : _roles
-            .where((role) => names.contains(role.name.toLowerCase()))
-            .toList();
+    final options = fromProfile
+        .map((role) => _EmployeeRole(id: role.id, name: role.name))
+        .toList();
+    final employeeRole = widget.employee?.role.toLowerCase();
     setState(() {
+      _roles = options;
       _accessRoles = options;
+      _isLoadingRoles = false;
       _isLoadingAccessRoles = false;
+      if (_selectedRoleId == null && employeeRole != null) {
+        _selectedRoleId = options
+            .where((role) => role.name.toLowerCase() == employeeRole)
+            .firstOrNull
+            ?.id;
+      }
+      if (widget.employee != null && _selectedAccessRoleIds.isEmpty) {
+        _selectedAccessRoleIds.addAll(_existingAccessRoleIds(options));
+      }
     });
   }
 
@@ -260,8 +241,10 @@ class _AddEmployeeScreenState extends State<AddEmployeeScreen> {
         password: _passwordController.text,
         passwordConfirmation: _passwordController.text,
         designation: _roles
-            .firstWhere((role) => role.id == roleId)
-            .name,
+            .where((role) => role.id == roleId)
+            .firstOrNull
+            ?.name ??
+            '',
         dateOfJoin: _formatApiDate(_dateOfJoin!),
         dateOfSuspended: _dateSuspended != null
             ? _formatApiDate(_dateSuspended!)
@@ -407,12 +390,7 @@ class _AddEmployeeScreenState extends State<AddEmployeeScreen> {
             label: 'Role',
             value: _selectedRoleId,
             items: _roles,
-            onChanged: _isLoadingRoles
-                ? null
-                : (value) => setState(() {
-                    _selectedRoleId = value;
-                    if (value != null) _selectedAccessRoleIds.remove(value);
-                  }),
+            onChanged: (value) => setState(() => _selectedRoleId = value),
           ),
           const SizedBox(height: 16),
           _buildAccessRolesField(),
@@ -660,7 +638,8 @@ class _AddEmployeeScreenState extends State<AddEmployeeScreen> {
         ),
         const SizedBox(height: 8),
         DropdownButtonFormField<int>(
-          initialValue: value,
+          key: ValueKey('add-role-${_roles.length}'),
+          initialValue: items.any((item) => item.id == value) ? value : null,
           items: items
               .map(
                 (item) => DropdownMenuItem(
@@ -674,7 +653,11 @@ class _AddEmployeeScreenState extends State<AddEmployeeScreen> {
               .toList(),
           onChanged: onChanged,
           decoration: _inputDecoration(
-            _isLoadingRoles ? 'Loading roles...' : 'Select $label',
+            _isLoadingRoles
+                ? 'Loading roles...'
+                : items.isEmpty
+                    ? 'No roles available.'
+                    : 'Select $label',
           ),
           style: GoogleFonts.poppins(
             color: AppColors.headingBlack,
@@ -691,7 +674,7 @@ class _AddEmployeeScreenState extends State<AddEmployeeScreen> {
   }
 
   Widget _buildAccessRolesField() {
-    final options = _accessRoles.where((role) => role.id != _selectedRoleId).toList();
+    final options = _accessRoles;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -1075,11 +1058,4 @@ class _EmployeeRole {
 
   final int id;
   final String name;
-
-  static _EmployeeRole? fromJson(Map<String, dynamic> json) {
-    final id = int.tryParse(json['id']?.toString() ?? '');
-    final name = (json['label'] ?? json['name'])?.toString().trim();
-    if (id == null || name == null || name.isEmpty) return null;
-    return _EmployeeRole(id: id, name: name);
-  }
 }
