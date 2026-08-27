@@ -103,6 +103,7 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
       attendanceAllow: item.attendanceAllow ?? true,
       accessRoles: item.accessRoles ?? const [],
       accessRoleIds: item.accessRoleIds ?? const [],
+      siteIds: item.siteIds ?? (item.siteId != null ? [item.siteId!] : const []),
     );
   }
 

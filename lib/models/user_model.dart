@@ -17,6 +17,8 @@ class UserModel {
     this.dateOfSuspended,
     required this.attendanceAllow,
     this.kycStatus,
+    this.accessRoles = const [],
+    this.accessRoleIds = const [],
   });
 
   final int id;
@@ -36,6 +38,8 @@ class UserModel {
   final String? dateOfSuspended;
   final bool attendanceAllow;
   final String? kycStatus;
+  final List<String> accessRoles;
+  final List<int> accessRoleIds;
 
   factory UserModel.fromJson(Map<String, dynamic> json) {
     return UserModel(
@@ -59,6 +63,8 @@ class UserModel {
       dateOfSuspended: json['date_of_suspended']?.toString(),
       attendanceAllow: _parseBool(json['attendance_allow']),
       kycStatus: _parseStringOrNull(json['kyc_status'] ?? json['kycStatus']),
+      accessRoles: _parseRoleNames(json['access_roles']),
+      accessRoleIds: _parseAccessRoleIds(json),
     );
   }
 
@@ -86,13 +92,47 @@ class UserModel {
     return roles
         .map((role) {
           if (role is Map) {
-            final name = role['name'] ?? role['title'] ?? role['id'];
+            final name = role['label'] ?? role['name'] ?? role['title'] ?? role['id'];
             return name?.toString().trim() ?? '';
           }
           return role.toString().trim();
         })
         .where((name) => name.isNotEmpty)
         .toList();
+  }
+
+  static List<int> _parseAccessRoleIds(Map<String, dynamic> json) {
+    final fromIds = _idsFromList(json['access_role_ids']);
+    if (fromIds.isNotEmpty) return fromIds;
+    return _idsFromList(json['access_roles']);
+  }
+
+  static List<int> _idsFromList(dynamic value) {
+    if (value is! List) return const [];
+    final ids = <int>[];
+    for (final item in value) {
+      if (item is Map) {
+        final id = _parseIntOrNull(item['id'] ?? item['role_id']);
+        if (id != null && id > 0) ids.add(id);
+      } else {
+        final id = _parseIntOrNull(item);
+        if (id != null && id > 0) ids.add(id);
+      }
+    }
+    return ids;
+  }
+
+  List<UserAccessRole> get assignableAccessRoles {
+    if (accessRoleIds.isEmpty) return const [];
+    return [
+      for (var i = 0; i < accessRoleIds.length; i++)
+        UserAccessRole(
+          id: accessRoleIds[i],
+          name: i < accessRoles.length && accessRoles[i].isNotEmpty
+              ? accessRoles[i]
+              : 'Role ${accessRoleIds[i]}',
+        ),
+    ];
   }
 
   static int? _parseRoleId(Map<String, dynamic> json) {
@@ -136,6 +176,15 @@ class UserModel {
       'date_of_suspended': dateOfSuspended,
       'attendance_allow': attendanceAllow,
       'kyc_status': kycStatus,
+      'access_roles': [
+        for (var i = 0; i < accessRoleIds.length; i++)
+          {
+            'id': accessRoleIds[i],
+            'name': i < accessRoles.length ? accessRoles[i] : '',
+            'label': i < accessRoles.length ? accessRoles[i] : '',
+          },
+      ],
+      'access_role_ids': accessRoleIds,
     };
   }
 
@@ -172,6 +221,8 @@ class UserModel {
     bool? attendanceAllow,
     String? kycStatus,
     bool clearKycStatus = false,
+    List<String>? accessRoles,
+    List<int>? accessRoleIds,
   }) {
     return UserModel(
       id: id ?? this.id,
@@ -191,6 +242,15 @@ class UserModel {
       dateOfSuspended: dateOfSuspended ?? this.dateOfSuspended,
       attendanceAllow: attendanceAllow ?? this.attendanceAllow,
       kycStatus: clearKycStatus ? null : (kycStatus ?? this.kycStatus),
+      accessRoles: accessRoles ?? this.accessRoles,
+      accessRoleIds: accessRoleIds ?? this.accessRoleIds,
     );
   }
+}
+
+class UserAccessRole {
+  const UserAccessRole({required this.id, required this.name});
+
+  final int id;
+  final String name;
 }

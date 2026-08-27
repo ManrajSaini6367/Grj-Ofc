@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:grjoffice_apps/core/app_colors.dart';
 import 'package:grjoffice_apps/EmployeeListscreen/employee.dart';
+import 'package:grjoffice_apps/models/site_model.dart';
+import 'package:grjoffice_apps/models/user_model.dart';
 import 'package:grjoffice_apps/services/api_auth.dart';
 import 'package:grjoffice_apps/widgets/app_top_bar.dart';
 
@@ -31,6 +33,11 @@ class _AddEmployeeScreenState extends State<AddEmployeeScreen> {
   int? _selectedRoleId;
   final Set<int> _selectedAccessRoleIds = {};
   List<_EmployeeRole> _roles = const [];
+  List<_EmployeeRole> _accessRoles = const [];
+  bool _isLoadingAccessRoles = true;
+  bool _isLoadingSites = true;
+  final Set<int> _selectedSiteIds = {};
+  List<SiteModel> _sites = const [];
   DateTime? _dateOfJoin;
   DateTime? _dateSuspended;
 
@@ -47,6 +54,8 @@ class _AddEmployeeScreenState extends State<AddEmployeeScreen> {
       _dateOfJoin = DateTime.now().subtract(const Duration(days: 365));
     }
     _loadRoles();
+    _loadAccessRoles();
+    _loadSites();
   }
 
   Future<void> _loadRoles() async {
@@ -68,9 +77,10 @@ class _AddEmployeeScreenState extends State<AddEmployeeScreen> {
           ?.id;
       _selectedAccessRoleIds
         ..clear()
-        ..addAll(_existingAccessRoleIds(roles));
+        ..addAll(_existingAccessRoleIds(_accessRoles.isNotEmpty ? _accessRoles : roles));
       _isLoadingRoles = false;
     });
+    _applyProfileAccessRoles(cachedUser());
   }
 
   Set<int> _existingAccessRoleIds(List<_EmployeeRole> roles) {
@@ -85,6 +95,47 @@ class _AddEmployeeScreenState extends State<AddEmployeeScreen> {
         .where((role) => names.contains(role.name.toLowerCase()))
         .map((role) => role.id)
         .toSet();
+  }
+
+  Future<void> _loadAccessRoles() async {
+    _applyProfileAccessRoles(cachedUser());
+    final profile = await profileApi(context);
+    if (!mounted) return;
+    _applyProfileAccessRoles(profile ?? cachedUser());
+  }
+
+  void _applyProfileAccessRoles(UserModel? user) {
+    final fromProfile = user?.assignableAccessRoles ?? const <UserAccessRole>[];
+    final names = user?.accessRoles.map((n) => n.toLowerCase()).toSet() ?? {};
+    final options = fromProfile.isNotEmpty
+        ? fromProfile
+            .map((role) => _EmployeeRole(id: role.id, name: role.name))
+            .toList()
+        : _roles
+            .where((role) => names.contains(role.name.toLowerCase()))
+            .toList();
+    setState(() {
+      _accessRoles = options;
+      _isLoadingAccessRoles = false;
+    });
+  }
+
+  Future<void> _loadSites() async {
+    final currentId = selectedSiteId();
+    final existing = widget.employee?.siteIds ?? const <int>[];
+    final data = await sitesApi(context, perPage: 100);
+    if (!mounted) return;
+    final sites = data ?? cachedSites() ?? const <SiteModel>[];
+    setState(() {
+      _sites = sites;
+      _selectedSiteIds
+        ..clear()
+        ..addAll(existing);
+      if (_selectedSiteIds.isEmpty && currentId != null) {
+        _selectedSiteIds.add(currentId);
+      }
+      _isLoadingSites = false;
+    });
   }
 
   @override
@@ -176,13 +227,23 @@ class _AddEmployeeScreenState extends State<AddEmployeeScreen> {
       return;
     }
 
-    final siteId = selectedSiteId();
-    if (siteId == null) {
+    if (_selectedSiteIds.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please select a site first.')),
+        const SnackBar(content: Text('Please select at least one site.')),
       );
       return;
     }
+
+    final siteIds = _selectedSiteIds.toList();
+    final currentId = selectedSiteId();
+    final siteId = (currentId != null && siteIds.contains(currentId))
+        ? currentId
+        : siteIds.first;
+
+    final int roleId = _selectedRoleId!;
+    final List<int> accessRoles = _selectedAccessRoleIds
+        .where((id) => id != roleId)
+        .toList();
 
     setState(() => _isSaving = true);
     await Future<void>.delayed(Duration.zero);
@@ -191,7 +252,7 @@ class _AddEmployeeScreenState extends State<AddEmployeeScreen> {
       final success = await createEmployeeApi(
         context,
         siteId: siteId,
-        roleId: _selectedRoleId!,
+        roleId: roleId,
         firstName: _firstNameController.text.trim(),
         lastName: _lastNameController.text.trim(),
         email: _emailController.text.trim(),
@@ -199,7 +260,7 @@ class _AddEmployeeScreenState extends State<AddEmployeeScreen> {
         password: _passwordController.text,
         passwordConfirmation: _passwordController.text,
         designation: _roles
-            .firstWhere((role) => role.id == _selectedRoleId)
+            .firstWhere((role) => role.id == roleId)
             .name,
         dateOfJoin: _formatApiDate(_dateOfJoin!),
         dateOfSuspended: _dateSuspended != null
@@ -207,9 +268,8 @@ class _AddEmployeeScreenState extends State<AddEmployeeScreen> {
             : null,
         attendanceAllow: _attendanceAllowed,
         status: 'published',
-        accessRoleIds: _selectedAccessRoleIds
-            .where((id) => id != _selectedRoleId)
-            .toList(),
+        accessRoleIds: accessRoles,
+        siteIds: siteIds,
       );
 
       if (!mounted) return;
@@ -356,6 +416,8 @@ class _AddEmployeeScreenState extends State<AddEmployeeScreen> {
           ),
           const SizedBox(height: 16),
           _buildAccessRolesField(),
+          const SizedBox(height: 16),
+          _buildSitesField(),
           const SizedBox(height: 16),
           _buildDateField(
             label: 'Date of Join',
@@ -629,7 +691,7 @@ class _AddEmployeeScreenState extends State<AddEmployeeScreen> {
   }
 
   Widget _buildAccessRolesField() {
-    final options = _roles.where((role) => role.id != _selectedRoleId).toList();
+    final options = _accessRoles.where((role) => role.id != _selectedRoleId).toList();
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -654,7 +716,7 @@ class _AddEmployeeScreenState extends State<AddEmployeeScreen> {
           ],
         ),
         const SizedBox(height: 8),
-        if (_isLoadingRoles)
+        if (_isLoadingAccessRoles)
           Text(
             'Loading roles...',
             style: GoogleFonts.poppins(
@@ -692,6 +754,78 @@ class _AddEmployeeScreenState extends State<AddEmployeeScreen> {
                       _selectedAccessRoleIds.add(role.id);
                     } else {
                       _selectedAccessRoleIds.remove(role.id);
+                    }
+                  });
+                },
+                selectedColor: AppColors.primaryRed.withValues(alpha: 0.12),
+                checkmarkColor: AppColors.primaryRed,
+                backgroundColor: AppColors.cardWhite,
+                side: BorderSide(
+                  color: selected
+                      ? AppColors.primaryRed.withValues(alpha: 0.4)
+                      : AppColors.borderGray.withValues(alpha: 0.5),
+                ),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(20),
+                ),
+              );
+            }).toList(),
+          ),
+      ],
+    );
+  }
+
+  Widget _buildSitesField() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Sites',
+          style: GoogleFonts.poppins(
+            color: AppColors.textDark,
+            fontSize: 13,
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+        const SizedBox(height: 8),
+        if (_isLoadingSites)
+          Text(
+            'Loading sites...',
+            style: GoogleFonts.poppins(
+              color: AppColors.textSecondary,
+              fontSize: 13,
+            ),
+          )
+        else if (_sites.isEmpty)
+          Text(
+            'No sites available.',
+            style: GoogleFonts.poppins(
+              color: AppColors.textSecondary,
+              fontSize: 13,
+            ),
+          )
+        else
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: _sites.map((site) {
+              final selected = _selectedSiteIds.contains(site.id);
+              return FilterChip(
+                label: Text(
+                  site.name,
+                  style: GoogleFonts.poppins(
+                    fontSize: 12,
+                    fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
+                    color: selected ? AppColors.primaryRed : AppColors.textDark,
+                  ),
+                ),
+                selected: selected,
+                onSelected: (value) {
+                  setState(() {
+                    if (value) {
+                      _selectedSiteIds.add(site.id);
+                    } else {
+                      _selectedSiteIds.remove(site.id);
                     }
                   });
                 },

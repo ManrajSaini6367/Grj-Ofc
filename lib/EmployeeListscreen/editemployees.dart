@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:grjoffice_apps/core/app_colors.dart';
 import 'package:grjoffice_apps/EmployeeListscreen/employee.dart';
+import 'package:grjoffice_apps/models/site_model.dart';
+import 'package:grjoffice_apps/models/user_model.dart';
 import 'package:grjoffice_apps/services/api_auth.dart';
 import 'package:grjoffice_apps/widgets/app_top_bar.dart';
 
@@ -26,6 +28,11 @@ class _EditEmployeeScreenState extends State<EditEmployeeScreen> {
   int? _selectedRoleId;
   final Set<int> _selectedAccessRoleIds = {};
   List<_EditRole> _roles = const [];
+  List<_EditRole> _accessRoles = const [];
+  bool _isLoadingAccessRoles = true;
+  bool _isLoadingSites = true;
+  final Set<int> _selectedSiteIds = {};
+  List<SiteModel> _sites = const [];
   DateTime? _dateOfJoin;
   DateTime? _dateSuspended;
   bool _attendanceAllowed = true;
@@ -47,7 +54,10 @@ class _EditEmployeeScreenState extends State<EditEmployeeScreen> {
     _attendanceAllowed = e.attendanceAllow;
     _isActive = e.status == EmployeeStatus.active;
     _selectedAccessRoleIds.addAll(e.accessRoleIds);
+    _selectedSiteIds.addAll(e.siteIds);
     _loadRoles();
+    _loadAccessRoles();
+    _loadSites();
   }
 
   Future<void> _loadRoles() async {
@@ -66,12 +76,55 @@ class _EditEmployeeScreenState extends State<EditEmployeeScreen> {
           ?.id;
       if (_selectedAccessRoleIds.isEmpty && widget.employee.accessRoles.isNotEmpty) {
         final names = widget.employee.accessRoles.map((n) => n.toLowerCase()).toSet();
+        final source = _accessRoles.isNotEmpty ? _accessRoles : roles;
         _selectedAccessRoleIds.addAll(
-          roles.where((role) => names.contains(role.name.toLowerCase())).map((role) => role.id),
+          source.where((role) => names.contains(role.name.toLowerCase())).map((role) => role.id),
         );
       }
       if (_selectedRoleId != null) _selectedAccessRoleIds.remove(_selectedRoleId);
       _isLoadingRoles = false;
+    });
+    _applyProfileAccessRoles(cachedUser());
+  }
+
+  Future<void> _loadAccessRoles() async {
+    _applyProfileAccessRoles(cachedUser());
+    final profile = await profileApi(context);
+    if (!mounted) return;
+    _applyProfileAccessRoles(profile ?? cachedUser());
+  }
+
+  void _applyProfileAccessRoles(UserModel? user) {
+    final fromProfile = user?.assignableAccessRoles ?? const <UserAccessRole>[];
+    final names = user?.accessRoles.map((n) => n.toLowerCase()).toSet() ?? {};
+    final options = fromProfile.isNotEmpty
+        ? fromProfile
+            .map((role) => _EditRole(id: role.id, name: role.name))
+            .toList()
+        : _roles
+            .where((role) => names.contains(role.name.toLowerCase()))
+            .toList();
+    setState(() {
+      _accessRoles = options;
+      _isLoadingAccessRoles = false;
+    });
+  }
+
+  Future<void> _loadSites() async {
+    final currentId = selectedSiteId();
+    final data = await sitesApi(context, perPage: 100);
+    if (!mounted) return;
+    final sites = data ?? cachedSites() ?? const <SiteModel>[];
+    setState(() {
+      _sites = sites;
+      if (_selectedSiteIds.isEmpty) {
+        if (widget.employee.siteIds.isNotEmpty) {
+          _selectedSiteIds.addAll(widget.employee.siteIds);
+        } else if (currentId != null) {
+          _selectedSiteIds.add(currentId);
+        }
+      }
+      _isLoadingSites = false;
     });
   }
 
@@ -138,6 +191,12 @@ class _EditEmployeeScreenState extends State<EditEmployeeScreen> {
       );
       return;
     }
+    if (_selectedSiteIds.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please select at least one site.')),
+      );
+      return;
+    }
 
     final employeeId = widget.employee.employeeId;
     if (employeeId == null) {
@@ -146,6 +205,11 @@ class _EditEmployeeScreenState extends State<EditEmployeeScreen> {
       );
       return;
     }
+
+    final int roleId = _selectedRoleId!;
+    final List<int> accessRoles = _selectedAccessRoleIds
+        .where((id) => id != roleId)
+        .toList();
 
     setState(() => _isSaving = true);
     await Future<void>.delayed(Duration.zero);
@@ -160,7 +224,7 @@ class _EditEmployeeScreenState extends State<EditEmployeeScreen> {
         email: _email.text.trim(),
         mobile: _phone.text.trim(),
         designation: _roles
-            .firstWhere((role) => role.id == _selectedRoleId)
+            .firstWhere((role) => role.id == roleId)
             .name,
         dateOfJoin: _formatApiDate(_dateOfJoin!),
         dateOfSuspended:
@@ -169,10 +233,9 @@ class _EditEmployeeScreenState extends State<EditEmployeeScreen> {
         passwordConfirmation: password.isNotEmpty ? password : null,
         attendanceAllow: _attendanceAllowed,
         status: _isActive ? 'published' : 'unpublished',
-        roleId: _selectedRoleId,
-        accessRoleIds: _selectedAccessRoleIds
-            .where((id) => id != _selectedRoleId)
-            .toList(),
+        roleId: roleId,
+        accessRoleIds: accessRoles,
+        siteIds: _selectedSiteIds.toList(),
       );
 
       if (!mounted) return;
@@ -319,8 +382,8 @@ class _EditEmployeeScreenState extends State<EditEmployeeScreen> {
                             _label('Access Roles (Optional)'),
                             _buildAccessRolesChips(),
                             const SizedBox(height: 16),
-                            _label('Site'),
-                            _readOnly(widget.employee.site),
+                            _label('Sites'),
+                            _buildSitesChips(),
                             const SizedBox(height: 16),
                             _label('Date of Join'),
                             InkWell(
@@ -480,8 +543,8 @@ class _EditEmployeeScreenState extends State<EditEmployeeScreen> {
       );
 
   Widget _buildAccessRolesChips() {
-    final options = _roles.where((role) => role.id != _selectedRoleId).toList();
-    if (_isLoadingRoles) {
+    final options = _accessRoles.where((role) => role.id != _selectedRoleId).toList();
+    if (_isLoadingAccessRoles) {
       return Text(
         'Loading roles...',
         style: GoogleFonts.poppins(color: AppColors.textSecondary, fontSize: 13),
@@ -514,6 +577,57 @@ class _EditEmployeeScreenState extends State<EditEmployeeScreen> {
                 _selectedAccessRoleIds.add(role.id);
               } else {
                 _selectedAccessRoleIds.remove(role.id);
+              }
+            });
+          },
+          selectedColor: AppColors.primaryRed.withValues(alpha: 0.12),
+          checkmarkColor: AppColors.primaryRed,
+          backgroundColor: AppColors.cardWhite,
+          side: BorderSide(
+            color: selected
+                ? AppColors.primaryRed.withValues(alpha: 0.4)
+                : AppColors.borderGray.withValues(alpha: 0.5),
+          ),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        );
+      }).toList(),
+    );
+  }
+
+  Widget _buildSitesChips() {
+    if (_isLoadingSites) {
+      return Text(
+        'Loading sites...',
+        style: GoogleFonts.poppins(color: AppColors.textSecondary, fontSize: 13),
+      );
+    }
+    if (_sites.isEmpty) {
+      return Text(
+        'No sites available.',
+        style: GoogleFonts.poppins(color: AppColors.textSecondary, fontSize: 13),
+      );
+    }
+    return Wrap(
+      spacing: 8,
+      runSpacing: 8,
+      children: _sites.map((site) {
+        final selected = _selectedSiteIds.contains(site.id);
+        return FilterChip(
+          label: Text(
+            site.name,
+            style: GoogleFonts.poppins(
+              fontSize: 12,
+              fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
+              color: selected ? AppColors.primaryRed : AppColors.textDark,
+            ),
+          ),
+          selected: selected,
+          onSelected: (value) {
+            setState(() {
+              if (value) {
+                _selectedSiteIds.add(site.id);
+              } else {
+                _selectedSiteIds.remove(site.id);
               }
             });
           },

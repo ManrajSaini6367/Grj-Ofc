@@ -16,6 +16,7 @@ class Employee {
     this.attendanceAllow = true,
     this.accessRoles = const [],
     this.accessRoleIds = const [],
+    this.siteIds = const [],
   });
 
   final String id;
@@ -32,6 +33,7 @@ class Employee {
   final bool attendanceAllow;
   final List<String> accessRoles;
   final List<int> accessRoleIds;
+  final List<int> siteIds;
 
   String get initials {
     final parts = name.trim().split(RegExp(r'\s+'));

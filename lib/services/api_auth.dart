@@ -2407,6 +2407,7 @@ Future<bool> createEmployeeApi(
   required bool attendanceAllow,
   required String status,
   List<int> accessRoleIds = const [],
+  List<int> siteIds = const [],
 }) async {
   try {
     final url = '$baseUrl/api/v1/employees';
@@ -2427,14 +2428,18 @@ Future<bool> createEmployeeApi(
       'date_of_join': dateOfJoin,
       'attendance_allow': attendanceAllow ? 1 : 0,
       'status': status,
-      'access_roles': accessRoleIds,
+      'access_roles': List<int>.from(accessRoleIds),
+      'site_ids': List<int>.from(siteIds),
     };
     if (dateOfSuspended != null && dateOfSuspended.isNotEmpty) {
       body['date_of_suspended'] = dateOfSuspended;
     }
 
+    final encoded = jsonEncode(body);
+    print('[createEmployeeApi] body: $encoded');
+
     final response = await http
-        .post(Uri.parse(url), headers: authHeaders, body: jsonEncode(body))
+        .post(Uri.parse(url), headers: authHeaders, body: encoded)
         .timeout(const Duration(seconds: 30));
 
     print('[createEmployeeApi] statusCode: ${response.statusCode}');
@@ -2579,8 +2584,9 @@ Future<bool> updateEmployeeApi(
   String? passwordConfirmation,
   required bool attendanceAllow,
   required String status,
-  int? roleId,
+  required int roleId,
   List<int> accessRoleIds = const [],
+  List<int>? siteIds,
 }) async {
   try {
     final uri = Uri.parse('$baseUrl/api/v1/employees/$employeeId');
@@ -2593,10 +2599,11 @@ Future<bool> updateEmployeeApi(
       'date_of_join': dateOfJoin,
       'attendance_allow': attendanceAllow ? 1 : 0,
       'status': status,
-      'access_roles': accessRoleIds,
+      'role_id': roleId,
+      'access_roles': List<int>.from(accessRoleIds),
     };
-    if (roleId != null) {
-      body['role_id'] = roleId;
+    if (siteIds != null) {
+      body['site_ids'] = List<int>.from(siteIds);
     }
     if (dateOfSuspended != null && dateOfSuspended.isNotEmpty) {
       body['date_of_suspended'] = dateOfSuspended;
@@ -2609,10 +2616,13 @@ Future<bool> updateEmployeeApi(
     print('[updateEmployeeApi] PUT $uri');
     print('[updateEmployeeApi] employeeId: $employeeId');
 
+    final encoded = jsonEncode(body);
+    print('[updateEmployeeApi] body: $encoded');
+
     final response = await apiPut(
       uri,
       headers: authHeaders,
-      body: jsonEncode(body),
+      body: encoded,
     );
 
     print('[updateEmployeeApi] statusCode: ${response.statusCode}');

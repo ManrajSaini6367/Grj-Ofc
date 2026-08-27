@@ -80,6 +80,7 @@ class EmployeeListItem {
     this.roles,
     this.accessRoles,
     this.accessRoleIds,
+    this.siteIds,
     this.dateOfJoin,
     this.dateOfSuspended,
     this.attendanceAllow,
@@ -100,6 +101,7 @@ class EmployeeListItem {
   final List<dynamic>? roles;
   final List<String>? accessRoles;
   final List<int>? accessRoleIds;
+  final List<int>? siteIds;
   final DateTime? dateOfJoin;
   final String? dateOfSuspended;
   final bool? attendanceAllow;
@@ -121,6 +123,7 @@ class EmployeeListItem {
         roles: json['roles'] is List ? List<dynamic>.from(json['roles'] as List) : null,
         accessRoles: _parseStringList(json['access_roles']),
         accessRoleIds: _parseIntList(json['access_role_ids']),
+        siteIds: _parseIntList(json['site_ids'] ?? json['siteIds']),
         dateOfJoin: _parseDate(json['date_of_join']),
         dateOfSuspended: json['date_of_suspended']?.toString(),
         attendanceAllow: _parseBool(json['attendance_allow']),
@@ -150,6 +153,7 @@ class EmployeeListItem {
         if (roles != null) 'roles': roles,
         if (accessRoles != null) 'access_roles': accessRoles,
         if (accessRoleIds != null) 'access_role_ids': accessRoleIds,
+        if (siteIds != null) 'site_ids': siteIds,
         if (dateOfJoin != null)
           'date_of_join':
               '${dateOfJoin!.year.toString().padLeft(4, '0')}-${dateOfJoin!.month.toString().padLeft(2, '0')}-${dateOfJoin!.day.toString().padLeft(2, '0')}',
