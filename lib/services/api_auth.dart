@@ -6942,6 +6942,7 @@ Future<GetMyEmployeeKycRequest?> getMyEmployeeKycRequestApi(
 Future<Showemployyeskycmodal?> showEmployeeKycApi(
   BuildContext context, {
   required int employeeId,
+  bool showErrors = true,
 }) async {
   try {
     final url = '$baseUrl/api/v1/employee-kycs/$employeeId';
@@ -6963,7 +6964,7 @@ Future<Showemployyeskycmodal?> showEmployeeKycApi(
       return Showemployyeskycmodal.fromJson(decoded);
     }
 
-    if (!context.mounted) return null;
+    if (!showErrors || !context.mounted) return null;
     message(
       context,
       _firstApiError(decoded) ??
@@ -6973,13 +6974,13 @@ Future<Showemployyeskycmodal?> showEmployeeKycApi(
     return null;
   } on TimeoutException {
     print('[showEmployeeKycApi] request timed out');
-    if (!context.mounted) return null;
+    if (!showErrors || !context.mounted) return null;
     message(context, 'Request timed out. Please try again.');
     return null;
   } catch (e, stack) {
     print('[showEmployeeKycApi] error: $e');
     print('[showEmployeeKycApi] stack: $stack');
-    if (!context.mounted) return null;
+    if (!showErrors || !context.mounted) return null;
     message(context, 'Something went wrong');
     return null;
   }

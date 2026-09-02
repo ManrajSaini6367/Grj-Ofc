@@ -62,15 +62,22 @@ class PushNotificationService {
     );
     debugPrint('[FCM] Permission: ${settings.authorizationStatus}');
 
-    final token = await _messaging.getToken();
-    debugPrint('====================================');
-    debugPrint('FCM TOKEN :');
-    debugPrint(token);
-    debugPrint('====================================');
-    debugPrint(
-      '[FCM] Tip: Firebase Console → Messaging → "Send test message" '
-      'and paste this token. Campaigns may not reach debug devices instantly.',
-    );
+    // iOS Simulators do not receive an APNs token.  FCM therefore throws when
+    // asking for an FCM token, but that must not prevent the app UI from
+    // starting.
+    try {
+      final token = await _messaging.getToken();
+      debugPrint('====================================');
+      debugPrint('FCM TOKEN :');
+      debugPrint(token);
+      debugPrint('====================================');
+      debugPrint(
+        '[FCM] Tip: Firebase Console → Messaging → "Send test message" '
+        'and paste this token. Campaigns may not reach debug devices instantly.',
+      );
+    } catch (error) {
+      debugPrint('[FCM] Token unavailable: $error');
+    }
 
     // Topic makes broadcast tests easier from Firebase Console.
     try {

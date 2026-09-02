@@ -9,11 +9,7 @@ import 'package:grjoffice_apps/services/user_session.dart';
 import 'package:grjoffice_apps/widgets/app_logo.dart';
 
 class AppDrawer extends StatelessWidget {
-  const AppDrawer({
-    super.key,
-    this.selectedIndex = 0,
-    this.onItemTap,
-  });
+  const AppDrawer({super.key, this.selectedIndex = 0, this.onItemTap});
 
   final int selectedIndex;
   final ValueChanged<int>? onItemTap;
@@ -86,10 +82,7 @@ class AppDrawer extends StatelessWidget {
       DrawerIndex.expenses,
       Icons.account_balance_wallet_outlined,
       'Expenses',
-      anyOf: [
-        AppPermissions.expensesCreate,
-        AppPermissions.expensesReport,
-      ],
+      anyOf: [AppPermissions.expensesCreate, AppPermissions.expensesReport],
     ),
     _DrawerMenuItem(
       DrawerIndex.tasks,
@@ -127,6 +120,12 @@ class AppDrawer extends StatelessWidget {
         AppPermissions.employerAttendancesCreate,
         AppPermissions.viewAttendances,
       ],
+    ),
+    _DrawerMenuItem(
+      DrawerIndex.payout,
+      Icons.payments_outlined,
+      'Payout',
+      anyOf: [AppPermissions.usersView, AppPermissions.usersCreate],
     ),
     _DrawerMenuItem(
       DrawerIndex.contractorAttendances,
@@ -296,15 +295,17 @@ class AppDrawer extends StatelessWidget {
         color: Colors.transparent,
         child: InkWell(
           onTap: onTap,
-          borderRadius:
-              const BorderRadius.horizontal(right: Radius.circular(24)),
+          borderRadius: const BorderRadius.horizontal(
+            right: Radius.circular(24),
+          ),
           child: Ink(
             decoration: BoxDecoration(
               color: isSelected
                   ? AppColors.primaryRed.withValues(alpha: 0.1)
                   : Colors.transparent,
-              borderRadius:
-                  const BorderRadius.horizontal(right: Radius.circular(24)),
+              borderRadius: const BorderRadius.horizontal(
+                right: Radius.circular(24),
+              ),
             ),
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
@@ -326,8 +327,9 @@ class AppDrawer extends StatelessWidget {
                             ? AppColors.primaryRed
                             : AppColors.headingBlack,
                         fontSize: 14,
-                        fontWeight:
-                            isSelected ? FontWeight.w600 : FontWeight.w500,
+                        fontWeight: isSelected
+                            ? FontWeight.w600
+                            : FontWeight.w500,
                       ),
                     ),
                   ),

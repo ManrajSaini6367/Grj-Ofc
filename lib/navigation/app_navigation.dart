@@ -21,6 +21,7 @@ import 'package:grjoffice_apps/leavescreens/leavescreen.dart';
 import 'package:grjoffice_apps/main_shell.dart';
 import 'package:grjoffice_apps/reportscreen/reports_list_screen.dart';
 import 'package:grjoffice_apps/rolesscreen/roles_screen.dart';
+import 'package:grjoffice_apps/payoutscreen/payout_screen.dart';
 import 'package:grjoffice_apps/services/kyc_gate.dart';
 import 'package:grjoffice_apps/services/punch_in_gate.dart';
 import 'package:grjoffice_apps/tasksscreen/tasks_screen.dart';
@@ -62,6 +63,7 @@ abstract final class DrawerIndex {
   static const originalContractors = 21;
   static const inwardOutward = 22;
   static const outwardRequests = 23;
+  static const payout = 24;
 }
 
 bool shellCanPop(BuildContext context) {
@@ -85,9 +87,9 @@ void popShellRoute(BuildContext context) {
 }
 
 void showComingSoon(BuildContext context, String label) {
-  ScaffoldMessenger.of(context).showSnackBar(
-    SnackBar(content: Text('$label is coming soon.')),
-  );
+  ScaffoldMessenger.of(
+    context,
+  ).showSnackBar(SnackBar(content: Text('$label is coming soon.')));
 }
 
 /// Switches tab when already inside [MainShell], otherwise opens [MainShell].
@@ -206,6 +208,8 @@ void navigateFromDrawer(BuildContext context, int drawerIndex) {
       pushInShell(context, const InwardOutwardScreen());
     case DrawerIndex.outwardRequests:
       pushInShell(context, const OutwardRequestsHubScreen());
+    case DrawerIndex.payout:
+      pushInShell(context, const PayoutScreen());
     default:
       break;
   }
