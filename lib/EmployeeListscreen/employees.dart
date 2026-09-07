@@ -100,6 +100,8 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
       site: selectedSiteName() ?? 'Site ${item.siteId ?? ''}',
       status: item.isActiveStatus ? EmployeeStatus.active : EmployeeStatus.inactive,
       dateOfJoin: item.dateOfJoin,
+      monthlySalary: item.monthlySalary,
+      leaveAllocation: item.leaveAllocation,
       attendanceAllow: item.attendanceAllow ?? true,
       accessRoles: item.accessRoles ?? const [],
       accessRoleIds: item.accessRoleIds ?? const [],

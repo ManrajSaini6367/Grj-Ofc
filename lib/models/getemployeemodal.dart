@@ -83,6 +83,8 @@ class EmployeeListItem {
     this.siteIds,
     this.dateOfJoin,
     this.dateOfSuspended,
+    this.monthlySalary,
+    this.leaveAllocation,
     this.attendanceAllow,
     this.createdAt,
     this.updatedAt,
@@ -104,6 +106,8 @@ class EmployeeListItem {
   final List<int>? siteIds;
   final DateTime? dateOfJoin;
   final String? dateOfSuspended;
+  final String? monthlySalary;
+  final int? leaveAllocation;
   final bool? attendanceAllow;
   final DateTime? createdAt;
   final DateTime? updatedAt;
@@ -126,6 +130,8 @@ class EmployeeListItem {
         siteIds: _parseIntList(json['site_ids'] ?? json['siteIds']),
         dateOfJoin: _parseDate(json['date_of_join']),
         dateOfSuspended: json['date_of_suspended']?.toString(),
+        monthlySalary: json['monthly_salary']?.toString(),
+        leaveAllocation: _parseInt(json['leave_allocation']),
         attendanceAllow: _parseBool(json['attendance_allow']),
         createdAt: _parseDate(json['created_at']),
         updatedAt: _parseDate(json['updated_at']),
@@ -158,6 +164,8 @@ class EmployeeListItem {
           'date_of_join':
               '${dateOfJoin!.year.toString().padLeft(4, '0')}-${dateOfJoin!.month.toString().padLeft(2, '0')}-${dateOfJoin!.day.toString().padLeft(2, '0')}',
         'date_of_suspended': dateOfSuspended,
+        'monthly_salary': monthlySalary,
+        'leave_allocation': leaveAllocation,
         'attendance_allow': attendanceAllow,
         if (createdAt != null) 'created_at': createdAt!.toIso8601String(),
         if (updatedAt != null) 'updated_at': updatedAt!.toIso8601String(),

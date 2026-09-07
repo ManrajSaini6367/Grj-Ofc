@@ -2404,6 +2404,8 @@ Future<bool> createEmployeeApi(
   required String designation,
   required String dateOfJoin,
   String? dateOfSuspended,
+  String? monthlySalary,
+  String? leaveAllocation,
   required bool attendanceAllow,
   required String status,
   List<int> accessRoleIds = const [],
@@ -2433,6 +2435,12 @@ Future<bool> createEmployeeApi(
     };
     if (dateOfSuspended != null && dateOfSuspended.isNotEmpty) {
       body['date_of_suspended'] = dateOfSuspended;
+    }
+    if (monthlySalary != null && monthlySalary.isNotEmpty) {
+      body['monthly_salary'] = monthlySalary;
+    }
+    if (leaveAllocation != null && leaveAllocation.isNotEmpty) {
+      body['leave_allocation'] = leaveAllocation;
     }
 
     final encoded = jsonEncode(body);
@@ -2580,6 +2588,8 @@ Future<bool> updateEmployeeApi(
   required String designation,
   required String dateOfJoin,
   String? dateOfSuspended,
+  String? monthlySalary,
+  String? leaveAllocation,
   String? password,
   String? passwordConfirmation,
   required bool attendanceAllow,
@@ -2607,6 +2617,12 @@ Future<bool> updateEmployeeApi(
     }
     if (dateOfSuspended != null && dateOfSuspended.isNotEmpty) {
       body['date_of_suspended'] = dateOfSuspended;
+    }
+    if (monthlySalary != null) {
+      body['monthly_salary'] = monthlySalary;
+    }
+    if (leaveAllocation != null) {
+      body['leave_allocation'] = leaveAllocation;
     }
     if (password != null && password.isNotEmpty) {
       body['password'] = password;
@@ -6687,8 +6703,6 @@ Future<bool> employeeKycApi(
   required String email,
   String? mobile,
   required int siteId,
-  required String monthlySalary,
-  required String leaveAllocation,
   required String employmentType,
   required String joiningDate,
   required bool foodAllowance,
@@ -6717,8 +6731,6 @@ Future<bool> employeeKycApi(
       'email': email.trim(),
       'mobile': (mobile ?? '').trim(),
       'site_id': siteId.toString(),
-      'monthly_salary': monthlySalary.trim(),
-      'leave_allocation': leaveAllocation.trim(),
       'employment_type': employmentType.trim(),
       'joining_date': joiningDate.trim(),
       'food_allowance': foodAllowance ? '1' : '0',
@@ -6732,10 +6744,12 @@ Future<bool> employeeKycApi(
           ? stayEmployeeAmount.trim()
           : '0',
       'emergency_contact': emergencyContact.trim(),
-      'account_holder_name': accountHolderName.trim(),
-      'bank_name': bankName.trim(),
-      'account_number': accountNumber.trim(),
-      'ifsc_code': ifscCode.trim().toUpperCase(),
+      if (accountHolderName.trim().isNotEmpty)
+        'account_holder_name': accountHolderName.trim(),
+      if (bankName.trim().isNotEmpty) 'bank_name': bankName.trim(),
+      if (accountNumber.trim().isNotEmpty)
+        'account_number': accountNumber.trim(),
+      if (ifscCode.trim().isNotEmpty) 'ifsc_code': ifscCode.trim().toUpperCase(),
     };
 
     final files = [

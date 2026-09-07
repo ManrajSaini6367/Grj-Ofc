@@ -57,8 +57,6 @@ class _EmployeeKycScreenState extends State<EmployeeKycScreen> {
   final _emailCtrl = TextEditingController();
   final _phoneCtrl = TextEditingController();
   final _assignedSiteCtrl = TextEditingController();
-  final _salaryCtrl = TextEditingController();
-  final _leaveCtrl = TextEditingController();
   final _foodAmountCtrl = TextEditingController();
   final _stayAmountCtrl = TextEditingController();
   final _accountHolderCtrl = TextEditingController();
@@ -109,7 +107,6 @@ class _EmployeeKycScreenState extends State<EmployeeKycScreen> {
     );
     _applyAssignedSites(cachedSites() ?? const [], notify: false);
     _joiningDate = _parseJoinDate(cachedUser()?.dateOfJoin);
-    _salaryCtrl.addListener(_onAmountChanged);
     _foodAmountCtrl.addListener(_onAmountChanged);
     _stayAmountCtrl.addListener(_onAmountChanged);
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -143,12 +140,6 @@ class _EmployeeKycScreenState extends State<EmployeeKycScreen> {
     }
     if ((kyc.mobile ?? '').trim().isNotEmpty) {
       _phoneCtrl.text = _digitsOnly(kyc.mobile!.trim());
-    }
-    if ((kyc.monthlySalary ?? '').trim().isNotEmpty) {
-      _salaryCtrl.text = kyc.monthlySalary!.trim();
-    }
-    if ((kyc.leaveAllocation ?? '').trim().isNotEmpty) {
-      _leaveCtrl.text = kyc.leaveAllocation!.trim();
     }
     if ((kyc.emergencyContact ?? '').trim().isNotEmpty) {
       _emergencyCtrl.text = _digitsOnly(kyc.emergencyContact!.trim());
@@ -322,11 +313,8 @@ class _EmployeeKycScreenState extends State<EmployeeKycScreen> {
     _emailCtrl.dispose();
     _phoneCtrl.dispose();
     _assignedSiteCtrl.dispose();
-    _salaryCtrl.removeListener(_onAmountChanged);
     _foodAmountCtrl.removeListener(_onAmountChanged);
     _stayAmountCtrl.removeListener(_onAmountChanged);
-    _salaryCtrl.dispose();
-    _leaveCtrl.dispose();
     _foodAmountCtrl.dispose();
     _stayAmountCtrl.dispose();
     _accountHolderCtrl.dispose();
@@ -451,22 +439,6 @@ class _EmployeeKycScreenState extends State<EmployeeKycScreen> {
       _snack('Please upload 12th Marksheet.');
       return false;
     }
-    if (_accountHolderCtrl.text.trim().isEmpty) {
-      _snack('Please enter account holder name.');
-      return false;
-    }
-    if (_bankNameCtrl.text.trim().isEmpty) {
-      _snack('Please enter bank name.');
-      return false;
-    }
-    if (_accountNumberCtrl.text.trim().isEmpty) {
-      _snack('Please enter account number.');
-      return false;
-    }
-    if (_ifscCtrl.text.trim().length != 11) {
-      _snack('Please enter a valid 11-character IFSC code.');
-      return false;
-    }
     if (_bankCheque == null) {
       _snack('Please upload Cancelled Cheque photo.');
       return false;
@@ -570,8 +542,6 @@ class _EmployeeKycScreenState extends State<EmployeeKycScreen> {
       email: _emailCtrl.text.trim(),
       mobile: _phoneCtrl.text.trim(),
       siteId: siteId,
-      monthlySalary: _salaryCtrl.text.trim(),
-      leaveAllocation: _leaveCtrl.text.trim(),
       employmentType: _employmentType,
       joiningDate: _formatJoinDateApi(_joiningDate),
       foodAllowance: _foodAllowance,
@@ -611,8 +581,6 @@ class _EmployeeKycScreenState extends State<EmployeeKycScreen> {
         email: _emailCtrl.text.trim(),
         phoneNumber: _phoneCtrl.text.trim(),
         assignedSite: _assignedSiteCtrl.text.trim(),
-        monthlySalary: _salaryCtrl.text.trim(),
-        leaveAllocation: _leaveCtrl.text.trim(),
         employmentType: _employmentType,
         joiningDate: _formatJoinDate(_joiningDate),
         foodAllowance: _foodAllowance,
@@ -704,8 +672,6 @@ class _EmployeeKycScreenState extends State<EmployeeKycScreen> {
                           hPad: hPad,
                           emailCtrl: _emailCtrl,
                           phoneCtrl: _phoneCtrl,
-                          salaryCtrl: _salaryCtrl,
-                          leaveCtrl: _leaveCtrl,
                           employmentType: _employmentType,
                           employmentTypes: _employmentTypes,
                           foodAllowance: _foodAllowance,
@@ -844,8 +810,6 @@ class _EmployeeKycScreenState extends State<EmployeeKycScreen> {
                         email: _emailCtrl.text.trim(),
                         phoneNumber: _phoneCtrl.text.trim(),
                         assignedSite: _assignedSiteCtrl.text.trim(),
-                        monthlySalary: _salaryCtrl.text.trim(),
-                        leaveAllocation: _leaveCtrl.text.trim(),
                         employmentType: _employmentType,
                         joiningDate: _formatJoinDate(_joiningDate),
                         foodAllowance: _foodAllowance,
@@ -974,8 +938,6 @@ class _DetailsStep extends StatelessWidget {
     required this.hPad,
     required this.emailCtrl,
     required this.phoneCtrl,
-    required this.salaryCtrl,
-    required this.leaveCtrl,
     required this.employmentType,
     required this.employmentTypes,
     required this.foodAllowance,
@@ -995,8 +957,6 @@ class _DetailsStep extends StatelessWidget {
   final double hPad;
   final TextEditingController emailCtrl;
   final TextEditingController phoneCtrl;
-  final TextEditingController salaryCtrl;
-  final TextEditingController leaveCtrl;
   final String employmentType;
   final List<String> employmentTypes;
   final bool foodAllowance;
@@ -1059,46 +1019,6 @@ class _DetailsStep extends StatelessWidget {
                   if (t.length != 10) return 'Enter a valid 10-digit number';
                   return null;
                 },
-              ),
-              const SizedBox(height: 12),
-              _AmountField(
-                controller: salaryCtrl,
-                label: 'Monthly Salary',
-                hint: '0.00',
-                readOnly: false,
-                validator: (v) {
-                  final t = (v ?? '').trim();
-                  if (t.isEmpty) return 'Enter monthly salary';
-                  final n = double.tryParse(t);
-                  if (n == null || n <= 0) return 'Enter a valid salary';
-                  return null;
-                },
-              ),
-              const SizedBox(height: 12),
-              TextFormField(
-                controller: leaveCtrl,
-                keyboardType: TextInputType.number,
-                inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                validator: (v) {
-                  final t = (v ?? '').trim();
-                  if (t.isEmpty) return 'Enter leave allocation';
-                  final n = int.tryParse(t);
-                  if (n == null || n < 0 || n > 365) {
-                    return 'Enter leaves between 0 and 365';
-                  }
-                  return null;
-                },
-                decoration: decoration(
-                  'Leave Allocation',
-                  hint: 'e.g. 12',
-                ).copyWith(
-                  suffixText: 'leaves / month',
-                  suffixStyle: GoogleFonts.poppins(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600,
-                    color: AppColors.textSecondary,
-                  ),
-                ),
               ),
               const SizedBox(height: 14),
               Align(
@@ -1673,30 +1593,25 @@ class _DocumentsStep extends StatelessWidget {
         _SectionCard(
           icon: Icons.account_balance_outlined,
           title: 'Bank Details',
-          subtitle: 'Enter account details, then upload cancelled cheque.',
+          subtitle: 'Optional. Cancelled cheque is required.',
           child: Column(
             children: [
               TextFormField(
                 controller: accountHolderCtrl,
                 textCapitalization: TextCapitalization.words,
                 decoration: decoration(
-                  'Account Holder Name',
+                  'Account Holder Name (Optional)',
                   hint: 'Name as per bank account',
                 ),
-                validator: (v) => (v ?? '').trim().isEmpty
-                    ? 'Enter account holder name'
-                    : null,
               ),
               const SizedBox(height: 12),
               TextFormField(
                 controller: bankNameCtrl,
                 textCapitalization: TextCapitalization.words,
                 decoration: decoration(
-                  'Bank Name',
+                  'Bank Name (Optional)',
                   hint: 'e.g. State Bank of India',
                 ),
-                validator: (v) =>
-                    (v ?? '').trim().isEmpty ? 'Enter bank name' : null,
               ),
               const SizedBox(height: 12),
               TextFormField(
@@ -1707,12 +1622,12 @@ class _DocumentsStep extends StatelessWidget {
                   LengthLimitingTextInputFormatter(18),
                 ],
                 decoration: decoration(
-                  'Account Number',
+                  'Account Number (Optional)',
                   hint: 'Enter account number',
                 ),
                 validator: (v) {
                   final t = (v ?? '').trim();
-                  if (t.isEmpty) return 'Enter account number';
+                  if (t.isEmpty) return null;
                   if (t.length < 8) return 'Enter a valid account number';
                   return null;
                 },
@@ -1727,12 +1642,12 @@ class _DocumentsStep extends StatelessWidget {
                   _UpperCaseTextFormatter(),
                 ],
                 decoration: decoration(
-                  'IFSC Code',
+                  'IFSC Code (Optional)',
                   hint: 'e.g. SBIN0001234',
                 ),
                 validator: (v) {
                   final t = (v ?? '').trim().toUpperCase();
-                  if (t.isEmpty) return 'Enter IFSC code';
+                  if (t.isEmpty) return null;
                   if (!RegExp(r'^[A-Z]{4}0[A-Z0-9]{6}$').hasMatch(t)) {
                     return 'Enter a valid IFSC code';
                   }
@@ -1742,7 +1657,7 @@ class _DocumentsStep extends StatelessWidget {
               const SizedBox(height: 16),
               _DocUploadField(
                 title: 'Cancelled Cheque',
-                subtitle: 'Upload cancelled cheque photo after bank details.',
+                subtitle: 'Upload cancelled cheque photo.',
                 file: bankCheque,
                 onCamera: onChequeCamera,
                 onGallery: onChequeGallery,
@@ -2006,8 +1921,6 @@ class _SummaryStep extends StatelessWidget {
     required this.email,
     required this.phoneNumber,
     required this.assignedSite,
-    required this.monthlySalary,
-    required this.leaveAllocation,
     required this.employmentType,
     required this.joiningDate,
     required this.foodAllowance,
@@ -2034,8 +1947,6 @@ class _SummaryStep extends StatelessWidget {
   final String email;
   final String phoneNumber;
   final String assignedSite;
-  final String monthlySalary;
-  final String leaveAllocation;
   final String employmentType;
   final String joiningDate;
   final bool foodAllowance;
@@ -2089,13 +2000,6 @@ class _SummaryStep extends StatelessWidget {
             _SummaryRow(label: 'Phone Number', value: phoneNumber),
             _SummaryRow(label: 'Assigned Site', value: assignedSite),
             _SummaryRow(label: 'Joining Date', value: joiningDate),
-            _SummaryRow(label: 'Monthly Salary', value: _rupee(monthlySalary)),
-            _SummaryRow(
-              label: 'Leave Allocation',
-              value: leaveAllocation.isEmpty
-                  ? '—'
-                  : '$leaveAllocation leaves / month',
-            ),
             _SummaryRow(label: 'Employment Type', value: employmentType),
           ],
         ),

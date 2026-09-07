@@ -17,9 +17,12 @@ class AddItemScreen extends StatefulWidget {
 }
 
 class _AddItemScreenState extends State<AddItemScreen> {
+  static const _otherUnit = '__other__';
+
   final _formKey = GlobalKey<FormState>();
   final _nameController = TextEditingController();
   final _skuController = TextEditingController();
+  final _otherUnitController = TextEditingController();
 
   String _unit = kAvailableUnits.first;
   ItemStatus _status = ItemStatus.published;
@@ -30,10 +33,12 @@ class _AddItemScreenState extends State<AddItemScreen> {
   bool _isSaving = false;
   late List<String> _units;
 
+  bool get _isOtherUnit => _unit == _otherUnit;
+
   @override
   void initState() {
     super.initState();
-    _units = List<String>.from(kAvailableUnits);
+    _units = [...kAvailableUnits, _otherUnit];
     final item = widget.item;
     if (item != null) {
       _nameController.text = item.name;
@@ -43,10 +48,12 @@ class _AddItemScreenState extends State<AddItemScreen> {
       _dayReport = item.dayReport;
       _consumable = item.consumable;
       _balance = item.balance;
-      if (item.unit.isNotEmpty && !_units.contains(item.unit)) {
-        _units.insert(0, item.unit);
+      if (item.unit.isNotEmpty && kAvailableUnits.contains(item.unit)) {
+        _unit = item.unit;
+      } else if (item.unit.isNotEmpty) {
+        _unit = _otherUnit;
+        _otherUnitController.text = item.unit;
       }
-      _unit = _units.contains(item.unit) ? item.unit : _units.first;
     }
   }
 
@@ -54,8 +61,12 @@ class _AddItemScreenState extends State<AddItemScreen> {
   void dispose() {
     _nameController.dispose();
     _skuController.dispose();
+    _otherUnitController.dispose();
     super.dispose();
   }
+
+  String get _resolvedUnit =>
+      _isOtherUnit ? _otherUnitController.text.trim() : _unit;
 
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) {
@@ -88,7 +99,7 @@ class _AddItemScreenState extends State<AddItemScreen> {
           itemId: itemId,
           name: _nameController.text.trim(),
           sku: _skuController.text.trim(),
-          unit: _unit,
+          unit: _resolvedUnit,
           status: status,
           balance: _balance,
           purchase: purchase,
@@ -124,7 +135,7 @@ class _AddItemScreenState extends State<AddItemScreen> {
         siteId: siteId,
         name: _nameController.text.trim(),
         sku: _skuController.text.trim(),
-        unit: _unit,
+        unit: _resolvedUnit,
         status: status,
         balance: 0,
         purchase: purchase,
@@ -259,15 +270,41 @@ class _AddItemScreenState extends State<AddItemScreen> {
         DropdownButtonFormField<String>(
           value: _unit,
           items: _units
-              .map((u) => DropdownMenuItem(value: u, child: Text(u, style: GoogleFonts.poppins(fontSize: 14))))
+              .map(
+                (u) => DropdownMenuItem(
+                  value: u,
+                  child: Text(
+                    u == _otherUnit ? 'Other' : u,
+                    style: GoogleFonts.poppins(fontSize: 14),
+                  ),
+                ),
+              )
               .toList(),
           onChanged: (v) {
-            if (v != null) setState(() => _unit = v);
+            if (v == null) return;
+            setState(() {
+              _unit = v;
+              if (!_isOtherUnit) _otherUnitController.clear();
+            });
           },
           validator: (v) => v == null || v.isEmpty ? 'Unit is required' : null,
           decoration: _inputDecoration('Select unit'),
           style: GoogleFonts.poppins(fontSize: 14, color: AppColors.textDark),
         ),
+        if (_isOtherUnit) ...[
+          const SizedBox(height: 8),
+          TextFormField(
+            controller: _otherUnitController,
+            validator: (v) {
+              if (!_isOtherUnit) return null;
+              if (v == null || v.trim().isEmpty) return 'Enter other unit';
+              if (v.trim().length > 50) return 'Unit is too long';
+              return null;
+            },
+            style: GoogleFonts.poppins(fontSize: 14),
+            decoration: _inputDecoration('Enter other unit'),
+          ),
+        ],
       ],
     );
   }

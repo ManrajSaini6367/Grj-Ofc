@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:grjoffice_apps/core/app_colors.dart';
 import 'package:grjoffice_apps/EmployeeListscreen/employee.dart';
@@ -25,6 +26,8 @@ class _AddEmployeeScreenState extends State<AddEmployeeScreen> {
   final _emailController = TextEditingController();
   final _phoneController = TextEditingController();
   final _passwordController = TextEditingController();
+  final _salaryController = TextEditingController();
+  final _leaveController = TextEditingController();
 
   bool _obscurePassword = true;
   bool _attendanceAllowed = true;
@@ -52,6 +55,8 @@ class _AddEmployeeScreenState extends State<AddEmployeeScreen> {
           ? parts.sublist(1).join(' ')
           : '';
       _dateOfJoin = DateTime.now().subtract(const Duration(days: 365));
+      _salaryController.text = employee.monthlySalary ?? '';
+      _leaveController.text = employee.leaveAllocation?.toString() ?? '';
     }
     _loadAccessRoles();
     _loadSites();
@@ -126,6 +131,8 @@ class _AddEmployeeScreenState extends State<AddEmployeeScreen> {
     _emailController.dispose();
     _phoneController.dispose();
     _passwordController.dispose();
+    _salaryController.dispose();
+    _leaveController.dispose();
     super.dispose();
   }
 
@@ -249,6 +256,8 @@ class _AddEmployeeScreenState extends State<AddEmployeeScreen> {
         dateOfSuspended: _dateSuspended != null
             ? _formatApiDate(_dateSuspended!)
             : null,
+        monthlySalary: _salaryController.text.trim(),
+        leaveAllocation: _leaveController.text.trim(),
         attendanceAllow: _attendanceAllowed,
         status: 'published',
         accessRoleIds: accessRoles,
@@ -413,6 +422,40 @@ class _AddEmployeeScreenState extends State<AddEmployeeScreen> {
                 : () => setState(() => _dateSuspended = null),
           ),
           const SizedBox(height: 16),
+          _buildTextField(
+            label: 'Monthly Salary',
+            controller: _salaryController,
+            hint: '0.00',
+            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+            inputFormatters: [
+              FilteringTextInputFormatter.allow(RegExp(r'[0-9.]')),
+            ],
+            validator: (value) {
+              final t = (value ?? '').trim();
+              if (t.isEmpty) return null;
+              final n = double.tryParse(t);
+              if (n == null || n < 0) return 'Enter a valid salary';
+              return null;
+            },
+          ),
+          const SizedBox(height: 16),
+          _buildTextField(
+            label: 'Leave Allocation',
+            controller: _leaveController,
+            hint: 'e.g. 12',
+            keyboardType: TextInputType.number,
+            inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+            validator: (value) {
+              final t = (value ?? '').trim();
+              if (t.isEmpty) return null;
+              final n = int.tryParse(t);
+              if (n == null || n < 0 || n > 365) {
+                return 'Enter leaves between 0 and 365';
+              }
+              return null;
+            },
+          ),
+          const SizedBox(height: 16),
           _buildAttendanceField(),
         ],
       ),
@@ -542,6 +585,7 @@ class _AddEmployeeScreenState extends State<AddEmployeeScreen> {
     required TextEditingController controller,
     required String hint,
     TextInputType keyboardType = TextInputType.text,
+    List<TextInputFormatter>? inputFormatters,
     String? Function(String?)? validator,
     ValueChanged<String>? onChanged,
   }) {
@@ -560,6 +604,7 @@ class _AddEmployeeScreenState extends State<AddEmployeeScreen> {
         TextFormField(
           controller: controller,
           keyboardType: keyboardType,
+          inputFormatters: inputFormatters,
           validator: validator,
           onChanged: onChanged,
           style: GoogleFonts.poppins(

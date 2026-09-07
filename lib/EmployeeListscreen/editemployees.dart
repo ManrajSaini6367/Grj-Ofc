@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:grjoffice_apps/core/app_colors.dart';
 import 'package:grjoffice_apps/EmployeeListscreen/employee.dart';
@@ -23,6 +24,8 @@ class _EditEmployeeScreenState extends State<EditEmployeeScreen> {
   late final TextEditingController _email;
   late final TextEditingController _phone;
   late final TextEditingController _password;
+  late final TextEditingController _salary;
+  late final TextEditingController _leave;
 
   bool _isLoadingRoles = true;
   int? _selectedRoleId;
@@ -50,6 +53,8 @@ class _EditEmployeeScreenState extends State<EditEmployeeScreen> {
     _email = TextEditingController(text: e.email ?? '');
     _phone = TextEditingController(text: e.mobile ?? '');
     _password = TextEditingController();
+    _salary = TextEditingController(text: e.monthlySalary ?? '');
+    _leave = TextEditingController(text: e.leaveAllocation?.toString() ?? '');
     _dateOfJoin = e.dateOfJoin ?? DateTime.now();
     _attendanceAllowed = e.attendanceAllow;
     _isActive = e.status == EmployeeStatus.active;
@@ -117,6 +122,8 @@ class _EditEmployeeScreenState extends State<EditEmployeeScreen> {
     _email.dispose();
     _phone.dispose();
     _password.dispose();
+    _salary.dispose();
+    _leave.dispose();
     super.dispose();
   }
 
@@ -215,6 +222,8 @@ class _EditEmployeeScreenState extends State<EditEmployeeScreen> {
             _dateSuspended != null ? _formatApiDate(_dateSuspended!) : null,
         password: password.isNotEmpty ? password : null,
         passwordConfirmation: password.isNotEmpty ? password : null,
+        monthlySalary: _salary.text.trim(),
+        leaveAllocation: _leave.text.trim(),
         attendanceAllow: _attendanceAllowed,
         status: _isActive ? 'published' : 'unpublished',
         roleId: roleId,
@@ -403,6 +412,40 @@ class _EditEmployeeScreenState extends State<EditEmployeeScreen> {
                                     icon: const Icon(Icons.close, size: 18),
                                   ),
                               ],
+                            ),
+                            const SizedBox(height: 16),
+                            _label('Monthly Salary'),
+                            TextFormField(
+                              controller: _salary,
+                              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                              inputFormatters: [
+                                FilteringTextInputFormatter.allow(RegExp(r'[0-9.]')),
+                              ],
+                              validator: (v) {
+                                final t = (v ?? '').trim();
+                                if (t.isEmpty) return null;
+                                final n = double.tryParse(t);
+                                if (n == null || n < 0) return 'Enter a valid salary';
+                                return null;
+                              },
+                              decoration: _decoration('0.00', inputBorder),
+                            ),
+                            const SizedBox(height: 16),
+                            _label('Leave Allocation'),
+                            TextFormField(
+                              controller: _leave,
+                              keyboardType: TextInputType.number,
+                              inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                              validator: (v) {
+                                final t = (v ?? '').trim();
+                                if (t.isEmpty) return null;
+                                final n = int.tryParse(t);
+                                if (n == null || n < 0 || n > 365) {
+                                  return 'Enter leaves between 0 and 365';
+                                }
+                                return null;
+                              },
+                              decoration: _decoration('e.g. 12', inputBorder),
                             ),
                             const SizedBox(height: 16),
                             _label('Attendance Allow'),

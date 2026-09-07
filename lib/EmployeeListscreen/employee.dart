@@ -13,6 +13,8 @@ class Employee {
     this.email,
     this.mobile,
     this.dateOfJoin,
+    this.monthlySalary,
+    this.leaveAllocation,
     this.attendanceAllow = true,
     this.accessRoles = const [],
     this.accessRoleIds = const [],
@@ -30,6 +32,8 @@ class Employee {
   final String? email;
   final String? mobile;
   final DateTime? dateOfJoin;
+  final String? monthlySalary;
+  final int? leaveAllocation;
   final bool attendanceAllow;
   final List<String> accessRoles;
   final List<int> accessRoleIds;
