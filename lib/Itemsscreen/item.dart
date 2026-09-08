@@ -1,6 +1,6 @@
 enum ItemStatus { published, unpublished }
 
-enum ItemTransactionType { credit, debit }
+enum ItemTransactionType { credit, debit, issue }
 
 class ItemTransaction {
   const ItemTransaction({
@@ -19,7 +19,18 @@ class ItemTransaction {
   final String? remark;
   final DateTime dateTime;
 
-  String get typeLabel => type == ItemTransactionType.credit ? 'credit' : 'debit';
+  String get typeLabel {
+    switch (type) {
+      case ItemTransactionType.credit:
+        return 'credit';
+      case ItemTransactionType.issue:
+        return 'issue';
+      case ItemTransactionType.debit:
+        return 'debit';
+    }
+  }
+
+  bool get isStockOut => type != ItemTransactionType.credit;
 }
 
 class InventoryItem {

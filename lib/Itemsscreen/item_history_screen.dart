@@ -22,6 +22,8 @@ class _ItemHistoryScreenState extends State<ItemHistoryScreen> {
   static const _creditBg = Color(0xFFECFDF5);
   static const _debitColor = Color(0xFFDC2626);
   static const _debitBg = Color(0xFFFEF2F2);
+  static const _issueColor = Color(0xFFD97706);
+  static const _issueBg = Color(0xFFFFFBEB);
 
   final _searchController = TextEditingController();
   final _qtyController = TextEditingController();
@@ -142,7 +144,7 @@ class _ItemHistoryScreenState extends State<ItemHistoryScreen> {
       .fold(0, (sum, tx) => sum + tx.qty);
 
   double get _totalDebit => _filteredTransactions
-      .where((tx) => tx.type == ItemTransactionType.debit)
+      .where((tx) => tx.isStockOut)
       .fold(0, (sum, tx) => sum + tx.qty);
 
   bool _matchesDateFilter(DateTime dateTime) {
@@ -1040,8 +1042,9 @@ class _ItemHistoryScreenState extends State<ItemHistoryScreen> {
 
   Widget _buildTransactionCard(ItemTransaction tx) {
     final isCredit = tx.type == ItemTransactionType.credit;
-    final accent = isCredit ? _creditColor : _debitColor;
-    final accentBg = isCredit ? _creditBg : _debitBg;
+    final isIssue = tx.type == ItemTransactionType.issue;
+    final accent = isCredit ? _creditColor : isIssue ? _issueColor : _debitColor;
+    final accentBg = isCredit ? _creditBg : isIssue ? _issueBg : _debitBg;
 
     return Container(
       margin: const EdgeInsets.only(bottom: 10),
@@ -1206,7 +1209,11 @@ class _ItemHistoryScreenState extends State<ItemHistoryScreen> {
       children: [
         if (_typeFilter != null)
           _activeFilterChip(
-            _typeFilter == ItemTransactionType.credit ? 'Credit' : 'Debit',
+            _typeFilter == ItemTransactionType.credit
+                ? 'Credit'
+                : _typeFilter == ItemTransactionType.issue
+                    ? 'Issue'
+                    : 'Debit',
             () => setState(() => _typeFilter = null),
           ),
         if (_issueToFilter != null)
@@ -1338,6 +1345,10 @@ class _ItemHistoryScreenState extends State<ItemHistoryScreen> {
                       }),
                       _filterChip('Debit', _typeFilter == ItemTransactionType.debit, () {
                         setState(() => _typeFilter = ItemTransactionType.debit);
+                        Navigator.pop(context);
+                      }),
+                      _filterChip('Issue', _typeFilter == ItemTransactionType.issue, () {
+                        setState(() => _typeFilter = ItemTransactionType.issue);
                         Navigator.pop(context);
                       }),
                     ]),

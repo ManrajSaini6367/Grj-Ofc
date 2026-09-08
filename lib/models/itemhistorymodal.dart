@@ -80,6 +80,7 @@ class ItemHistoryRecord {
     this.qty,
     this.unit,
     this.type,
+    this.issue = false,
     this.issueTo,
     this.remark,
     this.createdAt,
@@ -89,6 +90,7 @@ class ItemHistoryRecord {
   final double? qty;
   final String? unit;
   final String? type;
+  final bool issue;
   final String? issueTo;
   final String? remark;
   final DateTime? createdAt;
@@ -99,25 +101,35 @@ class ItemHistoryRecord {
         qty: _parseQty(json['qty'] ?? json['quantity']),
         unit: json['unit']?.toString(),
         type: json['type']?.toString(),
+        issue: _asBool(json['issue']),
         issueTo: json['issue_to']?.toString(),
         remark: json['remark']?.toString(),
         createdAt: _parseDate(json['created_at'] ?? json['date']),
       );
 
   ItemTransaction toTransaction({required String fallbackUnit}) {
-    final typeValue = type?.toLowerCase().trim() ?? '';
-    final isDebit = typeValue == 'debit' ||
-        typeValue == 'out' ||
-        typeValue == 'issue' ||
-        typeValue == 'issued';
     return ItemTransaction(
       qty: qty ?? 0,
       unit: (unit != null && unit!.isNotEmpty) ? unit! : fallbackUnit,
-      type: isDebit ? ItemTransactionType.debit : ItemTransactionType.credit,
+      type: displayType(type, issue),
       issueTo: issueTo?.isNotEmpty == true ? issueTo : null,
       remark: remark?.isNotEmpty == true ? remark : null,
       dateTime: createdAt ?? DateTime.now(),
     );
+  }
+
+  /// type=debit + issue=0 → debit; type=debit + issue=1 → issue.
+  static ItemTransactionType displayType(String? type, bool issue) {
+    final typeValue = type?.toLowerCase().trim() ?? '';
+    if (typeValue == 'credit') return ItemTransactionType.credit;
+    if (typeValue == 'issue' || typeValue == 'issued') {
+      return ItemTransactionType.issue;
+    }
+    if (typeValue == 'debit' && issue) return ItemTransactionType.issue;
+    if (typeValue == 'debit' || typeValue == 'out') {
+      return ItemTransactionType.debit;
+    }
+    return ItemTransactionType.credit;
   }
 
   Map<String, dynamic> toJson() => {
@@ -125,6 +137,7 @@ class ItemHistoryRecord {
         'qty': qty,
         'unit': unit,
         'type': type,
+        'issue': issue,
         'issue_to': issueTo,
         'remark': remark,
         if (createdAt != null) 'created_at': createdAt!.toIso8601String(),
@@ -198,6 +211,11 @@ int? _asInt(dynamic value) {
   if (value is int) return value;
   if (value is num) return value.toInt();
   return int.tryParse(value.toString());
+}
+
+bool _asBool(dynamic value) {
+  if (value == true || value == 1 || value == '1') return true;
+  return false;
 }
 
 double? _parseQty(dynamic value) {
