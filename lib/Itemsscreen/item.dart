@@ -44,6 +44,7 @@ class InventoryItem {
     this.dayReport = false,
     this.consumable = true,
     this.balance = 0,
+    this.issueQty = 0,
     this.imageAsset,
     this.imageUrl,
   });
@@ -57,6 +58,7 @@ class InventoryItem {
   final bool dayReport;
   final bool consumable;
   final int balance;
+  final double issueQty;
   final String? imageAsset;
   final String? imageUrl;
 }

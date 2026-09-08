@@ -68,6 +68,7 @@ class _StoreScreenState extends State<StoreScreen> {
       dayReport: model.dayReport == 1,
       consumable: model.consumable == 1,
       balance: int.tryParse(model.balance ?? '') ?? 0,
+      issueQty: double.tryParse(model.issueQty ?? '') ?? 0,
     );
   }
 
@@ -115,10 +116,11 @@ class _StoreScreenState extends State<StoreScreen> {
 
   double get _totalUnits => _storeItems.fold(0.0, (sum, i) => sum + _balance(i));
 
-  void _openHistory(InventoryItem item) {
-    Navigator.of(context).push(
+  Future<void> _openHistory(InventoryItem item) async {
+    await Navigator.of(context).push(
       MaterialPageRoute(builder: (_) => ItemHistoryScreen(item: item)),
     );
+    if (mounted) _loadItems(showLoader: false);
   }
 
   @override
@@ -157,6 +159,8 @@ class _StoreScreenState extends State<StoreScreen> {
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
                           _buildStatsRow(),
+                          const SizedBox(height: 16),
+                          _buildCurrentIssueQtyRow(),
                           const SizedBox(height: 16),
                           _buildToolbar(),
                           const SizedBox(height: 12),
@@ -233,6 +237,100 @@ class _StoreScreenState extends State<StoreScreen> {
           ),
         ),
       ],
+    );
+  }
+
+  Widget _buildCurrentIssueQtyRow() {
+    if (_storeItems.isEmpty) return const SizedBox.shrink();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Current Issue Qty',
+          style: GoogleFonts.poppins(
+            fontSize: 13,
+            fontWeight: FontWeight.w700,
+            color: AppColors.headingBlack,
+          ),
+        ),
+        const SizedBox(height: 10),
+        SizedBox(
+          height: 78,
+          child: ListView.separated(
+            scrollDirection: Axis.horizontal,
+            itemCount: _storeItems.length,
+            separatorBuilder: (_, __) => const SizedBox(width: 10),
+            itemBuilder: (context, index) => _issueQtyCard(_storeItems[index]),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _issueQtyCard(InventoryItem item) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: () => _openHistory(item),
+        borderRadius: BorderRadius.circular(12),
+        child: Ink(
+          width: 128,
+          padding: const EdgeInsets.fromLTRB(12, 12, 12, 10),
+          decoration: BoxDecoration(
+            color: AppColors.cardWhite,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: AppColors.borderGray.withValues(alpha: 0.35)),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.04),
+                blurRadius: 8,
+                offset: const Offset(0, 2),
+              ),
+            ],
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: FittedBox(
+                  fit: BoxFit.scaleDown,
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    '${formatStoreQty(item.issueQty)} ${formatStoreUnit(item.unit)}',
+                    style: GoogleFonts.poppins(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w800,
+                      color: AppColors.headingBlack,
+                      height: 1.1,
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                item.name.toUpperCase(),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: GoogleFonts.poppins(
+                  fontSize: 10,
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.textSecondary,
+                  letterSpacing: 0.4,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Container(
+                height: 3,
+                decoration: BoxDecoration(
+                  color: _lowColor,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 

@@ -103,7 +103,7 @@ class ItemHistoryRecord {
         type: json['type']?.toString(),
         issue: _asBool(json['issue']),
         issueTo: json['issue_to']?.toString(),
-        remark: json['remark']?.toString(),
+        remark: (json['remark'] ?? json['description'])?.toString(),
         createdAt: _parseDate(json['created_at'] ?? json['date']),
       );
 

@@ -11,6 +11,7 @@ class ItemModel {
     this.createdAt,
     this.updatedAt,
     this.balance,
+    this.issueQty,
     this.purchase,
     this.dayReport,
     this.consumable,
@@ -26,6 +27,7 @@ class ItemModel {
   final String? createdAt;
   final String? updatedAt;
   final String? balance;
+  final String? issueQty;
   final int? purchase;
   final int? dayReport;
   final int? consumable;
@@ -43,6 +45,7 @@ class ItemModel {
       createdAt: json['created_at']?.toString(),
       updatedAt: json['updated_at']?.toString(),
       balance: json['balance']?.toString(),
+      issueQty: (json['issue_qty'] ?? json['issueQty'])?.toString(),
       purchase: _asInt(json['purchase']),
       dayReport: _asInt(json['day_report']),
       consumable: _asInt(json['consumable']),
@@ -63,6 +66,7 @@ class ItemModel {
       'created_at': createdAt,
       'updated_at': updatedAt,
       'balance': balance,
+      'issue_qty': issueQty,
       'purchase': purchase,
       'day_report': dayReport,
       'consumable': consumable,
