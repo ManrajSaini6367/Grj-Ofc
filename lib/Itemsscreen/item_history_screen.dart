@@ -401,7 +401,7 @@ class _ItemHistoryScreenState extends State<ItemHistoryScreen> {
     _qtyController.clear();
     _issueToController.clear();
     _remarkController.clear();
-    _issueDateTime = null;
+    _issueDateTime = DateTime.now();
     _isSavingHistory = false;
     _confirmIssue = false;
 
