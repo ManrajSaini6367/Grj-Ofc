@@ -293,30 +293,34 @@ class _StoreScreenState extends State<StoreScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Expanded(
-                child: FittedBox(
-                  fit: BoxFit.scaleDown,
-                  alignment: Alignment.centerLeft,
-                  child: Text(
-                    '${formatStoreQty(item.issueQty)} ${formatStoreUnit(item.unit)}',
-                    style: GoogleFonts.poppins(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w800,
-                      color: AppColors.headingBlack,
-                      height: 1.1,
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      item.name.toUpperCase(),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: GoogleFonts.poppins(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
+                        color: AppColors.textSecondary,
+                        letterSpacing: 0.3,
+                      ),
                     ),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                item.name.toUpperCase(),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: GoogleFonts.poppins(
-                  fontSize: 10,
-                  fontWeight: FontWeight.w600,
-                  color: AppColors.textSecondary,
-                  letterSpacing: 0.4,
+                    const SizedBox(height: 2),
+                    Text(
+                      '${formatStoreQty(item.issueQty)} ${formatStoreUnit(item.unit)}',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: GoogleFonts.poppins(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
+                        color: AppColors.headingBlack,
+                        height: 1.1,
+                      ),
+                    ),
+                  ],
                 ),
               ),
               const SizedBox(height: 8),

@@ -432,6 +432,34 @@ class _ItemHistoryScreenState extends State<ItemHistoryScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  _displayName.toUpperCase(),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: GoogleFonts.poppins(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.textSecondary,
+                    letterSpacing: 0.3,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Text(
+                '${_formatQty(_currentIssueQty)} ${formatStoreUnit(_displayUnit)}',
+                style: GoogleFonts.poppins(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w700,
+                  color: AppColors.headingBlack,
+                  height: 1.1,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 4),
           Text(
             'Current Issue Qty',
             style: GoogleFonts.poppins(
@@ -439,28 +467,6 @@ class _ItemHistoryScreenState extends State<ItemHistoryScreen> {
               fontWeight: FontWeight.w600,
               color: AppColors.textSecondary,
               letterSpacing: 0.3,
-            ),
-          ),
-          const SizedBox(height: 6),
-          Text(
-            '${_formatQty(_currentIssueQty)} ${formatStoreUnit(_displayUnit)}',
-            style: GoogleFonts.poppins(
-              fontSize: 16,
-              fontWeight: FontWeight.w800,
-              color: AppColors.headingBlack,
-              height: 1.1,
-            ),
-          ),
-          const SizedBox(height: 2),
-          Text(
-            _displayName.toUpperCase(),
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: GoogleFonts.poppins(
-              fontSize: 10,
-              fontWeight: FontWeight.w600,
-              color: AppColors.textSecondary,
-              letterSpacing: 0.4,
             ),
           ),
           const SizedBox(height: 8),
