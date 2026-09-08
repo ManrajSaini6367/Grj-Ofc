@@ -297,6 +297,18 @@ List<ItemModel>? cachedItems() {
   }
 }
 
+List<ItemModel>? cachedStoreItems() {
+  final itemsJson = Preference.pref.getString('store_items');
+  if (itemsJson == null) return null;
+  try {
+    return (jsonDecode(itemsJson) as List<dynamic>)
+        .map((item) => ItemModel.fromJson(item as Map<String, dynamic>))
+        .toList();
+  } catch (_) {
+    return null;
+  }
+}
+
 List<String> siteNames(List<SiteModel> sites) {
   return sites
       .map((site) => site.name)
@@ -629,6 +641,80 @@ Future<List<ItemModel>?> itemsApi(
     debugPrint('[itemsApi] error: $e\n$st');
   }
   return cachedItems();
+}
+
+// Store catalog: published, non-consumable items for the site (admin Item History list).
+Future<List<ItemModel>?> storeItemsApi(
+  BuildContext context, {
+  int? siteId,
+  String search = '',
+}) async {
+  try {
+    final resolvedSiteId = siteId ?? selectedSiteId();
+    if (resolvedSiteId == null) {
+      if (context.mounted) {
+        message(context, 'Please select a site first.');
+      }
+      return cachedStoreItems();
+    }
+
+    await Preference.pref.setInt('site_id', resolvedSiteId);
+
+    final query = <String, String>{
+      'site_id': resolvedSiteId.toString(),
+    };
+    if (search.trim().isNotEmpty) query['search'] = search.trim();
+
+    final uri = Uri.parse(
+      '$baseUrl/api/v1/store-items',
+    ).replace(queryParameters: query);
+    debugPrint('[storeItemsApi] GET $uri');
+
+    final response = await http
+        .get(uri, headers: authHeaders)
+        .timeout(const Duration(seconds: 30));
+    debugPrint('[storeItemsApi] status=${response.statusCode}');
+    debugPrint(response.body);
+
+    if (response.statusCode != 200) {
+      final data = decodeApiJson(response.body);
+      if (context.mounted) {
+        message(
+          context,
+          data?['message']?.toString() ?? 'Failed to load store items.',
+        );
+      }
+      return cachedStoreItems();
+    }
+
+    final data = decodeApiJson(response.body);
+    if (data == null || data['success'] != true) {
+      if (context.mounted) {
+        message(
+          context,
+          data?['message']?.toString() ?? 'Failed to load store items.',
+        );
+      }
+      return cachedStoreItems();
+    }
+
+    final payload = data['data'];
+    if (payload is! List) return cachedStoreItems();
+
+    final allItems = payload
+        .whereType<Map<String, dynamic>>()
+        .map(ItemModel.fromJson)
+        .toList();
+
+    await Preference.pref.setString(
+      'store_items',
+      jsonEncode(allItems.map((item) => item.toJson()).toList()),
+    );
+    return allItems;
+  } catch (e, st) {
+    debugPrint('[storeItemsApi] error: $e\n$st');
+  }
+  return cachedStoreItems();
 }
 
 //items search api (supplier materials etc.)
