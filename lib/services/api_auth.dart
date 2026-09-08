@@ -3884,6 +3884,32 @@ Future<http.MultipartFile> _multipartImage(
   );
 }
 
+/// [asArray] true: every file as `field[]` (create + step 2).
+/// [asArray] false: first file as `field`, extras as `fields[]` (step 3 file validation).
+Future<List<http.MultipartFile>> _multipartPurchaseImages({
+  required String field,
+  required List<File> files,
+  bool asArray = true,
+}) async {
+  if (files.isEmpty) return const [];
+  if (asArray) {
+    final arrayField = field.endsWith('[]') ? field : '$field[]';
+    return [
+      for (final file in files) await _multipartImage(arrayField, file),
+    ];
+  }
+
+  final extrasField = field.endsWith('_image') ? '${field}s[]' : '$field[]';
+  // Required file field plus the full gallery array (including the first photo).
+  final uploads = <http.MultipartFile>[
+    await _multipartImage(field, files.first),
+  ];
+  for (final file in files) {
+    uploads.add(await _multipartImage(extrasField, file));
+  }
+  return uploads;
+}
+
 Future<http.MultipartFile> _multipartChatMedia(
   File file, {
   required String fallbackName,
@@ -4523,7 +4549,7 @@ Future<Purchase?> createPurchaseApi(
   required String flowType,
   required int supplierId,
   required String vehicleNo,
-  required File imageFile,
+  required List<File> imageFiles,
   List<int> itemIds = const [],
   List<PurchaseMaterialPayload> materials = const [],
   String? remark,
@@ -4564,12 +4590,14 @@ Future<Purchase?> createPurchaseApi(
       }
     }
 
-    final imageField = normalizedFlow == 'direct' ? 'image' : 'loading_image';
-    final files = [await _multipartImage(imageField, imageFile)];
+    final files = await _multipartPurchaseImages(
+      field: normalizedFlow == 'direct' ? 'image' : 'loading_image',
+      files: imageFiles,
+    );
 
     print('[createPurchaseApi] POST $url');
     print('[createPurchaseApi] fields: $fields');
-    print('[createPurchaseApi] imageField: $imageField path=${imageFile.path}');
+    print('[createPurchaseApi] loading_image[] count=${imageFiles.length}');
 
     final response = await _sendMultipart(
       Uri.parse(url),
@@ -4611,15 +4639,19 @@ Future<Purchase?> purchaseStep2WithKantaApi(
   BuildContext context, {
   required int purchaseId,
   required String vehicleNo,
-  required File unloadingImage,
+  required List<File> unloadingImages,
 }) async {
   try {
     final url = '$baseUrl/api/v1/purchases/$purchaseId/step-2';
     final fields = <String, String>{'vehicle_no': vehicleNo.trim()};
-    final files = [await _multipartImage('unloading_image', unloadingImage)];
+    final files = await _multipartPurchaseImages(
+      field: 'unloading_image',
+      files: unloadingImages,
+    );
 
     print('[purchaseStep2WithKantaApi] POST $url');
     print('[purchaseStep2WithKantaApi] fields: $fields');
+    print('[purchaseStep2WithKantaApi] unloading_image[] count=${unloadingImages.length}');
 
     final response = await _sendMultipart(
       Uri.parse(url),
@@ -4662,7 +4694,7 @@ Future<Purchase?> purchaseStep2WithoutKantaApi(
   required String invoiceNo,
   String? remark,
   required List<PurchaseMaterialPayload> materials,
-  required File unloadingImage,
+  required List<File> unloadingImages,
 }) async {
   try {
     final url = '$baseUrl/api/v1/purchases/$purchaseId/step-2';
@@ -4677,10 +4709,14 @@ Future<Purchase?> purchaseStep2WithoutKantaApi(
       fields['materials[$i][unit]'] = m.unit;
     }
 
-    final files = [await _multipartImage('unloading_image', unloadingImage)];
+    final files = await _multipartPurchaseImages(
+      field: 'unloading_image',
+      files: unloadingImages,
+    );
 
     print('[purchaseStep2WithoutKantaApi] POST $url');
     print('[purchaseStep2WithoutKantaApi] fields: $fields');
+    print('[purchaseStep2WithoutKantaApi] unloading_image[] count=${unloadingImages.length}');
 
     final response = await _sendMultipart(
       Uri.parse(url),
@@ -4724,8 +4760,8 @@ Future<Purchase?> purchaseStep3WithKantaApi(
   required String kantaNo,
   String? remark,
   required List<PurchaseMaterialPayload> materials,
-  required File kantaSlipImage,
-  required File vehicleAtKantaImage,
+  required List<File> kantaSlipImages,
+  required List<File> vehicleAtKantaImages,
 }) async {
   try {
     final url = '$baseUrl/api/v1/purchases/$purchaseId/step-3';
@@ -4745,12 +4781,23 @@ Future<Purchase?> purchaseStep3WithKantaApi(
     }
 
     final files = [
-      await _multipartImage('kanta_slip_image', kantaSlipImage),
-      await _multipartImage('vehicle_at_kanta_image', vehicleAtKantaImage),
+      ...await _multipartPurchaseImages(
+        field: 'kanta_slip_image',
+        files: kantaSlipImages,
+        asArray: false,
+      ),
+      ...await _multipartPurchaseImages(
+        field: 'vehicle_at_kanta_image',
+        files: vehicleAtKantaImages,
+        asArray: false,
+      ),
     ];
 
     print('[purchaseStep3WithKantaApi] POST $url');
     print('[purchaseStep3WithKantaApi] fields: $fields');
+    print('[purchaseStep3WithKantaApi] kanta_slip_image count=${kantaSlipImages.length}');
+    print('[purchaseStep3WithKantaApi] vehicle_at_kanta_image count=${vehicleAtKantaImages.length}');
+    print('[purchaseStep3WithKantaApi] multipart fields: ${files.map((f) => f.field).toList()}');
 
     final response = await _sendMultipart(
       Uri.parse(url),

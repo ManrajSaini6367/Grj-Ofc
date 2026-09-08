@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:grjoffice_apps/core/app_colors.dart';
 import 'package:grjoffice_apps/Purchasescreen/purchase.dart';
+import 'package:grjoffice_apps/Purchasescreen/purchase_multi_image_picker.dart';
 import 'package:grjoffice_apps/models/item_model.dart';
 import 'package:grjoffice_apps/services/api_auth.dart';
 import 'package:grjoffice_apps/services/image_pick_helper.dart';
@@ -20,29 +21,45 @@ class WithoutKantaStep2Screen extends StatefulWidget {
 }
 
 class _MaterialLine {
-  _MaterialLine({String? qtyText, this.unit = 'Ton'})
-      : qty = TextEditingController(text: qtyText ?? '');
+  _MaterialLine({
+    String? qtyText,
+    this.unit = 'Ton',
+    this.lockedItemId,
+    this.lockedName,
+  }) : qty = TextEditingController(text: qtyText ?? '');
 
   ItemModel? item;
+  final int? lockedItemId;
+  final String? lockedName;
   final TextEditingController qty;
   String unit;
+
+  int? get itemId => item?.id ?? lockedItemId;
+
+  String get displayName {
+    final fromItem = item?.displayName.trim() ?? '';
+    if (fromItem.isNotEmpty) return fromItem;
+    final fromLock = lockedName?.trim() ?? '';
+    if (fromLock.isNotEmpty) return fromLock;
+    return '—';
+  }
 
   void dispose() => qty.dispose();
 }
 
 class _WithoutKantaStep2ScreenState extends State<WithoutKantaStep2Screen> {
-  static const _addGreen = Color(0xFF22C55E);
-
   final _formKey = GlobalKey<FormState>();
   final _invoiceController = TextEditingController();
   final _remarkController = TextEditingController();
   final List<_MaterialLine> _lines = [];
 
-  File? _unloadingImageFile;
+  final List<File> _unloadingImages = [];
   bool _isSaving = false;
 
   List<ItemModel> _items = [];
   bool _loadingItems = true;
+
+  String get _savedVehicleNo => widget.purchase.vehicleNo?.trim() ?? '';
 
   @override
   void initState() {
@@ -59,6 +76,8 @@ class _WithoutKantaStep2ScreenState extends State<WithoutKantaStep2Screen> {
           _MaterialLine(
             qtyText: m.qty != null ? _formatQty(m.qty!) : null,
             unit: m.unit.trim().isEmpty ? 'Ton' : m.unit.trim(),
+            lockedItemId: m.itemId,
+            lockedName: m.name,
           ),
         );
       }
@@ -125,17 +144,6 @@ class _WithoutKantaStep2ScreenState extends State<WithoutKantaStep2Screen> {
   String _formatQty(double qty) =>
       qty == qty.roundToDouble() ? qty.toInt().toString() : qty.toString();
 
-  void _addMaterialLine() {
-    setState(() => _lines.add(_MaterialLine()));
-  }
-
-  void _removeMaterialLine(int index) {
-    if (_lines.length <= 1) return;
-    setState(() {
-      _lines.removeAt(index).dispose();
-    });
-  }
-
   Future<void> _pickUnloadingImage() async {
     final file = await pickPurchaseImageFile(
       context,
@@ -143,12 +151,18 @@ class _WithoutKantaStep2ScreenState extends State<WithoutKantaStep2Screen> {
       fromCamera: true,
     );
     if (file == null || !mounted) return;
-    setState(() => _unloadingImageFile = file);
+    if (_unloadingImages.any((existing) => existing.path == file.path)) return;
+    setState(() => _unloadingImages.add(file));
+  }
+
+  void _removeUnloadingImage(int index) {
+    if (index < 0 || index >= _unloadingImages.length) return;
+    setState(() => _unloadingImages.removeAt(index));
   }
 
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
-    if (_unloadingImageFile == null) {
+    if (_unloadingImages.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Unloading vehicle image is required.', style: GoogleFonts.poppins())),
       );
@@ -157,12 +171,13 @@ class _WithoutKantaStep2ScreenState extends State<WithoutKantaStep2Screen> {
 
     final materials = <PurchaseMaterialPayload>[];
     for (final line in _lines) {
-      if (line.item == null) continue;
+      final itemId = line.itemId;
+      if (itemId == null) continue;
       final qtyVal = double.tryParse(line.qty.text.trim());
       if (qtyVal == null || qtyVal <= 0) continue;
       materials.add(
         PurchaseMaterialPayload(
-          itemId: line.item!.id,
+          itemId: itemId,
           qty: qtyVal,
           unit: line.unit.trim().isEmpty ? 'Ton' : line.unit.trim(),
         ),
@@ -201,7 +216,7 @@ class _WithoutKantaStep2ScreenState extends State<WithoutKantaStep2Screen> {
       invoiceNo: invoiceNo,
       remark: remark.isEmpty ? null : remark,
       materials: materials,
-      unloadingImage: _unloadingImageFile!,
+      unloadingImages: _unloadingImages,
     );
     if (!mounted) return;
     setState(() => _isSaving = false);
@@ -273,6 +288,13 @@ class _WithoutKantaStep2ScreenState extends State<WithoutKantaStep2Screen> {
                 Expanded(child: _buildReadOnlyField(label: 'Supplier', value: widget.purchase.supplierName)),
                 const SizedBox(width: 12),
                 Expanded(
+                  child: _buildReadOnlyField(
+                    label: 'Vehicle No',
+                    value: _savedVehicleNo.isEmpty ? '—' : _savedVehicleNo,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
                   child: _buildTextField(
                     label: 'Invoice No',
                     controller: _invoiceController,
@@ -283,6 +305,11 @@ class _WithoutKantaStep2ScreenState extends State<WithoutKantaStep2Screen> {
             )
           else ...[
             _buildReadOnlyField(label: 'Supplier', value: widget.purchase.supplierName),
+            const SizedBox(height: 16),
+            _buildReadOnlyField(
+              label: 'Vehicle No',
+              value: _savedVehicleNo.isEmpty ? '—' : _savedVehicleNo,
+            ),
             const SizedBox(height: 16),
             _buildTextField(label: 'Invoice No', controller: _invoiceController, hint: 'Invoice no'),
           ],
@@ -296,25 +323,6 @@ class _WithoutKantaStep2ScreenState extends State<WithoutKantaStep2Screen> {
                 child: _buildMaterialRow(index, isWide: isWide),
               );
             }),
-            const SizedBox(height: 12),
-            Align(
-              alignment: Alignment.centerLeft,
-              child: SizedBox(
-                height: 40,
-                child: ElevatedButton.icon(
-                  onPressed: _addMaterialLine,
-                  icon: const Icon(Icons.add, size: 18),
-                  label: Text('Add Material', style: GoogleFonts.poppins(fontSize: 13, fontWeight: FontWeight.w600)),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: _addGreen,
-                    foregroundColor: AppColors.white,
-                    elevation: 0,
-                    padding: const EdgeInsets.symmetric(horizontal: 14),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
-                  ),
-                ),
-              ),
-            ),
           ],
           const SizedBox(height: 20),
           if (isWide)
@@ -364,13 +372,9 @@ class _WithoutKantaStep2ScreenState extends State<WithoutKantaStep2Screen> {
       units.insert(0, line.unit);
     }
 
-    final materialField = _buildItemDropdown(
+    final materialField = _buildReadOnlyField(
       label: 'Material ${index + 1}',
-      selectedItem: line.item,
-      onChanged: (v) => setState(() {
-        line.item = v;
-        line.unit = unitFromMaterial(v);
-      }),
+      value: line.displayName,
     );
     final qtyField = _buildTextField(
       label: 'Qty',
@@ -403,14 +407,6 @@ class _WithoutKantaStep2ScreenState extends State<WithoutKantaStep2Screen> {
       ],
     );
 
-    final removeBtn = _lines.length > 1
-        ? IconButton(
-            onPressed: () => _removeMaterialLine(index),
-            tooltip: 'Remove material',
-            icon: const Icon(Icons.remove_circle_outline, color: AppColors.primaryRed),
-          )
-        : null;
-
     if (isWide) {
       return Row(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -420,10 +416,6 @@ class _WithoutKantaStep2ScreenState extends State<WithoutKantaStep2Screen> {
           Expanded(child: qtyField),
           const SizedBox(width: 12),
           Expanded(child: unitField),
-          if (removeBtn != null) ...[
-            const SizedBox(width: 4),
-            Padding(padding: const EdgeInsets.only(top: 24), child: removeBtn),
-          ],
         ],
       );
     }
@@ -431,16 +423,7 @@ class _WithoutKantaStep2ScreenState extends State<WithoutKantaStep2Screen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Expanded(child: materialField),
-            if (removeBtn != null) ...[
-              const SizedBox(width: 4),
-              Padding(padding: const EdgeInsets.only(top: 24), child: removeBtn),
-            ],
-          ],
-        ),
+        materialField,
         const SizedBox(height: 12),
         Row(
           children: [
@@ -448,38 +431,6 @@ class _WithoutKantaStep2ScreenState extends State<WithoutKantaStep2Screen> {
             const SizedBox(width: 12),
             Expanded(child: unitField),
           ],
-        ),
-      ],
-    );
-  }
-
-  Widget _buildItemDropdown({
-    required String label,
-    required ItemModel? selectedItem,
-    required ValueChanged<ItemModel?> onChanged,
-  }) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(label, style: GoogleFonts.poppins(fontSize: 13, fontWeight: FontWeight.w600)),
-        const SizedBox(height: 8),
-        DropdownButtonFormField<ItemModel>(
-          value: selectedItem,
-          decoration: _fieldDecoration(hint: 'Select item'),
-          isExpanded: true,
-          items: _items
-              .map(
-                (item) => DropdownMenuItem(
-                  value: item,
-                  child: Text(
-                    item.displayName,
-                    style: GoogleFonts.poppins(fontSize: 13),
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
-              )
-              .toList(),
-          onChanged: onChanged,
         ),
       ],
     );
@@ -508,57 +459,11 @@ class _WithoutKantaStep2ScreenState extends State<WithoutKantaStep2Screen> {
   }
 
   Widget _buildUnloadingImageField() {
-    final fileName = _unloadingImageFile?.path.split('/').last;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        RichText(
-          text: TextSpan(
-            style: GoogleFonts.poppins(fontSize: 13, fontWeight: FontWeight.w600, color: AppColors.textDark),
-            children: const [
-              TextSpan(text: 'Unloading Vehicle Image '),
-              TextSpan(text: '*', style: TextStyle(color: AppColors.primaryRed)),
-            ],
-          ),
-        ),
-        const SizedBox(height: 8),
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-          decoration: BoxDecoration(
-            color: AppColors.operationsCardBg,
-            borderRadius: BorderRadius.circular(6),
-            border: Border.all(color: AppColors.borderGray.withValues(alpha: 0.6)),
-          ),
-          child: Row(
-            children: [
-              OutlinedButton(
-                onPressed: _pickUnloadingImage,
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: AppColors.textDark,
-                  backgroundColor: const Color(0xFFE5E7EB),
-                  side: BorderSide.none,
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                  minimumSize: Size.zero,
-                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
-                ),
-                child: Text('Take Photo', style: GoogleFonts.poppins(fontSize: 12, fontWeight: FontWeight.w500)),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Text(
-                  fileName ?? 'No file selected.',
-                  style: GoogleFonts.poppins(
-                    fontSize: 12,
-                    color: _unloadingImageFile == null ? AppColors.textSecondary : AppColors.textDark,
-                  ),
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ],
+    return PurchaseMultiImagePicker(
+      label: 'Unloading Vehicle Image',
+      files: _unloadingImages,
+      onAdd: _pickUnloadingImage,
+      onRemoveAt: _removeUnloadingImage,
     );
   }
 

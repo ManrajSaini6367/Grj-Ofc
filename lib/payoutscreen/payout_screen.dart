@@ -184,10 +184,8 @@ class _PayoutScreenState extends State<PayoutScreen> {
     return _money(_totalPayroll / _salaryCount);
   }
 
-  int get _totalPresent => _employees.fold<int>(
-    0,
-    (sum, entry) => sum + (entry.presentDays ?? 0),
-  );
+  int get _totalPresent =>
+      _employees.fold<int>(0, (sum, entry) => sum + (entry.presentDays ?? 0));
 
   double _hPad(BuildContext context) {
     final width = MediaQuery.sizeOf(context).width;
@@ -655,9 +653,7 @@ class _PayoutScreenState extends State<PayoutScreen> {
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(12),
         color: AppColors.primaryRed.withValues(alpha: 0.08),
-        border: Border.all(
-          color: AppColors.primaryRed.withValues(alpha: 0.22),
-        ),
+        border: Border.all(color: AppColors.primaryRed.withValues(alpha: 0.22)),
       ),
       child: Center(
         child: Text(

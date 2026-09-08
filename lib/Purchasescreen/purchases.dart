@@ -1299,31 +1299,30 @@ class _VehicleImagesScreenState extends State<_VehicleImagesScreen> {
   List<_VehicleImageItem> _imageItems() {
     final p = widget.purchase;
     final candidates = <_VehicleImageItem>[
-      _VehicleImageItem(
-        label: p.isDirectPurchase ? 'Image' : 'Loading',
-        imageRef: p.loadingVehicleImage,
-        capturedAt: p.loadingVehicleImageAt,
+      ..._itemsForGroup(
+        p.isDirectPurchase ? 'Image' : 'Loading',
+        p.loadingImages,
       ),
-      _VehicleImageItem(
-        label: 'Unloading',
-        imageRef: p.unloadingVehicleImage,
-        capturedAt: p.unloadingVehicleImageAt,
-      ),
-      _VehicleImageItem(
-        label: 'Vehicle at Kanta',
-        imageRef: p.vehicleAtKantaImage,
-        capturedAt: p.vehicleAtKantaImageAt,
-      ),
-      _VehicleImageItem(
-        label: 'Kanta Slip',
-        imageRef: p.kantaSlipImage,
-        capturedAt: p.kantaSlipImageAt,
-      ),
+      ..._itemsForGroup('Unloading', p.unloadingImages),
+      ..._itemsForGroup('Vehicle at Kanta', p.vehicleAtKantaImages),
+      ..._itemsForGroup('Kanta Slip', p.kantaSlipImages),
     ];
 
     return candidates
         .where((item) => resolvePurchaseImageUrl(item.imageRef).isNotEmpty)
         .toList();
+  }
+
+  List<_VehicleImageItem> _itemsForGroup(String label, List<PurchaseImageRef> images) {
+    final numbered = images.length > 1;
+    return [
+      for (var i = 0; i < images.length; i++)
+        _VehicleImageItem(
+          label: numbered ? '$label ${i + 1}' : label,
+          imageRef: images[i].imageRef,
+          capturedAt: images[i].capturedAt,
+        ),
+    ];
   }
 
   Future<void> _preloadImages() async {

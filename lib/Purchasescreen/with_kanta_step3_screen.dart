@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:grjoffice_apps/core/app_colors.dart';
 import 'package:grjoffice_apps/Purchasescreen/purchase.dart';
+import 'package:grjoffice_apps/Purchasescreen/purchase_multi_image_picker.dart';
 import 'package:grjoffice_apps/models/item_model.dart';
 import 'package:grjoffice_apps/services/api_auth.dart';
 import 'package:grjoffice_apps/services/image_pick_helper.dart';
@@ -20,12 +21,28 @@ class WithKantaStep3Screen extends StatefulWidget {
 }
 
 class _KantaMaterialLine {
-  _KantaMaterialLine({String? qtyText, this.unit = 'Ton'})
-      : qty = TextEditingController(text: qtyText ?? '');
+  _KantaMaterialLine({
+    String? qtyText,
+    this.unit = 'Ton',
+    this.lockedItemId,
+    this.lockedName,
+  }) : qty = TextEditingController(text: qtyText ?? '');
 
   ItemModel? item;
+  final int? lockedItemId;
+  final String? lockedName;
   final TextEditingController qty;
   String unit;
+
+  int? get itemId => item?.id ?? lockedItemId;
+
+  String get displayName {
+    final fromItem = item?.displayName.trim() ?? '';
+    if (fromItem.isNotEmpty) return fromItem;
+    final fromLock = lockedName?.trim() ?? '';
+    if (fromLock.isNotEmpty) return fromLock;
+    return '—';
+  }
 
   void dispose() => qty.dispose();
 }
@@ -39,12 +56,14 @@ class _WithKantaStep3ScreenState extends State<WithKantaStep3Screen> {
   final _remarkController = TextEditingController();
   final List<_KantaMaterialLine> _lines = [];
 
-  File? _kantaSlipImageFile;
-  File? _vehicleAtKantaImageFile;
+  final List<File> _kantaSlipImages = [];
+  final List<File> _vehicleAtKantaImages = [];
   bool _isSaving = false;
 
   List<ItemModel> _items = [];
   bool _loadingItems = true;
+
+  String get _savedVehicleNo => widget.purchase.vehicleNo?.trim() ?? '';
 
   @override
   void initState() {
@@ -65,6 +84,8 @@ class _WithKantaStep3ScreenState extends State<WithKantaStep3Screen> {
                 ? null
                 : (qty == qty.roundToDouble() ? qty.toInt().toString() : qty.toString()),
             unit: m.unit.trim().isEmpty ? 'Ton' : m.unit.trim(),
+            lockedItemId: m.itemId,
+            lockedName: m.name,
           ),
         );
       }
@@ -129,11 +150,6 @@ class _WithKantaStep3ScreenState extends State<WithKantaStep3Screen> {
     super.dispose();
   }
 
-  void _removeMaterialLine(int index) {
-    if (_lines.length <= 1) return;
-    setState(() => _lines.removeAt(index).dispose());
-  }
-
   Future<void> _pickImage({required bool isKantaSlip}) async {
     final title = isKantaSlip ? 'Kanta Slip Image' : 'Vehicle at Kanta Image';
     final file = await pickPurchaseImageFile(
@@ -143,23 +159,29 @@ class _WithKantaStep3ScreenState extends State<WithKantaStep3Screen> {
     );
     if (file == null || !mounted) return;
     setState(() {
-      if (isKantaSlip) {
-        _kantaSlipImageFile = file;
-      } else {
-        _vehicleAtKantaImageFile = file;
-      }
+      final target = isKantaSlip ? _kantaSlipImages : _vehicleAtKantaImages;
+      if (target.any((existing) => existing.path == file.path)) return;
+      target.add(file);
+    });
+  }
+
+  void _removeImage({required bool isKantaSlip, required int index}) {
+    setState(() {
+      final target = isKantaSlip ? _kantaSlipImages : _vehicleAtKantaImages;
+      if (index < 0 || index >= target.length) return;
+      target.removeAt(index);
     });
   }
 
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
-    if (_kantaSlipImageFile == null) {
+    if (_kantaSlipImages.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Kanta slip image is required.', style: GoogleFonts.poppins())),
       );
       return;
     }
-    if (_vehicleAtKantaImageFile == null) {
+    if (_vehicleAtKantaImages.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Vehicle at kanta image is required.', style: GoogleFonts.poppins())),
       );
@@ -178,12 +200,13 @@ class _WithKantaStep3ScreenState extends State<WithKantaStep3Screen> {
 
     final materials = <PurchaseMaterialPayload>[];
     for (final line in _lines) {
-      if (line.item == null) continue;
+      final itemId = line.itemId;
+      if (itemId == null) continue;
       final qtyVal = double.tryParse(line.qty.text.trim());
       if (qtyVal == null || qtyVal <= 0) continue;
       materials.add(
         PurchaseMaterialPayload(
-          itemId: line.item!.id,
+          itemId: itemId,
           qty: qtyVal,
           unit: line.unit.trim().isEmpty ? 'Ton' : line.unit.trim(),
         ),
@@ -215,8 +238,8 @@ class _WithKantaStep3ScreenState extends State<WithKantaStep3Screen> {
       kantaNo: kantaNo,
       remark: remark.isEmpty ? null : remark,
       materials: materials,
-      kantaSlipImage: _kantaSlipImageFile!,
-      vehicleAtKantaImage: _vehicleAtKantaImageFile!,
+      kantaSlipImages: _kantaSlipImages,
+      vehicleAtKantaImages: _vehicleAtKantaImages,
     );
     if (!mounted) return;
     setState(() => _isSaving = false);
@@ -264,7 +287,7 @@ class _WithKantaStep3ScreenState extends State<WithKantaStep3Screen> {
                               style: GoogleFonts.poppins(fontSize: 16, fontWeight: FontWeight.w700),
                             ),
                             const SizedBox(height: 16),
-                            if (isWide)
+                            if (isWide) ...[
                               Row(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
@@ -272,6 +295,13 @@ class _WithKantaStep3ScreenState extends State<WithKantaStep3Screen> {
                                     child: _buildReadOnlyField(
                                       label: 'Supplier',
                                       value: widget.purchase.supplierName,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 12),
+                                  Expanded(
+                                    child: _buildReadOnlyField(
+                                      label: 'Vehicle No',
+                                      value: _savedVehicleNo.isEmpty ? '—' : _savedVehicleNo,
                                     ),
                                   ),
                                   const SizedBox(width: 12),
@@ -284,14 +314,6 @@ class _WithKantaStep3ScreenState extends State<WithKantaStep3Screen> {
                                   ),
                                   const SizedBox(width: 12),
                                   Expanded(
-                                    child: _buildImagePickerField(
-                                      label: 'Kanta Slip Image',
-                                      file: _kantaSlipImageFile,
-                                      onPick: () => _pickImage(isKantaSlip: true),
-                                    ),
-                                  ),
-                                  const SizedBox(width: 12),
-                                  Expanded(
                                     child: _buildTextField(
                                       label: 'Kanta No',
                                       controller: _kantaNoController,
@@ -299,9 +321,25 @@ class _WithKantaStep3ScreenState extends State<WithKantaStep3Screen> {
                                     ),
                                   ),
                                 ],
-                              )
+                              ),
+                              const SizedBox(height: 16),
+                              PurchaseMultiImagePicker(
+                                label: 'Kanta Slip Image',
+                                files: _kantaSlipImages,
+                                onAdd: () => _pickImage(isKantaSlip: true),
+                                onRemoveAt: (index) => _removeImage(
+                                  isKantaSlip: true,
+                                  index: index,
+                                ),
+                              ),
+                            ]
                             else ...[
                               _buildReadOnlyField(label: 'Supplier', value: widget.purchase.supplierName),
+                              const SizedBox(height: 16),
+                              _buildReadOnlyField(
+                                label: 'Vehicle No',
+                                value: _savedVehicleNo.isEmpty ? '—' : _savedVehicleNo,
+                              ),
                               const SizedBox(height: 16),
                               _buildTextField(
                                 label: 'Invoice No',
@@ -309,10 +347,14 @@ class _WithKantaStep3ScreenState extends State<WithKantaStep3Screen> {
                                 hint: 'Invoice no',
                               ),
                               const SizedBox(height: 16),
-                              _buildImagePickerField(
+                              PurchaseMultiImagePicker(
                                 label: 'Kanta Slip Image',
-                                file: _kantaSlipImageFile,
-                                onPick: () => _pickImage(isKantaSlip: true),
+                                files: _kantaSlipImages,
+                                onAdd: () => _pickImage(isKantaSlip: true),
+                                onRemoveAt: (index) => _removeImage(
+                                  isKantaSlip: true,
+                                  index: index,
+                                ),
                               ),
                               const SizedBox(height: 16),
                               _buildTextField(
@@ -345,10 +387,14 @@ class _WithKantaStep3ScreenState extends State<WithKantaStep3Screen> {
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   Expanded(
-                                    child: _buildImagePickerField(
+                                    child: PurchaseMultiImagePicker(
                                       label: 'Vehicle at Kanta Image',
-                                      file: _vehicleAtKantaImageFile,
-                                      onPick: () => _pickImage(isKantaSlip: false),
+                                      files: _vehicleAtKantaImages,
+                                      onAdd: () => _pickImage(isKantaSlip: false),
+                                      onRemoveAt: (index) => _removeImage(
+                                        isKantaSlip: false,
+                                        index: index,
+                                      ),
                                     ),
                                   ),
                                   const SizedBox(width: 12),
@@ -362,10 +408,14 @@ class _WithKantaStep3ScreenState extends State<WithKantaStep3Screen> {
                                 ],
                               )
                             else ...[
-                              _buildImagePickerField(
+                              PurchaseMultiImagePicker(
                                 label: 'Vehicle at Kanta Image',
-                                file: _vehicleAtKantaImageFile,
-                                onPick: () => _pickImage(isKantaSlip: false),
+                                files: _vehicleAtKantaImages,
+                                onAdd: () => _pickImage(isKantaSlip: false),
+                                onRemoveAt: (index) => _removeImage(
+                                  isKantaSlip: false,
+                                  index: index,
+                                ),
                               ),
                               const SizedBox(height: 16),
                               _buildTextField(
@@ -423,33 +473,9 @@ class _WithKantaStep3ScreenState extends State<WithKantaStep3Screen> {
       units.insert(0, line.unit);
     }
 
-    final materialField = Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text('Material ${index + 1}', style: GoogleFonts.poppins(fontSize: 13, fontWeight: FontWeight.w600)),
-        const SizedBox(height: 8),
-        DropdownButtonFormField<ItemModel>(
-          value: line.item,
-          decoration: _fieldDecoration(hint: 'Select item'),
-          isExpanded: true,
-          items: _items
-              .map(
-                (item) => DropdownMenuItem(
-                  value: item,
-                  child: Text(
-                    item.displayName,
-                    style: GoogleFonts.poppins(fontSize: 13),
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
-              )
-              .toList(),
-          onChanged: (v) => setState(() {
-            line.item = v;
-            line.unit = unitFromMaterial(v);
-          }),
-        ),
-      ],
+    final materialField = _buildReadOnlyField(
+      label: 'Material ${index + 1}',
+      value: line.displayName,
     );
 
     final qtyField = _buildTextField(
@@ -484,14 +510,6 @@ class _WithKantaStep3ScreenState extends State<WithKantaStep3Screen> {
       ],
     );
 
-    final removeBtn = _lines.length > 1
-        ? IconButton(
-            onPressed: () => _removeMaterialLine(index),
-            tooltip: 'Remove material',
-            icon: const Icon(Icons.remove_circle_outline, color: AppColors.primaryRed),
-          )
-        : null;
-
     if (isWide) {
       return Row(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -501,10 +519,6 @@ class _WithKantaStep3ScreenState extends State<WithKantaStep3Screen> {
           Expanded(child: qtyField),
           const SizedBox(width: 12),
           Expanded(child: unitField),
-          if (removeBtn != null) ...[
-            const SizedBox(width: 4),
-            Padding(padding: const EdgeInsets.only(top: 24), child: removeBtn),
-          ],
         ],
       );
     }
@@ -512,16 +526,7 @@ class _WithKantaStep3ScreenState extends State<WithKantaStep3Screen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Expanded(child: materialField),
-            if (removeBtn != null) ...[
-              const SizedBox(width: 4),
-              Padding(padding: const EdgeInsets.only(top: 24), child: removeBtn),
-            ],
-          ],
-        ),
+        materialField,
         const SizedBox(height: 12),
         Row(
           children: [
@@ -550,65 +555,6 @@ class _WithKantaStep3ScreenState extends State<WithKantaStep3Screen> {
           child: Text(
             value,
             style: GoogleFonts.poppins(fontSize: 13, color: AppColors.textSecondary),
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildImagePickerField({
-    required String label,
-    required File? file,
-    required VoidCallback onPick,
-  }) {
-    final fileName = file?.path.split('/').last;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        RichText(
-          text: TextSpan(
-            style: GoogleFonts.poppins(fontSize: 13, fontWeight: FontWeight.w600, color: AppColors.textDark),
-            children: [
-              TextSpan(text: '$label '),
-              const TextSpan(text: '*', style: TextStyle(color: AppColors.primaryRed)),
-            ],
-          ),
-        ),
-        const SizedBox(height: 8),
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-          decoration: BoxDecoration(
-            color: AppColors.operationsCardBg,
-            borderRadius: BorderRadius.circular(6),
-            border: Border.all(color: AppColors.borderGray.withValues(alpha: 0.6)),
-          ),
-          child: Row(
-            children: [
-              OutlinedButton(
-                onPressed: onPick,
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: AppColors.textDark,
-                  backgroundColor: const Color(0xFFE5E7EB),
-                  side: BorderSide.none,
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                  minimumSize: Size.zero,
-                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
-                ),
-                child: Text('Take Photo', style: GoogleFonts.poppins(fontSize: 12, fontWeight: FontWeight.w500)),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Text(
-                  fileName ?? 'No file selected.',
-                  style: GoogleFonts.poppins(
-                    fontSize: 12,
-                    color: file == null ? AppColors.textSecondary : AppColors.textDark,
-                  ),
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-            ],
           ),
         ),
       ],

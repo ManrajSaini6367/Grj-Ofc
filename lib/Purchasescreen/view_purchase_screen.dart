@@ -66,14 +66,11 @@ class _ViewPurchaseScreenState extends State<ViewPurchaseScreen> {
   bool _isNetworkImage(String? value) =>
       value != null && (value.startsWith('http://') || value.startsWith('https://'));
 
-  bool _hasPurchaseImage(String? image) =>
-      resolvePurchaseImageUrl(image).isNotEmpty;
-
   bool _hasAnyPurchaseImage(Purchase purchase) =>
-      _hasPurchaseImage(purchase.loadingVehicleImage) ||
-      _hasPurchaseImage(purchase.unloadingVehicleImage) ||
-      _hasPurchaseImage(purchase.vehicleAtKantaImage) ||
-      _hasPurchaseImage(purchase.kantaSlipImage);
+      purchase.loadingImages.isNotEmpty ||
+      purchase.unloadingImages.isNotEmpty ||
+      purchase.vehicleAtKantaImages.isNotEmpty ||
+      purchase.kantaSlipImages.isNotEmpty;
 
   void _openFullImage(String label, String imageUrl) {
     if (!_isNetworkImage(imageUrl)) return;
@@ -201,30 +198,16 @@ class _ViewPurchaseScreenState extends State<ViewPurchaseScreen> {
                                     title: 'Images',
                                     icon: Icons.photo_library_outlined,
                                     children: [
-                                      if (_hasPurchaseImage(purchase.loadingVehicleImage))
-                                        _imageTile(
-                                          'Loading',
-                                          purchase.loadingVehicleImage,
-                                          purchase.loadingVehicleImageAt,
-                                        ),
-                                      if (_hasPurchaseImage(purchase.unloadingVehicleImage))
-                                        _imageTile(
-                                          'Unloading',
-                                          purchase.unloadingVehicleImage,
-                                          purchase.unloadingVehicleImageAt,
-                                        ),
-                                      if (_hasPurchaseImage(purchase.vehicleAtKantaImage))
-                                        _imageTile(
-                                          'Vehicle at Kanta',
-                                          purchase.vehicleAtKantaImage,
-                                          purchase.vehicleAtKantaImageAt,
-                                        ),
-                                      if (_hasPurchaseImage(purchase.kantaSlipImage))
-                                        _imageTile(
-                                          'Kanta Slip',
-                                          purchase.kantaSlipImage,
-                                          purchase.kantaSlipImageAt,
-                                        ),
+                                      ..._imageTiles(
+                                        purchase.isDirectPurchase ? 'Image' : 'Loading',
+                                        purchase.loadingImages,
+                                      ),
+                                      ..._imageTiles('Unloading', purchase.unloadingImages),
+                                      ..._imageTiles(
+                                        'Vehicle at Kanta',
+                                        purchase.vehicleAtKantaImages,
+                                      ),
+                                      ..._imageTiles('Kanta Slip', purchase.kantaSlipImages),
                                     ],
                                   ),
                                 ],
@@ -375,6 +358,17 @@ class _ViewPurchaseScreenState extends State<ViewPurchaseScreen> {
         ],
       ),
     );
+  }
+
+  List<Widget> _imageTiles(String label, List<PurchaseImageRef> images) {
+    final numbered = images.length > 1;
+    final tiles = <Widget>[];
+    for (var i = 0; i < images.length; i++) {
+      final image = images[i];
+      final title = numbered ? '$label ${i + 1}' : label;
+      tiles.add(_imageTile(title, image.imageRef, image.capturedAt));
+    }
+    return tiles;
   }
 
   Widget _imageTile(String label, String? image, DateTime? capturedAt) {

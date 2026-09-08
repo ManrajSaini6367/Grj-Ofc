@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:grjoffice_apps/core/app_colors.dart';
 import 'package:grjoffice_apps/Purchasescreen/purchase.dart';
+import 'package:grjoffice_apps/Purchasescreen/purchase_multi_image_picker.dart';
 import 'package:grjoffice_apps/models/item_model.dart';
 import 'package:grjoffice_apps/services/api_auth.dart';
 import 'package:grjoffice_apps/services/image_pick_helper.dart';
@@ -33,8 +34,7 @@ class _AddPurchaseScreenState extends State<AddPurchaseScreen> {
   int? _selectedSupplierId;
   String? _selectedSupplierName;
   ItemModel? _directMaterial;
-  String? _loadingImageName;
-  File? _loadingImageFile;
+  final List<File> _loadingImages = [];
   List<ItemModel?> _materialLines = [null];
   bool _isSaving = false;
 
@@ -61,10 +61,8 @@ class _AddPurchaseScreenState extends State<AddPurchaseScreen> {
   Future<void> _recoverLostCameraImage() async {
     final file = await recoverLostPurchaseImage();
     if (file == null || !mounted) return;
-    setState(() {
-      _loadingImageFile = file;
-      _loadingImageName = file.path.split(Platform.pathSeparator).last;
-    });
+    if (_loadingImages.any((existing) => existing.path == file.path)) return;
+    setState(() => _loadingImages.add(file));
   }
 
   Future<void> _loadLookups() async {
@@ -211,7 +209,7 @@ class _AddPurchaseScreenState extends State<AddPurchaseScreen> {
       );
       return;
     }
-    if (_loadingImageFile == null) {
+    if (_loadingImages.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Loading vehicle image is required.', style: GoogleFonts.poppins())),
       );
@@ -231,7 +229,7 @@ class _AddPurchaseScreenState extends State<AddPurchaseScreen> {
       flowType: withKanta ? 'with_kanta' : 'without_kanta',
       supplierId: _selectedSupplierId!,
       vehicleNo: _vehicleNoController.text.trim(),
-      imageFile: _loadingImageFile!,
+      imageFiles: _loadingImages,
       itemIds: _chosenMaterials.map((m) => m.id).toList(),
     );
 
@@ -262,7 +260,7 @@ class _AddPurchaseScreenState extends State<AddPurchaseScreen> {
       );
       return;
     }
-    if (_loadingImageFile == null) {
+    if (_loadingImages.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Image is required.', style: GoogleFonts.poppins())),
       );
@@ -288,7 +286,7 @@ class _AddPurchaseScreenState extends State<AddPurchaseScreen> {
       flowType: 'direct',
       supplierId: _selectedSupplierId!,
       vehicleNo: _vehicleNoController.text.trim(),
-      imageFile: _loadingImageFile!,
+      imageFiles: _loadingImages,
       materials: [PurchaseMaterialPayload(itemId: _directMaterial!.id, qty: qty, unit: unit)],
       remark: remark.isEmpty ? null : remark,
     );
@@ -310,11 +308,14 @@ class _AddPurchaseScreenState extends State<AddPurchaseScreen> {
     );
     if (!mounted) return;
     if (file == null) return;
+    if (_loadingImages.any((existing) => existing.path == file.path)) return;
 
-    setState(() {
-      _loadingImageFile = file;
-      _loadingImageName = file.path.split(Platform.pathSeparator).last;
-    });
+    setState(() => _loadingImages.add(file));
+  }
+
+  void _removeLoadingImage(int index) {
+    if (index < 0 || index >= _loadingImages.length) return;
+    setState(() => _loadingImages.removeAt(index));
   }
 
   Future<void> _pickSupplier() async {
@@ -788,56 +789,11 @@ class _AddPurchaseScreenState extends State<AddPurchaseScreen> {
   }
 
   Widget _buildDirectImageField() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        RichText(
-          text: TextSpan(
-            style: GoogleFonts.poppins(fontSize: 13, fontWeight: FontWeight.w600, color: AppColors.textDark),
-            children: const [
-              TextSpan(text: 'Image '),
-              TextSpan(text: '*', style: TextStyle(color: AppColors.primaryRed)),
-            ],
-          ),
-        ),
-        const SizedBox(height: 8),
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-          decoration: BoxDecoration(
-            color: AppColors.operationsCardBg,
-            borderRadius: BorderRadius.circular(6),
-            border: Border.all(color: AppColors.borderGray.withValues(alpha: 0.6)),
-          ),
-          child: Row(
-            children: [
-              OutlinedButton(
-                onPressed: _pickLoadingImage,
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: AppColors.textDark,
-                  backgroundColor: const Color(0xFFE5E7EB),
-                  side: BorderSide.none,
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                  minimumSize: Size.zero,
-                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
-                ),
-                child: Text('Take Photo', style: GoogleFonts.poppins(fontSize: 12, fontWeight: FontWeight.w500)),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Text(
-                  _loadingImageName ?? 'No file selected.',
-                  style: GoogleFonts.poppins(
-                    fontSize: 12,
-                    color: _loadingImageName == null ? AppColors.textSecondary : AppColors.textDark,
-                  ),
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ],
+    return PurchaseMultiImagePicker(
+      label: 'Image',
+      files: _loadingImages,
+      onAdd: _pickLoadingImage,
+      onRemoveAt: _removeLoadingImage,
     );
   }
 
@@ -1026,56 +982,11 @@ class _AddPurchaseScreenState extends State<AddPurchaseScreen> {
   }
 
   Widget _buildLoadingImageField() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        RichText(
-          text: TextSpan(
-            style: GoogleFonts.poppins(fontSize: 13, fontWeight: FontWeight.w600, color: AppColors.textDark),
-            children: const [
-              TextSpan(text: 'Loading Vehicle Image '),
-              TextSpan(text: '*', style: TextStyle(color: AppColors.primaryRed)),
-            ],
-          ),
-        ),
-        const SizedBox(height: 8),
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-          decoration: BoxDecoration(
-            color: AppColors.operationsCardBg,
-            borderRadius: BorderRadius.circular(6),
-            border: Border.all(color: AppColors.borderGray.withValues(alpha: 0.6)),
-          ),
-          child: Row(
-            children: [
-              OutlinedButton(
-                onPressed: _pickLoadingImage,
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: AppColors.textDark,
-                  backgroundColor: const Color(0xFFE5E7EB),
-                  side: BorderSide.none,
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                  minimumSize: Size.zero,
-                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
-                ),
-                child: Text('Take Photo', style: GoogleFonts.poppins(fontSize: 12, fontWeight: FontWeight.w500)),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Text(
-                  _loadingImageName ?? 'No file selected.',
-                  style: GoogleFonts.poppins(
-                    fontSize: 12,
-                    color: _loadingImageName == null ? AppColors.textSecondary : AppColors.textDark,
-                  ),
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ],
+    return PurchaseMultiImagePicker(
+      label: 'Loading Vehicle Image',
+      files: _loadingImages,
+      onAdd: _pickLoadingImage,
+      onRemoveAt: _removeLoadingImage,
     );
   }
 

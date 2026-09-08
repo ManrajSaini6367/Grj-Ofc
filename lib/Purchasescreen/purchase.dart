@@ -47,8 +47,40 @@ class PurchaseMaterialPayload {
   final String unit;
 }
 
+class PurchaseImageRef {
+  const PurchaseImageRef({
+    this.url,
+    this.file,
+    this.capturedAt,
+  });
+
+  final String? url;
+  final String? file;
+  final DateTime? capturedAt;
+
+  String? get imageRef {
+    final fromUrl = url?.trim() ?? '';
+    if (fromUrl.isNotEmpty) return fromUrl;
+    final fromFile = file?.trim() ?? '';
+    if (fromFile.isNotEmpty) return fromFile;
+    return null;
+  }
+
+  String? get _dedupeKey {
+    final name = (file ?? '').trim();
+    if (name.isNotEmpty) {
+      return name.split('/').last.split('\\').last.toLowerCase();
+    }
+    final fromUrl = (url ?? '').trim();
+    if (fromUrl.isEmpty) return null;
+    final path = Uri.tryParse(fromUrl)?.path ?? fromUrl;
+    final base = path.split('/').last;
+    return base.isEmpty ? fromUrl.toLowerCase() : base.toLowerCase();
+  }
+}
+
 class Purchase {
-  const Purchase({
+  Purchase({
     required this.id,
     required this.date,
     required this.challanNo,
@@ -65,21 +97,36 @@ class Purchase {
     this.itemName,
     this.remark,
     this.vehicleNo,
-    this.loadingVehicleImage,
-    this.loadingVehicleImageAt,
-    this.unloadingVehicleImage,
-    this.unloadingVehicleImageAt,
-    this.kantaSlipImage,
-    this.kantaSlipImageAt,
+    List<PurchaseImageRef> loadingImages = const [],
+    String? loadingVehicleImage,
+    DateTime? loadingVehicleImageAt,
+    List<PurchaseImageRef> unloadingImages = const [],
+    String? unloadingVehicleImage,
+    DateTime? unloadingVehicleImageAt,
+    List<PurchaseImageRef> kantaSlipImages = const [],
+    String? kantaSlipImage,
+    DateTime? kantaSlipImageAt,
     this.kantaNo,
-    this.vehicleAtKantaImage,
-    this.vehicleAtKantaImageAt,
+    List<PurchaseImageRef> vehicleAtKantaImages = const [],
+    String? vehicleAtKantaImage,
+    DateTime? vehicleAtKantaImageAt,
     this.materials = const [],
     this.withoutKantaStage,
     this.withKantaStage,
     this.directPurchaseStage,
     this.listStage = PurchaseListStage.initial,
-  });
+  })  : loadingImages = loadingImages.isNotEmpty
+            ? loadingImages
+            : _legacyImageList(loadingVehicleImage, loadingVehicleImageAt),
+        unloadingImages = unloadingImages.isNotEmpty
+            ? unloadingImages
+            : _legacyImageList(unloadingVehicleImage, unloadingVehicleImageAt),
+        kantaSlipImages = kantaSlipImages.isNotEmpty
+            ? kantaSlipImages
+            : _legacyImageList(kantaSlipImage, kantaSlipImageAt),
+        vehicleAtKantaImages = vehicleAtKantaImages.isNotEmpty
+            ? vehicleAtKantaImages
+            : _legacyImageList(vehicleAtKantaImage, vehicleAtKantaImageAt);
 
   final String id;
   final DateTime date;
@@ -97,20 +144,31 @@ class Purchase {
   final String? itemName;
   final String? remark;
   final String? vehicleNo;
-  final String? loadingVehicleImage;
-  final DateTime? loadingVehicleImageAt;
-  final String? unloadingVehicleImage;
-  final DateTime? unloadingVehicleImageAt;
-  final String? kantaSlipImage;
-  final DateTime? kantaSlipImageAt;
+  final List<PurchaseImageRef> loadingImages;
+  final List<PurchaseImageRef> unloadingImages;
+  final List<PurchaseImageRef> kantaSlipImages;
   final String? kantaNo;
-  final String? vehicleAtKantaImage;
-  final DateTime? vehicleAtKantaImageAt;
+  final List<PurchaseImageRef> vehicleAtKantaImages;
   final List<PurchaseMaterialItem> materials;
   final WithoutKantaStage? withoutKantaStage;
   final WithKantaStage? withKantaStage;
   final DirectPurchaseStage? directPurchaseStage;
   final PurchaseListStage listStage;
+
+  String? get loadingVehicleImage => loadingImages.firstOrNull?.imageRef;
+  DateTime? get loadingVehicleImageAt => loadingImages.firstOrNull?.capturedAt;
+  String? get unloadingVehicleImage => unloadingImages.firstOrNull?.imageRef;
+  DateTime? get unloadingVehicleImageAt => unloadingImages.firstOrNull?.capturedAt;
+  String? get kantaSlipImage => kantaSlipImages.firstOrNull?.imageRef;
+  DateTime? get kantaSlipImageAt => kantaSlipImages.firstOrNull?.capturedAt;
+  String? get vehicleAtKantaImage => vehicleAtKantaImages.firstOrNull?.imageRef;
+  DateTime? get vehicleAtKantaImageAt => vehicleAtKantaImages.firstOrNull?.capturedAt;
+
+  static List<PurchaseImageRef> _legacyImageList(String? ref, DateTime? capturedAt) {
+    final value = ref?.trim() ?? '';
+    if (value.isEmpty) return const [];
+    return [PurchaseImageRef(file: value, capturedAt: capturedAt)];
+  }
 
   static Map<String, dynamic>? _asMap(dynamic value) {
     if (value is Map<String, dynamic>) return value;
@@ -118,17 +176,50 @@ class Purchase {
     return null;
   }
 
-  static String? _imageValue(Map<String, dynamic>? images, String key, String field) {
-    final image = _asMap(images?[key]);
-    if (image == null) return null;
-    final value = image[field]?.toString().trim();
-    if (value == null || value.isEmpty) return null;
-    return value;
+  static List<PurchaseImageRef> _parseImageGroup(
+    Map<String, dynamic> source,
+    List<String> keys,
+  ) {
+    final parsed = <PurchaseImageRef>[];
+    final seen = <String>{};
+    for (final key in keys) {
+      for (final item in _parseImageNode(source[key])) {
+        final keyName = item._dedupeKey ?? item.imageRef;
+        if (keyName == null || keyName.isEmpty || !seen.add(keyName)) continue;
+        parsed.add(item);
+      }
+    }
+    return parsed;
   }
 
-  static DateTime? _imageCapturedAt(Map<String, dynamic>? images, String key) {
-    final raw = _imageValue(images, key, 'captured_at');
-    return raw == null ? null : DateTime.tryParse(raw);
+  static List<PurchaseImageRef> _parseImageNode(dynamic value) {
+    if (value == null) return const [];
+    if (value is List) {
+      return [for (final item in value) ..._parseImageNode(item)];
+    }
+    if (value is String) {
+      final trimmed = value.trim();
+      if (trimmed.isEmpty) return const [];
+      return [PurchaseImageRef(url: trimmed)];
+    }
+    final map = _asMap(value);
+    if (map == null) return const [];
+    for (final nestedKey in ['images', 'items', 'files', 'data']) {
+      if (map[nestedKey] is List) return _parseImageNode(map[nestedKey]);
+    }
+    final url = map['url']?.toString().trim();
+    final file = (map['file'] ?? map['path'] ?? map['name'])?.toString().trim();
+    final capturedAt = DateTime.tryParse(map['captured_at']?.toString() ?? '');
+    if ((url == null || url.isEmpty) && (file == null || file.isEmpty)) {
+      return const [];
+    }
+    return [
+      PurchaseImageRef(
+        url: (url != null && url.isNotEmpty) ? url : null,
+        file: (file != null && file.isNotEmpty) ? file : null,
+        capturedAt: capturedAt,
+      ),
+    ];
   }
 
   factory Purchase.fromJson(Map<String, dynamic> json) {
@@ -185,7 +276,15 @@ class Purchase {
       }
     }
 
-    final images = _asMap(json['images']);
+    final images = _asMap(json['images']) ?? <String, dynamic>{};
+    final imageSource = <String, dynamic>{
+      ...images,
+      if (json['loading_images'] != null) 'loading_images': json['loading_images'],
+      if (json['unloading_images'] != null) 'unloading_images': json['unloading_images'],
+      if (json['kanta_slip_images'] != null) 'kanta_slip_images': json['kanta_slip_images'],
+      if (json['vehicle_at_kanta_images'] != null)
+        'vehicle_at_kanta_images': json['vehicle_at_kanta_images'],
+    };
     final apiItemName = json['item_name']?.toString().trim();
     final materialsName = materials
         .map((m) => m.name.trim())
@@ -214,18 +313,26 @@ class Purchase {
       remark: json['remark']?.toString(),
       vehicleNo: json['vehicle_no']?.toString(),
       kantaNo: json['kanta_no']?.toString(),
-      loadingVehicleImage: _imageValue(images, 'loading', 'url') ??
-          _imageValue(images, 'loading', 'file'),
-      loadingVehicleImageAt: _imageCapturedAt(images, 'loading'),
-      unloadingVehicleImage: _imageValue(images, 'unloading', 'url') ??
-          _imageValue(images, 'unloading', 'file'),
-      unloadingVehicleImageAt: _imageCapturedAt(images, 'unloading'),
-      kantaSlipImage: _imageValue(images, 'kanta_slip', 'url') ??
-          _imageValue(images, 'kanta_slip', 'file'),
-      kantaSlipImageAt: _imageCapturedAt(images, 'kanta_slip'),
-      vehicleAtKantaImage: _imageValue(images, 'vehicle_at_kanta', 'url') ??
-          _imageValue(images, 'vehicle_at_kanta', 'file'),
-      vehicleAtKantaImageAt: _imageCapturedAt(images, 'vehicle_at_kanta'),
+      loadingImages: _parseImageGroup(imageSource, const [
+        'loading_images',
+        'loading_image',
+        'loading',
+      ]),
+      unloadingImages: _parseImageGroup(imageSource, const [
+        'unloading_images',
+        'unloading_image',
+        'unloading',
+      ]),
+      kantaSlipImages: _parseImageGroup(imageSource, const [
+        'kanta_slip_images',
+        'kanta_slip_image',
+        'kanta_slip',
+      ]),
+      vehicleAtKantaImages: _parseImageGroup(imageSource, const [
+        'vehicle_at_kanta_images',
+        'vehicle_at_kanta_image',
+        'vehicle_at_kanta',
+      ]),
       materials: materials,
       itemName: (apiItemName != null && apiItemName.isNotEmpty)
           ? apiItemName
@@ -322,15 +429,11 @@ class Purchase {
     String? itemName,
     String? remark,
     String? vehicleNo,
-    String? loadingVehicleImage,
-    DateTime? loadingVehicleImageAt,
-    String? unloadingVehicleImage,
-    DateTime? unloadingVehicleImageAt,
-    String? kantaSlipImage,
-    DateTime? kantaSlipImageAt,
+    List<PurchaseImageRef>? loadingImages,
+    List<PurchaseImageRef>? unloadingImages,
+    List<PurchaseImageRef>? kantaSlipImages,
     String? kantaNo,
-    String? vehicleAtKantaImage,
-    DateTime? vehicleAtKantaImageAt,
+    List<PurchaseImageRef>? vehicleAtKantaImages,
     List<PurchaseMaterialItem>? materials,
     WithoutKantaStage? withoutKantaStage,
     WithKantaStage? withKantaStage,
@@ -354,15 +457,11 @@ class Purchase {
       itemName: itemName ?? this.itemName,
       remark: remark ?? this.remark,
       vehicleNo: vehicleNo ?? this.vehicleNo,
-      loadingVehicleImage: loadingVehicleImage ?? this.loadingVehicleImage,
-      loadingVehicleImageAt: loadingVehicleImageAt ?? this.loadingVehicleImageAt,
-      unloadingVehicleImage: unloadingVehicleImage ?? this.unloadingVehicleImage,
-      unloadingVehicleImageAt: unloadingVehicleImageAt ?? this.unloadingVehicleImageAt,
-      kantaSlipImage: kantaSlipImage ?? this.kantaSlipImage,
-      kantaSlipImageAt: kantaSlipImageAt ?? this.kantaSlipImageAt,
+      loadingImages: loadingImages ?? this.loadingImages,
+      unloadingImages: unloadingImages ?? this.unloadingImages,
+      kantaSlipImages: kantaSlipImages ?? this.kantaSlipImages,
       kantaNo: kantaNo ?? this.kantaNo,
-      vehicleAtKantaImage: vehicleAtKantaImage ?? this.vehicleAtKantaImage,
-      vehicleAtKantaImageAt: vehicleAtKantaImageAt ?? this.vehicleAtKantaImageAt,
+      vehicleAtKantaImages: vehicleAtKantaImages ?? this.vehicleAtKantaImages,
       materials: materials ?? this.materials,
       withoutKantaStage: withoutKantaStage ?? this.withoutKantaStage,
       withKantaStage: withKantaStage ?? this.withKantaStage,

@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:grjoffice_apps/core/app_colors.dart';
 import 'package:grjoffice_apps/Purchasescreen/purchase.dart';
+import 'package:grjoffice_apps/Purchasescreen/purchase_multi_image_picker.dart';
 import 'package:grjoffice_apps/services/api_auth.dart';
 import 'package:grjoffice_apps/services/image_pick_helper.dart';
 import 'package:grjoffice_apps/widgets/app_top_bar.dart';
@@ -21,23 +22,11 @@ class _WithKantaStep2ScreenState extends State<WithKantaStep2Screen> {
   static const _saveBlue = Color(0xFF2563EB);
 
   final _formKey = GlobalKey<FormState>();
-  final _vehicleNoController = TextEditingController();
 
-  File? _unloadingImageFile;
+  final List<File> _unloadingImages = [];
   bool _isSaving = false;
 
-  @override
-  void initState() {
-    super.initState();
-    final p = widget.purchase;
-    _vehicleNoController.text = p.vehicleNo ?? '';
-  }
-
-  @override
-  void dispose() {
-    _vehicleNoController.dispose();
-    super.dispose();
-  }
+  String get _savedVehicleNo => widget.purchase.vehicleNo?.trim() ?? '';
 
   Future<void> _pickUnloadingImage() async {
     final file = await pickPurchaseImageFile(
@@ -46,22 +35,28 @@ class _WithKantaStep2ScreenState extends State<WithKantaStep2Screen> {
       fromCamera: true,
     );
     if (file == null || !mounted) return;
-    setState(() => _unloadingImageFile = file);
+    if (_unloadingImages.any((existing) => existing.path == file.path)) return;
+    setState(() => _unloadingImages.add(file));
+  }
+
+  void _removeUnloadingImage(int index) {
+    if (index < 0 || index >= _unloadingImages.length) return;
+    setState(() => _unloadingImages.removeAt(index));
   }
 
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
-    if (_unloadingImageFile == null) {
+    if (_unloadingImages.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Unloading vehicle image is required.', style: GoogleFonts.poppins())),
       );
       return;
     }
 
-    final vehicleNo = _vehicleNoController.text.trim();
+    final vehicleNo = _savedVehicleNo;
     if (vehicleNo.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Vehicle No is required.', style: GoogleFonts.poppins())),
+        SnackBar(content: Text('Vehicle No from Step 1 is missing.', style: GoogleFonts.poppins())),
       );
       return;
     }
@@ -79,7 +74,7 @@ class _WithKantaStep2ScreenState extends State<WithKantaStep2Screen> {
       context,
       purchaseId: purchaseId,
       vehicleNo: vehicleNo,
-      unloadingImage: _unloadingImageFile!,
+      unloadingImages: _unloadingImages,
     );
     if (!mounted) return;
     setState(() => _isSaving = false);
@@ -134,10 +129,9 @@ class _WithKantaStep2ScreenState extends State<WithKantaStep2Screen> {
                                   Expanded(child: _buildReadOnlyField(label: 'Supplier', value: widget.purchase.supplierName)),
                                   const SizedBox(width: 12),
                                   Expanded(
-                                    child: _buildTextField(
+                                    child: _buildReadOnlyField(
                                       label: 'Vehicle No',
-                                      controller: _vehicleNoController,
-                                      hint: 'Vehicle No',
+                                      value: _savedVehicleNo.isEmpty ? '—' : _savedVehicleNo,
                                     ),
                                   ),
                                   const SizedBox(width: 12),
@@ -147,13 +141,32 @@ class _WithKantaStep2ScreenState extends State<WithKantaStep2Screen> {
                             else ...[
                               _buildReadOnlyField(label: 'Supplier', value: widget.purchase.supplierName),
                               const SizedBox(height: 16),
-                              _buildTextField(
+                              _buildReadOnlyField(
                                 label: 'Vehicle No',
-                                controller: _vehicleNoController,
-                                hint: 'Vehicle No',
+                                value: _savedVehicleNo.isEmpty ? '—' : _savedVehicleNo,
                               ),
                               const SizedBox(height: 16),
                               _buildUnloadingImageField(),
+                            ],
+                            if (widget.purchase.materials.isNotEmpty) ...[
+                              const SizedBox(height: 20),
+                              ...widget.purchase.materials.asMap().entries.map(
+                                (entry) => Padding(
+                                  padding: EdgeInsets.only(
+                                    bottom: entry.key == widget.purchase.materials.length - 1
+                                        ? 0
+                                        : 12,
+                                  ),
+                                  child: _buildReadOnlyField(
+                                    label: widget.purchase.materials.length == 1
+                                        ? 'Material'
+                                        : 'Material ${entry.key + 1}',
+                                    value: entry.value.name.trim().isEmpty
+                                        ? '—'
+                                        : entry.value.name,
+                                  ),
+                                ),
+                              ),
                             ],
                             const SizedBox(height: 24),
                             SizedBox(
@@ -227,98 +240,12 @@ class _WithKantaStep2ScreenState extends State<WithKantaStep2Screen> {
   }
 
   Widget _buildUnloadingImageField() {
-    final fileName = _unloadingImageFile?.path.split('/').last;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        RichText(
-          text: TextSpan(
-            style: GoogleFonts.poppins(fontSize: 13, fontWeight: FontWeight.w600, color: AppColors.textDark),
-            children: const [
-              TextSpan(text: 'Unloading Vehicle Image '),
-              TextSpan(text: '*', style: TextStyle(color: AppColors.primaryRed)),
-            ],
-          ),
-        ),
-        const SizedBox(height: 8),
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-          decoration: BoxDecoration(
-            color: AppColors.operationsCardBg,
-            borderRadius: BorderRadius.circular(6),
-            border: Border.all(color: AppColors.borderGray.withValues(alpha: 0.6)),
-          ),
-          child: Row(
-            children: [
-              OutlinedButton(
-                onPressed: _pickUnloadingImage,
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: AppColors.textDark,
-                  backgroundColor: const Color(0xFFE5E7EB),
-                  side: BorderSide.none,
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                  minimumSize: Size.zero,
-                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
-                ),
-                child: Text('Take Photo', style: GoogleFonts.poppins(fontSize: 12, fontWeight: FontWeight.w500)),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Text(
-                  fileName ?? 'No file selected.',
-                  style: GoogleFonts.poppins(
-                    fontSize: 12,
-                    color: _unloadingImageFile == null ? AppColors.textSecondary : AppColors.textDark,
-                  ),
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ],
+    return PurchaseMultiImagePicker(
+      label: 'Unloading Vehicle Image',
+      files: _unloadingImages,
+      onAdd: _pickUnloadingImage,
+      onRemoveAt: _removeUnloadingImage,
     );
   }
 
-  InputDecoration _fieldDecoration({String? hint}) {
-    return InputDecoration(
-      hintText: hint,
-      hintStyle: GoogleFonts.poppins(color: AppColors.inputHint, fontSize: 13),
-      filled: true,
-      fillColor: AppColors.operationsCardBg,
-      contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-      border: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(6),
-        borderSide: BorderSide(color: AppColors.borderGray.withValues(alpha: 0.6)),
-      ),
-      enabledBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(6),
-        borderSide: BorderSide(color: AppColors.borderGray.withValues(alpha: 0.6)),
-      ),
-      focusedBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(6),
-        borderSide: BorderSide(color: AppColors.primaryRed.withValues(alpha: 0.5), width: 1.5),
-      ),
-    );
-  }
-
-  Widget _buildTextField({
-    required String label,
-    required TextEditingController controller,
-    required String hint,
-  }) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(label, style: GoogleFonts.poppins(fontSize: 13, fontWeight: FontWeight.w600)),
-        const SizedBox(height: 8),
-        TextFormField(
-          controller: controller,
-          style: GoogleFonts.poppins(fontSize: 13),
-          decoration: _fieldDecoration(hint: hint),
-        ),
-      ],
-    );
-  }
 }
