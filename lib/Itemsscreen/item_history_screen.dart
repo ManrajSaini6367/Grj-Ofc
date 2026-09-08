@@ -148,14 +148,8 @@ class _ItemHistoryScreenState extends State<ItemHistoryScreen> {
       .fold(0, (sum, tx) => sum + tx.qty);
 
   double get _currentIssueQty {
-    final now = DateTime.now();
-    final today = DateTime(now.year, now.month, now.day);
     return _transactions
         .where((tx) => tx.type == ItemTransactionType.issue)
-        .where((tx) {
-          final day = DateTime(tx.dateTime.year, tx.dateTime.month, tx.dateTime.day);
-          return day == today;
-        })
         .fold(0.0, (sum, tx) => sum + tx.qty);
   }
 
