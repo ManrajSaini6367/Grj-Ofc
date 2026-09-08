@@ -739,7 +739,7 @@ class _EmployeeKycDetailScreenState extends State<EmployeeKycDetailScreen> {
                           'Leave Allocation',
                           config.leaveAllocation.isEmpty
                               ? '—'
-                              : '${config.leaveAllocation} leaves / year'
+                              : '${config.leaveAllocation} leaves / month'
                         ),
                         ('Employment Type', config.employmentType),
                         (
