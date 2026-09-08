@@ -582,7 +582,7 @@ class _OutwardRequestCard extends StatelessWidget {
           if (request.status == OutwardRequestStatus.rejected &&
               request.rejectionReason.trim().isNotEmpty) ...[
             const SizedBox(height: 6),
-            _line('Reject reason', request.rejectionReason),
+            _line('Hindrance reason', request.rejectionReason),
           ],
         ],
       ),

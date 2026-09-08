@@ -41,7 +41,7 @@ class OutwardRequest {
   String get statusLabel => switch (status) {
         OutwardRequestStatus.pending => 'Pending',
         OutwardRequestStatus.approved => 'Approved',
-        OutwardRequestStatus.rejected => 'Rejected',
+        OutwardRequestStatus.rejected => 'Hindrance',
       };
 
   int? get actionId =>
@@ -50,7 +50,7 @@ class OutwardRequest {
   static OutwardRequestStatus _mapSentStatus(String? raw) {
     return switch ((raw ?? '').toLowerCase()) {
       'received' => OutwardRequestStatus.approved,
-      'rejected' || 'cancelled' => OutwardRequestStatus.rejected,
+      'rejected' || 'hindrance' || 'cancelled' => OutwardRequestStatus.rejected,
       _ => OutwardRequestStatus.pending,
     };
   }
@@ -58,7 +58,7 @@ class OutwardRequest {
   static OutwardRequestStatus _mapReceiveStatus(String? raw) {
     return switch ((raw ?? '').toLowerCase()) {
       'accepted' => OutwardRequestStatus.approved,
-      'rejected' => OutwardRequestStatus.rejected,
+      'rejected' || 'hindrance' => OutwardRequestStatus.rejected,
       _ => OutwardRequestStatus.pending,
     };
   }

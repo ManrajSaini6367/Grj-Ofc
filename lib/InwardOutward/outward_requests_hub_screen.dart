@@ -123,14 +123,14 @@ class _OutwardRequestsHubScreenState extends State<OutwardRequestsHubScreen> {
         backgroundColor: AppColors.cardWhite,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         title: Text(
-          'Reject Request',
+          'Hindrance Request',
           style: GoogleFonts.poppins(fontWeight: FontWeight.w700),
         ),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             Text(
-              'Reject outward request for "${request.itemName}"?',
+              'Mark outward request for "${request.itemName}" as Hindrance?',
               style: GoogleFonts.poppins(fontSize: 14),
             ),
             const SizedBox(height: 12),
@@ -162,7 +162,7 @@ class _OutwardRequestsHubScreenState extends State<OutwardRequestsHubScreen> {
           TextButton(
             onPressed: () => Navigator.pop(ctx, true),
             child: Text(
-              'Reject',
+              'Hindrance',
               style: GoogleFonts.poppins(
                 color: AppColors.primaryRed,
                 fontWeight: FontWeight.w600,
@@ -490,7 +490,7 @@ class _RequestListCard extends StatelessWidget {
               request.rejectionReason.trim().isNotEmpty) ...[
             const SizedBox(height: 6),
             Text(
-              'Reject reason: ${request.rejectionReason}',
+              'Hindrance reason: ${request.rejectionReason}',
               style: GoogleFonts.poppins(
                 fontSize: 12,
                 color: const Color(0xFFDC2626),
@@ -514,7 +514,7 @@ class _RequestListCard extends StatelessWidget {
                         ),
                       ),
                       child: Text(
-                        'Reject',
+                        'Hindrance',
                         style: GoogleFonts.poppins(
                           fontSize: compact ? 12 : 13,
                           fontWeight: FontWeight.w600,

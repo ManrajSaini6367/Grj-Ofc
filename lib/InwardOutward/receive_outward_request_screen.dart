@@ -5,7 +5,7 @@ import 'package:grjoffice_apps/core/app_colors.dart';
 import 'package:grjoffice_apps/widgets/app_top_bar.dart';
 import 'package:intl/intl.dart';
 
-/// Incoming outward requests — Approve / Reject.
+/// Incoming outward requests — Approve / Hindrance.
 class ReceiveOutwardRequestScreen extends StatefulWidget {
   const ReceiveOutwardRequestScreen({super.key});
 
@@ -40,7 +40,7 @@ class _ReceiveOutwardRequestScreenState
         _ReceiveFilter.all => 'all',
         _ReceiveFilter.pending => 'pending',
         _ReceiveFilter.approved => 'accepted',
-        _ReceiveFilter.rejected => 'rejected',
+        _ReceiveFilter.rejected => 'hindrance',
       };
 
   Future<void> _load() async {
@@ -123,7 +123,7 @@ class _ReceiveOutwardRequestScreenState
         backgroundColor: AppColors.cardWhite,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         title: Text(
-          'Reject Request',
+          'Hindrance Request',
           style: GoogleFonts.poppins(fontWeight: FontWeight.w700),
         ),
         content: Column(
@@ -131,7 +131,7 @@ class _ReceiveOutwardRequestScreenState
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Text(
-              'Reject outward request for "${request.itemName}"?',
+              'Mark outward request for "${request.itemName}" as Hindrance?',
               style: GoogleFonts.poppins(fontSize: 14),
             ),
             const SizedBox(height: 12),
@@ -163,7 +163,7 @@ class _ReceiveOutwardRequestScreenState
           TextButton(
             onPressed: () => Navigator.pop(ctx, true),
             child: Text(
-              'Reject',
+              'Hindrance',
               style: GoogleFonts.poppins(
                 color: AppColors.primaryRed,
                 fontWeight: FontWeight.w600,
@@ -195,7 +195,7 @@ class _ReceiveOutwardRequestScreenState
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            'Request rejected.',
+            'Request marked as Hindrance.',
             style: GoogleFonts.poppins(fontSize: 13),
           ),
           behavior: SnackBarBehavior.floating,
@@ -232,7 +232,7 @@ class _ReceiveOutwardRequestScreenState
                     const SizedBox(width: 8),
                     _filterChip('Approved', _ReceiveFilter.approved, compact),
                     const SizedBox(width: 8),
-                    _filterChip('Rejected', _ReceiveFilter.rejected, compact),
+                    _filterChip('Hindrance', _ReceiveFilter.rejected, compact),
                   ],
                 ),
               ),
@@ -424,7 +424,7 @@ class _ReceiveRequestCard extends StatelessWidget {
               request.rejectionReason.trim().isNotEmpty) ...[
             const SizedBox(height: 6),
             Text(
-              'Reject reason: ${request.rejectionReason}',
+              'Hindrance reason: ${request.rejectionReason}',
               style: GoogleFonts.poppins(
                 fontSize: 12,
                 color: const Color(0xFFDC2626),
@@ -448,7 +448,7 @@ class _ReceiveRequestCard extends StatelessWidget {
                         ),
                       ),
                       child: Text(
-                        'Reject',
+                        'Hindrance',
                         style: GoogleFonts.poppins(
                           fontSize: compact ? 12 : 13,
                           fontWeight: FontWeight.w600,
