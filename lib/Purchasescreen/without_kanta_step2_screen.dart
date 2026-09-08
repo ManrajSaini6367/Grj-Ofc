@@ -125,7 +125,7 @@ class _WithoutKantaStep2ScreenState extends State<WithoutKantaStep2Screen> {
             orElse: () => null,
           );
       _lines[i].item = matched;
-      if (matched != null && material.unit.trim().isEmpty) {
+      if (matched != null) {
         _lines[i].unit = unitFromMaterial(matched);
       }
     }
