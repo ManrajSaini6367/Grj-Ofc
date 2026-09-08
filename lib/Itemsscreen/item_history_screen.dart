@@ -147,12 +147,6 @@ class _ItemHistoryScreenState extends State<ItemHistoryScreen> {
       .where((tx) => tx.isStockOut)
       .fold(0, (sum, tx) => sum + tx.qty);
 
-  double get _currentIssueQty {
-    return _transactions
-        .where((tx) => tx.type == ItemTransactionType.issue)
-        .fold(0.0, (sum, tx) => sum + tx.qty);
-  }
-
   bool _matchesDateFilter(DateTime dateTime) {
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
@@ -258,8 +252,6 @@ class _ItemHistoryScreenState extends State<ItemHistoryScreen> {
                                   _buildItemHeader(),
                                   const SizedBox(height: 14),
                                   _buildIssueItemButton(),
-                                  const SizedBox(height: 14),
-                                  _buildCurrentIssueQtyCard(),
                                   const SizedBox(height: 14),
                                   _buildStatsRow(),
                                   const SizedBox(height: 14),
@@ -403,75 +395,6 @@ class _ItemHistoryScreenState extends State<ItemHistoryScreen> {
           elevation: 0,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
         ),
-      ),
-    );
-  }
-
-  Widget _buildCurrentIssueQtyCard() {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.fromLTRB(14, 12, 14, 10),
-      decoration: BoxDecoration(
-        color: AppColors.cardWhite,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: AppColors.borderGray.withValues(alpha: 0.4)),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.04),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Expanded(
-                child: Text(
-                  _displayName.toUpperCase(),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: GoogleFonts.poppins(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w600,
-                    color: AppColors.textSecondary,
-                    letterSpacing: 0.3,
-                  ),
-                ),
-              ),
-              const SizedBox(width: 8),
-              Text(
-                '${_formatQty(_currentIssueQty)} ${formatStoreUnit(_displayUnit)}',
-                style: GoogleFonts.poppins(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w700,
-                  color: AppColors.headingBlack,
-                  height: 1.1,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 4),
-          Text(
-            'Current Issue Qty',
-            style: GoogleFonts.poppins(
-              fontSize: 11,
-              fontWeight: FontWeight.w600,
-              color: AppColors.textSecondary,
-              letterSpacing: 0.3,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Container(
-            height: 3,
-            decoration: BoxDecoration(
-              color: _issueColor,
-              borderRadius: BorderRadius.circular(2),
-            ),
-          ),
-        ],
       ),
     );
   }

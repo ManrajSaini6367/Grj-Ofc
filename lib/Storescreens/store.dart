@@ -160,8 +160,6 @@ class _StoreScreenState extends State<StoreScreen> {
                         children: [
                           _buildStatsRow(),
                           const SizedBox(height: 16),
-                          _buildCurrentIssueQtyRow(),
-                          const SizedBox(height: 16),
                           _buildToolbar(),
                           const SizedBox(height: 12),
                           _buildFilterChips(),
@@ -237,104 +235,6 @@ class _StoreScreenState extends State<StoreScreen> {
           ),
         ),
       ],
-    );
-  }
-
-  Widget _buildCurrentIssueQtyRow() {
-    if (_storeItems.isEmpty) return const SizedBox.shrink();
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          'Current Issue Qty',
-          style: GoogleFonts.poppins(
-            fontSize: 13,
-            fontWeight: FontWeight.w700,
-            color: AppColors.headingBlack,
-          ),
-        ),
-        const SizedBox(height: 10),
-        SizedBox(
-          height: 78,
-          child: ListView.separated(
-            scrollDirection: Axis.horizontal,
-            itemCount: _storeItems.length,
-            separatorBuilder: (_, __) => const SizedBox(width: 10),
-            itemBuilder: (context, index) => _issueQtyCard(_storeItems[index]),
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _issueQtyCard(InventoryItem item) {
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: () => _openHistory(item),
-        borderRadius: BorderRadius.circular(12),
-        child: Ink(
-          width: 128,
-          padding: const EdgeInsets.fromLTRB(12, 12, 12, 10),
-          decoration: BoxDecoration(
-            color: AppColors.cardWhite,
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: AppColors.borderGray.withValues(alpha: 0.35)),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.04),
-                blurRadius: 8,
-                offset: const Offset(0, 2),
-              ),
-            ],
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Expanded(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      item.name.toUpperCase(),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: GoogleFonts.poppins(
-                        fontSize: 11,
-                        fontWeight: FontWeight.w600,
-                        color: AppColors.textSecondary,
-                        letterSpacing: 0.3,
-                      ),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      '${formatStoreQty(item.issueQty)} ${formatStoreUnit(item.unit)}',
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: GoogleFonts.poppins(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w700,
-                        color: AppColors.headingBlack,
-                        height: 1.1,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 8),
-              Container(
-                height: 3,
-                decoration: BoxDecoration(
-                  color: _lowColor,
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
     );
   }
 
@@ -566,17 +466,37 @@ class _StoreScreenState extends State<StoreScreen> {
                         Expanded(
                           child: Align(
                             alignment: Alignment.topLeft,
-                            child: Text(
-                              item.name.toUpperCase(),
-                              maxLines: 2,
-                              overflow: TextOverflow.ellipsis,
-                              style: GoogleFonts.poppins(
-                                fontSize: 12,
-                                fontWeight: FontWeight.w600,
-                                color: AppColors.textSecondary,
-                                letterSpacing: 0.3,
-                                height: 1.2,
-                              ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Text(
+                                  item.name.toUpperCase(),
+                                  maxLines: 2,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: GoogleFonts.poppins(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w600,
+                                    color: AppColors.textSecondary,
+                                    letterSpacing: 0.3,
+                                    height: 1.2,
+                                  ),
+                                ),
+                                if (item.issueQty > 0) ...[
+                                  const SizedBox(height: 2),
+                                  Text(
+                                    'Issue Qty ${formatStoreQty(item.issueQty)} ${formatStoreUnit(item.unit)}',
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: GoogleFonts.poppins(
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.w600,
+                                      color: AppColors.primaryRed,
+                                      height: 1.2,
+                                    ),
+                                  ),
+                                ],
+                              ],
                             ),
                           ),
                         ),
