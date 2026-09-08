@@ -160,8 +160,9 @@ class _WithKantaStep3ScreenState extends State<WithKantaStep3Screen> {
     if (file == null || !mounted) return;
     setState(() {
       final target = isKantaSlip ? _kantaSlipImages : _vehicleAtKantaImages;
-      if (target.any((existing) => existing.path == file.path)) return;
-      target.add(file);
+      target
+        ..clear()
+        ..add(file);
     });
   }
 
@@ -326,6 +327,7 @@ class _WithKantaStep3ScreenState extends State<WithKantaStep3Screen> {
                               PurchaseMultiImagePicker(
                                 label: 'Kanta Slip Image',
                                 files: _kantaSlipImages,
+                                allowMultiple: false,
                                 onAdd: () => _pickImage(isKantaSlip: true),
                                 onRemoveAt: (index) => _removeImage(
                                   isKantaSlip: true,
@@ -350,6 +352,7 @@ class _WithKantaStep3ScreenState extends State<WithKantaStep3Screen> {
                               PurchaseMultiImagePicker(
                                 label: 'Kanta Slip Image',
                                 files: _kantaSlipImages,
+                                allowMultiple: false,
                                 onAdd: () => _pickImage(isKantaSlip: true),
                                 onRemoveAt: (index) => _removeImage(
                                   isKantaSlip: true,
@@ -390,6 +393,7 @@ class _WithKantaStep3ScreenState extends State<WithKantaStep3Screen> {
                                     child: PurchaseMultiImagePicker(
                                       label: 'Vehicle at Kanta Image',
                                       files: _vehicleAtKantaImages,
+                                      allowMultiple: false,
                                       onAdd: () => _pickImage(isKantaSlip: false),
                                       onRemoveAt: (index) => _removeImage(
                                         isKantaSlip: false,
@@ -411,6 +415,7 @@ class _WithKantaStep3ScreenState extends State<WithKantaStep3Screen> {
                               PurchaseMultiImagePicker(
                                 label: 'Vehicle at Kanta Image',
                                 files: _vehicleAtKantaImages,
+                                allowMultiple: false,
                                 onAdd: () => _pickImage(isKantaSlip: false),
                                 onRemoveAt: (index) => _removeImage(
                                   isKantaSlip: false,

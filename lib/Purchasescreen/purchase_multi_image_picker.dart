@@ -12,6 +12,7 @@ class PurchaseMultiImagePicker extends StatelessWidget {
     required this.onAdd,
     required this.onRemoveAt,
     this.required = true,
+    this.allowMultiple = true,
     this.emptyActionLabel = 'Take Photo',
     this.emptyHint = 'No file selected.',
   });
@@ -23,6 +24,7 @@ class PurchaseMultiImagePicker extends StatelessWidget {
   final VoidCallback onAdd;
   final ValueChanged<int> onRemoveAt;
   final bool required;
+  final bool allowMultiple;
   final String emptyActionLabel;
   final String emptyHint;
 
@@ -64,33 +66,35 @@ class PurchaseMultiImagePicker extends StatelessWidget {
             if (i > 0) const SizedBox(height: 8),
             _selectedRow(files[i], i),
           ],
-          const SizedBox(height: 8),
-          Align(
-            alignment: Alignment.centerLeft,
-            child: SizedBox(
-              height: 36,
-              child: ElevatedButton.icon(
-                onPressed: onAdd,
-                icon: const Icon(Icons.add, size: 16),
-                label: Text(
-                  'Add More',
-                  style: GoogleFonts.poppins(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600,
+          if (allowMultiple) ...[
+            const SizedBox(height: 8),
+            Align(
+              alignment: Alignment.centerLeft,
+              child: SizedBox(
+                height: 36,
+                child: ElevatedButton.icon(
+                  onPressed: onAdd,
+                  icon: const Icon(Icons.add, size: 16),
+                  label: Text(
+                    'Add More',
+                    style: GoogleFonts.poppins(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                    ),
                   ),
-                ),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: _addGreen,
-                  foregroundColor: AppColors.white,
-                  elevation: 0,
-                  padding: const EdgeInsets.symmetric(horizontal: 12),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(6),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: _addGreen,
+                    foregroundColor: AppColors.white,
+                    elevation: 0,
+                    padding: const EdgeInsets.symmetric(horizontal: 12),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(6),
+                    ),
                   ),
                 ),
               ),
             ),
-          ),
+          ],
         ],
       ],
     );
