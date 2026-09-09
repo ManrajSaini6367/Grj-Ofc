@@ -3,7 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:grjoffice_apps/DayEndReport/activities.dart';
 import 'package:grjoffice_apps/attendancescreen/attendance_screen.dart';
 import 'package:grjoffice_apps/attendancescreen/contractor_attendance_screen.dart';
-import 'package:grjoffice_apps/LabourContractor/contractors.dart';
+import 'package:grjoffice_apps/AmaniLabour/amani_labours.dart';
 import 'package:grjoffice_apps/SupplierList/suppliers.dart';
 import 'package:grjoffice_apps/core/app_colors.dart';
 import 'package:grjoffice_apps/drawer/app_end_drawer.dart';
@@ -47,8 +47,8 @@ class _HomePageState extends State<HomePage> {
     ),
     _OperationItem(
       Icons.groups_outlined,
-      'Labour Contractor',
-      'LABOUR CONTRACTOR',
+      'Amani Labour',
+      'AMANI LABOUR',
       anyOf: [AppPermissions.contractorsView],
     ),
     _OperationItem(
@@ -741,7 +741,7 @@ class _HomePageState extends State<HomePage> {
     switch (item.title) {
       case 'Supplier':
         pushInShell(context, const SuppliersScreen(isActive: true));
-      case 'Labour Contractor':
+      case 'Amani Labour':
         pushInShell(context, const ContractorsScreen(isActive: true));
       case 'Store':
         navigateToMainTab(context, MainTab.store);
@@ -801,55 +801,6 @@ class _HomePageState extends State<HomePage> {
       ),
     );
   }
-
-  Widget _buildSupplyCard(_SupplyItem item) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: AppColors.cardWhite,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColors.borderGray.withValues(alpha: 0.5)),
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 44,
-            height: 44,
-            decoration: BoxDecoration(
-              color: AppColors.iconBgGray,
-              borderRadius: BorderRadius.circular(10),
-            ),
-            child: Icon(item.icon, color: AppColors.primaryRed, size: 22),
-          ),
-          const SizedBox(width: 14),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  item.title,
-                  style: TextStyle(
-                    color: AppColors.headingBlack,
-                    fontSize: 14,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  item.subtitle,
-                  style: TextStyle(
-                    color: AppColors.textSecondary,
-                    fontSize: 12,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
 }
 
 class _OperationItem {
@@ -866,14 +817,6 @@ class _OperationItem {
 
   /// Empty = always visible. Otherwise user needs any of these permissions.
   final List<String> anyOf;
-}
-
-class _SupplyItem {
-  const _SupplyItem(this.icon, this.title, this.subtitle);
-
-  final IconData icon;
-  final String title;
-  final String subtitle;
 }
 
 class _AttendanceCard extends StatefulWidget {

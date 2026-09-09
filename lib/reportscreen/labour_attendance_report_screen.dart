@@ -8,6 +8,7 @@ import 'package:grjoffice_apps/reportscreen/report_models.dart';
 import 'package:grjoffice_apps/services/api_auth.dart';
 import 'package:grjoffice_apps/services/purchase_image_download_service.dart';
 import 'package:grjoffice_apps/widgets/app_top_bar.dart';
+import 'package:grjoffice_apps/widgets/field_label.dart';
 import 'package:intl/intl.dart';
 import 'package:open_filex/open_filex.dart';
 
@@ -465,8 +466,9 @@ class _LabourAttendanceReportScreenState
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
+        fieldLabelText(
           'Contractor',
+          isRequired: true,
           style: GoogleFonts.poppins(
             fontSize: 13,
             fontWeight: FontWeight.w600,
@@ -534,8 +536,9 @@ class _LabourAttendanceReportScreenState
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
+        fieldLabelText(
           label,
+          isRequired: true,
           style: GoogleFonts.poppins(
             fontSize: 13,
             fontWeight: FontWeight.w600,

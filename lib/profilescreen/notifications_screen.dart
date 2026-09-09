@@ -14,7 +14,7 @@ class NotificationsScreen extends StatefulWidget {
 }
 
 class _NotificationsScreenState extends State<NotificationsScreen> {
-  List<_AppNotification> _items = [];
+  List<AppNotification> _items = [];
   bool _loading = true;
   int? _apiUnreadCount;
 
@@ -39,8 +39,8 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     });
   }
 
-  _AppNotification _fromApiItem(NotificationListItem item) {
-    return _AppNotification(
+  AppNotification _fromApiItem(NotificationListItem item) {
+    return AppNotification(
       id: '${item.id ?? 0}',
       title: (item.title ?? '').trim().isEmpty ? 'Notification' : item.title!,
       body: item.text ?? '',
@@ -74,7 +74,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     });
   }
 
-  Future<void> _openNotification(_AppNotification item) async {
+  Future<void> _openNotification(AppNotification item) async {
     if (!item.isRead) {
       setState(() {
         final index = _items.indexWhere((n) => n.id == item.id);
@@ -175,7 +175,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     );
   }
 
-  Widget _buildNotificationTile(_AppNotification item) {
+  Widget _buildNotificationTile(AppNotification item) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 10),
       child: Material(
@@ -289,8 +289,8 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
   }
 }
 
-class _AppNotification {
-  const _AppNotification({
+class AppNotification {
+  const AppNotification({
     required this.id,
     required this.title,
     required this.body,
@@ -306,8 +306,8 @@ class _AppNotification {
   final IconData icon;
   final bool isRead;
 
-  _AppNotification copyWith({bool? isRead}) {
-    return _AppNotification(
+  AppNotification copyWith({bool? isRead}) {
+    return AppNotification(
       id: id,
       title: title,
       body: body,
@@ -351,7 +351,7 @@ String _timeLabel(DateTime? date) {
 class NotificationDetailScreen extends StatefulWidget {
   const NotificationDetailScreen({super.key, required this.notification});
 
-  final _AppNotification notification;
+  final AppNotification notification;
 
   @override
   State<NotificationDetailScreen> createState() =>
@@ -359,7 +359,7 @@ class NotificationDetailScreen extends StatefulWidget {
 }
 
 class _NotificationDetailScreenState extends State<NotificationDetailScreen> {
-  late _AppNotification _item;
+  late AppNotification _item;
   bool _loading = true;
 
   @override
@@ -379,7 +379,7 @@ class _NotificationDetailScreenState extends State<NotificationDetailScreen> {
     final data = result?.data;
     setState(() {
       if (data != null) {
-        _item = _AppNotification(
+        _item = AppNotification(
           id: '${data.id ?? widget.notification.id}',
           title: (data.title ?? '').trim().isEmpty
               ? widget.notification.title

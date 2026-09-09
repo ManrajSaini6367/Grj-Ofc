@@ -8,6 +8,7 @@ import 'package:grjoffice_apps/reportscreen/report_models.dart';
 import 'package:grjoffice_apps/services/api_auth.dart';
 import 'package:grjoffice_apps/services/purchase_image_download_service.dart';
 import 'package:grjoffice_apps/widgets/app_top_bar.dart';
+import 'package:grjoffice_apps/widgets/field_label.dart';
 import 'package:intl/intl.dart';
 import 'package:open_filex/open_filex.dart';
 
@@ -47,7 +48,6 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
   bool _searching = false;
   bool _searched = false;
   bool _downloadingExcel = false;
-  Map<String, dynamic>? _response;
   List<Map<String, dynamic>> _rows = [];
 
   bool get _showDownloadExcel =>
@@ -245,7 +245,6 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
     if (!mounted) return;
 
     setState(() {
-      _response = response;
       _rows = _extractRows(response);
       _searching = false;
     });
@@ -261,7 +260,6 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
       _source = null;
       _type = null;
       _searched = false;
-      _response = null;
       _rows = [];
     });
   }
@@ -754,8 +752,11 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
+        // Every field here comes from the report's required params, so the
+        // search is blocked until it is filled.
+        fieldLabelText(
           label,
+          isRequired: true,
           style: GoogleFonts.poppins(
             fontSize: 13,
             fontWeight: FontWeight.w600,
@@ -782,8 +783,9 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
+        fieldLabelText(
           label,
+          isRequired: true,
           style: GoogleFonts.poppins(
             fontSize: 13,
             fontWeight: FontWeight.w600,

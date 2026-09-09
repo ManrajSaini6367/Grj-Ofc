@@ -6,6 +6,7 @@ import 'package:grjoffice_apps/Itemsscreen/item.dart';
 import 'package:grjoffice_apps/models/itemhistorymodal.dart';
 import 'package:grjoffice_apps/services/api_auth.dart';
 import 'package:grjoffice_apps/widgets/app_top_bar.dart';
+import 'package:grjoffice_apps/widgets/field_label.dart';
 import 'package:grjoffice_apps/widgets/item_thumbnail.dart';
 
 class ItemHistoryScreen extends StatefulWidget {
@@ -457,6 +458,7 @@ class _ItemHistoryScreenState extends State<ItemHistoryScreen> {
                         const SizedBox(height: 10),
                         _labeledField(
                           label: 'Issue To',
+                          isRequired: true,
                           child: _issueTextField(
                             controller: _issueToController,
                             hint: 'Issue To',
@@ -523,12 +525,17 @@ class _ItemHistoryScreenState extends State<ItemHistoryScreen> {
     );
   }
 
-  Widget _labeledField({required String label, required Widget child}) {
+  Widget _labeledField({
+    required String label,
+    required Widget child,
+    bool isRequired = false,
+  }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
+        fieldLabelText(
           label,
+          isRequired: isRequired,
           style: GoogleFonts.poppins(
             fontSize: 12,
             fontWeight: FontWeight.w700,
@@ -578,6 +585,7 @@ class _ItemHistoryScreenState extends State<ItemHistoryScreen> {
   Widget _qtyField() {
     return _labeledField(
       label: 'Qty',
+      isRequired: true,
       child: _issueTextField(
         controller: _qtyController,
         hint: 'Qty',
@@ -592,6 +600,7 @@ class _ItemHistoryScreenState extends State<ItemHistoryScreen> {
   Widget _dateField(StateSetter setSheetState) {
     return _labeledField(
       label: 'Date',
+      isRequired: true,
       child: InkWell(
         onTap: () => _pickIssueDateTime(setSheetState),
         borderRadius: BorderRadius.circular(8),

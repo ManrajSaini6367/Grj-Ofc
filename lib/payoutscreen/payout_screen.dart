@@ -8,8 +8,9 @@ import 'package:grjoffice_apps/drawer/drawer.dart';
 import 'package:grjoffice_apps/models/getcalendermodal.dart';
 import 'package:grjoffice_apps/models/getemployeemodal.dart';
 import 'package:grjoffice_apps/models/mykycdatamodal.dart';
-import 'package:grjoffice_apps/models/showemployeeskycmodal.dart';
 import 'package:grjoffice_apps/navigation/app_navigation.dart';
+import 'package:grjoffice_apps/payoutscreen/generate_salary_screen.dart';
+import 'package:grjoffice_apps/payoutscreen/salary_calculator.dart';
 import 'package:grjoffice_apps/services/api_auth.dart';
 import 'package:grjoffice_apps/widgets/app_top_bar.dart';
 
@@ -83,9 +84,16 @@ class _PayoutScreenState extends State<PayoutScreen> {
             .where((item) => item.isActiveStatus)
             .map(_employeeFromApi)
             .toList();
+    final kycByEmployee = await _loadKycRecords();
+    if (!mounted) return;
+
     final rows = await Future.wait(
       activeEmployees.map(
-        (employee) => _loadEmployeePayout(employee, _monthApi),
+        (employee) => _loadEmployeePayout(
+          employee,
+          _monthApi,
+          kycByEmployee[employee.employeeId],
+        ),
       ),
     );
     if (!mounted) return;
@@ -100,24 +108,53 @@ class _PayoutScreenState extends State<PayoutScreen> {
     });
   }
 
+  /// Pulls every KYC record for the site once and keys it by employee id.
+  ///
+  /// The per-employee endpoint takes a KYC record id, not an employee id, so
+  /// the list endpoint is both the correct and the cheaper source here.
+  Future<Map<int, MyKycModalData>> _loadKycRecords() async {
+    final byEmployee = <int, MyKycModalData>{};
+    var page = 1;
+    while (true) {
+      final response = await getMyEmployeeKycRequestApi(
+        context,
+        perPage: 50,
+        page: page,
+      );
+      if (!mounted) break;
+      final items = response?.items ?? const <MyKycModalData>[];
+      for (final item in items) {
+        final id = int.tryParse(item.employeeId ?? '');
+        if (id != null) byEmployee[id] = item;
+      }
+      final lastPage = response?.pagination?.lastPage ?? page;
+      if (items.isEmpty || page >= lastPage) break;
+      page++;
+    }
+    return byEmployee;
+  }
+
   Future<_PayoutEmployee> _loadEmployeePayout(
     Employee employee,
     String month,
+    MyKycModalData? kyc,
   ) async {
     final employeeId = employee.employeeId;
-    if (employeeId == null) return _PayoutEmployee(employee: employee);
+    if (employeeId == null) {
+      return _PayoutEmployee(
+        employee: employee,
+        monthDays: DateUtils.getDaysInMonth(_month.year, _month.month),
+        monthlySalary: _salaryFromKyc(kyc) ?? _salaryOf(employee.monthlySalary),
+        kyc: kyc,
+      );
+    }
 
-    final responses = await Future.wait([
-      getAttendanceCalendarApi(
-        context,
-        month: month,
-        userId: employeeId,
-        showErrors: false,
-      ),
-      showEmployeeKycApi(context, employeeId: employeeId, showErrors: false),
-    ]);
-    final calendar = responses[0] as Getcalendermodal?;
-    final kyc = (responses[1] as Showemployyeskycmodal?)?.data;
+    final calendar = await getAttendanceCalendarApi(
+      context,
+      month: month,
+      userId: employeeId,
+      showErrors: false,
+    );
     final days = calendar?.data?.days ?? const [];
     final today = DateTime.now();
     final presentDays = days
@@ -129,12 +166,18 @@ class _PayoutScreenState extends State<PayoutScreen> {
           date != null &&
           !date.isAfter(DateTime(today.year, today.month, today.day));
     }).length;
+    final leaveDays = days
+        .where((day) => day.status == CalendarDayStatus.leave)
+        .length;
 
     return _PayoutEmployee(
       employee: employee,
+      monthDays: DateUtils.getDaysInMonth(_month.year, _month.month),
       presentDays: presentDays,
       absentDays: absentDays,
-      monthlySalary: _salaryFromKyc(kyc),
+      leaveDays: leaveDays,
+      monthlySalary: _salaryFromKyc(kyc) ?? _salaryOf(employee.monthlySalary),
+      kyc: kyc,
     );
   }
 
@@ -152,12 +195,19 @@ class _PayoutScreenState extends State<PayoutScreen> {
           ? item.designation!.trim()
           : 'Employee',
       site: selectedSiteName() ?? 'Assigned site',
+      dateOfJoin: item.dateOfJoin,
+      monthlySalary: item.monthlySalary,
     );
   }
 
-  double? _salaryFromKyc(MyKycModalData? kyc) {
-    final value = kyc?.monthlySalary?.replaceAll(RegExp(r'[^0-9.]'), '') ?? '';
-    return double.tryParse(value);
+  double? _salaryFromKyc(MyKycModalData? kyc) => _salaryOf(kyc?.monthlySalary);
+
+  /// The API sends salary as a formatted string, so strip everything but the
+  /// digits before parsing.
+  double? _salaryOf(String? raw) {
+    final value = raw?.replaceAll(RegExp(r'[^0-9.]'), '') ?? '';
+    final parsed = double.tryParse(value);
+    return (parsed == null || parsed <= 0) ? null : parsed;
   }
 
   List<_PayoutEmployee> get _filteredEmployees {
@@ -171,21 +221,23 @@ class _PayoutScreenState extends State<PayoutScreen> {
     }).toList();
   }
 
-  double get _totalPayroll => _employees.fold<double>(
+  int get _salaryCount =>
+      _employees.where((entry) => entry.breakdown != null).length;
+
+  double get _totalGross => _employees.fold<double>(
     0,
-    (sum, entry) => sum + (entry.monthlySalary ?? 0),
+    (sum, entry) => sum + (entry.breakdown?.earnedGross ?? 0),
   );
 
-  int get _salaryCount =>
-      _employees.where((entry) => entry.monthlySalary != null).length;
+  double get _totalDeduction => _employees.fold<double>(
+    0,
+    (sum, entry) => sum + (entry.breakdown?.totalDeduction ?? 0),
+  );
 
-  String get _averageSalary {
-    if (_salaryCount == 0) return '—';
-    return _money(_totalPayroll / _salaryCount);
-  }
-
-  int get _totalPresent =>
-      _employees.fold<int>(0, (sum, entry) => sum + (entry.presentDays ?? 0));
+  double get _totalNet => _employees.fold<double>(
+    0,
+    (sum, entry) => sum + (entry.breakdown?.netPayable ?? 0),
+  );
 
   double _hPad(BuildContext context) {
     final width = MediaQuery.sizeOf(context).width;
@@ -281,7 +333,7 @@ class _PayoutScreenState extends State<PayoutScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Total payroll',
+                  'Net salary payable',
                   style: GoogleFonts.poppins(
                     fontSize: 13,
                     color: AppColors.textSecondary,
@@ -290,7 +342,7 @@ class _PayoutScreenState extends State<PayoutScreen> {
                 ),
                 const SizedBox(height: 6),
                 Text(
-                  _salaryCount == 0 ? '—' : _money(_totalPayroll),
+                  _salaryCount == 0 ? '—' : _money(_totalNet),
                   style: GoogleFonts.poppins(
                     fontSize: 28,
                     fontWeight: FontWeight.w700,
@@ -394,17 +446,17 @@ class _PayoutScreenState extends State<PayoutScreen> {
         const SizedBox(width: 10),
         Expanded(
           child: _kpiCard(
-            label: 'Avg. salary',
-            value: _averageSalary,
+            label: 'Gross salary',
+            value: _salaryCount == 0 ? '—' : _money(_totalGross),
             icon: Icons.payments_outlined,
           ),
         ),
         const SizedBox(width: 10),
         Expanded(
           child: _kpiCard(
-            label: 'Present days',
-            value: '$_totalPresent',
-            icon: Icons.event_available_outlined,
+            label: 'Deductions',
+            value: _salaryCount == 0 ? '—' : _money(_totalDeduction),
+            icon: Icons.remove_circle_outline,
           ),
         ),
       ],
@@ -571,7 +623,7 @@ class _PayoutScreenState extends State<PayoutScreen> {
     return Material(
       color: Colors.transparent,
       child: InkWell(
-        onTap: () => _showEmployeeDetail(entry),
+        onTap: () => _openGenerateSalary(entry),
         borderRadius: BorderRadius.circular(16),
         child: Padding(
           padding: const EdgeInsets.fromLTRB(14, 14, 14, 14),
@@ -599,7 +651,7 @@ class _PayoutScreenState extends State<PayoutScreen> {
                         ),
                         const SizedBox(width: 8),
                         Text(
-                          _money(entry.monthlySalary),
+                          _money(entry.breakdown?.netPayable),
                           style: GoogleFonts.poppins(
                             fontSize: 14,
                             fontWeight: FontWeight.w700,
@@ -618,6 +670,8 @@ class _PayoutScreenState extends State<PayoutScreen> {
                         color: AppColors.textSecondary,
                       ),
                     ),
+                    const SizedBox(height: 6),
+                    _buildSalaryLine(entry),
                     const SizedBox(height: 8),
                     Row(
                       children: [
@@ -629,6 +683,11 @@ class _PayoutScreenState extends State<PayoutScreen> {
                         _attendanceChip(
                           label: '${entry.absentDays ?? '—'} Absent',
                           color: _absentColor,
+                        ),
+                        const SizedBox(width: 8),
+                        _attendanceChip(
+                          label: 'PD ${_days(entry.payableDays)}',
+                          color: AppColors.primaryRed,
                         ),
                       ],
                     ),
@@ -645,6 +704,41 @@ class _PayoutScreenState extends State<PayoutScreen> {
       ),
     );
   }
+
+  /// Package, gross and deduction line under the employee name, mirroring the
+  /// salary register columns.
+  Widget _buildSalaryLine(_PayoutEmployee entry) {
+    final breakdown = entry.breakdown;
+    if (breakdown == null) {
+      return Text(
+        'Salary package not set',
+        style: GoogleFonts.poppins(
+          fontSize: 11,
+          fontWeight: FontWeight.w500,
+          color: _absentColor,
+        ),
+      );
+    }
+    final parts = <String>[
+      'Package ${_money(entry.monthlySalary)}',
+      'Gross ${_money(breakdown.earnedGross)}',
+      if (breakdown.totalDeduction > 0)
+        'Deduction ${_money(breakdown.totalDeduction)}',
+    ];
+    return Text(
+      parts.join('  ·  '),
+      maxLines: 1,
+      overflow: TextOverflow.ellipsis,
+      style: GoogleFonts.poppins(
+        fontSize: 11,
+        fontWeight: FontWeight.w500,
+        color: AppColors.textSecondary,
+      ),
+    );
+  }
+
+  String _days(double value) =>
+      value == value.roundToDouble() ? '${value.round()}' : '$value';
 
   Widget _buildAvatar(String initials) {
     return Container(
@@ -701,106 +795,18 @@ class _PayoutScreenState extends State<PayoutScreen> {
     );
   }
 
-  void _showEmployeeDetail(_PayoutEmployee entry) {
-    final employee = entry.employee;
-    showModalBottomSheet<void>(
-      context: context,
-      backgroundColor: Colors.transparent,
-      builder: (context) {
-        return Container(
-          margin: const EdgeInsets.fromLTRB(12, 0, 12, 12),
-          padding: const EdgeInsets.fromLTRB(20, 12, 20, 20),
-          decoration: BoxDecoration(
-            color: AppColors.cardWhite,
-            borderRadius: BorderRadius.circular(20),
-          ),
-          child: SafeArea(
-            top: false,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Center(
-                  child: Container(
-                    width: 40,
-                    height: 4,
-                    decoration: BoxDecoration(
-                      color: AppColors.borderGray.withValues(alpha: 0.6),
-                      borderRadius: BorderRadius.circular(2),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 16),
-                Row(
-                  children: [
-                    _buildAvatar(employee.initials),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            employee.name,
-                            style: GoogleFonts.poppins(
-                              fontSize: 16,
-                              fontWeight: FontWeight.w700,
-                              color: AppColors.headingBlack,
-                            ),
-                          ),
-                          Text(
-                            employee.role,
-                            style: GoogleFonts.poppins(
-                              fontSize: 12,
-                              fontWeight: FontWeight.w500,
-                              color: AppColors.textSecondary,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 18),
-                _detailRow('Employee ID', employee.id),
-                _detailRow('Site', employee.site),
-                _detailRow('Period', _monthLabel),
-                _detailRow(
-                  'Present days',
-                  entry.presentDays?.toString() ?? '—',
-                ),
-                _detailRow('Absent days', entry.absentDays?.toString() ?? '—'),
-                _detailRow('Monthly salary', _money(entry.monthlySalary)),
-              ],
-            ),
-          ),
-        );
-      },
-    );
-  }
-
-  Widget _detailRow(String label, String value) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 10),
-      child: Row(
-        children: [
-          Expanded(
-            child: Text(
-              label,
-              style: GoogleFonts.poppins(
-                fontSize: 12,
-                color: AppColors.textSecondary,
-              ),
-            ),
-          ),
-          Text(
-            value,
-            style: GoogleFonts.poppins(
-              fontSize: 13,
-              fontWeight: FontWeight.w600,
-              color: AppColors.headingBlack,
-            ),
-          ),
-        ],
+  void _openGenerateSalary(_PayoutEmployee entry) {
+    Navigator.of(context).push<void>(
+      MaterialPageRoute(
+        builder: (_) => GenerateSalaryScreen(
+          employee: entry.employee,
+          month: _month,
+          kyc: entry.kyc,
+          monthlySalary: entry.monthlySalary,
+          presentDays: entry.presentDays,
+          leaveDays: entry.leaveDays,
+          absentDays: entry.absentDays,
+        ),
       ),
     );
   }
@@ -862,20 +868,45 @@ class _PayoutScreenState extends State<PayoutScreen> {
 class _PayoutEmployee {
   const _PayoutEmployee({
     required this.employee,
+    this.monthDays = 30,
     this.presentDays,
     this.absentDays,
+    this.leaveDays,
     this.monthlySalary,
+    this.kyc,
   });
 
   final Employee employee;
+  final int monthDays;
   final int? presentDays;
   final int? absentDays;
+  final int? leaveDays;
   final double? monthlySalary;
+  final MyKycModalData? kyc;
 
   int get attendanceTotal => (presentDays ?? 0) + (absentDays ?? 0);
 
   double get presentRatio {
     if (attendanceTotal <= 0) return 0;
     return (presentDays ?? 0) / attendanceTotal;
+  }
+
+  /// Present days plus paid leave, the same default the salary sheet uses.
+  double get payableDays =>
+      ((presentDays ?? 0) + (leaveDays ?? 0)).toDouble();
+
+  /// Register figures for this employee, or null when no package is on record.
+  SalaryBreakdown? get breakdown {
+    final package = monthlySalary;
+    if (package == null || package <= 0) return null;
+    return SalaryBreakdown.from(
+      withStatutoryDefaults(
+        SalaryInput(
+          monthlyPackage: package,
+          monthDays: monthDays,
+          payableDays: payableDays,
+        ),
+      ),
+    );
   }
 }

@@ -10,6 +10,7 @@ import 'package:grjoffice_apps/models/item_model.dart';
 import 'package:grjoffice_apps/services/api_auth.dart';
 import 'package:grjoffice_apps/services/image_pick_helper.dart';
 import 'package:grjoffice_apps/widgets/app_top_bar.dart';
+import 'package:grjoffice_apps/widgets/field_label.dart';
 
 class AddPurchaseScreen extends StatefulWidget {
   const AddPurchaseScreen({super.key});
@@ -801,7 +802,9 @@ class _AddPurchaseScreenState extends State<AddPurchaseScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text('Qty', style: GoogleFonts.poppins(fontSize: 13, fontWeight: FontWeight.w600)),
+        fieldLabelText('Qty',
+            isRequired: true,
+            style: GoogleFonts.poppins(fontSize: 13, fontWeight: FontWeight.w600)),
         const SizedBox(height: 8),
         TextFormField(
           controller: _qtyController,
@@ -889,7 +892,7 @@ class _AddPurchaseScreenState extends State<AddPurchaseScreen> {
                     const SizedBox(width: 12),
                     Expanded(child: _buildLoadingImageField()),
                     const SizedBox(width: 12),
-                    Expanded(child: _buildSupplierField()),
+                    Expanded(child: _buildSupplierField(required: true)),
                   ],
                 )
               else ...[
@@ -897,10 +900,12 @@ class _AddPurchaseScreenState extends State<AddPurchaseScreen> {
                 const SizedBox(height: 16),
                 _buildLoadingImageField(),
                 const SizedBox(height: 16),
-                _buildSupplierField(),
+                _buildSupplierField(required: true),
               ],
               const SizedBox(height: 20),
-              Text('Material', style: GoogleFonts.poppins(fontSize: 13, fontWeight: FontWeight.w600)),
+              fieldLabelText('Material',
+                  isRequired: true,
+                  style: GoogleFonts.poppins(fontSize: 13, fontWeight: FontWeight.w600)),
               const SizedBox(height: 10),
               ...List.generate(_materialLines.length, (index) {
                 return Padding(
@@ -1124,7 +1129,9 @@ class _AddPurchaseScreenState extends State<AddPurchaseScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(label, style: GoogleFonts.poppins(fontSize: 13, fontWeight: FontWeight.w600)),
+        fieldLabelText(label,
+            isRequired: required,
+            style: GoogleFonts.poppins(fontSize: 13, fontWeight: FontWeight.w600)),
         const SizedBox(height: 8),
         TextFormField(
           controller: controller,

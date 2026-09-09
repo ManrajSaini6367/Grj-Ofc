@@ -3,11 +3,12 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:grjoffice_apps/Contractorscreen/original_contractor.dart';
+import 'package:grjoffice_apps/PetiContractor/peti_contractor.dart';
 import 'package:grjoffice_apps/core/app_colors.dart';
 import 'package:grjoffice_apps/services/api_auth.dart';
 import 'package:grjoffice_apps/services/image_pick_helper.dart';
 import 'package:grjoffice_apps/widgets/app_top_bar.dart';
+import 'package:grjoffice_apps/widgets/field_label.dart';
 
 class OriginalContractorScreen extends StatefulWidget {
   const OriginalContractorScreen({super.key, this.contractor});
@@ -272,7 +273,9 @@ class _OriginalContractorScreenState extends State<OriginalContractorScreen> {
         child: Column(
           children: [
             AppTopBar.page(
-              title: widget.isEditing ? 'Edit Contractor' : 'Create Contractor',
+              title: widget.isEditing
+                  ? 'Edit Peti Contractor'
+                  : 'Create Peti Contractor',
               onBack: () => Navigator.pop(context),
               horizontalPadding: hPad,
             ),
@@ -289,8 +292,8 @@ class _OriginalContractorScreenState extends State<OriginalContractorScreen> {
                         children: [
                           Text(
                             widget.isEditing
-                                ? 'Update Contractor'
-                                : 'New Contractor',
+                                ? 'Update Peti Contractor'
+                                : 'New Peti Contractor',
                             style: GoogleFonts.poppins(
                               fontSize: width < 360 ? 22 : 24,
                               fontWeight: FontWeight.w700,
@@ -328,7 +331,7 @@ class _OriginalContractorScreenState extends State<OriginalContractorScreen> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Text(
-            'Information Original Contractors',
+            'Information Peti Contractors',
             style: GoogleFonts.poppins(
               fontSize: width < 360 ? 15 : 16,
               fontWeight: FontWeight.w700,
@@ -369,7 +372,7 @@ class _OriginalContractorScreenState extends State<OriginalContractorScreen> {
           ),
           const SizedBox(height: 10),
           _buildMultiImageField(
-            label: 'Agreements *',
+            label: 'Agreements',
             existingUrls: _existingAgreements,
             files: _agreementFiles,
             onAdd: () => _pickMulti(_agreementFiles, title: 'Agreement Photo'),
@@ -377,7 +380,7 @@ class _OriginalContractorScreenState extends State<OriginalContractorScreen> {
           ),
           const SizedBox(height: 14),
           _buildMultiImageField(
-            label: 'Documents *',
+            label: 'Documents',
             existingUrls: _existingDocuments,
             files: _documentFiles,
             onAdd: () => _pickMulti(_documentFiles, title: 'Document Photo'),
@@ -385,7 +388,7 @@ class _OriginalContractorScreenState extends State<OriginalContractorScreen> {
           ),
           const SizedBox(height: 14),
           _buildSingleImageField(
-            label: 'Cancel Cheque *',
+            label: 'Cancel Cheque',
             existingUrl: _existingCancelCheque,
             file: _cancelChequeFile,
             onAdd: _pickCancelCheque,
@@ -428,8 +431,9 @@ class _OriginalContractorScreenState extends State<OriginalContractorScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
+        fieldLabelText(
           label,
+          isRequired: required,
           style: GoogleFonts.poppins(fontSize: 13, fontWeight: FontWeight.w500),
         ),
         const SizedBox(height: 8),
@@ -465,7 +469,9 @@ class _OriginalContractorScreenState extends State<OriginalContractorScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(label, style: GoogleFonts.poppins(fontSize: 13, fontWeight: FontWeight.w500)),
+        fieldLabelText(label,
+            isRequired: true,
+            style: GoogleFonts.poppins(fontSize: 13, fontWeight: FontWeight.w500)),
         const SizedBox(height: 8),
         Wrap(
           spacing: 8,
@@ -491,7 +497,9 @@ class _OriginalContractorScreenState extends State<OriginalContractorScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(label, style: GoogleFonts.poppins(fontSize: 13, fontWeight: FontWeight.w500)),
+        fieldLabelText(label,
+            isRequired: true,
+            style: GoogleFonts.poppins(fontSize: 13, fontWeight: FontWeight.w500)),
         const SizedBox(height: 8),
         Wrap(
           spacing: 8,
@@ -652,6 +660,7 @@ class _OriginalContractorScreenState extends State<OriginalContractorScreen> {
           decoration: _inputDecoration('Work'),
         ),
       ),
+      isRequired: true,
     );
 
     final rateField = _labeled(
@@ -708,12 +717,13 @@ class _OriginalContractorScreenState extends State<OriginalContractorScreen> {
     return SizedBox(height: _fieldHeight, child: child);
   }
 
-  Widget _labeled(String label, Widget child) {
+  Widget _labeled(String label, Widget child, {bool isRequired = false}) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
+        fieldLabelText(
           label,
+          isRequired: isRequired,
           style: GoogleFonts.poppins(fontSize: 13, fontWeight: FontWeight.w500),
         ),
         const SizedBox(height: 4),
@@ -773,7 +783,9 @@ class _OriginalContractorScreenState extends State<OriginalContractorScreen> {
                 ),
               )
             : Text(
-                widget.isEditing ? 'UPDATE CONTRACTOR' : 'SAVE CONTRACTOR',
+                widget.isEditing
+                    ? 'UPDATE PETI CONTRACTOR'
+                    : 'SAVE PETI CONTRACTOR',
                 style: GoogleFonts.poppins(
                   fontSize: 14,
                   fontWeight: FontWeight.w700,

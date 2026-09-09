@@ -3,9 +3,9 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:grjoffice_apps/LabourContractor/add_contractor_screen.dart';
-import 'package:grjoffice_apps/LabourContractor/labour_contractor.dart';
-import 'package:grjoffice_apps/LabourContractor/view_contractor_screen.dart';
+import 'package:grjoffice_apps/AmaniLabour/add_amani_labour_screen.dart';
+import 'package:grjoffice_apps/AmaniLabour/amani_labour.dart';
+import 'package:grjoffice_apps/AmaniLabour/view_amani_labour_screen.dart';
 import 'package:grjoffice_apps/core/app_colors.dart';
 import 'package:grjoffice_apps/drawer/app_end_drawer.dart';
 import 'package:grjoffice_apps/drawer/drawer.dart';
@@ -213,7 +213,7 @@ class _ContractorsScreenState extends State<ContractorsScreen> {
         child: Column(
           children: [
             AppTopBar.shell(
-              title: 'Labour List',
+              title: 'Amani Labour List',
               scaffoldKey: _scaffoldKey,
               horizontalPadding: hPad,
             ),
@@ -305,7 +305,7 @@ class _ContractorsScreenState extends State<ContractorsScreen> {
         backgroundColor: AppColors.cardWhite,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         title: Text(
-          'Delete Contractor',
+          'Delete Amani Labour',
           style: GoogleFonts.poppins(
             fontWeight: FontWeight.w700,
             color: AppColors.headingBlack,
@@ -928,7 +928,7 @@ class _ContractorsScreenState extends State<ContractorsScreen> {
           onPressed: _openCreate,
           icon: const Icon(Icons.groups_outlined, size: 20),
           label: Text(
-            'Create Labour',
+            'Create Amani Labour',
             style: GoogleFonts.poppins(
               fontSize: 14,
               fontWeight: FontWeight.w600,
@@ -1096,7 +1096,7 @@ class _ContractorsScreenState extends State<ContractorsScreen> {
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           Text(
-                            'View Contractor',
+                            'View Amani Labour',
                             style: GoogleFonts.poppins(
                               color: AppColors.primaryRed,
                               fontSize: 13,
@@ -1119,7 +1119,7 @@ class _ContractorsScreenState extends State<ContractorsScreen> {
                   permission: AppPermissions.contractorsUpdate,
                   child: _buildCardActionIcon(
                     icon: Icons.edit_outlined,
-                    tooltip: 'Edit Contractor',
+                    tooltip: 'Edit Amani Labour',
                     onTap: () => _editContractor(contractor),
                   ),
                 ),
@@ -1240,7 +1240,7 @@ class _ContractorsScreenState extends State<ContractorsScreen> {
           ),
           const SizedBox(height: 12),
           Text(
-            'No contractors found',
+            'No amani labour found',
             style: GoogleFonts.poppins(
               color: AppColors.textSecondary,
               fontSize: 14,

@@ -3,11 +3,12 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:grjoffice_apps/LabourContractor/labour_contractor.dart';
+import 'package:grjoffice_apps/AmaniLabour/amani_labour.dart';
 import 'package:grjoffice_apps/core/app_colors.dart';
 import 'package:grjoffice_apps/services/api_auth.dart';
 import 'package:grjoffice_apps/services/image_pick_helper.dart';
 import 'package:grjoffice_apps/widgets/app_top_bar.dart';
+import 'package:grjoffice_apps/widgets/field_label.dart';
 
 class AddContractorScreen extends StatefulWidget {
   const AddContractorScreen({super.key, this.contractor});
@@ -196,7 +197,9 @@ class _AddContractorScreenState extends State<AddContractorScreen> {
         child: Column(
           children: [
             AppTopBar.page(
-              title: widget.isEditing ? 'Edit Labour' : 'Create Labour',
+              title: widget.isEditing
+                  ? 'Edit Amani Labour'
+                  : 'Create Amani Labour',
               onBack: () => Navigator.pop(context),
               horizontalPadding: hPad,
             ),
@@ -212,7 +215,9 @@ class _AddContractorScreenState extends State<AddContractorScreen> {
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
                           Text(
-                            widget.isEditing ? 'Update Labour' : 'New Labour',
+                            widget.isEditing
+                                ? 'Update Amani Labour'
+                                : 'New Amani Labour',
                             style: GoogleFonts.poppins(fontSize: 24, fontWeight: FontWeight.w700),
                           ),
                           const SizedBox(height: 20),
@@ -466,7 +471,9 @@ class _AddContractorScreenState extends State<AddContractorScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(label, style: GoogleFonts.poppins(fontSize: 13, fontWeight: FontWeight.w500)),
+        fieldLabelText(label,
+            isRequired: required,
+            style: GoogleFonts.poppins(fontSize: 13, fontWeight: FontWeight.w500)),
         const SizedBox(height: 8),
         Material(
           color: Colors.transparent,
@@ -493,7 +500,9 @@ class _AddContractorScreenState extends State<AddContractorScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(label, style: GoogleFonts.poppins(fontSize: 13, fontWeight: FontWeight.w500)),
+        fieldLabelText(label,
+            isRequired: true,
+            style: GoogleFonts.poppins(fontSize: 13, fontWeight: FontWeight.w500)),
         const SizedBox(height: 8),
         Material(
           color: Colors.transparent,
@@ -613,7 +622,7 @@ class _AddContractorScreenState extends State<AddContractorScreen> {
                 ),
               )
             : Text(
-                widget.isEditing ? 'UPDATE LABOUR' : 'SAVE LABOUR',
+                widget.isEditing ? 'UPDATE AMANI LABOUR' : 'SAVE AMANI LABOUR',
                 style: GoogleFonts.poppins(
                   fontSize: 14,
                   fontWeight: FontWeight.w700,

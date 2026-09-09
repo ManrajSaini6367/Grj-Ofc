@@ -17,6 +17,7 @@ import 'package:grjoffice_apps/services/image_pick_helper.dart';
 import 'package:grjoffice_apps/services/kyc_gate.dart';
 import 'package:grjoffice_apps/utils/app_helpers.dart';
 import 'package:grjoffice_apps/widgets/app_top_bar.dart';
+import 'package:grjoffice_apps/widgets/field_label.dart';
 import 'package:intl/intl.dart';
 
 class EmployeeKycScreen extends StatefulWidget {
@@ -340,9 +341,19 @@ class _EmployeeKycScreenState extends State<EmployeeKycScreen> {
     String label, {
     String? hint,
     String? prefixText,
+    bool isRequired = false,
   }) {
+    final labelStyle = GoogleFonts.poppins(
+      fontSize: 13,
+      fontWeight: FontWeight.w500,
+      color: AppColors.textSecondary,
+    );
     return InputDecoration(
-      labelText: label,
+      label: inputDecorationLabel(
+        label,
+        style: labelStyle,
+        isRequired: isRequired,
+      ),
       hintText: hint,
       prefixText: prefixText,
       prefixStyle: GoogleFonts.poppins(
@@ -350,11 +361,7 @@ class _EmployeeKycScreenState extends State<EmployeeKycScreen> {
         fontWeight: FontWeight.w700,
         color: AppColors.headingBlack,
       ),
-      labelStyle: GoogleFonts.poppins(
-        fontSize: 13,
-        fontWeight: FontWeight.w500,
-        color: AppColors.textSecondary,
-      ),
+      labelStyle: labelStyle,
       hintStyle: GoogleFonts.poppins(fontSize: 13, color: AppColors.inputHint),
       filled: true,
       fillColor: const Color(0xFFF8F9FB),
@@ -965,8 +972,12 @@ class _DetailsStep extends StatelessWidget {
   final String stayAllowanceType;
   final TextEditingController foodAmountCtrl;
   final TextEditingController stayAmountCtrl;
-  final InputDecoration Function(String, {String? hint, String? prefixText})
-      decoration;
+  final InputDecoration Function(
+    String, {
+    String? hint,
+    String? prefixText,
+    bool isRequired,
+  }) decoration;
   final ValueChanged<String> onEmploymentTypeChanged;
   final ValueChanged<bool> onFoodChanged;
   final ValueChanged<String> onFoodTypeChanged;
@@ -991,6 +1002,7 @@ class _DetailsStep extends StatelessWidget {
                 decoration: decoration(
                   'Email',
                   hint: 'name@example.com',
+                  isRequired: true,
                 ),
                 validator: (v) {
                   final t = (v ?? '').trim();
@@ -1012,6 +1024,7 @@ class _DetailsStep extends StatelessWidget {
                 decoration: decoration(
                   'Phone Number',
                   hint: '10-digit mobile number',
+                  isRequired: true,
                 ),
                 validator: (v) {
                   final t = (v ?? '').trim();
@@ -1222,6 +1235,7 @@ class _AllowanceCard extends StatelessWidget {
                 label: amountLabel,
                 hint: '0.00',
                 readOnly: false,
+                isRequired: enabled && showAmount,
                 validator: _amountValidator,
               ),
             ],
@@ -1238,6 +1252,7 @@ class _AmountField extends StatelessWidget {
     required this.label,
     required this.hint,
     required this.readOnly,
+    this.isRequired = false,
     this.validator,
   });
 
@@ -1245,6 +1260,7 @@ class _AmountField extends StatelessWidget {
   final String label;
   final String hint;
   final bool readOnly;
+  final bool isRequired;
   final String? Function(String?)? validator;
 
   @override
@@ -1253,6 +1269,11 @@ class _AmountField extends StatelessWidget {
     final rupeeColor = hasValue
         ? const Color(0xFF059669)
         : AppColors.textSecondary;
+    final labelStyle = GoogleFonts.poppins(
+      fontSize: 13,
+      fontWeight: FontWeight.w500,
+      color: AppColors.textSecondary,
+    );
 
     return TextFormField(
       controller: controller,
@@ -1273,7 +1294,11 @@ class _AmountField extends StatelessWidget {
         color: AppColors.headingBlack,
       ),
       decoration: InputDecoration(
-        labelText: label,
+        label: inputDecorationLabel(
+          label,
+          style: labelStyle,
+          isRequired: isRequired,
+        ),
         hintText: hint,
         prefixIcon: Padding(
           padding: const EdgeInsets.only(left: 14, right: 6),
@@ -1287,11 +1312,7 @@ class _AmountField extends StatelessWidget {
           ),
         ),
         prefixIconConstraints: const BoxConstraints(minWidth: 0, minHeight: 0),
-        labelStyle: GoogleFonts.poppins(
-          fontSize: 13,
-          fontWeight: FontWeight.w500,
-          color: AppColors.textSecondary,
-        ),
+        labelStyle: labelStyle,
         hintStyle: GoogleFonts.poppins(fontSize: 13, color: AppColors.inputHint),
         filled: true,
         fillColor: readOnly ? const Color(0xFFEEF2F6) : const Color(0xFFF8F9FB),
@@ -1507,8 +1528,12 @@ class _DocumentsStep extends StatelessWidget {
   final File? marksheet10;
   final File? marksheet12;
   final File? bankCheque;
-  final InputDecoration Function(String, {String? hint, String? prefixText})
-      decoration;
+  final InputDecoration Function(
+    String, {
+    String? hint,
+    String? prefixText,
+    bool isRequired,
+  }) decoration;
   final VoidCallback onPanCamera;
   final VoidCallback onPanGallery;
   final VoidCallback onAadhaarFrontCamera;
@@ -1537,6 +1562,7 @@ class _DocumentsStep extends StatelessWidget {
             file: panCard,
             onCamera: onPanCamera,
             onGallery: onPanGallery,
+            isRequired: true,
           ),
         ),
         const SizedBox(height: 14),
@@ -1552,6 +1578,7 @@ class _DocumentsStep extends StatelessWidget {
                 file: aadhaarFront,
                 onCamera: onAadhaarFrontCamera,
                 onGallery: onAadhaarFrontGallery,
+                isRequired: true,
               ),
               const SizedBox(height: 12),
               _DocUploadField(
@@ -1560,6 +1587,7 @@ class _DocumentsStep extends StatelessWidget {
                 file: aadhaarBack,
                 onCamera: onAadhaarBackCamera,
                 onGallery: onAadhaarBackGallery,
+                isRequired: true,
               ),
             ],
           ),
@@ -1577,6 +1605,7 @@ class _DocumentsStep extends StatelessWidget {
                 file: marksheet10,
                 onCamera: onPick10Camera,
                 onGallery: onPick10Gallery,
+                isRequired: true,
               ),
               const SizedBox(height: 12),
               _DocUploadField(
@@ -1585,6 +1614,7 @@ class _DocumentsStep extends StatelessWidget {
                 file: marksheet12,
                 onCamera: onPick12Camera,
                 onGallery: onPick12Gallery,
+                isRequired: true,
               ),
             ],
           ),
@@ -1661,6 +1691,7 @@ class _DocumentsStep extends StatelessWidget {
                 file: bankCheque,
                 onCamera: onChequeCamera,
                 onGallery: onChequeGallery,
+                isRequired: true,
               ),
             ],
           ),
@@ -1680,6 +1711,7 @@ class _DocumentsStep extends StatelessWidget {
             decoration: decoration(
               'Emergency Contact Number',
               hint: '10-digit mobile number',
+              isRequired: true,
             ),
             validator: (v) {
               final t = (v ?? '').trim();
@@ -1714,6 +1746,7 @@ class _DocUploadField extends StatelessWidget {
     required this.file,
     required this.onCamera,
     required this.onGallery,
+    this.isRequired = false,
   });
 
   final String title;
@@ -1721,6 +1754,7 @@ class _DocUploadField extends StatelessWidget {
   final File? file;
   final VoidCallback onCamera;
   final VoidCallback onGallery;
+  final bool isRequired;
 
   @override
   Widget build(BuildContext context) {
@@ -1743,13 +1777,14 @@ class _DocUploadField extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
+          fieldLabelText(
             title,
             style: GoogleFonts.poppins(
               fontSize: 13.5,
               fontWeight: FontWeight.w700,
               color: AppColors.headingBlack,
             ),
+            isRequired: isRequired,
           ),
           const SizedBox(height: 2),
           Text(

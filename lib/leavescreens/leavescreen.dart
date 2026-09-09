@@ -8,6 +8,7 @@ import 'package:grjoffice_apps/models/getmyleavemodal.dart';
 import 'package:grjoffice_apps/navigation/app_navigation.dart';
 import 'package:grjoffice_apps/services/api_auth.dart';
 import 'package:grjoffice_apps/widgets/app_top_bar.dart';
+import 'package:grjoffice_apps/widgets/field_label.dart';
 import 'package:intl/intl.dart';
 
 class LeaveScreen extends StatefulWidget {
@@ -557,6 +558,7 @@ class _LeaveScreenState extends State<LeaveScreen>
                           label: 'From Date',
                           hint: 'Select start date',
                           value: _fromDate,
+                          isRequired: true,
                           onTap: () => _pickDate(isFrom: true),
                         );
                         final toField = _DateField(
@@ -566,6 +568,7 @@ class _LeaveScreenState extends State<LeaveScreen>
                               : 'Select end date',
                           value: _toDate,
                           enabled: _fromDate != null,
+                          isRequired: true,
                           onTap: () => _pickDate(isFrom: false),
                         );
                         if (stack) {
@@ -588,7 +591,7 @@ class _LeaveScreenState extends State<LeaveScreen>
                       },
                     ),
                     SizedBox(height: isWide ? 22 : 18),
-                    _sectionLabel('Leave Type'),
+                    _sectionLabel('Leave Type', isRequired: true),
                     const SizedBox(height: 8),
                     if (_loadingTypes)
                       const Padding(
@@ -694,7 +697,7 @@ class _LeaveScreenState extends State<LeaveScreen>
                         },
                       ),
                     SizedBox(height: isWide ? 22 : 18),
-                    _sectionLabel('Description'),
+                    _sectionLabel('Description', isRequired: true),
                     const SizedBox(height: 10),
                     TextField(
                       controller: _descriptionController,
@@ -936,9 +939,10 @@ class _LeaveScreenState extends State<LeaveScreen>
     );
   }
 
-  Widget _sectionLabel(String text) {
-    return Text(
+  Widget _sectionLabel(String text, {bool isRequired = false}) {
+    return fieldLabelText(
       text,
+      isRequired: isRequired,
       style: GoogleFonts.poppins(
         fontSize: 13.5,
         fontWeight: FontWeight.w600,
@@ -1088,6 +1092,7 @@ class _DateField extends StatelessWidget {
     required this.value,
     required this.onTap,
     this.enabled = true,
+    this.isRequired = false,
   });
 
   final String label;
@@ -1095,6 +1100,7 @@ class _DateField extends StatelessWidget {
   final DateTime? value;
   final VoidCallback onTap;
   final bool enabled;
+  final bool isRequired;
 
   @override
   Widget build(BuildContext context) {
@@ -1103,8 +1109,9 @@ class _DateField extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
+        fieldLabelText(
           label,
+          isRequired: isRequired,
           style: GoogleFonts.poppins(
             fontSize: 13,
             fontWeight: FontWeight.w600,

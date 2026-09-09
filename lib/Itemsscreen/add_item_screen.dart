@@ -4,6 +4,7 @@ import 'package:grjoffice_apps/core/app_colors.dart';
 import 'package:grjoffice_apps/Itemsscreen/item.dart';
 import 'package:grjoffice_apps/services/api_auth.dart';
 import 'package:grjoffice_apps/widgets/app_top_bar.dart';
+import 'package:grjoffice_apps/widgets/field_label.dart';
 
 class AddItemScreen extends StatefulWidget {
   const AddItemScreen({super.key, this.item});
@@ -247,7 +248,9 @@ class _AddItemScreenState extends State<AddItemScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(label, style: GoogleFonts.poppins(fontSize: 13, fontWeight: FontWeight.w500)),
+        fieldLabelText(label,
+            isRequired: required,
+            style: GoogleFonts.poppins(fontSize: 13, fontWeight: FontWeight.w500)),
         const SizedBox(height: 8),
         TextFormField(
           controller: controller,
@@ -265,7 +268,9 @@ class _AddItemScreenState extends State<AddItemScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text('Unit', style: GoogleFonts.poppins(fontSize: 13, fontWeight: FontWeight.w500)),
+        fieldLabelText('Unit',
+            isRequired: true,
+            style: GoogleFonts.poppins(fontSize: 13, fontWeight: FontWeight.w500)),
         const SizedBox(height: 8),
         DropdownButtonFormField<String>(
           value: _unit,

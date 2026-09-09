@@ -3,12 +3,13 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:grjoffice_apps/LabourContractor/labour_contractor.dart';
+import 'package:grjoffice_apps/AmaniLabour/amani_labour.dart';
 import 'package:grjoffice_apps/core/app_colors.dart';
 import 'package:grjoffice_apps/models/listcontractor.dart';
 import 'package:grjoffice_apps/navigation/app_navigation.dart';
 import 'package:grjoffice_apps/services/api_auth.dart';
 import 'package:grjoffice_apps/widgets/app_top_bar.dart';
+import 'package:grjoffice_apps/widgets/field_label.dart';
 import 'package:intl/intl.dart';
 
 /// Form to create a contractor attendance entry for today.
@@ -414,8 +415,9 @@ class _AddContractorAttendanceScreenState
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
+        fieldLabelText(
           'Contractor',
+          isRequired: true,
           style: GoogleFonts.poppins(
             fontSize: 13,
             fontWeight: FontWeight.w700,

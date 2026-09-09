@@ -10,6 +10,7 @@ import 'package:grjoffice_apps/models/item_model.dart';
 import 'package:grjoffice_apps/services/api_auth.dart';
 import 'package:grjoffice_apps/services/image_pick_helper.dart';
 import 'package:grjoffice_apps/widgets/app_top_bar.dart';
+import 'package:grjoffice_apps/widgets/field_label.dart';
 
 class WithKantaStep3Screen extends StatefulWidget {
   const WithKantaStep3Screen({super.key, required this.purchase});
@@ -319,6 +320,7 @@ class _WithKantaStep3ScreenState extends State<WithKantaStep3Screen> {
                                       label: 'Kanta No',
                                       controller: _kantaNoController,
                                       hint: 'Kanta no',
+                                      isRequired: true,
                                     ),
                                   ),
                                 ],
@@ -364,6 +366,7 @@ class _WithKantaStep3ScreenState extends State<WithKantaStep3Screen> {
                                 label: 'Kanta No',
                                 controller: _kantaNoController,
                                 hint: 'Kanta no',
+                                isRequired: true,
                               ),
                             ],
                             const SizedBox(height: 20),
@@ -599,13 +602,16 @@ class _WithKantaStep3ScreenState extends State<WithKantaStep3Screen> {
     required String label,
     required TextEditingController controller,
     required String hint,
+    bool isRequired = false,
     TextInputType? keyboardType,
     List<TextInputFormatter>? inputFormatters,
   }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(label, style: GoogleFonts.poppins(fontSize: 13, fontWeight: FontWeight.w600)),
+        fieldLabelText(label,
+            isRequired: isRequired,
+            style: GoogleFonts.poppins(fontSize: 13, fontWeight: FontWeight.w600)),
         const SizedBox(height: 8),
         TextFormField(
           controller: controller,

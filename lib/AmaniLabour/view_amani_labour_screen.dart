@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:grjoffice_apps/LabourContractor/labour_contractor.dart';
+import 'package:grjoffice_apps/AmaniLabour/amani_labour.dart';
 import 'package:grjoffice_apps/core/app_colors.dart';
 import 'package:grjoffice_apps/models/getcontractor.dart';
 import 'package:grjoffice_apps/services/api_auth.dart';
@@ -73,7 +73,7 @@ class _ViewContractorScreenState extends State<ViewContractorScreen> {
         child: Column(
           children: [
             AppTopBar.page(
-              title: 'Contractor Details',
+              title: 'Amani Labour Details',
               onBack: () => Navigator.pop(context),
               horizontalPadding: hPad,
             ),

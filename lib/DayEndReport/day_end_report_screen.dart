@@ -7,6 +7,7 @@ import 'package:grjoffice_apps/drawer/drawer.dart';
 import 'package:grjoffice_apps/navigation/app_navigation.dart';
 import 'package:grjoffice_apps/utils/app_helpers.dart';
 import 'package:grjoffice_apps/widgets/app_top_bar.dart';
+import 'package:grjoffice_apps/widgets/field_label.dart';
 import 'package:intl/intl.dart';
 
 /// Day End Report — choose date step (API later).
@@ -295,8 +296,9 @@ class _DayEndReportScreenState extends State<DayEndReportScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                Text(
+                fieldLabelText(
                   'Date',
+                  isRequired: true,
                   style: GoogleFonts.poppins(
                     color: AppColors.headingBlack,
                     fontSize: 13.5,

@@ -3,6 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:grjoffice_apps/core/app_colors.dart';
 import 'package:grjoffice_apps/navigation/app_navigation.dart';
 import 'package:grjoffice_apps/widgets/app_top_bar.dart';
+import 'package:grjoffice_apps/widgets/field_label.dart';
 
 class Contractor extends StatefulWidget {
   const Contractor({super.key});
@@ -59,6 +60,7 @@ class _ContractorState extends State<Contractor> {
                       label: 'Current Password',
                       controller: _currentPasswordController,
                       obscure: _obscureCurrent,
+                      isRequired: true,
                       onToggle: () => setState(() => _obscureCurrent = !_obscureCurrent),
                     ),
                     const SizedBox(height: 20),
@@ -67,6 +69,7 @@ class _ContractorState extends State<Contractor> {
                       controller: _newPasswordController,
                       hint: 'Min. 8 characters',
                       obscure: _obscureNew,
+                      isRequired: true,
                       onToggle: () => setState(() => _obscureNew = !_obscureNew),
                       onChanged: (_) => setState(() {}),
                     ),
@@ -76,6 +79,7 @@ class _ContractorState extends State<Contractor> {
                       controller: _confirmPasswordController,
                       hint: 'Re-enter password',
                       obscure: _obscureConfirm,
+                      isRequired: true,
                       onToggle: () => setState(() => _obscureConfirm = !_obscureConfirm),
                     ),
                     const SizedBox(height: 24),
@@ -173,12 +177,14 @@ class _ContractorState extends State<Contractor> {
     required VoidCallback onToggle,
     String? hint,
     ValueChanged<String>? onChanged,
+    bool isRequired = false,
   }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
+        fieldLabelText(
           label,
+          isRequired: isRequired,
           style: GoogleFonts.poppins(
             color: AppColors.textDark,
             fontSize: 13,

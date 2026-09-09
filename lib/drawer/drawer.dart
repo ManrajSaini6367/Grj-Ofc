@@ -45,13 +45,13 @@ class AppDrawer extends StatelessWidget {
     _DrawerMenuItem(
       DrawerIndex.labourContractors,
       Icons.groups_outlined,
-      'Labour',
+      'Amani Labour',
       anyOf: [AppPermissions.contractorsView],
     ),
     _DrawerMenuItem(
       DrawerIndex.originalContractors,
       Icons.engineering_outlined,
-      'Contractors',
+      'Peti Contractor',
       anyOf: [],
     ),
     _DrawerMenuItem(

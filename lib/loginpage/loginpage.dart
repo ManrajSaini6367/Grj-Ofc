@@ -4,6 +4,7 @@ import 'package:grjoffice_apps/core/preference.dart';
 import 'package:grjoffice_apps/services/api_auth.dart';
 import 'package:grjoffice_apps/utils/app_helpers.dart';
 import 'package:grjoffice_apps/widgets/app_logo.dart';
+import 'package:grjoffice_apps/widgets/field_label.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key, this.flashMessage});
@@ -117,7 +118,7 @@ class _LoginPageState extends State<LoginPage> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _buildFieldLabel('EMAIL OR USERNAME'),
+          _buildFieldLabel('EMAIL OR USERNAME', isRequired: true),
           const SizedBox(height: 8),
           _buildTextField(
             controller: _emailController,
@@ -129,7 +130,7 @@ class _LoginPageState extends State<LoginPage> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              _buildFieldLabel('PASSWORD'),
+              _buildFieldLabel('PASSWORD', isRequired: true),
               GestureDetector(
                 onTap: () {
                   ScaffoldMessenger.of(context).showSnackBar(
@@ -257,9 +258,10 @@ class _LoginPageState extends State<LoginPage> {
     }
   }
 
-  Widget _buildFieldLabel(String label) {
-    return Text(
+  Widget _buildFieldLabel(String label, {bool isRequired = false}) {
+    return fieldLabelText(
       label,
+      isRequired: isRequired,
       style: TextStyle(
         color: AppColors.textDark,
         fontSize: 11,

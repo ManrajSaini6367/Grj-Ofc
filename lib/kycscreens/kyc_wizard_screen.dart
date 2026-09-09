@@ -7,6 +7,7 @@ import 'package:grjoffice_apps/core/preference.dart';
 import 'package:grjoffice_apps/kycscreens/kyc_models.dart';
 import 'package:grjoffice_apps/kycscreens/kyc_service.dart';
 import 'package:grjoffice_apps/services/image_pick_helper.dart';
+import 'package:grjoffice_apps/widgets/field_label.dart';
 import 'package:intl/intl.dart';
 
 /// Multi-step KYC wizard — one screen per step with top progress.
@@ -172,13 +173,18 @@ class _KycWizardScreenState extends State<KycWizardScreen> {
     super.dispose();
   }
 
-  InputDecoration _fieldDecoration(String label) {
+  InputDecoration _fieldDecoration(String label, {bool isRequired = false}) {
+    final labelStyle = GoogleFonts.poppins(
+      fontSize: 13.5,
+      color: AppColors.textSecondary,
+    );
     return InputDecoration(
-      labelText: label,
-      labelStyle: GoogleFonts.poppins(
-        fontSize: 13.5,
-        color: AppColors.textSecondary,
+      label: inputDecorationLabel(
+        label,
+        style: labelStyle,
+        isRequired: isRequired,
       ),
+      labelStyle: labelStyle,
       filled: true,
       fillColor: const Color(0xFFF7F8FA),
       contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
@@ -805,7 +811,7 @@ class _PersonalStep extends StatelessWidget {
   final DateTime? dob;
   final String gender;
   final bool readOnly;
-  final InputDecoration Function(String) decoration;
+  final InputDecoration Function(String, {bool isRequired}) decoration;
   final VoidCallback onPickDob;
   final ValueChanged<String> onGenderChanged;
 
@@ -837,7 +843,7 @@ class _PersonalStep extends StatelessWidget {
           enabled: !readOnly,
           textCapitalization: TextCapitalization.words,
           style: GoogleFonts.poppins(fontSize: 14),
-          decoration: decoration('Full Name'),
+          decoration: decoration('Full Name', isRequired: !readOnly),
           validator: (v) =>
               (v == null || v.trim().isEmpty) ? 'Full Name is required' : null,
         ),
@@ -854,7 +860,7 @@ class _PersonalStep extends StatelessWidget {
           enabled: !readOnly,
           keyboardType: TextInputType.phone,
           style: GoogleFonts.poppins(fontSize: 14),
-          decoration: decoration('Mobile Number'),
+          decoration: decoration('Mobile Number', isRequired: !readOnly),
           validator: (v) =>
               (v == null || v.trim().isEmpty) ? 'Mobile is required' : null,
         ),
@@ -864,7 +870,7 @@ class _PersonalStep extends StatelessWidget {
           enabled: !readOnly,
           keyboardType: TextInputType.emailAddress,
           style: GoogleFonts.poppins(fontSize: 14),
-          decoration: decoration('Email'),
+          decoration: decoration('Email', isRequired: !readOnly),
           validator: (v) =>
               (v == null || v.trim().isEmpty) ? 'Email is required' : null,
         ),
@@ -873,7 +879,7 @@ class _PersonalStep extends StatelessWidget {
           onTap: readOnly ? null : onPickDob,
           borderRadius: BorderRadius.circular(14),
           child: InputDecorator(
-            decoration: decoration('Date of Birth'),
+            decoration: decoration('Date of Birth', isRequired: !readOnly),
             child: Row(
               children: [
                 const Icon(
@@ -937,7 +943,7 @@ class _AddressStep extends StatelessWidget {
   final TextEditingController stateCtrl;
   final TextEditingController pincodeCtrl;
   final bool readOnly;
-  final InputDecoration Function(String) decoration;
+  final InputDecoration Function(String, {bool isRequired}) decoration;
 
   @override
   Widget build(BuildContext context) {
@@ -968,7 +974,7 @@ class _AddressStep extends StatelessWidget {
           enabled: !readOnly,
           maxLines: 2,
           style: GoogleFonts.poppins(fontSize: 14),
-          decoration: decoration('Address'),
+          decoration: decoration('Address', isRequired: !readOnly),
           validator: (v) =>
               (v == null || v.trim().isEmpty) ? 'Address is required' : null,
         ),
@@ -978,7 +984,7 @@ class _AddressStep extends StatelessWidget {
             controller: cityCtrl,
             enabled: !readOnly,
             style: GoogleFonts.poppins(fontSize: 14),
-            decoration: decoration('City'),
+            decoration: decoration('City', isRequired: !readOnly),
             validator: (v) =>
                 (v == null || v.trim().isEmpty) ? 'City is required' : null,
           ),
@@ -987,7 +993,7 @@ class _AddressStep extends StatelessWidget {
             controller: stateCtrl,
             enabled: !readOnly,
             style: GoogleFonts.poppins(fontSize: 14),
-            decoration: decoration('State'),
+            decoration: decoration('State', isRequired: !readOnly),
             validator: (v) =>
                 (v == null || v.trim().isEmpty) ? 'State is required' : null,
           ),
@@ -999,7 +1005,7 @@ class _AddressStep extends StatelessWidget {
                   controller: cityCtrl,
                   enabled: !readOnly,
                   style: GoogleFonts.poppins(fontSize: 14),
-                  decoration: decoration('City'),
+                  decoration: decoration('City', isRequired: !readOnly),
                   validator: (v) => (v == null || v.trim().isEmpty)
                       ? 'City is required'
                       : null,
@@ -1011,7 +1017,7 @@ class _AddressStep extends StatelessWidget {
                   controller: stateCtrl,
                   enabled: !readOnly,
                   style: GoogleFonts.poppins(fontSize: 14),
-                  decoration: decoration('State'),
+                  decoration: decoration('State', isRequired: !readOnly),
                   validator: (v) => (v == null || v.trim().isEmpty)
                       ? 'State is required'
                       : null,
@@ -1025,7 +1031,7 @@ class _AddressStep extends StatelessWidget {
           enabled: !readOnly,
           keyboardType: TextInputType.number,
           style: GoogleFonts.poppins(fontSize: 14),
-          decoration: decoration('PIN Code'),
+          decoration: decoration('PIN Code', isRequired: !readOnly),
           validator: (v) =>
               (v == null || v.trim().isEmpty) ? 'PIN Code is required' : null,
         ),
@@ -1052,7 +1058,7 @@ class _IdentityStep extends StatelessWidget {
   final File? front;
   final File? back;
   final bool readOnly;
-  final InputDecoration Function(String) decoration;
+  final InputDecoration Function(String, {bool isRequired}) decoration;
   final ValueChanged<IdentityProofType> onTypeChanged;
   final VoidCallback onPickFront;
   final VoidCallback onPickBack;
@@ -1105,7 +1111,7 @@ class _IdentityStep extends StatelessWidget {
           controller: identityNumberCtrl,
           enabled: !readOnly,
           style: GoogleFonts.poppins(fontSize: 14),
-          decoration: decoration('Identity Number'),
+          decoration: decoration('Identity Number', isRequired: !readOnly),
           validator: (v) => (v == null || v.trim().isEmpty)
               ? 'Identity Number is required'
               : null,
@@ -1116,6 +1122,7 @@ class _IdentityStep extends StatelessWidget {
           subtitle: 'Required',
           file: front,
           onTap: readOnly ? null : onPickFront,
+          isRequired: !readOnly,
         ),
         const SizedBox(height: 12),
         _UploadCard(
@@ -1146,7 +1153,7 @@ class _BankStep extends StatelessWidget {
   final TextEditingController confirmAccountNumberCtrl;
   final TextEditingController ifscCtrl;
   final bool readOnly;
-  final InputDecoration Function(String) decoration;
+  final InputDecoration Function(String, {bool isRequired}) decoration;
 
   @override
   Widget build(BuildContext context) {
@@ -1174,7 +1181,7 @@ class _BankStep extends StatelessWidget {
           controller: accountHolderCtrl,
           enabled: !readOnly,
           style: GoogleFonts.poppins(fontSize: 14),
-          decoration: decoration('Account Holder Name'),
+          decoration: decoration('Account Holder Name', isRequired: !readOnly),
           validator: (v) => (v == null || v.trim().isEmpty)
               ? 'Account holder name is required'
               : null,
@@ -1184,7 +1191,7 @@ class _BankStep extends StatelessWidget {
           controller: bankNameCtrl,
           enabled: !readOnly,
           style: GoogleFonts.poppins(fontSize: 14),
-          decoration: decoration('Bank Name'),
+          decoration: decoration('Bank Name', isRequired: !readOnly),
           validator: (v) =>
               (v == null || v.trim().isEmpty) ? 'Bank name is required' : null,
         ),
@@ -1194,7 +1201,7 @@ class _BankStep extends StatelessWidget {
           enabled: !readOnly,
           keyboardType: TextInputType.number,
           style: GoogleFonts.poppins(fontSize: 14),
-          decoration: decoration('Account Number'),
+          decoration: decoration('Account Number', isRequired: !readOnly),
           validator: (v) => (v == null || v.trim().isEmpty)
               ? 'Account number is required'
               : null,
@@ -1205,7 +1212,10 @@ class _BankStep extends StatelessWidget {
           enabled: !readOnly,
           keyboardType: TextInputType.number,
           style: GoogleFonts.poppins(fontSize: 14),
-          decoration: decoration('Confirm Account Number'),
+          decoration: decoration(
+            'Confirm Account Number',
+            isRequired: !readOnly,
+          ),
           validator: (v) {
             if (v == null || v.trim().isEmpty) {
               return 'Confirm account number';
@@ -1222,7 +1232,7 @@ class _BankStep extends StatelessWidget {
           enabled: !readOnly,
           textCapitalization: TextCapitalization.characters,
           style: GoogleFonts.poppins(fontSize: 14),
-          decoration: decoration('IFSC Code'),
+          decoration: decoration('IFSC Code', isRequired: !readOnly),
           validator: (v) =>
               (v == null || v.trim().isEmpty) ? 'IFSC is required' : null,
         ),
@@ -1524,12 +1534,14 @@ class _UploadCard extends StatelessWidget {
     required this.subtitle,
     required this.file,
     required this.onTap,
+    this.isRequired = false,
   });
 
   final String title;
   final String subtitle;
   final File? file;
   final VoidCallback? onTap;
+  final bool isRequired;
 
   @override
   Widget build(BuildContext context) {
@@ -1557,13 +1569,14 @@ class _UploadCard extends StatelessWidget {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(
+                        fieldLabelText(
                           title,
                           style: GoogleFonts.poppins(
                             fontSize: 13.5,
                             fontWeight: FontWeight.w700,
                             color: AppColors.headingBlack,
                           ),
+                          isRequired: isRequired,
                         ),
                         Text(
                           subtitle,

@@ -185,7 +185,7 @@ class _GroupDetailsScreenState extends State<GroupDetailsScreen> {
                       enabled: !_creating,
                       onChanged: (_) => setState(() {}),
                       style: GoogleFonts.poppins(fontSize: 14),
-                      decoration: _inputDecoration('Group subject'),
+                      decoration: _inputDecoration('Group subject *'),
                     ),
                     const SizedBox(height: 14),
                     TextField(

@@ -8,6 +8,7 @@ import 'package:grjoffice_apps/models/item_model.dart';
 import 'package:grjoffice_apps/models/site_model.dart';
 import 'package:grjoffice_apps/services/api_auth.dart';
 import 'package:grjoffice_apps/widgets/app_top_bar.dart';
+import 'package:grjoffice_apps/widgets/field_label.dart';
 import 'package:intl/intl.dart';
 
 /// Sent outward requests list + create form.
@@ -117,7 +118,7 @@ class _OutwardRequestScreenState extends State<OutwardRequestScreen> {
 }
 
 class CreateOutwardRequestPage extends StatefulWidget {
-  const CreateOutwardRequestPage();
+  const CreateOutwardRequestPage({super.key});
 
   @override
   State<CreateOutwardRequestPage> createState() =>
@@ -261,12 +262,13 @@ class _CreateOutwardRequestPageState extends State<CreateOutwardRequestPage> {
     );
   }
 
-  Widget _labeled(String label, Widget child) {
+  Widget _labeled(String label, Widget child, {bool isRequired = false}) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
+        fieldLabelText(
           label,
+          isRequired: isRequired,
           style: GoogleFonts.poppins(
             fontSize: 13,
             fontWeight: FontWeight.w500,
@@ -364,6 +366,7 @@ class _CreateOutwardRequestPageState extends State<CreateOutwardRequestPage> {
                                   validator: (v) =>
                                       v == null ? 'Item is required' : null,
                                 ),
+                                isRequired: true,
                               ),
                               const SizedBox(height: 16),
                               _labeled(
@@ -390,6 +393,7 @@ class _CreateOutwardRequestPageState extends State<CreateOutwardRequestPage> {
                                     return null;
                                   },
                                 ),
+                                isRequired: true,
                               ),
                               const SizedBox(height: 16),
                               _labeled(
@@ -416,6 +420,7 @@ class _CreateOutwardRequestPageState extends State<CreateOutwardRequestPage> {
                                           ? 'Unit is required'
                                           : null,
                                 ),
+                                isRequired: true,
                               ),
                               const SizedBox(height: 16),
                               _labeled(
@@ -446,6 +451,7 @@ class _CreateOutwardRequestPageState extends State<CreateOutwardRequestPage> {
                                   validator: (v) =>
                                       v == null ? 'Site is required' : null,
                                 ),
+                                isRequired: true,
                               ),
                               const SizedBox(height: 16),
                               _labeled(

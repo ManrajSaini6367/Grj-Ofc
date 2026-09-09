@@ -3,7 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:grjoffice_apps/attendancescreen/add_contractor_attendance_screen.dart';
-import 'package:grjoffice_apps/LabourContractor/labour_contractor.dart';
+import 'package:grjoffice_apps/AmaniLabour/amani_labour.dart';
 import 'package:grjoffice_apps/core/app_colors.dart';
 import 'package:grjoffice_apps/drawer/app_end_drawer.dart';
 import 'package:grjoffice_apps/drawer/drawer.dart';

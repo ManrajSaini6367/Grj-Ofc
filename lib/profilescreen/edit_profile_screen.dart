@@ -8,6 +8,7 @@ import 'package:grjoffice_apps/models/user_model.dart';
 import 'package:grjoffice_apps/navigation/app_navigation.dart';
 import 'package:grjoffice_apps/services/api_auth.dart';
 import 'package:grjoffice_apps/widgets/app_top_bar.dart';
+import 'package:grjoffice_apps/widgets/field_label.dart';
 
 class EditProfileScreen extends StatefulWidget {
   const EditProfileScreen({super.key});
@@ -138,6 +139,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                         label: 'Full Name',
                         controller: _nameController,
                         icon: Icons.person_outline,
+                        isRequired: true,
                         validator: (v) =>
                             (v == null || v.trim().isEmpty) ? 'Name is required' : null,
                       ),
@@ -147,6 +149,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                         controller: _emailController,
                         icon: Icons.email_outlined,
                         keyboardType: TextInputType.emailAddress,
+                        isRequired: true,
                         validator: (v) {
                           if (v == null || v.trim().isEmpty) return 'Email is required';
                           if (!v.contains('@')) return 'Enter a valid email';
@@ -159,6 +162,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                         controller: _phoneController,
                         icon: Icons.phone_outlined,
                         keyboardType: TextInputType.phone,
+                        isRequired: true,
                         validator: (v) =>
                             (v == null || v.trim().isEmpty) ? 'Phone is required' : null,
                       ),
@@ -238,12 +242,14 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     required IconData icon,
     TextInputType keyboardType = TextInputType.text,
     String? Function(String?)? validator,
+    bool isRequired = false,
   }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
+        fieldLabelText(
           label,
+          isRequired: isRequired,
           style: GoogleFonts.poppins(
             color: AppColors.textDark,
             fontSize: 13,

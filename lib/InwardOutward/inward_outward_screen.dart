@@ -11,6 +11,7 @@ import 'package:grjoffice_apps/models/site_model.dart';
 import 'package:grjoffice_apps/navigation/app_navigation.dart';
 import 'package:grjoffice_apps/services/api_auth.dart';
 import 'package:grjoffice_apps/widgets/app_top_bar.dart';
+import 'package:grjoffice_apps/widgets/field_label.dart';
 import 'package:intl/intl.dart';
 
 class InwardOutwardScreen extends StatefulWidget {
@@ -707,6 +708,7 @@ class _InwardOutwardScreenState extends State<InwardOutwardScreen> {
   Widget _buildItemField() {
     return _labeledField(
       label: 'Item',
+      isRequired: true,
       child: DropdownButtonFormField<int>(
         value: _selectedItem?.id,
         isExpanded: true,
@@ -744,6 +746,7 @@ class _InwardOutwardScreenState extends State<InwardOutwardScreen> {
   Widget _buildQtyField() {
     return _labeledField(
       label: 'Qty',
+      isRequired: true,
       child: TextFormField(
         controller: _qtyController,
         keyboardType: const TextInputType.numberWithOptions(decimal: true),
@@ -795,6 +798,7 @@ class _InwardOutwardScreenState extends State<InwardOutwardScreen> {
 
     return _labeledField(
       label: 'To',
+      isRequired: true,
       child: DropdownButtonFormField<String>(
         value: currentValue,
         isExpanded: true,
@@ -826,6 +830,7 @@ class _InwardOutwardScreenState extends State<InwardOutwardScreen> {
   Widget _buildUnitField() {
     return _labeledField(
       label: 'Unit',
+      isRequired: true,
       child: DropdownButtonFormField<String>(
         value: _unit,
         isExpanded: true,
@@ -856,6 +861,7 @@ class _InwardOutwardScreenState extends State<InwardOutwardScreen> {
 
     return _labeledField(
       label: 'Site',
+      isRequired: true,
       child: DropdownButtonFormField<int>(
         value: currentValue,
         isExpanded: true,
@@ -931,12 +937,17 @@ class _InwardOutwardScreenState extends State<InwardOutwardScreen> {
     );
   }
 
-  Widget _labeledField({required String label, required Widget child}) {
+  Widget _labeledField({
+    required String label,
+    required Widget child,
+    bool isRequired = false,
+  }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
+        fieldLabelText(
           label,
+          isRequired: isRequired,
           style: GoogleFonts.poppins(
             fontSize: 13,
             fontWeight: FontWeight.w500,

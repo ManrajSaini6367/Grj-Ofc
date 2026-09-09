@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:grjoffice_apps/core/app_colors.dart';
+import 'package:grjoffice_apps/widgets/field_label.dart';
 import 'package:grjoffice_apps/EmployeeListscreen/employee.dart';
 import 'package:grjoffice_apps/models/site_model.dart';
 import 'package:grjoffice_apps/models/user_model.dart';
@@ -82,12 +83,10 @@ class _EditEmployeeScreenState extends State<EditEmployeeScreen> {
       _accessRoles = options;
       _isLoadingRoles = false;
       _isLoadingAccessRoles = false;
-      if (_selectedRoleId == null) {
-        _selectedRoleId = options
+      _selectedRoleId ??= options
             .where((role) => role.name.toLowerCase() == currentName)
             .firstOrNull
             ?.id;
-      }
       if (_selectedAccessRoleIds.isEmpty && widget.employee.accessRoles.isNotEmpty) {
         final names = widget.employee.accessRoles.map((n) => n.toLowerCase()).toSet();
         _selectedAccessRoleIds.addAll(
@@ -295,21 +294,21 @@ class _EditEmployeeScreenState extends State<EditEmployeeScreen> {
                             _label('Employee ID'),
                             _readOnly(widget.employee.id),
                             const SizedBox(height: 16),
-                            _label('First Name'),
+                            _label('First Name', isRequired: true),
                             TextFormField(
                               controller: _firstName,
                               validator: (v) => v == null || v.trim().isEmpty ? 'Required' : null,
                               decoration: _decoration('First name', inputBorder),
                             ),
                             const SizedBox(height: 16),
-                            _label('Last Name'),
+                            _label('Last Name', isRequired: true),
                             TextFormField(
                               controller: _lastName,
                               validator: (v) => v == null || v.trim().isEmpty ? 'Required' : null,
                               decoration: _decoration('Last name', inputBorder),
                             ),
                             const SizedBox(height: 16),
-                            _label('Email'),
+                            _label('Email', isRequired: true),
                             TextFormField(
                               controller: _email,
                               keyboardType: TextInputType.emailAddress,
@@ -321,7 +320,7 @@ class _EditEmployeeScreenState extends State<EditEmployeeScreen> {
                               decoration: _decoration('employee@company.com', inputBorder),
                             ),
                             const SizedBox(height: 16),
-                            _label('Phone'),
+                            _label('Phone', isRequired: true),
                             TextFormField(
                               controller: _phone,
                               keyboardType: TextInputType.phone,
@@ -345,7 +344,7 @@ class _EditEmployeeScreenState extends State<EditEmployeeScreen> {
                               ),
                             ),
                             const SizedBox(height: 16),
-                            _label('Role'),
+                            _label('Role', isRequired: true),
                             DropdownButtonFormField<int>(
                               key: ValueKey('edit-role-${_roles.length}'),
                               initialValue: _roles.any((r) => r.id == _selectedRoleId)
@@ -372,10 +371,10 @@ class _EditEmployeeScreenState extends State<EditEmployeeScreen> {
                             _label('Access Roles (Optional)'),
                             _buildAccessRolesChips(),
                             const SizedBox(height: 16),
-                            _label('Sites'),
+                            _label('Sites', isRequired: true),
                             _buildSitesChips(),
                             const SizedBox(height: 16),
-                            _label('Date of Join'),
+                            _label('Date of Join', isRequired: true),
                             InkWell(
                               onTap: () => _pickDate(isJoin: true),
                               child: InputDecorator(
@@ -513,10 +512,11 @@ class _EditEmployeeScreenState extends State<EditEmployeeScreen> {
     );
   }
 
-  Widget _label(String text) => Padding(
+  Widget _label(String text, {bool isRequired = false}) => Padding(
         padding: const EdgeInsets.only(bottom: 8),
-        child: Text(
+        child: fieldLabelText(
           text,
+          isRequired: isRequired,
           style: GoogleFonts.poppins(fontSize: 13, fontWeight: FontWeight.w500, color: AppColors.textDark),
         ),
       );

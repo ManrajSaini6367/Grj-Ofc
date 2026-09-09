@@ -5,6 +5,7 @@ import 'package:grjoffice_apps/core/app_colors.dart';
 import 'package:grjoffice_apps/Expensescreen/expense.dart';
 import 'package:grjoffice_apps/services/api_auth.dart';
 import 'package:grjoffice_apps/widgets/app_top_bar.dart';
+import 'package:grjoffice_apps/widgets/field_label.dart';
 
 class AddExpenseScreen extends StatefulWidget {
   const AddExpenseScreen({super.key, this.expense});
@@ -414,6 +415,7 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
   Widget _buildChequeField() {
     return _labeledField(
       label: 'Cheque No',
+      isRequired: true,
       child: TextFormField(
         controller: _chequeController,
         style: GoogleFonts.poppins(fontSize: 13),
@@ -425,6 +427,7 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
   Widget _buildAmountField() {
     return _labeledField(
       label: 'Amount',
+      isRequired: true,
       child: TextFormField(
         controller: _amountController,
         keyboardType: const TextInputType.numberWithOptions(decimal: true),
@@ -452,6 +455,7 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
   Widget _buildDetailField() {
     return _labeledField(
       label: 'Detail',
+      isRequired: true,
       child: TextFormField(
         controller: _detailController,
         maxLines: 1,
@@ -462,11 +466,11 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
     );
   }
 
-  Widget _labeledField({required String label, required Widget child}) {
+  Widget _labeledField({required String label, required Widget child, bool isRequired = false}) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(label, style: GoogleFonts.poppins(fontSize: 13, fontWeight: FontWeight.w600)),
+        fieldLabelText(label, isRequired: isRequired, style: GoogleFonts.poppins(fontSize: 13, fontWeight: FontWeight.w600)),
         const SizedBox(height: 8),
         child,
       ],

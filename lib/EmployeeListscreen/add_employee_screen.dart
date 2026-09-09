@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:grjoffice_apps/core/app_colors.dart';
+import 'package:grjoffice_apps/widgets/field_label.dart';
 import 'package:grjoffice_apps/EmployeeListscreen/employee.dart';
 import 'package:grjoffice_apps/models/site_model.dart';
 import 'package:grjoffice_apps/models/user_model.dart';
@@ -367,6 +368,7 @@ class _AddEmployeeScreenState extends State<AddEmployeeScreen> {
           _buildNameRow(),
           const SizedBox(height: 16),
           _buildTextField(
+            isRequired: true,
             label: 'Email',
             controller: _emailController,
             hint: 'employee@company.com',
@@ -381,6 +383,7 @@ class _AddEmployeeScreenState extends State<AddEmployeeScreen> {
           ),
           const SizedBox(height: 16),
           _buildTextField(
+            isRequired: true,
             label: 'Phone',
             controller: _phoneController,
             hint: '+91 98765 43210',
@@ -396,6 +399,7 @@ class _AddEmployeeScreenState extends State<AddEmployeeScreen> {
           _buildPasswordField(),
           const SizedBox(height: 16),
           _buildDropdownField(
+            isRequired: true,
             label: 'Role',
             value: _selectedRoleId,
             items: _roles,
@@ -407,6 +411,7 @@ class _AddEmployeeScreenState extends State<AddEmployeeScreen> {
           _buildSitesField(),
           const SizedBox(height: 16),
           _buildDateField(
+            isRequired: true,
             label: 'Date of Join',
             value: _dateOfJoin,
             onTap: () => _pickDate(isJoinDate: true),
@@ -538,6 +543,7 @@ class _AddEmployeeScreenState extends State<AddEmployeeScreen> {
       builder: (context, constraints) {
         final stacked = constraints.maxWidth < 420;
         final firstName = _buildTextField(
+          isRequired: true,
           label: 'First Name',
           controller: _firstNameController,
           hint: 'First name',
@@ -550,6 +556,7 @@ class _AddEmployeeScreenState extends State<AddEmployeeScreen> {
           },
         );
         final lastName = _buildTextField(
+          isRequired: true,
           label: 'Last Name',
           controller: _lastNameController,
           hint: 'Last name',
@@ -588,12 +595,14 @@ class _AddEmployeeScreenState extends State<AddEmployeeScreen> {
     List<TextInputFormatter>? inputFormatters,
     String? Function(String?)? validator,
     ValueChanged<String>? onChanged,
+    bool isRequired = false,
   }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
+        fieldLabelText(
           label,
+          isRequired: isRequired,
           style: GoogleFonts.poppins(
             color: AppColors.textDark,
             fontSize: 13,
@@ -621,8 +630,9 @@ class _AddEmployeeScreenState extends State<AddEmployeeScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
+        fieldLabelText(
           'Password',
+          isRequired: !widget.isEditing,
           style: GoogleFonts.poppins(
             color: AppColors.textDark,
             fontSize: 13,
@@ -669,12 +679,14 @@ class _AddEmployeeScreenState extends State<AddEmployeeScreen> {
     required int? value,
     required List<_EmployeeRole> items,
     required ValueChanged<int?>? onChanged,
+    bool isRequired = false,
   }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
+        fieldLabelText(
           label,
+          isRequired: isRequired,
           style: GoogleFonts.poppins(
             color: AppColors.textDark,
             fontSize: 13,
@@ -807,8 +819,9 @@ class _AddEmployeeScreenState extends State<AddEmployeeScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
+        fieldLabelText(
           'Sites',
+          isRequired: true,
           style: GoogleFonts.poppins(
             color: AppColors.textDark,
             fontSize: 13,
@@ -880,6 +893,7 @@ class _AddEmployeeScreenState extends State<AddEmployeeScreen> {
     required DateTime? value,
     required VoidCallback onTap,
     bool optional = false,
+    bool isRequired = false,
     VoidCallback? onClear,
   }) {
     return Column(
@@ -887,8 +901,9 @@ class _AddEmployeeScreenState extends State<AddEmployeeScreen> {
       children: [
         Row(
           children: [
-            Text(
+            fieldLabelText(
               label,
+              isRequired: isRequired,
               style: GoogleFonts.poppins(
                 color: AppColors.textDark,
                 fontSize: 13,

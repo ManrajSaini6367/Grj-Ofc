@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:grjoffice_apps/Contractorscreen/original_contractor.dart';
+import 'package:grjoffice_apps/PetiContractor/peti_contractor.dart';
 import 'package:grjoffice_apps/core/app_colors.dart';
 import 'package:grjoffice_apps/models/getcontractorlist.dart';
 import 'package:grjoffice_apps/services/api_auth.dart';
@@ -93,7 +93,7 @@ class _OriginalContractorViewScreenState
         child: Column(
           children: [
             AppTopBar.page(
-              title: 'Contractor Details',
+              title: 'Peti Contractor Details',
               onBack: () => Navigator.pop(context),
               horizontalPadding: hPad,
             ),

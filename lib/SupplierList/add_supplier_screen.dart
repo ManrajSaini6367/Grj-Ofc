@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:grjoffice_apps/core/app_colors.dart';
+import 'package:grjoffice_apps/widgets/field_label.dart';
 import 'package:grjoffice_apps/models/item_model.dart';
 import 'package:grjoffice_apps/services/api_auth.dart';
 import 'package:grjoffice_apps/SupplierList/supplier.dart';
@@ -307,6 +308,7 @@ class _AddSupplierScreenState extends State<AddSupplierScreen> {
         children: [
           _buildTextField(
             label: 'Name',
+            isRequired: true,
             controller: _nameController,
             hint: 'Supplier name',
             validator: (value) {
@@ -317,6 +319,7 @@ class _AddSupplierScreenState extends State<AddSupplierScreen> {
           const SizedBox(height: 16),
           _buildTextField(
   label: 'Mobile',
+  isRequired: true,
   controller: _mobileController,
   hint: '9876543210',
   keyboardType: TextInputType.phone,
@@ -368,6 +371,7 @@ class _AddSupplierScreenState extends State<AddSupplierScreen> {
           const SizedBox(height: 16),
           _buildTextField(
             label: 'Address',
+            isRequired: true,
             controller: _addressController,
             hint: 'Full address',
             maxLines: 3,
@@ -390,8 +394,9 @@ class _AddSupplierScreenState extends State<AddSupplierScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
+        fieldLabelText(
           'Material',
+          isRequired: true,
           style: GoogleFonts.poppins(
             color: AppColors.textDark,
             fontSize: 13,
@@ -596,12 +601,14 @@ class _AddSupplierScreenState extends State<AddSupplierScreen> {
   int maxLines = 1,
   List<TextInputFormatter>? inputFormatters,
   String? Function(String?)? validator,
+  bool isRequired = false,
   }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
+        fieldLabelText(
           label,
+          isRequired: isRequired,
           style: GoogleFonts.poppins(
             color: AppColors.textDark,
             fontSize: 13,

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:grjoffice_apps/core/app_colors.dart';
+import 'package:grjoffice_apps/widgets/field_label.dart';
 import 'package:grjoffice_apps/models/task_model.dart';
 import 'package:grjoffice_apps/services/api_auth.dart';
 import 'package:grjoffice_apps/widgets/app_top_bar.dart';
@@ -411,6 +412,7 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
   Widget _buildStartDateField() {
     return _labeledField(
       label: 'Start Date',
+      isRequired: true,
       child: InkWell(
         onTap: _pickStartDate,
         borderRadius: BorderRadius.circular(6),
@@ -431,6 +433,7 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
   Widget _buildEndDateField() {
     return _labeledField(
       label: 'End Date',
+      isRequired: true,
       child: InkWell(
         onTap: _pickEndDate,
         borderRadius: BorderRadius.circular(6),
@@ -451,6 +454,7 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
   Widget _buildEmployeeField() {
     return _labeledField(
       label: 'Employee',
+      isRequired: true,
       child: _isLoadingEmployees
           ? Container(
               height: 48,
@@ -553,6 +557,7 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
   Widget _buildTitleField() {
     return _labeledField(
       label: 'Title',
+      isRequired: true,
       child: TextFormField(
         controller: _titleController,
         style: GoogleFonts.poppins(fontSize: 13),
@@ -574,11 +579,11 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
     );
   }
 
-  Widget _labeledField({required String label, required Widget child}) {
+  Widget _labeledField({required String label, required Widget child, bool isRequired = false}) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(label, style: GoogleFonts.poppins(fontSize: 13, fontWeight: FontWeight.w600, color: AppColors.headingBlack)),
+        fieldLabelText(label, isRequired: isRequired, style: GoogleFonts.poppins(fontSize: 13, fontWeight: FontWeight.w600, color: AppColors.headingBlack)),
         const SizedBox(height: 8),
         child,
       ],

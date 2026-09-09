@@ -1,7 +1,7 @@
 import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
-import 'package:grjoffice_apps/Contractorscreen/original_contractor.dart';
+import 'package:grjoffice_apps/PetiContractor/peti_contractor.dart';
 import 'package:grjoffice_apps/core/preference.dart';
 
 class OriginalContractorStore extends ChangeNotifier {

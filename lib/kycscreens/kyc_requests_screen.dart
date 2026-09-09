@@ -9,6 +9,7 @@ import 'package:grjoffice_apps/kycscreens/kyc_models.dart';
 import 'package:grjoffice_apps/kycscreens/kyc_service.dart';
 import 'package:grjoffice_apps/navigation/app_navigation.dart';
 import 'package:grjoffice_apps/widgets/app_top_bar.dart';
+import 'package:grjoffice_apps/widgets/field_label.dart';
 import 'package:intl/intl.dart';
 
 class KycRequestsScreen extends StatefulWidget {
@@ -861,9 +862,10 @@ class _HrStatusAndActions extends StatelessWidget {
         ],
         if (showRejectReason && isPending) ...[
           const SizedBox(height: 12),
-          Text(
+          fieldLabelText(
             'Rejection Reason',
             style: GoogleFonts.poppins(fontWeight: FontWeight.w900, color: AppColors.headingBlack),
+            isRequired: true,
           ),
           const SizedBox(height: 8),
           TextField(

@@ -54,6 +54,7 @@ dependencies:
   webview_flutter: ^4.13.1
   open_filex: ^4.7.0
   archive: ^4.0.9
+  pdf: ^3.11.3
 
 dev_dependencies:
   flutter_test:

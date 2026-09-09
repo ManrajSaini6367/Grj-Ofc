@@ -10,6 +10,7 @@ import 'package:grjoffice_apps/models/item_model.dart';
 import 'package:grjoffice_apps/services/api_auth.dart';
 import 'package:grjoffice_apps/services/image_pick_helper.dart';
 import 'package:grjoffice_apps/widgets/app_top_bar.dart';
+import 'package:grjoffice_apps/widgets/field_label.dart';
 
 class WithoutKantaStep2Screen extends StatefulWidget {
   const WithoutKantaStep2Screen({super.key, required this.purchase});
@@ -299,6 +300,7 @@ class _WithoutKantaStep2ScreenState extends State<WithoutKantaStep2Screen> {
                     label: 'Invoice No',
                     controller: _invoiceController,
                     hint: 'Invoice no',
+                    isRequired: true,
                   ),
                 ),
               ],
@@ -311,7 +313,11 @@ class _WithoutKantaStep2ScreenState extends State<WithoutKantaStep2Screen> {
               value: _savedVehicleNo.isEmpty ? '—' : _savedVehicleNo,
             ),
             const SizedBox(height: 16),
-            _buildTextField(label: 'Invoice No', controller: _invoiceController, hint: 'Invoice no'),
+            _buildTextField(
+                label: 'Invoice No',
+                controller: _invoiceController,
+                hint: 'Invoice no',
+                isRequired: true),
           ],
           const SizedBox(height: 20),
           if (_loadingItems)
@@ -493,13 +499,16 @@ class _WithoutKantaStep2ScreenState extends State<WithoutKantaStep2Screen> {
     required String label,
     required TextEditingController controller,
     required String hint,
+    bool isRequired = false,
     TextInputType? keyboardType,
     List<TextInputFormatter>? inputFormatters,
   }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(label, style: GoogleFonts.poppins(fontSize: 13, fontWeight: FontWeight.w600)),
+        fieldLabelText(label,
+            isRequired: isRequired,
+            style: GoogleFonts.poppins(fontSize: 13, fontWeight: FontWeight.w600)),
         const SizedBox(height: 8),
         TextFormField(
           controller: controller,

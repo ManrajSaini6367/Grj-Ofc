@@ -2,9 +2,9 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:grjoffice_apps/Contractorscreen/original_contractor.dart';
-import 'package:grjoffice_apps/Contractorscreen/original_contractor_screen.dart';
-import 'package:grjoffice_apps/Contractorscreen/original_contractor_view_screen.dart';
+import 'package:grjoffice_apps/PetiContractor/peti_contractor.dart';
+import 'package:grjoffice_apps/PetiContractor/peti_contractor_screen.dart';
+import 'package:grjoffice_apps/PetiContractor/peti_contractor_view_screen.dart';
 import 'package:grjoffice_apps/core/app_colors.dart';
 import 'package:grjoffice_apps/drawer/app_end_drawer.dart';
 import 'package:grjoffice_apps/drawer/drawer.dart';
@@ -148,7 +148,7 @@ class _OriginalContractorsListScreenState
         backgroundColor: AppColors.cardWhite,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         title: Text(
-          'Delete Contractor',
+          'Delete Peti Contractor',
           style: GoogleFonts.poppins(
             fontWeight: FontWeight.w700,
             color: AppColors.headingBlack,
@@ -219,7 +219,7 @@ class _OriginalContractorsListScreenState
         child: Column(
           children: [
             AppTopBar.shell(
-              title: 'Contractor List',
+              title: 'Peti Contractor List',
               scaffoldKey: _scaffoldKey,
               horizontalPadding: hPad,
             ),
@@ -528,7 +528,7 @@ class _OriginalContractorsListScreenState
           onPressed: _openCreate,
           icon: const Icon(Icons.engineering_outlined, size: 20),
           label: Text(
-            'Create Contractor',
+            'Create Peti Contractor',
             style: GoogleFonts.poppins(
               fontSize: 14,
               fontWeight: FontWeight.w600,
@@ -654,7 +654,7 @@ class _OriginalContractorsListScreenState
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         Text(
-                          'View Contractor',
+                          'View Peti Contractor',
                           style: GoogleFonts.poppins(
                             color: AppColors.primaryRed,
                             fontSize: 13,
@@ -674,7 +674,7 @@ class _OriginalContractorsListScreenState
                 const Spacer(),
                 _buildCardActionIcon(
                   icon: Icons.edit_outlined,
-                  tooltip: 'Edit Contractor',
+                  tooltip: 'Edit Peti Contractor',
                   onTap: () => _editContractor(contractor),
                 ),
                 _buildCardActionIcon(
@@ -736,7 +736,7 @@ class _OriginalContractorsListScreenState
           ),
           const SizedBox(height: 12),
           Text(
-            'No contractors found',
+            'No peti contractors found',
             style: GoogleFonts.poppins(
               color: AppColors.textSecondary,
               fontSize: 14,
