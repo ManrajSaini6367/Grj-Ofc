@@ -135,16 +135,10 @@ class _HomePageState extends State<HomePage> {
 
   Future<void> _bootstrap() async {
     await _attendance.load();
-    if (mounted && _attendanceAllowed) {
-      final todayStatus = await getTodayAttendanceApi(
-        context,
-        showErrors: false,
-      );
-      if (todayStatus != null) {
-        await _attendance.applyTodayStatus(todayStatus);
-      }
-    }
     await _loadSites();
+    if (mounted && _attendanceAllowed) {
+      await _syncAttendanceAcrossSites();
+    }
     if (_attendanceAllowed) {
       final granted = await _location.initialize();
       if (_attendance.isPunchedIn && granted) {
@@ -154,8 +148,39 @@ class _HomePageState extends State<HomePage> {
     if (mounted) setState(() {});
   }
 
+  /// Unlocks the app if the user already punched in at any assigned site.
+  Future<void> _syncAttendanceAcrossSites() async {
+    if (!_attendanceAllowed) return;
+    final result = await getTodayAttendanceForAccessApi(
+      context,
+      siteIds: _assignedSiteIds(),
+      showErrors: false,
+    );
+    if (result != null) {
+      await _attendance.applyTodayStatus(
+        result.status,
+        punchSiteId: result.punchSiteId,
+      );
+    }
+  }
+
+  List<int> _assignedSiteIds() {
+    final user = UserSession.instance.user ?? cachedUser();
+    final ids = <int>{
+      if (user != null && user.siteId > 0) user.siteId,
+      ...?user?.siteIds,
+    };
+    if (ids.isEmpty) {
+      final sites = _siteItems.isNotEmpty
+          ? _siteItems
+          : (cachedSites() ?? const <SiteModel>[]);
+      ids.addAll(sites.map((site) => site.id));
+    }
+    return ids.toList();
+  }
+
   Future<void> _loadSites() async {
-    final sites = await sitesApi(context);
+    final sites = await sitesApi(context, perPage: 100);
     if (!mounted) return;
 
     if (sites != null && sites.isNotEmpty) {
@@ -327,7 +352,10 @@ class _HomePageState extends State<HomePage> {
       return;
     }
 
-    await _attendance.applyTodayStatus(result.toTodayStatus());
+    await _attendance.applyTodayStatus(
+      result.toTodayStatus(),
+      punchSiteId: result.attendance?.siteId ?? selectedSiteId(),
+    );
     await _location.startTracking();
 
     setState(() => _isProcessingPunch = false);
@@ -365,6 +393,7 @@ class _HomePageState extends State<HomePage> {
       context,
       latitude: position.latitude,
       longitude: position.longitude,
+      siteId: _attendance.punchSiteId,
     );
 
     if (!mounted) return;
@@ -597,10 +626,7 @@ class _HomePageState extends State<HomePage> {
     if (selected != null && selected != _selectedSite) {
       await _saveSelectedSite(selected);
       if (mounted) setState(() => _selectedSite = selected);
-      final todayStatus = await getTodayAttendanceApi(context, showErrors: false);
-      if (todayStatus != null) {
-        await _attendance.applyTodayStatus(todayStatus);
-      }
+      await _syncAttendanceAcrossSites();
     }
   }
 
@@ -856,6 +882,24 @@ class _AttendanceCardState extends State<_AttendanceCard> {
     });
   }
 
+  String _punchedInSubtitle(AttendanceService attendance) {
+    final punchSiteId =
+        attendance.punchSiteId ?? attendance.todayAttendance?.siteId;
+    final currentSiteId = selectedSiteId();
+    if (punchSiteId == null ||
+        currentSiteId == null ||
+        punchSiteId == currentSiteId) {
+      return 'Tap punch out when you finish';
+    }
+
+    final punchSiteName = attendance.todayAttendance?.siteName?.trim() ??
+        siteNameById(cachedSites() ?? const [], punchSiteId)?.trim();
+    if (punchSiteName != null && punchSiteName.isNotEmpty) {
+      return 'Punched in at $punchSiteName. This site is unlocked.';
+    }
+    return 'Already punched in. This site is unlocked.';
+  }
+
   Widget _buildPunchButton(bool isPunchedIn) {
     final canAct = isPunchedIn
         ? widget.attendance.canPunchOut
@@ -930,7 +974,7 @@ class _AttendanceCardState extends State<_AttendanceCard> {
                 const SizedBox(height: 4),
                 Text(
                   isPunchedIn
-                      ? 'Tap punch out when you finish'
+                      ? _punchedInSubtitle(attendance)
                       : 'Tap to start your shift',
                   style: GoogleFonts.poppins(
                     fontSize: 12,

@@ -7,6 +7,7 @@ class UserModel {
     required this.email,
     required this.mobile,
     required this.siteId,
+    this.siteIds = const [],
     this.designation,
     this.avatar,
     required this.status,
@@ -28,6 +29,7 @@ class UserModel {
   final String email;
   final String mobile;
   final int siteId;
+  final List<int> siteIds;
   final String? designation;
   final String? avatar;
   final String status;
@@ -50,6 +52,7 @@ class UserModel {
       email: json['email']?.toString() ?? '',
       mobile: json['mobile']?.toString() ?? '',
       siteId: _parseInt(json['site_id']),
+      siteIds: _idsFromList(json['site_ids'] ?? json['siteIds']),
       designation: json['designation']?.toString(),
       avatar: json['avatar']?.toString(),
       status: json['status']?.toString() ?? '',
@@ -166,6 +169,7 @@ class UserModel {
       'email': email,
       'mobile': mobile,
       'site_id': siteId,
+      'site_ids': siteIds,
       'designation': designation,
       'avatar': avatar,
       'status': status,
@@ -210,6 +214,7 @@ class UserModel {
     String? email,
     String? mobile,
     int? siteId,
+    List<int>? siteIds,
     String? designation,
     String? avatar,
     String? status,
@@ -232,6 +237,7 @@ class UserModel {
       email: email ?? this.email,
       mobile: mobile ?? this.mobile,
       siteId: siteId ?? this.siteId,
+      siteIds: siteIds ?? this.siteIds,
       designation: designation ?? this.designation,
       avatar: avatar ?? this.avatar,
       status: status ?? this.status,

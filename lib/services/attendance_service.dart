@@ -16,6 +16,7 @@ class AttendanceService extends SafeChangeNotifier {
   static const _keyTotalMs = 'attendance_total_ms';
   static const _keyLastPunchOutMs = 'attendance_last_punch_out_ms';
   static const _keyLastPunchInMs = 'attendance_last_punch_in_ms';
+  static const _keyPunchSiteId = 'attendance_punch_site_id';
 
   bool _isPunchedIn = false;
   bool _canPunchIn = true;
@@ -28,10 +29,13 @@ class AttendanceService extends SafeChangeNotifier {
   Attendance? _todayAttendance;
   String? _todayDate;
   bool _loadedFromApi = false;
+  int? _punchSiteId;
 
   bool get isPunchedIn => _isPunchedIn;
   bool get canPunchIn => _canPunchIn;
   bool get canPunchOut => _canPunchOut;
+  /// Site where today's punch-in was recorded. Punch-out must use this site.
+  int? get punchSiteId => _punchSiteId;
   DateTime? get punchInTime => _punchInTime;
   DateTime? get punchOutTime => _punchOutTime;
   DateTime? get lastPunchOutTime => _lastPunchOutTime;
@@ -70,6 +74,7 @@ class AttendanceService extends SafeChangeNotifier {
       _todayAttendance = null;
       _todayDate = null;
       _loadedFromApi = false;
+      _punchSiteId = null;
       await _save(prefs, todayKey);
       notifyListeners();
       return;
@@ -89,11 +94,13 @@ class AttendanceService extends SafeChangeNotifier {
     final lastPunchInMs = prefs.getInt(_keyLastPunchInMs);
     _lastPunchInTime =
         lastPunchInMs != null ? AppDateTime.fromEpoch(lastPunchInMs) : null;
+    _punchSiteId = prefs.getInt(_keyPunchSiteId);
 
     if (_isPunchedIn && _punchInTime == null) {
       _isPunchedIn = false;
       _canPunchIn = true;
       _canPunchOut = false;
+      _punchSiteId = null;
       await _save(prefs, todayKey);
     }
 
@@ -101,13 +108,25 @@ class AttendanceService extends SafeChangeNotifier {
   }
 
   /// Applies server "today status" and persists the synced state locally.
-  Future<void> applyTodayStatus(TodayAttendanceStatus status) async {
+  ///
+  /// [punchSiteId] is the site of the active punch, which may differ from the
+  /// currently selected site when the user is assigned to multiple sites.
+  Future<void> applyTodayStatus(
+    TodayAttendanceStatus status, {
+    int? punchSiteId,
+  }) async {
     _loadedFromApi = true;
     _todayDate = status.date;
     _isPunchedIn = status.isPunchedIn;
     _canPunchIn = status.canPunchIn;
     _canPunchOut = status.canPunchOut;
     _todayAttendance = status.attendance;
+    if (status.isPunchedIn) {
+      _punchSiteId =
+          punchSiteId ?? status.attendance?.siteId ?? _punchSiteId;
+    } else {
+      _punchSiteId = null;
+    }
 
     final attendance = status.attendance;
     if (attendance != null) {
@@ -182,6 +201,12 @@ class AttendanceService extends SafeChangeNotifier {
       await prefs.setInt(_keyPunchInMs, AppDateTime.toEpoch(_punchInTime!));
     } else {
       await prefs.remove(_keyPunchInMs);
+    }
+
+    if (_punchSiteId != null) {
+      await prefs.setInt(_keyPunchSiteId, _punchSiteId!);
+    } else {
+      await prefs.remove(_keyPunchSiteId);
     }
 
     if (_lastPunchOutTime != null) {

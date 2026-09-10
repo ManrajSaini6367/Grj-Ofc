@@ -69,6 +69,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
         email: email,
         mobile: phone,
         siteId: existing.siteId,
+        siteIds: existing.siteIds,
         designation: designation.isEmpty ? null : designation,
         avatar: existing.avatar,
         status: existing.status,

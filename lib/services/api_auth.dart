@@ -4434,6 +4434,71 @@ Future<TodayAttendanceStatus?> getTodayAttendanceApi(
   }
 }
 
+/// Today-attendance for app access across assigned sites.
+///
+/// Punch-in is recorded per site. If the user has already punched in at any
+/// assigned site, that status is returned so they can keep using other sites
+/// without punching in again.
+Future<({TodayAttendanceStatus status, int? punchSiteId})?>
+    getTodayAttendanceForAccessApi(
+  BuildContext context, {
+  List<int> siteIds = const [],
+  bool showErrors = false,
+}) async {
+  int? punchSiteIdOf(TodayAttendanceStatus status, int? queriedSiteId) {
+    if (!status.isPunchedIn) return null;
+    return status.attendance?.siteId ?? queriedSiteId;
+  }
+
+  final selectedId = selectedSiteId();
+  final selectedStatus = await getTodayAttendanceApi(
+    context,
+    siteId: selectedId,
+    showErrors: showErrors,
+  );
+  if (selectedStatus != null && selectedStatus.isPunchedIn) {
+    return (
+      status: selectedStatus,
+      punchSiteId: punchSiteIdOf(selectedStatus, selectedId),
+    );
+  }
+
+  final otherIds = siteIds
+      .where((id) => id > 0 && id != selectedId)
+      .toSet()
+      .toList();
+  if (otherIds.isEmpty) {
+    if (selectedStatus == null) return null;
+    return (status: selectedStatus, punchSiteId: null);
+  }
+
+  final results = await Future.wait(
+    otherIds.map(
+      (id) async {
+        final status = await getTodayAttendanceApi(
+          context,
+          siteId: id,
+          showErrors: false,
+        );
+        return (id: id, status: status);
+      },
+    ),
+  );
+
+  for (final result in results) {
+    final status = result.status;
+    if (status != null && status.isPunchedIn) {
+      return (
+        status: status,
+        punchSiteId: punchSiteIdOf(status, result.id),
+      );
+    }
+  }
+
+  if (selectedStatus == null) return null;
+  return (status: selectedStatus, punchSiteId: null);
+}
+
 //punchinapi — POST /attendances/punch-in (no employer_image)
 Future<PunchActionResult?> punchInApi(
   BuildContext context, {

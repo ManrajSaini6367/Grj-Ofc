@@ -5,6 +5,9 @@ import 'package:grjoffice_apps/services/attendance_service.dart';
 import 'package:grjoffice_apps/services/user_session.dart';
 
 /// Blocks app access until the user punches in when [attendanceAllow] is enabled.
+///
+/// A punch-in at any assigned site unlocks the rest of the app, including other
+/// sites, until the user punches out.
 class PunchInGate {
   PunchInGate._();
 
