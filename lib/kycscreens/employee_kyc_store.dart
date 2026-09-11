@@ -32,6 +32,7 @@ class EmployeeKycConfig {
     this.accountNumber = '',
     this.ifscCode = '',
     this.bankChequePath = '',
+    this.degreePaths = const [],
     this.status = 'Submitted',
     this.kycId = 0,
   });
@@ -62,6 +63,7 @@ class EmployeeKycConfig {
   final String accountNumber;
   final String ifscCode;
   final String bankChequePath;
+  final List<String> degreePaths;
   final DateTime configuredAt;
   final String status;
   final int kycId;
@@ -113,6 +115,7 @@ class EmployeeKycConfig {
         'accountNumber': accountNumber,
         'ifscCode': ifscCode,
         'bankChequePath': bankChequePath,
+        'degreePaths': degreePaths,
         'savedAt': configuredAt.toIso8601String(),
         'status': status,
         'kycId': kycId,
@@ -152,6 +155,7 @@ class EmployeeKycConfig {
       accountNumber: json['accountNumber']?.toString() ?? '',
       ifscCode: json['ifscCode']?.toString() ?? '',
       bankChequePath: json['bankChequePath']?.toString() ?? '',
+      degreePaths: _stringList(json['degreePaths'] ?? json['degree_paths']),
       configuredAt: DateTime.tryParse('${json['savedAt']}') ??
           DateTime.tryParse('${json['configuredAt']}') ??
           DateTime.now(),
@@ -193,6 +197,7 @@ class EmployeeKycConfig {
       accountNumber: accountNumber,
       ifscCode: ifscCode,
       bankChequePath: bankChequePath,
+      degreePaths: degreePaths,
       configuredAt: configuredAt,
       status: status ?? this.status,
       kycId: kycId ?? this.kycId,
@@ -265,4 +270,18 @@ class EmployeeKycStore extends ChangeNotifier {
     }
     return null;
   }
+}
+
+List<String> _stringList(dynamic value) {
+  if (value == null) return const [];
+  if (value is String) {
+    final t = value.trim();
+    return t.isEmpty ? const [] : [t];
+  }
+  if (value is! List) return const [];
+  return [
+    for (final item in value)
+      if (item != null && item.toString().trim().isNotEmpty)
+        item.toString().trim(),
+  ];
 }

@@ -29,9 +29,20 @@ class _AddEmployeeScreenState extends State<AddEmployeeScreen> {
   final _passwordController = TextEditingController();
   final _salaryController = TextEditingController();
   final _leaveController = TextEditingController();
+  final _foodAmountController = TextEditingController();
+  final _stayAmountController = TextEditingController();
+
+  static const _foodTypeMess = 'company_mess';
+  static const _foodTypeAmount = 'amount';
+  static const _stayTypeHostel = 'company_hostel';
+  static const _stayTypeAmount = 'amount';
 
   bool _obscurePassword = true;
   bool _attendanceAllowed = true;
+  bool _foodAllowance = false;
+  bool _stayAllowance = false;
+  String _foodAllowanceType = _foodTypeMess;
+  String _stayAllowanceType = _stayTypeHostel;
   bool _isSaving = false;
   bool _isLoadingRoles = true;
   int? _selectedRoleId;
@@ -134,6 +145,8 @@ class _AddEmployeeScreenState extends State<AddEmployeeScreen> {
     _passwordController.dispose();
     _salaryController.dispose();
     _leaveController.dispose();
+    _foodAmountController.dispose();
+    _stayAmountController.dispose();
     super.dispose();
   }
 
@@ -263,6 +276,16 @@ class _AddEmployeeScreenState extends State<AddEmployeeScreen> {
         status: 'published',
         accessRoleIds: accessRoles,
         siteIds: siteIds,
+        foodAllowance: _foodAllowance,
+        foodAllowanceType: _foodAllowance ? _foodAllowanceType : '',
+        foodEmployeeAmount: _foodAllowance && _foodAllowanceType == _foodTypeAmount
+            ? _foodAmountController.text.trim()
+            : '',
+        stayAllowance: _stayAllowance,
+        stayAllowanceType: _stayAllowance ? _stayAllowanceType : '',
+        stayEmployeeAmount: _stayAllowance && _stayAllowanceType == _stayTypeAmount
+            ? _stayAmountController.text.trim()
+            : '',
       );
 
       if (!mounted) return;
@@ -462,6 +485,52 @@ class _AddEmployeeScreenState extends State<AddEmployeeScreen> {
           ),
           const SizedBox(height: 16),
           _buildAttendanceField(),
+          const SizedBox(height: 16),
+          _buildAllowanceField(
+            title: 'Food Allowance',
+            enabled: _foodAllowance,
+            onEnabled: (v) => setState(() {
+              _foodAllowance = v;
+              if (!v) {
+                _foodAmountController.clear();
+                _foodAllowanceType = _foodTypeMess;
+              }
+            }),
+            typeValue: _foodAllowanceType,
+            typeOptions: const [
+              (_foodTypeMess, 'Company Mess'),
+              (_foodTypeAmount, 'Amount'),
+            ],
+            onType: (v) => setState(() {
+              _foodAllowanceType = v;
+              if (v != _foodTypeAmount) _foodAmountController.clear();
+            }),
+            amountCtrl: _foodAmountController,
+            showAmount: _foodAllowance && _foodAllowanceType == _foodTypeAmount,
+          ),
+          const SizedBox(height: 16),
+          _buildAllowanceField(
+            title: 'Stay Allowance',
+            enabled: _stayAllowance,
+            onEnabled: (v) => setState(() {
+              _stayAllowance = v;
+              if (!v) {
+                _stayAmountController.clear();
+                _stayAllowanceType = _stayTypeHostel;
+              }
+            }),
+            typeValue: _stayAllowanceType,
+            typeOptions: const [
+              (_stayTypeHostel, 'Company Hostel'),
+              (_stayTypeAmount, 'Amount'),
+            ],
+            onType: (v) => setState(() {
+              _stayAllowanceType = v;
+              if (v != _stayTypeAmount) _stayAmountController.clear();
+            }),
+            amountCtrl: _stayAmountController,
+            showAmount: _stayAllowance && _stayAllowanceType == _stayTypeAmount,
+          ),
         ],
       ),
     );
@@ -984,17 +1053,93 @@ class _AddEmployeeScreenState extends State<AddEmployeeScreen> {
         const SizedBox(height: 10),
         Row(
           children: [
-            _attendanceChip('Yes', true),
+            _choiceChip(
+              'Yes',
+              _attendanceAllowed,
+              () => setState(() => _attendanceAllowed = true),
+            ),
             const SizedBox(width: 10),
-            _attendanceChip('No', false),
+            _choiceChip(
+              'No',
+              !_attendanceAllowed,
+              () => setState(() => _attendanceAllowed = false),
+            ),
           ],
         ),
       ],
     );
   }
 
-  Widget _attendanceChip(String label, bool value) {
-    final selected = _attendanceAllowed == value;
+  Widget _buildAllowanceField({
+    required String title,
+    required bool enabled,
+    required ValueChanged<bool> onEnabled,
+    required String typeValue,
+    required List<(String value, String label)> typeOptions,
+    required ValueChanged<String> onType,
+    required TextEditingController amountCtrl,
+    required bool showAmount,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          title,
+          style: GoogleFonts.poppins(
+            color: AppColors.textDark,
+            fontSize: 13,
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+        const SizedBox(height: 10),
+        Row(
+          children: [
+            _choiceChip('Yes', enabled, () => onEnabled(true)),
+            const SizedBox(width: 10),
+            _choiceChip('No', !enabled, () => onEnabled(false)),
+          ],
+        ),
+        if (enabled) ...[
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              for (var i = 0; i < typeOptions.length; i++) ...[
+                if (i > 0) const SizedBox(width: 10),
+                _choiceChip(
+                  typeOptions[i].$2,
+                  typeValue == typeOptions[i].$1,
+                  () => onType(typeOptions[i].$1),
+                ),
+              ],
+            ],
+          ),
+          if (showAmount) ...[
+            const SizedBox(height: 12),
+            _buildTextField(
+              isRequired: true,
+              label: 'Amount',
+              controller: amountCtrl,
+              hint: '0.00',
+              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              inputFormatters: [
+                FilteringTextInputFormatter.allow(RegExp(r'[0-9.]')),
+              ],
+              validator: (value) {
+                if (!showAmount) return null;
+                final t = (value ?? '').trim();
+                if (t.isEmpty) return 'Enter amount';
+                final n = double.tryParse(t);
+                if (n == null || n <= 0) return 'Enter a valid amount';
+                return null;
+              },
+            ),
+          ],
+        ],
+      ],
+    );
+  }
+
+  Widget _choiceChip(String label, bool selected, VoidCallback onTap) {
     return Expanded(
       child: Material(
         color: selected
@@ -1002,7 +1147,7 @@ class _AddEmployeeScreenState extends State<AddEmployeeScreen> {
             : AppColors.operationsCardBg,
         borderRadius: BorderRadius.circular(8),
         child: InkWell(
-          onTap: () => setState(() => _attendanceAllowed = value),
+          onTap: onTap,
           borderRadius: BorderRadius.circular(8),
           child: Container(
             height: 44,

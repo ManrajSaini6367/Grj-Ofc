@@ -5,9 +5,7 @@ import 'package:grjoffice_apps/EmployeeListscreen/employee.dart';
 import 'package:grjoffice_apps/core/app_colors.dart';
 import 'package:grjoffice_apps/drawer/app_end_drawer.dart';
 import 'package:grjoffice_apps/drawer/drawer.dart';
-import 'package:grjoffice_apps/models/getcalendermodal.dart';
-import 'package:grjoffice_apps/models/getemployeemodal.dart';
-import 'package:grjoffice_apps/models/mykycdatamodal.dart';
+import 'package:grjoffice_apps/models/payoutmodal.dart';
 import 'package:grjoffice_apps/navigation/app_navigation.dart';
 import 'package:grjoffice_apps/payoutscreen/generate_salary_screen.dart';
 import 'package:grjoffice_apps/payoutscreen/salary_calculator.dart';
@@ -72,142 +70,57 @@ class _PayoutScreenState extends State<PayoutScreen> {
 
   Future<void> _loadPayouts() async {
     setState(() => _loading = true);
-    final response = await getEmployeesApi(
-      context,
-      perPage: 15,
-      fetchAllPages: true,
-    );
+    final response = await getPayoutsApi(context, month: _monthApi);
     if (!mounted) return;
-
-    final activeEmployees =
-        (response?.data?.items ?? const <EmployeeListItem>[])
-            .where((item) => item.isActiveStatus)
-            .map(_employeeFromApi)
-            .toList();
-    final kycByEmployee = await _loadKycRecords();
-    if (!mounted) return;
-
-    final rows = await Future.wait(
-      activeEmployees.map(
-        (employee) => _loadEmployeePayout(
-          employee,
-          _monthApi,
-          kycByEmployee[employee.employeeId],
+    final rows = [...(response?.data?.items ?? const <PayoutRow>[])]
+      ..sort(
+        (a, b) => (a.name ?? '').toLowerCase().compareTo(
+          (b.name ?? '').toLowerCase(),
         ),
-      ),
-    );
-    if (!mounted) return;
-    rows.sort(
-      (a, b) => a.employee.name.toLowerCase().compareTo(
-        b.employee.name.toLowerCase(),
-      ),
-    );
+      );
     setState(() {
-      _employees = rows;
+      _employees = rows.map(_fromRow).toList();
       _loading = false;
     });
   }
 
-  /// Pulls every KYC record for the site once and keys it by employee id.
-  ///
-  /// The per-employee endpoint takes a KYC record id, not an employee id, so
-  /// the list endpoint is both the correct and the cheaper source here.
-  Future<Map<int, MyKycModalData>> _loadKycRecords() async {
-    final byEmployee = <int, MyKycModalData>{};
-    var page = 1;
-    while (true) {
-      final response = await getMyEmployeeKycRequestApi(
-        context,
-        perPage: 50,
-        page: page,
-      );
-      if (!mounted) break;
-      final items = response?.items ?? const <MyKycModalData>[];
-      for (final item in items) {
-        final id = int.tryParse(item.employeeId ?? '');
-        if (id != null) byEmployee[id] = item;
-      }
-      final lastPage = response?.pagination?.lastPage ?? page;
-      if (items.isEmpty || page >= lastPage) break;
-      page++;
-    }
-    return byEmployee;
-  }
-
-  Future<_PayoutEmployee> _loadEmployeePayout(
-    Employee employee,
-    String month,
-    MyKycModalData? kyc,
-  ) async {
-    final employeeId = employee.employeeId;
-    if (employeeId == null) {
-      return _PayoutEmployee(
-        employee: employee,
-        monthDays: DateUtils.getDaysInMonth(_month.year, _month.month),
-        monthlySalary: _salaryFromKyc(kyc) ?? _salaryOf(employee.monthlySalary),
-        kyc: kyc,
-      );
-    }
-
-    final calendar = await getAttendanceCalendarApi(
-      context,
-      month: month,
-      userId: employeeId,
-      showErrors: false,
-    );
-    final days = calendar?.data?.days ?? const [];
-    final today = DateTime.now();
-    final presentDays = days
-        .where((day) => day.status == CalendarDayStatus.present)
-        .length;
-    final absentDays = days.where((day) {
-      final date = day.date;
-      return day.status == CalendarDayStatus.absent &&
-          date != null &&
-          !date.isAfter(DateTime(today.year, today.month, today.day));
-    }).length;
-    final leaveDays = days
-        .where((day) => day.status == CalendarDayStatus.leave)
-        .length;
-
+  _PayoutEmployee _fromRow(PayoutRow row) {
+    final name = row.name?.trim().isNotEmpty == true
+        ? row.name!.trim()
+        : 'Employee';
     return _PayoutEmployee(
-      employee: employee,
-      monthDays: DateUtils.getDaysInMonth(_month.year, _month.month),
-      presentDays: presentDays,
-      absentDays: absentDays,
-      leaveDays: leaveDays,
-      monthlySalary: _salaryFromKyc(kyc) ?? _salaryOf(employee.monthlySalary),
-      kyc: kyc,
+      employee: Employee(
+        id: row.username?.trim().isNotEmpty == true
+            ? row.username!.trim()
+            : (row.employeeId?.toString() ?? '-'),
+        employeeId: row.employeeId,
+        name: name,
+        role: row.designation?.trim().isNotEmpty == true
+            ? row.designation!.trim()
+            : 'Employee',
+        site: selectedSiteName() ?? 'Assigned site',
+        dateOfJoin: DateTime.tryParse(row.dateOfJoin ?? ''),
+        monthlySalary: row.monthlySalary?.toString(),
+        leaveAllocation: row.leaveAllocation,
+      ),
+      monthDays:
+          row.monthDays ?? DateUtils.getDaysInMonth(_month.year, _month.month),
+      presentDays: row.presentDays,
+      absentDays: row.absentDays,
+      leaveDays: row.leaveDays,
+      holidayDays: row.holidayDays,
+      monthlySalary: row.package ?? row.monthlySalary,
+      payableDaysOverride: row.payableDays,
+      earnedGross: row.earnedGross,
+      totalDeduction: row.totalDeduction,
+      netPayable: row.netPayable,
+      stayAllowanceType: row.stayAllowanceType,
+      foodAllowanceType: row.foodAllowanceType,
+      foodCompanyAmount: row.foodCompanyAmount,
+      foodEmployeeAmount: row.foodEmployeeAmount,
+      bankName: row.bankName,
+      accountNumber: row.accountNumber,
     );
-  }
-
-  Employee _employeeFromApi(EmployeeListItem item) {
-    final fullName = item.name?.trim().isNotEmpty == true
-        ? item.name!.trim()
-        : '${item.firstName ?? ''} ${item.lastName ?? ''}'.trim();
-    return Employee(
-      id: item.username?.trim().isNotEmpty == true
-          ? item.username!.trim()
-          : (item.id?.toString() ?? '-'),
-      employeeId: item.id,
-      name: fullName.isEmpty ? 'Employee' : fullName,
-      role: item.designation?.trim().isNotEmpty == true
-          ? item.designation!.trim()
-          : 'Employee',
-      site: selectedSiteName() ?? 'Assigned site',
-      dateOfJoin: item.dateOfJoin,
-      monthlySalary: item.monthlySalary,
-    );
-  }
-
-  double? _salaryFromKyc(MyKycModalData? kyc) => _salaryOf(kyc?.monthlySalary);
-
-  /// The API sends salary as a formatted string, so strip everything but the
-  /// digits before parsing.
-  double? _salaryOf(String? raw) {
-    final value = raw?.replaceAll(RegExp(r'[^0-9.]'), '') ?? '';
-    final parsed = double.tryParse(value);
-    return (parsed == null || parsed <= 0) ? null : parsed;
   }
 
   List<_PayoutEmployee> get _filteredEmployees {
@@ -226,17 +139,18 @@ class _PayoutScreenState extends State<PayoutScreen> {
 
   double get _totalGross => _employees.fold<double>(
     0,
-    (sum, entry) => sum + (entry.breakdown?.earnedGross ?? 0),
+    (sum, entry) => sum + (entry.earnedGross ?? entry.breakdown?.earnedGross ?? 0),
   );
 
   double get _totalDeduction => _employees.fold<double>(
     0,
-    (sum, entry) => sum + (entry.breakdown?.totalDeduction ?? 0),
+    (sum, entry) =>
+        sum + (entry.totalDeduction ?? entry.breakdown?.totalDeduction ?? 0),
   );
 
   double get _totalNet => _employees.fold<double>(
     0,
-    (sum, entry) => sum + (entry.breakdown?.netPayable ?? 0),
+    (sum, entry) => sum + (entry.netPayable ?? entry.breakdown?.netPayable ?? 0),
   );
 
   double _hPad(BuildContext context) {
@@ -651,7 +565,7 @@ class _PayoutScreenState extends State<PayoutScreen> {
                         ),
                         const SizedBox(width: 8),
                         Text(
-                          _money(entry.breakdown?.netPayable),
+                          _money(entry.netPayable ?? entry.breakdown?.netPayable),
                           style: GoogleFonts.poppins(
                             fontSize: 14,
                             fontWeight: FontWeight.w700,
@@ -709,7 +623,7 @@ class _PayoutScreenState extends State<PayoutScreen> {
   /// salary register columns.
   Widget _buildSalaryLine(_PayoutEmployee entry) {
     final breakdown = entry.breakdown;
-    if (breakdown == null) {
+    if (breakdown == null && entry.monthlySalary == null) {
       return Text(
         'Salary package not set',
         style: GoogleFonts.poppins(
@@ -721,9 +635,9 @@ class _PayoutScreenState extends State<PayoutScreen> {
     }
     final parts = <String>[
       'Package ${_money(entry.monthlySalary)}',
-      'Gross ${_money(breakdown.earnedGross)}',
-      if (breakdown.totalDeduction > 0)
-        'Deduction ${_money(breakdown.totalDeduction)}',
+      'Gross ${_money(entry.earnedGross ?? breakdown?.earnedGross)}',
+      if ((entry.totalDeduction ?? breakdown?.totalDeduction ?? 0) > 0)
+        'Deduction ${_money(entry.totalDeduction ?? breakdown?.totalDeduction)}',
     ];
     return Text(
       parts.join('  ·  '),
@@ -801,14 +715,22 @@ class _PayoutScreenState extends State<PayoutScreen> {
         builder: (_) => GenerateSalaryScreen(
           employee: entry.employee,
           month: _month,
-          kyc: entry.kyc,
           monthlySalary: entry.monthlySalary,
           presentDays: entry.presentDays,
           leaveDays: entry.leaveDays,
+          holidayDays: entry.holidayDays,
           absentDays: entry.absentDays,
+          stayAllowanceType: entry.stayAllowanceType,
+          foodAllowanceType: entry.foodAllowanceType,
+          foodCompanyAmount: entry.foodCompanyAmount,
+          foodEmployeeAmount: entry.foodEmployeeAmount,
+          bankName: entry.bankName,
+          accountNumber: entry.accountNumber,
         ),
       ),
-    );
+    ).then((_) {
+      if (mounted) _loadPayouts();
+    });
   }
 
   String _money(double? amount) {
@@ -872,8 +794,18 @@ class _PayoutEmployee {
     this.presentDays,
     this.absentDays,
     this.leaveDays,
+    this.holidayDays,
     this.monthlySalary,
-    this.kyc,
+    this.payableDaysOverride,
+    this.earnedGross,
+    this.totalDeduction,
+    this.netPayable,
+    this.stayAllowanceType,
+    this.foodAllowanceType,
+    this.foodCompanyAmount,
+    this.foodEmployeeAmount,
+    this.bankName,
+    this.accountNumber,
   });
 
   final Employee employee;
@@ -881,8 +813,18 @@ class _PayoutEmployee {
   final int? presentDays;
   final int? absentDays;
   final int? leaveDays;
+  final int? holidayDays;
   final double? monthlySalary;
-  final MyKycModalData? kyc;
+  final double? payableDaysOverride;
+  final double? earnedGross;
+  final double? totalDeduction;
+  final double? netPayable;
+  final String? stayAllowanceType;
+  final String? foodAllowanceType;
+  final double? foodCompanyAmount;
+  final double? foodEmployeeAmount;
+  final String? bankName;
+  final String? accountNumber;
 
   int get attendanceTotal => (presentDays ?? 0) + (absentDays ?? 0);
 
@@ -891,9 +833,10 @@ class _PayoutEmployee {
     return (presentDays ?? 0) / attendanceTotal;
   }
 
-  /// Present days plus paid leave, the same default the salary sheet uses.
+  /// Present + paid leave + holidays, matching the salary sheet default.
   double get payableDays =>
-      ((presentDays ?? 0) + (leaveDays ?? 0)).toDouble();
+      payableDaysOverride ??
+      ((presentDays ?? 0) + (leaveDays ?? 0) + (holidayDays ?? 0)).toDouble();
 
   /// Register figures for this employee, or null when no package is on record.
   SalaryBreakdown? get breakdown {

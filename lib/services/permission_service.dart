@@ -60,6 +60,10 @@ class AppPermissions {
   static const usersCreate = 'add_users';
   static const usersBlock = 'block_users';
 
+  // Payout / salary
+  static const payoutsView = 'view_payouts';
+  static const payoutsCreate = 'add_payouts';
+
   // Reports / other
   static const viewBackend = 'view_backend';
   static const viewAttendances = 'view_attendances';

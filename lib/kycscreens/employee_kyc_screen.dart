@@ -41,10 +41,8 @@ class _EmployeeKycScreenState extends State<EmployeeKycScreen> {
     'KYC Summary',
   ];
 
-  static const _foodTypeMess = 'company_mess';
-  static const _foodTypeAmount = 'amount';
-  static const _stayTypeHostel = 'company_hostel';
-  static const _stayTypeAmount = 'amount';
+  static const _employmentTypes = ['Full-Time', 'Part-Time', 'Contract'];
+  static const _maxDegreePhotos = 10;
 
   final _scaffoldKey = GlobalKey<ScaffoldState>();
   final _detailsKey = GlobalKey<FormState>();
@@ -52,14 +50,10 @@ class _EmployeeKycScreenState extends State<EmployeeKycScreen> {
   final _pageController = PageController();
   final _store = EmployeeKycStore.instance;
 
-  static const _employmentTypes = ['Full-Time', 'Part-Time', 'Contract'];
-
   final _employeeIdCtrl = TextEditingController();
   final _emailCtrl = TextEditingController();
   final _phoneCtrl = TextEditingController();
   final _assignedSiteCtrl = TextEditingController();
-  final _foodAmountCtrl = TextEditingController();
-  final _stayAmountCtrl = TextEditingController();
   final _accountHolderCtrl = TextEditingController();
   final _bankNameCtrl = TextEditingController();
   final _accountNumberCtrl = TextEditingController();
@@ -69,10 +63,6 @@ class _EmployeeKycScreenState extends State<EmployeeKycScreen> {
   int _stepIndex = 0;
   bool _saving = false;
   bool _saved = false;
-  bool _foodAllowance = false;
-  bool _stayAllowance = false;
-  String _foodAllowanceType = _foodTypeMess;
-  String _stayAllowanceType = _stayTypeHostel;
   String _employmentType = 'Full-Time';
   DateTime? _joiningDate;
   List<SiteModel> _assignedSites = [];
@@ -84,6 +74,7 @@ class _EmployeeKycScreenState extends State<EmployeeKycScreen> {
   File? _marksheet10;
   File? _marksheet12;
   File? _bankCheque;
+  final List<File> _degreePhotos = [];
 
   bool get _isLastStep => _stepIndex == _stepTitles.length - 1;
   double get _progress => (_stepIndex + 1) / _stepTitles.length;
@@ -108,8 +99,6 @@ class _EmployeeKycScreenState extends State<EmployeeKycScreen> {
     );
     _applyAssignedSites(cachedSites() ?? const [], notify: false);
     _joiningDate = _parseJoinDate(cachedUser()?.dateOfJoin);
-    _foodAmountCtrl.addListener(_onAmountChanged);
-    _stayAmountCtrl.addListener(_onAmountChanged);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) _loadInitialData();
     });
@@ -164,25 +153,6 @@ class _EmployeeKycScreenState extends State<EmployeeKycScreen> {
         ? employment
         : _employmentType;
 
-    if (kyc.foodAllowance) {
-      final foodType = (kyc.foodAllowanceType ?? '').trim();
-      _foodAllowanceType = foodType == _foodTypeAmount
-          ? _foodTypeAmount
-          : _foodTypeMess;
-      if (_foodAllowanceType == _foodTypeAmount) {
-        _foodAmountCtrl.text = (kyc.foodEmployeeAmount ?? '').trim();
-      }
-    }
-    if (kyc.stayAllowance) {
-      final stayType = (kyc.stayAllowanceType ?? '').trim();
-      _stayAllowanceType = stayType == _stayTypeAmount
-          ? _stayTypeAmount
-          : _stayTypeHostel;
-      if (_stayAllowanceType == _stayTypeAmount) {
-        _stayAmountCtrl.text = (kyc.stayEmployeeAmount ?? '').trim();
-      }
-    }
-
     int? siteId = kyc.siteId;
     if ((siteId == null || siteId <= 0) &&
         (kyc.assignedSite ?? '').trim().isNotEmpty) {
@@ -201,8 +171,6 @@ class _EmployeeKycScreenState extends State<EmployeeKycScreen> {
     setState(() {
       _joiningDate = joining ?? _joiningDate;
       _employmentType = type;
-      _foodAllowance = kyc.foodAllowance;
-      _stayAllowance = kyc.stayAllowance;
     });
   }
 
@@ -303,10 +271,6 @@ class _EmployeeKycScreenState extends State<EmployeeKycScreen> {
     return DateFormat('dd MMM yyyy').format(date);
   }
 
-  void _onAmountChanged() {
-    if (mounted) setState(() {});
-  }
-
   @override
   void dispose() {
     _pageController.dispose();
@@ -314,10 +278,6 @@ class _EmployeeKycScreenState extends State<EmployeeKycScreen> {
     _emailCtrl.dispose();
     _phoneCtrl.dispose();
     _assignedSiteCtrl.dispose();
-    _foodAmountCtrl.removeListener(_onAmountChanged);
-    _stayAmountCtrl.removeListener(_onAmountChanged);
-    _foodAmountCtrl.dispose();
-    _stayAmountCtrl.dispose();
     _accountHolderCtrl.dispose();
     _bankNameCtrl.dispose();
     _accountNumberCtrl.dispose();
@@ -409,18 +369,6 @@ class _EmployeeKycScreenState extends State<EmployeeKycScreen> {
       _snack('Please enter a 10-digit phone number.');
       return false;
     }
-    if (_foodAllowance &&
-        _foodAllowanceType == _foodTypeAmount &&
-        (double.tryParse(_foodAmountCtrl.text.trim()) ?? 0) <= 0) {
-      _snack('Please enter food allowance amount.');
-      return false;
-    }
-    if (_stayAllowance &&
-        _stayAllowanceType == _stayTypeAmount &&
-        (double.tryParse(_stayAmountCtrl.text.trim()) ?? 0) <= 0) {
-      _snack('Please enter stay allowance amount.');
-      return false;
-    }
     return true;
   }
 
@@ -467,6 +415,24 @@ class _EmployeeKycScreenState extends State<EmployeeKycScreen> {
     if (file == null || !mounted) return;
     setState(() {
       assign(file);
+      _saved = false;
+    });
+  }
+
+  Future<void> _pickDegree({required bool fromCamera}) async {
+    if (_degreePhotos.length >= _maxDegreePhotos) {
+      _snack('You can upload up to $_maxDegreePhotos degree photos.');
+      return;
+    }
+    final file = await pickPurchaseImageFile(
+      context,
+      title: 'Degree Photo',
+      documentGuide: fromCamera,
+      fromCamera: fromCamera,
+    );
+    if (file == null || !mounted) return;
+    setState(() {
+      _degreePhotos.add(file);
       _saved = false;
     });
   }
@@ -551,16 +517,6 @@ class _EmployeeKycScreenState extends State<EmployeeKycScreen> {
       siteId: siteId,
       employmentType: _employmentType,
       joiningDate: _formatJoinDateApi(_joiningDate),
-      foodAllowance: _foodAllowance,
-      foodAllowanceType: _foodAllowance ? _foodAllowanceType : '',
-      foodEmployeeAmount: _foodAllowance && _foodAllowanceType == _foodTypeAmount
-          ? _foodAmountCtrl.text.trim()
-          : '',
-      stayAllowance: _stayAllowance,
-      stayAllowanceType: _stayAllowance ? _stayAllowanceType : '',
-      stayEmployeeAmount: _stayAllowance && _stayAllowanceType == _stayTypeAmount
-          ? _stayAmountCtrl.text.trim()
-          : '',
       emergencyContact: _emergencyCtrl.text.trim(),
       accountHolderName: _accountHolderCtrl.text.trim(),
       bankName: _bankNameCtrl.text.trim(),
@@ -572,6 +528,7 @@ class _EmployeeKycScreenState extends State<EmployeeKycScreen> {
       marksheet10: marksheet10,
       marksheet12: marksheet12,
       bankCheque: bankCheque,
+      degreePhotos: List<File>.from(_degreePhotos),
     );
     if (!mounted) return;
     if (!ok) {
@@ -590,16 +547,8 @@ class _EmployeeKycScreenState extends State<EmployeeKycScreen> {
         assignedSite: _assignedSiteCtrl.text.trim(),
         employmentType: _employmentType,
         joiningDate: _formatJoinDate(_joiningDate),
-        foodAllowance: _foodAllowance,
-        foodAllowanceType: _foodAllowance ? _foodAllowanceType : '',
-        foodEmployeeAmount: _foodAllowance && _foodAllowanceType == _foodTypeAmount
-            ? _foodAmountCtrl.text.trim()
-            : '',
-        stayAllowance: _stayAllowance,
-        stayAllowanceType: _stayAllowance ? _stayAllowanceType : '',
-        stayEmployeeAmount: _stayAllowance && _stayAllowanceType == _stayTypeAmount
-            ? _stayAmountCtrl.text.trim()
-            : '',
+        foodAllowance: false,
+        stayAllowance: false,
         accountHolderName: _accountHolderCtrl.text.trim(),
         bankName: _bankNameCtrl.text.trim(),
         accountNumber: _accountNumberCtrl.text.trim(),
@@ -611,6 +560,7 @@ class _EmployeeKycScreenState extends State<EmployeeKycScreen> {
         marksheet10Path: marksheet10.path,
         marksheet12Path: marksheet12.path,
         bankChequePath: bankCheque.path,
+        degreePaths: _degreePhotos.map((f) => f.path).toList(),
         configuredAt: DateTime.now(),
       ),
     );
@@ -681,55 +631,11 @@ class _EmployeeKycScreenState extends State<EmployeeKycScreen> {
                           phoneCtrl: _phoneCtrl,
                           employmentType: _employmentType,
                           employmentTypes: _employmentTypes,
-                          foodAllowance: _foodAllowance,
-                          foodAllowanceType: _foodAllowanceType,
-                          stayAllowance: _stayAllowance,
-                          stayAllowanceType: _stayAllowanceType,
-                          foodAmountCtrl: _foodAmountCtrl,
-                          stayAmountCtrl: _stayAmountCtrl,
                           decoration: _decoration,
                           onEmploymentTypeChanged: (v) {
                             setState(() {
                               _employmentType = v;
                               _saved = false;
-                            });
-                          },
-                          onFoodChanged: (v) {
-                            setState(() {
-                              _foodAllowance = v;
-                              _saved = false;
-                              if (!v) {
-                                _foodAmountCtrl.clear();
-                                _foodAllowanceType = _foodTypeMess;
-                              }
-                            });
-                          },
-                          onFoodTypeChanged: (v) {
-                            setState(() {
-                              _foodAllowanceType = v;
-                              _saved = false;
-                              if (v != _foodTypeAmount) {
-                                _foodAmountCtrl.clear();
-                              }
-                            });
-                          },
-                          onStayChanged: (v) {
-                            setState(() {
-                              _stayAllowance = v;
-                              _saved = false;
-                              if (!v) {
-                                _stayAmountCtrl.clear();
-                                _stayAllowanceType = _stayTypeHostel;
-                              }
-                            });
-                          },
-                          onStayTypeChanged: (v) {
-                            setState(() {
-                              _stayAllowanceType = v;
-                              _saved = false;
-                              if (v != _stayTypeAmount) {
-                                _stayAmountCtrl.clear();
-                              }
                             });
                           },
                         ),
@@ -749,6 +655,7 @@ class _EmployeeKycScreenState extends State<EmployeeKycScreen> {
                           marksheet10: _marksheet10,
                           marksheet12: _marksheet12,
                           bankCheque: _bankCheque,
+                          degreePhotos: _degreePhotos,
                           decoration: _decoration,
                           onPanCamera: () => _pickDoc(
                             (f) => _panCard = f,
@@ -810,6 +717,14 @@ class _EmployeeKycScreenState extends State<EmployeeKycScreen> {
                             title: 'Cancelled Cheque',
                             fromCamera: false,
                           ),
+                          onDegreeCamera: () => _pickDegree(fromCamera: true),
+                          onDegreeGallery: () => _pickDegree(fromCamera: false),
+                          onRemoveDegree: (i) {
+                            setState(() {
+                              _degreePhotos.removeAt(i);
+                              _saved = false;
+                            });
+                          },
                         ),
                       ),
                       _SummaryStep(
@@ -819,12 +734,6 @@ class _EmployeeKycScreenState extends State<EmployeeKycScreen> {
                         assignedSite: _assignedSiteCtrl.text.trim(),
                         employmentType: _employmentType,
                         joiningDate: _formatJoinDate(_joiningDate),
-                        foodAllowance: _foodAllowance,
-                        foodAllowanceType: _foodAllowanceType,
-                        foodEmployeeAmount: _foodAmountCtrl.text.trim(),
-                        stayAllowance: _stayAllowance,
-                        stayAllowanceType: _stayAllowanceType,
-                        stayEmployeeAmount: _stayAmountCtrl.text.trim(),
                         accountHolderName: _accountHolderCtrl.text.trim(),
                         bankName: _bankNameCtrl.text.trim(),
                         accountNumber: _accountNumberCtrl.text.trim(),
@@ -836,6 +745,7 @@ class _EmployeeKycScreenState extends State<EmployeeKycScreen> {
                         marksheet10: _marksheet10,
                         marksheet12: _marksheet12,
                         bankCheque: _bankCheque,
+                        degreePhotos: _degreePhotos,
                         saved: _saved,
                       ),
                     ],
@@ -947,18 +857,8 @@ class _DetailsStep extends StatelessWidget {
     required this.phoneCtrl,
     required this.employmentType,
     required this.employmentTypes,
-    required this.foodAllowance,
-    required this.foodAllowanceType,
-    required this.stayAllowance,
-    required this.stayAllowanceType,
-    required this.foodAmountCtrl,
-    required this.stayAmountCtrl,
     required this.decoration,
     required this.onEmploymentTypeChanged,
-    required this.onFoodChanged,
-    required this.onFoodTypeChanged,
-    required this.onStayChanged,
-    required this.onStayTypeChanged,
   });
 
   final double hPad;
@@ -966,12 +866,6 @@ class _DetailsStep extends StatelessWidget {
   final TextEditingController phoneCtrl;
   final String employmentType;
   final List<String> employmentTypes;
-  final bool foodAllowance;
-  final String foodAllowanceType;
-  final bool stayAllowance;
-  final String stayAllowanceType;
-  final TextEditingController foodAmountCtrl;
-  final TextEditingController stayAmountCtrl;
   final InputDecoration Function(
     String, {
     String? hint,
@@ -979,10 +873,6 @@ class _DetailsStep extends StatelessWidget {
     bool isRequired,
   }) decoration;
   final ValueChanged<String> onEmploymentTypeChanged;
-  final ValueChanged<bool> onFoodChanged;
-  final ValueChanged<String> onFoodTypeChanged;
-  final ValueChanged<bool> onStayChanged;
-  final ValueChanged<String> onStayTypeChanged;
 
   @override
   Widget build(BuildContext context) {
@@ -1053,40 +943,6 @@ class _DetailsStep extends StatelessWidget {
               ),
             ],
           ),
-        ),
-        const SizedBox(height: 14),
-        _AllowanceCard(
-          icon: Icons.restaurant_outlined,
-          title: 'Food Allowance',
-          subtitle: 'Select Yes if food allowance is applicable.',
-          enabled: foodAllowance,
-          onChanged: onFoodChanged,
-          typeValue: foodAllowanceType,
-          typeOptions: const [
-            ('company_mess', 'Company Mess'),
-            ('amount', 'Amount'),
-          ],
-          onTypeChanged: onFoodTypeChanged,
-          amountCtrl: foodAmountCtrl,
-          amountLabel: 'Amount',
-          showAmount: foodAllowanceType == 'amount',
-        ),
-        const SizedBox(height: 14),
-        _AllowanceCard(
-          icon: Icons.home_work_outlined,
-          title: 'Stay Allowance',
-          subtitle: 'Select Yes if stay allowance is applicable.',
-          enabled: stayAllowance,
-          onChanged: onStayChanged,
-          typeValue: stayAllowanceType,
-          typeOptions: const [
-            ('company_hostel', 'Company Hostel'),
-            ('amount', 'Amount'),
-          ],
-          onTypeChanged: onStayTypeChanged,
-          amountCtrl: stayAmountCtrl,
-          amountLabel: 'Amount',
-          showAmount: stayAllowanceType == 'amount',
         ),
       ],
     );
@@ -1173,191 +1029,16 @@ class _SectionCard extends StatelessWidget {
   }
 }
 
-class _AllowanceCard extends StatelessWidget {
-  const _AllowanceCard({
-    required this.icon,
-    required this.title,
-    required this.subtitle,
-    required this.enabled,
-    required this.onChanged,
-    required this.typeValue,
-    required this.typeOptions,
-    required this.onTypeChanged,
-    required this.amountCtrl,
-    required this.amountLabel,
-    required this.showAmount,
-  });
-
-  final IconData icon;
-  final String title;
-  final String subtitle;
-  final bool enabled;
-  final ValueChanged<bool> onChanged;
-  final String typeValue;
-  final List<(String value, String label)> typeOptions;
-  final ValueChanged<String> onTypeChanged;
-  final TextEditingController amountCtrl;
-  final String amountLabel;
-  final bool showAmount;
-
-  String? _amountValidator(String? value) {
-    if (!enabled || !showAmount) return null;
-    final t = (value ?? '').trim();
-    if (t.isEmpty) return 'Enter amount';
-    final n = double.tryParse(t);
-    if (n == null || n <= 0) return 'Enter a valid amount';
-    return null;
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return _SectionCard(
-      icon: icon,
-      title: title,
-      subtitle: subtitle,
-      child: Column(
-        children: [
-          _YesNoToggle(value: enabled, onChanged: onChanged),
-          if (enabled) ...[
-            const SizedBox(height: 16),
-            _EmploymentTypeToggle(
-              value: typeValue,
-              options: typeOptions.map((e) => e.$1).toList(),
-              labels: {
-                for (final e in typeOptions) e.$1: e.$2,
-              },
-              onChanged: onTypeChanged,
-            ),
-            if (showAmount) ...[
-              const SizedBox(height: 16),
-              _AmountField(
-                controller: amountCtrl,
-                label: amountLabel,
-                hint: '0.00',
-                readOnly: false,
-                isRequired: enabled && showAmount,
-                validator: _amountValidator,
-              ),
-            ],
-          ],
-        ],
-      ),
-    );
-  }
-}
-
-class _AmountField extends StatelessWidget {
-  const _AmountField({
-    required this.controller,
-    required this.label,
-    required this.hint,
-    required this.readOnly,
-    this.isRequired = false,
-    this.validator,
-  });
-
-  final TextEditingController controller;
-  final String label;
-  final String hint;
-  final bool readOnly;
-  final bool isRequired;
-  final String? Function(String?)? validator;
-
-  @override
-  Widget build(BuildContext context) {
-    final hasValue = controller.text.trim().isNotEmpty;
-    final rupeeColor = hasValue
-        ? const Color(0xFF059669)
-        : AppColors.textSecondary;
-    final labelStyle = GoogleFonts.poppins(
-      fontSize: 13,
-      fontWeight: FontWeight.w500,
-      color: AppColors.textSecondary,
-    );
-
-    return TextFormField(
-      controller: controller,
-      readOnly: readOnly,
-      canRequestFocus: !readOnly,
-      enableInteractiveSelection: !readOnly,
-      mouseCursor: readOnly ? SystemMouseCursors.basic : null,
-      keyboardType: readOnly
-          ? TextInputType.none
-          : const TextInputType.numberWithOptions(decimal: true),
-      inputFormatters: readOnly
-          ? const []
-          : [FilteringTextInputFormatter.allow(RegExp(r'[0-9.]'))],
-      validator: validator,
-      style: GoogleFonts.poppins(
-        fontSize: 14.5,
-        fontWeight: FontWeight.w700,
-        color: AppColors.headingBlack,
-      ),
-      decoration: InputDecoration(
-        label: inputDecorationLabel(
-          label,
-          style: labelStyle,
-          isRequired: isRequired,
-        ),
-        hintText: hint,
-        prefixIcon: Padding(
-          padding: const EdgeInsets.only(left: 14, right: 6),
-          child: Text(
-            '₹',
-            style: GoogleFonts.poppins(
-              fontSize: 18,
-              fontWeight: FontWeight.w800,
-              color: rupeeColor,
-            ),
-          ),
-        ),
-        prefixIconConstraints: const BoxConstraints(minWidth: 0, minHeight: 0),
-        labelStyle: labelStyle,
-        hintStyle: GoogleFonts.poppins(fontSize: 13, color: AppColors.inputHint),
-        filled: true,
-        fillColor: readOnly ? const Color(0xFFEEF2F6) : const Color(0xFFF8F9FB),
-        contentPadding:
-            const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(14),
-          borderSide: BorderSide.none,
-        ),
-        enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(14),
-          borderSide: BorderSide(
-            color: AppColors.borderGray.withValues(alpha: 0.5),
-          ),
-        ),
-        focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(14),
-          borderSide: BorderSide(
-            color: readOnly
-                ? AppColors.borderGray.withValues(alpha: 0.5)
-                : AppColors.primaryRed,
-            width: readOnly ? 1 : 1.4,
-          ),
-        ),
-        errorBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(14),
-          borderSide: const BorderSide(color: Color(0xFFDC2626)),
-        ),
-      ),
-    );
-  }
-}
-
 class _EmploymentTypeToggle extends StatelessWidget {
   const _EmploymentTypeToggle({
     required this.value,
     required this.options,
     required this.onChanged,
-    this.labels,
   });
 
   final String value;
   final List<String> options;
   final ValueChanged<String> onChanged;
-  final Map<String, String>? labels;
 
   @override
   Widget build(BuildContext context) {
@@ -1365,7 +1046,6 @@ class _EmploymentTypeToggle extends StatelessWidget {
 
     Widget chip(String option) {
       final selected = option == value;
-      final label = labels?[option] ?? option;
       return Material(
         color: selected ? AppColors.primaryRed : Colors.transparent,
         borderRadius: BorderRadius.circular(11),
@@ -1375,7 +1055,7 @@ class _EmploymentTypeToggle extends StatelessWidget {
           child: Padding(
             padding: const EdgeInsets.symmetric(vertical: 10),
             child: Text(
-              label,
+              option,
               textAlign: TextAlign.center,
               style: GoogleFonts.poppins(
                 fontSize: 13,
@@ -1416,77 +1096,6 @@ class _EmploymentTypeToggle extends StatelessWidget {
   }
 }
 
-class _YesNoToggle extends StatelessWidget {
-  const _YesNoToggle({required this.value, required this.onChanged});
-
-  final bool value;
-  final ValueChanged<bool> onChanged;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      height: 48,
-      padding: const EdgeInsets.all(4),
-      decoration: BoxDecoration(
-        color: const Color(0xFFF3F4F6),
-        borderRadius: BorderRadius.circular(14),
-      ),
-      child: Row(
-        children: [
-          Expanded(
-            child: _ToggleItem(
-              label: 'Yes',
-              selected: value,
-              onTap: () => onChanged(true),
-            ),
-          ),
-          Expanded(
-            child: _ToggleItem(
-              label: 'No',
-              selected: !value,
-              onTap: () => onChanged(false),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _ToggleItem extends StatelessWidget {
-  const _ToggleItem({
-    required this.label,
-    required this.selected,
-    required this.onTap,
-  });
-
-  final String label;
-  final bool selected;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return Material(
-      color: selected ? AppColors.primaryRed : Colors.transparent,
-      borderRadius: BorderRadius.circular(11),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(11),
-        child: Center(
-          child: Text(
-            label,
-            style: GoogleFonts.poppins(
-              fontSize: 14,
-              fontWeight: FontWeight.w700,
-              color: selected ? AppColors.white : AppColors.headingBlack,
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
 class _DocumentsStep extends StatelessWidget {
   const _DocumentsStep({
     required this.hPad,
@@ -1501,6 +1110,7 @@ class _DocumentsStep extends StatelessWidget {
     required this.marksheet10,
     required this.marksheet12,
     required this.bankCheque,
+    required this.degreePhotos,
     required this.decoration,
     required this.onPanCamera,
     required this.onPanGallery,
@@ -1514,6 +1124,9 @@ class _DocumentsStep extends StatelessWidget {
     required this.onPick12Gallery,
     required this.onChequeCamera,
     required this.onChequeGallery,
+    required this.onDegreeCamera,
+    required this.onDegreeGallery,
+    required this.onRemoveDegree,
   });
 
   final double hPad;
@@ -1528,6 +1141,7 @@ class _DocumentsStep extends StatelessWidget {
   final File? marksheet10;
   final File? marksheet12;
   final File? bankCheque;
+  final List<File> degreePhotos;
   final InputDecoration Function(
     String, {
     String? hint,
@@ -1546,6 +1160,9 @@ class _DocumentsStep extends StatelessWidget {
   final VoidCallback onPick12Gallery;
   final VoidCallback onChequeCamera;
   final VoidCallback onChequeGallery;
+  final VoidCallback onDegreeCamera;
+  final VoidCallback onDegreeGallery;
+  final ValueChanged<int> onRemoveDegree;
 
   @override
   Widget build(BuildContext context) {
@@ -1596,7 +1213,7 @@ class _DocumentsStep extends StatelessWidget {
         _SectionCard(
           icon: Icons.menu_book_outlined,
           title: 'Education Documents',
-          subtitle: 'Upload 10th and 12th marksheets.',
+          subtitle: 'Upload 10th, 12th, and degree photos.',
           child: Column(
             children: [
               _DocUploadField(
@@ -1615,6 +1232,15 @@ class _DocumentsStep extends StatelessWidget {
                 onCamera: onPick12Camera,
                 onGallery: onPick12Gallery,
                 isRequired: true,
+              ),
+              const SizedBox(height: 12),
+              _MultiDocUploadField(
+                title: 'Degree Photo',
+                subtitle: 'Optional. You can add more than one photo.',
+                files: degreePhotos,
+                onCamera: onDegreeCamera,
+                onGallery: onDegreeGallery,
+                onRemove: onRemoveDegree,
               ),
             ],
           ),
@@ -1735,6 +1361,181 @@ class _UpperCaseTextFormatter extends TextInputFormatter {
     return newValue.copyWith(
       text: newValue.text.toUpperCase(),
       selection: newValue.selection,
+    );
+  }
+}
+
+class _MultiDocUploadField extends StatelessWidget {
+  const _MultiDocUploadField({
+    required this.title,
+    required this.subtitle,
+    required this.files,
+    required this.onCamera,
+    required this.onGallery,
+    required this.onRemove,
+  });
+
+  final String title;
+  final String subtitle;
+  final List<File> files;
+  final VoidCallback onCamera;
+  final VoidCallback onGallery;
+  final ValueChanged<int> onRemove;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF8F9FB),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(
+          color: files.isNotEmpty
+              ? AppColors.primaryRed.withValues(alpha: 0.35)
+              : AppColors.borderGray.withValues(alpha: 0.5),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          fieldLabelText(
+            title,
+            style: GoogleFonts.poppins(
+              fontSize: 13.5,
+              fontWeight: FontWeight.w700,
+              color: AppColors.headingBlack,
+            ),
+          ),
+          const SizedBox(height: 2),
+          Text(
+            subtitle,
+            style: GoogleFonts.poppins(
+              fontSize: 12,
+              color: AppColors.textSecondary,
+            ),
+          ),
+          if (files.isNotEmpty) ...[
+            const SizedBox(height: 10),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                for (var i = 0; i < files.length; i++)
+                  Stack(
+                    children: [
+                      GestureDetector(
+                        onTap: () {
+                          Navigator.of(context).push(
+                            MaterialPageRoute<void>(
+                              fullscreenDialog: true,
+                              builder: (_) => _ImagePreviewScreen(
+                                title: '$title ${i + 1}',
+                                file: files[i],
+                              ),
+                            ),
+                          );
+                        },
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(10),
+                          child: Image.file(
+                            files[i],
+                            width: 88,
+                            height: 88,
+                            fit: BoxFit.cover,
+                          ),
+                        ),
+                      ),
+                      Positioned(
+                        top: 4,
+                        right: 4,
+                        child: InkWell(
+                          onTap: () => onRemove(i),
+                          child: Container(
+                            padding: const EdgeInsets.all(2),
+                            decoration: const BoxDecoration(
+                              color: Colors.black54,
+                              shape: BoxShape.circle,
+                            ),
+                            child: const Icon(
+                              Icons.close,
+                              size: 14,
+                              color: Colors.white,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+              ],
+            ),
+          ],
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              Expanded(
+                child: SizedBox(
+                  height: 42,
+                  child: OutlinedButton.icon(
+                    onPressed: onCamera,
+                    icon: const Icon(
+                      Icons.photo_camera_outlined,
+                      size: 18,
+                      color: AppColors.primaryRed,
+                    ),
+                    label: Text(
+                      'Camera',
+                      style: GoogleFonts.poppins(
+                        fontWeight: FontWeight.w600,
+                        color: AppColors.primaryRed,
+                        fontSize: 13,
+                      ),
+                    ),
+                    style: OutlinedButton.styleFrom(
+                      side: BorderSide(
+                        color: AppColors.primaryRed.withValues(alpha: 0.4),
+                      ),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: SizedBox(
+                  height: 42,
+                  child: OutlinedButton.icon(
+                    onPressed: onGallery,
+                    icon: const Icon(
+                      Icons.photo_library_outlined,
+                      size: 18,
+                      color: AppColors.primaryRed,
+                    ),
+                    label: Text(
+                      'Gallery',
+                      style: GoogleFonts.poppins(
+                        fontWeight: FontWeight.w600,
+                        color: AppColors.primaryRed,
+                        fontSize: 13,
+                      ),
+                    ),
+                    style: OutlinedButton.styleFrom(
+                      side: BorderSide(
+                        color: AppColors.primaryRed.withValues(alpha: 0.4),
+                      ),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
     );
   }
 }
@@ -1958,12 +1759,6 @@ class _SummaryStep extends StatelessWidget {
     required this.assignedSite,
     required this.employmentType,
     required this.joiningDate,
-    required this.foodAllowance,
-    required this.foodAllowanceType,
-    required this.foodEmployeeAmount,
-    required this.stayAllowance,
-    required this.stayAllowanceType,
-    required this.stayEmployeeAmount,
     required this.accountHolderName,
     required this.bankName,
     required this.accountNumber,
@@ -1975,6 +1770,7 @@ class _SummaryStep extends StatelessWidget {
     required this.marksheet10,
     required this.marksheet12,
     required this.bankCheque,
+    required this.degreePhotos,
     required this.saved,
   });
 
@@ -1984,12 +1780,6 @@ class _SummaryStep extends StatelessWidget {
   final String assignedSite;
   final String employmentType;
   final String joiningDate;
-  final bool foodAllowance;
-  final String foodAllowanceType;
-  final String foodEmployeeAmount;
-  final bool stayAllowance;
-  final String stayAllowanceType;
-  final String stayEmployeeAmount;
   final String accountHolderName;
   final String bankName;
   final String accountNumber;
@@ -2001,9 +1791,8 @@ class _SummaryStep extends StatelessWidget {
   final File? marksheet10;
   final File? marksheet12;
   final File? bankCheque;
+  final List<File> degreePhotos;
   final bool saved;
-
-  String _rupee(String value) => value.trim().isEmpty ? '—' : '₹ $value';
 
   @override
   Widget build(BuildContext context) {
@@ -2036,52 +1825,6 @@ class _SummaryStep extends StatelessWidget {
             _SummaryRow(label: 'Assigned Site', value: assignedSite),
             _SummaryRow(label: 'Joining Date', value: joiningDate),
             _SummaryRow(label: 'Employment Type', value: employmentType),
-          ],
-        ),
-        const SizedBox(height: 12),
-        _SummarySection(
-          title: 'Food Allowance',
-          children: [
-            _SummaryRow(
-              label: 'Food Allowance',
-              value: foodAllowance ? 'Yes' : 'No',
-            ),
-            if (foodAllowance) ...[
-              _SummaryRow(
-                label: 'Type',
-                value: foodAllowanceType == 'amount'
-                    ? 'Amount'
-                    : 'Company Mess',
-              ),
-              if (foodAllowanceType == 'amount')
-                _SummaryRow(
-                  label: 'Amount',
-                  value: _rupee(foodEmployeeAmount),
-                ),
-            ],
-          ],
-        ),
-        const SizedBox(height: 12),
-        _SummarySection(
-          title: 'Stay Allowance',
-          children: [
-            _SummaryRow(
-              label: 'Stay Allowance',
-              value: stayAllowance ? 'Yes' : 'No',
-            ),
-            if (stayAllowance) ...[
-              _SummaryRow(
-                label: 'Type',
-                value: stayAllowanceType == 'amount'
-                    ? 'Amount'
-                    : 'Company Hostel',
-              ),
-              if (stayAllowanceType == 'amount')
-                _SummaryRow(
-                  label: 'Amount',
-                  value: _rupee(stayEmployeeAmount),
-                ),
-            ],
           ],
         ),
         const SizedBox(height: 12),
@@ -2129,6 +1872,12 @@ class _SummaryStep extends StatelessWidget {
               _SummaryImage(label: 'Aadhaar Back', file: aadhaarBack),
               _SummaryImage(label: '10th Marksheet', file: marksheet10),
               _SummaryImage(label: '12th Marksheet', file: marksheet12),
+              if (degreePhotos.isNotEmpty)
+                for (var i = 0; i < degreePhotos.length; i++)
+                  _SummaryImage(
+                    label: 'Degree Photo ${i + 1}',
+                    file: degreePhotos[i],
+                  ),
               _SummaryImage(label: 'Cancelled Cheque', file: bankCheque),
             ],
           ),

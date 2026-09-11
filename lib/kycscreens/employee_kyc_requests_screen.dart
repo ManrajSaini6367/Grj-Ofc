@@ -74,6 +74,7 @@ class _EmployeeKycRequestsScreenState extends State<EmployeeKycRequestsScreen> {
       marksheet10Path: kyc.marksheet10Path ?? '',
       marksheet12Path: kyc.marksheet12Path ?? '',
       bankChequePath: kyc.bankChequePath ?? '',
+      degreePaths: kyc.degreePaths,
       configuredAt: kyc.kycSubmittedAt ?? kyc.savedAt ?? DateTime.now(),
       status: (kyc.kycStatus ?? kyc.status ?? 'Submitted').trim().isEmpty
           ? 'Submitted'
@@ -553,6 +554,9 @@ class _EmployeeKycDetailScreenState extends State<EmployeeKycDetailScreen> {
       marksheet10Path: kyc.marksheet10Path ?? _config.marksheet10Path,
       marksheet12Path: kyc.marksheet12Path ?? _config.marksheet12Path,
       bankChequePath: kyc.bankChequePath ?? _config.bankChequePath,
+      degreePaths: kyc.degreePaths.isNotEmpty
+          ? kyc.degreePaths
+          : _config.degreePaths,
       configuredAt: kyc.kycSubmittedAt ?? kyc.savedAt ?? _config.configuredAt,
       status: (kyc.kycStatus ?? kyc.status ?? _config.status).trim().isEmpty
           ? _config.status
@@ -804,6 +808,12 @@ class _EmployeeKycDetailScreenState extends State<EmployeeKycDetailScreen> {
                       label: '12th Marksheet',
                       path: config.marksheet12Path,
                     ),
+                    if (config.degreePaths.isNotEmpty)
+                      for (var i = 0; i < config.degreePaths.length; i++)
+                        _DetailImage(
+                          label: 'Degree Photo ${i + 1}',
+                          path: config.degreePaths[i],
+                        ),
                     _DetailImage(
                       label: 'Cancelled Cheque',
                       path: config.bankChequePath,

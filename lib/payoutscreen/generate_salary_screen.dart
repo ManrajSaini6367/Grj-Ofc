@@ -6,9 +6,10 @@ import 'package:open_filex/open_filex.dart';
 
 import 'package:grjoffice_apps/EmployeeListscreen/employee.dart';
 import 'package:grjoffice_apps/core/app_colors.dart';
-import 'package:grjoffice_apps/models/mykycdatamodal.dart';
+import 'package:grjoffice_apps/models/payoutmodal.dart';
 import 'package:grjoffice_apps/payoutscreen/payslip_pdf.dart';
 import 'package:grjoffice_apps/payoutscreen/salary_calculator.dart';
+import 'package:grjoffice_apps/services/api_auth.dart';
 import 'package:grjoffice_apps/utils/app_helpers.dart';
 import 'package:grjoffice_apps/widgets/app_top_bar.dart';
 import 'package:grjoffice_apps/widgets/field_label.dart';
@@ -27,20 +28,32 @@ class GenerateSalaryScreen extends StatefulWidget {
     super.key,
     required this.employee,
     required this.month,
-    this.kyc,
     this.monthlySalary,
     this.presentDays,
     this.leaveDays,
+    this.holidayDays,
     this.absentDays,
+    this.stayAllowanceType,
+    this.foodAllowanceType,
+    this.foodCompanyAmount,
+    this.foodEmployeeAmount,
+    this.bankName,
+    this.accountNumber,
   });
 
   final Employee employee;
   final DateTime month;
-  final MyKycModalData? kyc;
   final double? monthlySalary;
   final int? presentDays;
   final int? leaveDays;
+  final int? holidayDays;
   final int? absentDays;
+  final String? stayAllowanceType;
+  final String? foodAllowanceType;
+  final double? foodCompanyAmount;
+  final double? foodEmployeeAmount;
+  final String? bankName;
+  final String? accountNumber;
 
   @override
   State<GenerateSalaryScreen> createState() => _GenerateSalaryScreenState();
@@ -69,13 +82,13 @@ class _GenerateSalaryScreenState extends State<GenerateSalaryScreen> {
   @override
   void initState() {
     super.initState();
-    final kyc = widget.kyc;
     final monthDays = DateUtils.getDaysInMonth(
       widget.month.year,
       widget.month.month,
     );
     final actual = (widget.presentDays ?? 0).toDouble();
     final leave = (widget.leaveDays ?? 0).toDouble();
+    final holiday = (widget.holidayDays ?? 0).toDouble();
 
     _package = TextEditingController(
       text: _plain(
@@ -92,20 +105,18 @@ class _GenerateSalaryScreenState extends State<GenerateSalaryScreen> {
     _balanceLeave = TextEditingController(
       text: _plain(_remainingLeaveAllocation(leave)),
     );
-    _payableDays = TextEditingController(text: _plain(actual + leave));
+    _payableDays = TextEditingController(text: _plain(actual + leave + holiday));
     _advance = TextEditingController(text: '0');
     _leavesRemark = TextEditingController();
     _remarks = TextEditingController();
 
-    _accomodation = _paidByOf(kyc?.stayAllowanceType);
-    _food = _paidByOf(kyc?.foodAllowanceType);
+    _accomodation = _paidByOf(widget.stayAllowanceType);
+    _food = _paidByOf(widget.foodAllowanceType);
     _foodAmount = TextEditingController(
       text: _plain(
-        _amountOf(
-          _food == PaidBy.company
-              ? kyc?.foodCompanyAmount
-              : kyc?.foodEmployeeAmount,
-        ),
+        _food == PaidBy.company
+            ? widget.foodCompanyAmount
+            : widget.foodEmployeeAmount,
       ),
     );
 
@@ -120,6 +131,8 @@ class _GenerateSalaryScreenState extends State<GenerateSalaryScreen> {
     final basic = SalaryBreakdown.from(_input).earnedBasic;
     _pfApplicable = basic > 0;
     _esiApplicable = SalaryRules.esiAppliesTo(basic);
+
+    WidgetsBinding.instance.addPostFrameCallback((_) => _loadSheet());
   }
 
   List<TextEditingController> get _controllers => [
@@ -151,13 +164,53 @@ class _GenerateSalaryScreenState extends State<GenerateSalaryScreen> {
 
   void _syncPayableDays() {
     final payable =
-        _read(_actualDays) + _read(_paidLeave) + _read(_previousLeaves);
+        _read(_actualDays) +
+        _read(_paidLeave) +
+        _read(_previousLeaves) +
+        (widget.holidayDays ?? 0);
     final text = _plain(payable);
     if (_payableDays.text == text) return;
     _payableDays.value = TextEditingValue(
       text: text,
       selection: TextSelection.collapsed(offset: text.length),
     );
+  }
+
+  Future<void> _loadSheet() async {
+    final employeeId = widget.employee.employeeId;
+    if (employeeId == null || !mounted) return;
+    final data = await getPayoutSheetApi(
+      context,
+      employeeId: employeeId,
+      month: DateFormat('yyyy-MM').format(widget.month),
+    );
+    if (!mounted || data?.sheet == null) return;
+    _applySheet(data!.sheet!);
+  }
+
+  void _applySheet(SalarySheet sheet) {
+    _set(_monthDays, sheet.monthDays);
+    _set(_actualDays, sheet.actualDays);
+    _set(_paidLeave, sheet.paidLeave);
+    _set(_previousLeaves, sheet.previousLeaves);
+    _set(_payableDays, sheet.payableDays);
+    _set(_balanceLeave, sheet.balanceLeave);
+    _set(_package, sheet.monthlyPackage);
+    _set(_basicPercent, sheet.basicPercent);
+    _set(_advance, sheet.otherDeduction);
+    _set(_foodAmount, sheet.foodAmount);
+    if (sheet.leavesRemark != null) _leavesRemark.text = sheet.leavesRemark!;
+    if (sheet.remarks != null) _remarks.text = sheet.remarks!;
+    _accomodation = _paidByOf(sheet.accommodationPaidBy);
+    _food = _paidByOf(sheet.foodPaidBy);
+    if (sheet.pfApplicable != null) _pfApplicable = sheet.pfApplicable!;
+    if (sheet.esiApplicable != null) _esiApplicable = sheet.esiApplicable!;
+    setState(() {});
+  }
+
+  void _set(TextEditingController controller, num? value) {
+    if (value == null) return;
+    controller.text = _plain(value.toDouble());
   }
 
   /// Leaves still in hand after this month, from the employee's allocation.
@@ -264,7 +317,7 @@ class _GenerateSalaryScreenState extends State<GenerateSalaryScreen> {
 
   Widget _headerCard() {
     final employee = widget.employee;
-    final kyc = widget.kyc;
+    final bank = widget.bankName ?? '';
     return Container(
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 14),
       decoration: BoxDecoration(
@@ -334,9 +387,9 @@ class _GenerateSalaryScreenState extends State<GenerateSalaryScreen> {
               const SizedBox(width: 8),
               _headerPill(
                 Icons.account_balance_outlined,
-                _dash(kyc?.bankName ?? '').length > 16
-                    ? '${kyc!.bankName!.substring(0, 16)}…'
-                    : _dash(kyc?.bankName),
+                _dash(bank).length > 16
+                    ? '${bank.substring(0, 16)}…'
+                    : _dash(bank),
               ),
             ],
           ),
@@ -732,6 +785,40 @@ class _GenerateSalaryScreenState extends State<GenerateSalaryScreen> {
 
     setState(() => _generating = true);
     try {
+      final employeeId = widget.employee.employeeId;
+      if (employeeId != null) {
+        final saved = await savePayoutApi(
+          context,
+          employeeId: employeeId,
+          month: DateFormat('yyyy-MM').format(widget.month),
+          sheet: {
+            'month_days': input.monthDays,
+            'actual_days': _read(_actualDays),
+            'paid_leave': _read(_paidLeave),
+            'previous_leaves': _read(_previousLeaves),
+            'payable_days': input.payableDays,
+            'balance_leave': _read(_balanceLeave),
+            'absent_days': _absentDays,
+            'monthly_package': input.monthlyPackage,
+            'basic_percent': input.basicPercent,
+            'pf_applicable': _pfApplicable,
+            'esi_applicable': _esiApplicable,
+            'other_deduction': input.otherDeduction,
+            'accommodation_paid_by': _accomodation == PaidBy.company
+                ? 'company'
+                : 'self',
+            'food_paid_by': _food == PaidBy.company ? 'company' : 'self',
+            'food_amount': _read(_foodAmount),
+            'leaves_remark': _leavesRemark.text.trim(),
+            'remarks': _remarks.text.trim(),
+          },
+        );
+        if (saved == null) {
+          if (mounted) setState(() => _generating = false);
+          return;
+        }
+      }
+
       final file = await generatePayslipFile(_payslipData());
       if (!mounted) return;
       final result = await OpenFilex.open(file.path);
@@ -750,7 +837,6 @@ class _GenerateSalaryScreenState extends State<GenerateSalaryScreen> {
   }
 
   PayslipData _payslipData() {
-    final kyc = widget.kyc;
     final leavesAdjusted = _leavesAdjusted;
     final absent = _absentDays;
     return PayslipData(
@@ -758,12 +844,12 @@ class _GenerateSalaryScreenState extends State<GenerateSalaryScreen> {
       employeeName: widget.employee.name,
       breakdown: _breakdown,
       employeeCode: widget.employee.id,
-      department: kyc?.assignedSite ?? widget.employee.site,
+      department: widget.employee.site,
       designation: widget.employee.role,
       dateOfJoining: _joiningDate(),
-      bankName: kyc?.bankName ?? '',
-      location: kyc?.assignedSite ?? widget.employee.site,
-      bankAccountNumber: kyc?.accountNumber ?? '',
+      bankName: widget.bankName ?? '',
+      location: widget.employee.site,
+      bankAccountNumber: widget.accountNumber ?? '',
       remarks: _remarkLine(),
       attendance: [
         PayslipAttendanceLine('P', _plain(_read(_actualDays))),
@@ -784,11 +870,6 @@ class _GenerateSalaryScreenState extends State<GenerateSalaryScreen> {
   }
 
   String _joiningDate() {
-    final raw = widget.kyc?.joiningDate?.trim();
-    if (raw != null && raw.isNotEmpty) {
-      final parsed = DateTime.tryParse(raw);
-      return parsed == null ? raw : DateFormat('dd/MMM/yyyy').format(parsed);
-    }
     final date = widget.employee.dateOfJoin;
     return date == null ? '' : DateFormat('dd/MMM/yyyy').format(date);
   }

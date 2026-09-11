@@ -125,7 +125,12 @@ class AppDrawer extends StatelessWidget {
       DrawerIndex.payout,
       Icons.payments_outlined,
       'Payout',
-      anyOf: [AppPermissions.usersView, AppPermissions.usersCreate],
+      anyOf: [
+        AppPermissions.payoutsView,
+        AppPermissions.payoutsCreate,
+        AppPermissions.usersView,
+        AppPermissions.usersCreate,
+      ],
     ),
     _DrawerMenuItem(
       DrawerIndex.contractorAttendances,

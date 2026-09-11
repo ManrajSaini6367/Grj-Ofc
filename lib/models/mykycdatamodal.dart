@@ -57,6 +57,7 @@ class MyKycModalData {
     this.marksheet10Path,
     this.marksheet12Path,
     this.bankChequePath,
+    this.degreePaths = const [],
     this.kycStatus,
     this.status,
     this.kycSubmittedAt,
@@ -95,6 +96,7 @@ class MyKycModalData {
   String? marksheet10Path;
   String? marksheet12Path;
   String? bankChequePath;
+  List<String> degreePaths;
   String? kycStatus;
   String? status;
   DateTime? kycSubmittedAt;
@@ -233,6 +235,9 @@ class MyKycModalData {
             json['dataBankChequePath'] ??
             json['bank_cheque'],
       ),
+      degreePaths: _parseStringList(
+        json['degree_paths'] ?? json['degreePaths'] ?? json['degree'],
+      ),
       kycStatus: _parseString(json['kyc_status'] ?? json['kycStatus']),
       status: _parseString(json['status']),
       kycSubmittedAt: _parseDateTime(
@@ -284,6 +289,7 @@ class MyKycModalData {
         'marksheet_10_path': marksheet10Path,
         'marksheet_12_path': marksheet12Path,
         'bank_cheque_path': bankChequePath,
+        'degree_paths': degreePaths,
         'kyc_status': kycStatus,
         'status': status,
         'kyc_submitted_at': kycSubmittedAt?.toIso8601String(),
@@ -327,4 +333,18 @@ DateTime? _parseDateTime(dynamic value) {
   if (value == null) return null;
   if (value is DateTime) return value;
   return DateTime.tryParse(value.toString());
+}
+
+List<String> _parseStringList(dynamic value) {
+  if (value == null) return const [];
+  if (value is String) {
+    final t = value.trim();
+    return t.isEmpty ? const [] : [t];
+  }
+  if (value is! List) return const [];
+  return [
+    for (final item in value)
+      if (item != null && item.toString().trim().isNotEmpty)
+        item.toString().trim(),
+  ];
 }

@@ -36,6 +36,7 @@ import 'package:grjoffice_apps/models/labourattendancereport.dart';
 import 'package:grjoffice_apps/models/leaverequestHR.dart';
 import 'package:grjoffice_apps/models/listcontractor.dart';
 import 'package:grjoffice_apps/models/login_model.dart';
+import 'package:grjoffice_apps/models/payoutmodal.dart';
 import 'package:grjoffice_apps/models/mykycdatamodal.dart';
 import 'package:grjoffice_apps/models/mypermission.dart';
 import 'package:grjoffice_apps/models/pagination_model.dart';
@@ -2499,6 +2500,12 @@ Future<bool> createEmployeeApi(
   required String status,
   List<int> accessRoleIds = const [],
   List<int> siteIds = const [],
+  bool foodAllowance = false,
+  String foodAllowanceType = '',
+  String foodEmployeeAmount = '',
+  bool stayAllowance = false,
+  String stayAllowanceType = '',
+  String stayEmployeeAmount = '',
 }) async {
   try {
     final url = '$baseUrl/api/v1/employees';
@@ -2530,6 +2537,20 @@ Future<bool> createEmployeeApi(
     }
     if (leaveAllocation != null && leaveAllocation.isNotEmpty) {
       body['leave_allocation'] = leaveAllocation;
+    }
+    body['food_allowance'] = foodAllowance ? 1 : 0;
+    if (foodAllowance) {
+      body['food_allowance_type'] = foodAllowanceType.trim();
+      if (foodAllowanceType == 'amount' && foodEmployeeAmount.trim().isNotEmpty) {
+        body['food_employee_amount'] = foodEmployeeAmount.trim();
+      }
+    }
+    body['stay_allowance'] = stayAllowance ? 1 : 0;
+    if (stayAllowance) {
+      body['stay_allowance_type'] = stayAllowanceType.trim();
+      if (stayAllowanceType == 'amount' && stayEmployeeAmount.trim().isNotEmpty) {
+        body['stay_employee_amount'] = stayEmployeeAmount.trim();
+      }
     }
 
     final encoded = jsonEncode(body);
@@ -2662,6 +2683,180 @@ Future<Getemployeesmodal?> getEmployeesApi(
     debugPrint('[getEmployeesApi] stack: $stack');
     if (!context.mounted) return null;
     message(context, 'Something went wrong');
+    return null;
+  }
+}
+
+Future<PayoutRegisterResponse?> getPayoutsApi(
+  BuildContext context, {
+  int? siteId,
+  required String month,
+  String search = '',
+}) async {
+  try {
+    final resolvedSiteId = siteId ?? selectedSiteId();
+    if (resolvedSiteId == null) {
+      if (context.mounted) message(context, 'Please select a site first.');
+      return null;
+    }
+
+    final queryParams = <String, String>{
+      'site_id': resolvedSiteId.toString(),
+      'month': month.trim(),
+    };
+    if (search.trim().isNotEmpty) queryParams['search'] = search.trim();
+
+    final uri = Uri.parse(
+      '$baseUrl/api/v1/payouts',
+    ).replace(queryParameters: queryParams);
+
+    debugPrint('[getPayoutsApi] GET $uri');
+    final response = await http
+        .get(uri, headers: authHeaders)
+        .timeout(const Duration(seconds: 30));
+    debugPrint('[getPayoutsApi] statusCode: ${response.statusCode}');
+    debugPrint('[getPayoutsApi] response body: ${response.body}');
+
+    final decoded = decodeApiJson(response.body);
+    if (response.statusCode == 200 &&
+        decoded != null &&
+        decoded['success'] == true) {
+      return PayoutRegisterResponse.fromJson(decoded);
+    }
+    if (context.mounted) {
+      message(
+        context,
+        decoded?['message']?.toString() ?? 'Failed to load payouts.',
+      );
+    }
+    return null;
+  } on TimeoutException {
+    if (context.mounted) {
+      message(context, 'Request timed out. Please try again.');
+    }
+    return null;
+  } catch (e, stack) {
+    debugPrint('[getPayoutsApi] error: $e\n$stack');
+    if (context.mounted) message(context, 'Something went wrong');
+    return null;
+  }
+}
+
+Future<PayoutSheetData?> getPayoutSheetApi(
+  BuildContext context, {
+  int? siteId,
+  required int employeeId,
+  required String month,
+}) async {
+  try {
+    final resolvedSiteId = siteId ?? selectedSiteId();
+    if (resolvedSiteId == null) {
+      if (context.mounted) message(context, 'Please select a site first.');
+      return null;
+    }
+
+    final uri = Uri.parse('$baseUrl/api/v1/payouts/sheet').replace(
+      queryParameters: {
+        'site_id': resolvedSiteId.toString(),
+        'employee_id': employeeId.toString(),
+        'month': month.trim(),
+      },
+    );
+
+    debugPrint('[getPayoutSheetApi] GET $uri');
+    final response = await http
+        .get(uri, headers: authHeaders)
+        .timeout(const Duration(seconds: 30));
+    debugPrint('[getPayoutSheetApi] statusCode: ${response.statusCode}');
+
+    final decoded = decodeApiJson(response.body);
+    if (response.statusCode == 200 &&
+        decoded != null &&
+        decoded['success'] == true &&
+        decoded['data'] is Map) {
+      return PayoutSheetData.fromJson(
+        Map<String, dynamic>.from(decoded['data'] as Map),
+      );
+    }
+    if (context.mounted) {
+      message(
+        context,
+        decoded?['message']?.toString() ?? 'Failed to load salary sheet.',
+      );
+    }
+    return null;
+  } on TimeoutException {
+    if (context.mounted) {
+      message(context, 'Request timed out. Please try again.');
+    }
+    return null;
+  } catch (e, stack) {
+    debugPrint('[getPayoutSheetApi] error: $e\n$stack');
+    if (context.mounted) message(context, 'Something went wrong');
+    return null;
+  }
+}
+
+Future<PayoutSheetData?> savePayoutApi(
+  BuildContext context, {
+  int? siteId,
+  required int employeeId,
+  required String month,
+  required Map<String, dynamic> sheet,
+}) async {
+  try {
+    final resolvedSiteId = siteId ?? selectedSiteId();
+    if (resolvedSiteId == null) {
+      if (context.mounted) message(context, 'Please select a site first.');
+      return null;
+    }
+
+    final uri = Uri.parse('$baseUrl/api/v1/payouts');
+    final body = {
+      'site_id': resolvedSiteId,
+      'employee_id': employeeId,
+      'month': month.trim(),
+      ...sheet,
+    };
+
+    debugPrint('[savePayoutApi] POST $uri');
+    final response = await http
+        .post(uri, headers: authHeaders, body: jsonEncode(body))
+        .timeout(const Duration(seconds: 30));
+    debugPrint('[savePayoutApi] statusCode: ${response.statusCode}');
+
+    final decoded = decodeApiJson(response.body);
+    if ((response.statusCode == 200 || response.statusCode == 201) &&
+        decoded != null &&
+        decoded['success'] == true) {
+      final data = decoded['data'];
+      if (data is Map && data['sheet'] is Map) {
+        return PayoutSheetData.fromJson(
+          Map<String, dynamic>.from(data['sheet'] as Map),
+        );
+      }
+      if (data is Map) {
+        return PayoutSheetData.fromJson(Map<String, dynamic>.from(data));
+      }
+      return null;
+    }
+    if (context.mounted) {
+      message(
+        context,
+        _firstApiError(decoded) ??
+            decoded?['message']?.toString() ??
+            'Failed to save salary.',
+      );
+    }
+    return null;
+  } on TimeoutException {
+    if (context.mounted) {
+      message(context, 'Request timed out. Please try again.');
+    }
+    return null;
+  } catch (e, stack) {
+    debugPrint('[savePayoutApi] error: $e\n$stack');
+    if (context.mounted) message(context, 'Something went wrong');
     return null;
   }
 }
@@ -6906,12 +7101,6 @@ Future<bool> employeeKycApi(
   required int siteId,
   required String employmentType,
   required String joiningDate,
-  required bool foodAllowance,
-  String foodAllowanceType = '',
-  String foodEmployeeAmount = '',
-  required bool stayAllowance,
-  String stayAllowanceType = '',
-  String stayEmployeeAmount = '',
   required String emergencyContact,
   required String accountHolderName,
   required String bankName,
@@ -6923,6 +7112,7 @@ Future<bool> employeeKycApi(
   required File marksheet10,
   required File marksheet12,
   required File bankCheque,
+  List<File> degreePhotos = const [],
 }) async {
   try {
     final url = '$baseUrl/api/v1/employee-kycs';
@@ -6934,16 +7124,6 @@ Future<bool> employeeKycApi(
       'site_id': siteId.toString(),
       'employment_type': employmentType.trim(),
       'joining_date': joiningDate.trim(),
-      'food_allowance': foodAllowance ? '1' : '0',
-      if (foodAllowance) 'food_allowance_type': foodAllowanceType.trim(),
-      'food_employee_amount': foodAllowance && foodAllowanceType == 'amount'
-          ? foodEmployeeAmount.trim()
-          : '0',
-      'stay_allowance': stayAllowance ? '1' : '0',
-      if (stayAllowance) 'stay_allowance_type': stayAllowanceType.trim(),
-      'stay_employee_amount': stayAllowance && stayAllowanceType == 'amount'
-          ? stayEmployeeAmount.trim()
-          : '0',
       'emergency_contact': emergencyContact.trim(),
       if (accountHolderName.trim().isNotEmpty)
         'account_holder_name': accountHolderName.trim(),
@@ -6980,12 +7160,18 @@ Future<bool> employeeKycApi(
         bankCheque,
         fallbackName: 'bank_cheque.jpg',
       ),
+      for (var i = 0; i < degreePhotos.length; i++)
+        await _multipartImage(
+          'degree[]',
+          degreePhotos[i],
+          fallbackName: 'degree_$i.jpg',
+        ),
     ];
 
     print('[employeeKycApi] POST $url');
     print('[employeeKycApi] fields: $fields');
     print(
-      '[employeeKycApi] files: pan, aadhaar_front, aadhaar_back, marksheet_10, marksheet_12, bank_cheque',
+      '[employeeKycApi] files: pan, aadhaar_front, aadhaar_back, marksheet_10, marksheet_12, bank_cheque, degree x${degreePhotos.length}',
     );
 
     final response = await _sendMultipart(
