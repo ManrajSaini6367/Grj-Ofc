@@ -354,7 +354,7 @@ class _OriginalContractorScreenState extends State<OriginalContractorScreen> {
           ),
           const SizedBox(height: 16),
           Text(
-            'Kyc Documents',
+            'Documents',
             style: GoogleFonts.poppins(
               fontSize: 14,
               fontWeight: FontWeight.w600,
@@ -372,7 +372,7 @@ class _OriginalContractorScreenState extends State<OriginalContractorScreen> {
           ),
           const SizedBox(height: 14),
           _buildMultiImageField(
-            label: 'Documents',
+            label: 'Kyc Documents',
             existingUrls: _existingDocuments,
             files: _documentFiles,
             onAdd: () => _pickMulti(_documentFiles, title: 'Document Photo'),
