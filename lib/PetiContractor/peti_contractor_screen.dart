@@ -31,7 +31,6 @@ class _OriginalContractorScreenState extends State<OriginalContractorScreen> {
   final _nameController = TextEditingController();
   final _phoneController = TextEditingController();
   final _addressController = TextEditingController();
-  final _remarksController = TextEditingController();
   OriginalContractorStatus _status = OriginalContractorStatus.published;
   final List<_WorkRateEntry> _rows = [];
   bool _isSaving = false;
@@ -58,7 +57,6 @@ class _OriginalContractorScreenState extends State<OriginalContractorScreen> {
       _nameController.text = existing.name;
       _phoneController.text = existing.phone;
       _addressController.text = existing.address;
-      _remarksController.text = existing.remarks;
       _status = existing.status;
       _existingAgreements = List<String>.from(existing.agreements);
       _existingDocuments = List<String>.from(existing.documents);
@@ -85,7 +83,6 @@ class _OriginalContractorScreenState extends State<OriginalContractorScreen> {
     _nameController.dispose();
     _phoneController.dispose();
     _addressController.dispose();
-    _remarksController.dispose();
     for (final row in _rows) {
       row.dispose();
     }
@@ -166,7 +163,6 @@ class _OriginalContractorScreenState extends State<OriginalContractorScreen> {
           name: _nameController.text.trim(),
           phone: _phoneController.text.trim(),
           address: _addressController.text.trim(),
-          remarks: _remarksController.text.trim(),
           status: _status == OriginalContractorStatus.published
               ? 'published'
               : 'unpublished',
@@ -199,9 +195,6 @@ class _OriginalContractorScreenState extends State<OriginalContractorScreen> {
               address: data?.address?.trim().isNotEmpty == true
                   ? data!.address!.trim()
                   : _addressController.text.trim(),
-              remarks: data?.remarks?.trim().isNotEmpty == true
-                  ? data!.remarks!.trim()
-                  : _remarksController.text.trim(),
               status: (data?.status ?? '').toLowerCase() == 'unpublished'
                   ? OriginalContractorStatus.unpublished
                   : _status,
@@ -243,7 +236,6 @@ class _OriginalContractorScreenState extends State<OriginalContractorScreen> {
         name: _nameController.text.trim(),
         phone: _phoneController.text.trim(),
         address: _addressController.text.trim(),
-        remarks: _remarksController.text.trim(),
         status: _status == OriginalContractorStatus.published
             ? 'published'
             : 'unpublished',
@@ -359,13 +351,6 @@ class _OriginalContractorScreenState extends State<OriginalContractorScreen> {
             hint: 'address',
             maxLines: 2,
             required: true,
-          ),
-          const SizedBox(height: 16),
-          _buildTextField(
-            label: 'Remarks',
-            controller: _remarksController,
-            hint: 'Optional remarks',
-            maxLines: 3,
           ),
           const SizedBox(height: 16),
           Text(

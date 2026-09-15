@@ -79,7 +79,6 @@ class OriginalContractorItem {
     this.name,
     this.phone,
     this.address,
-    this.remarks,
     this.status,
     this.works,
     this.agreements,
@@ -92,7 +91,6 @@ class OriginalContractorItem {
   String? name;
   String? phone;
   String? address;
-  String? remarks;
   String? status;
   List<OriginalContractorWork>? works;
   List<String>? agreements;
@@ -109,7 +107,6 @@ class OriginalContractorItem {
       name: json['name']?.toString(),
       phone: json['phone']?.toString(),
       address: json['address']?.toString(),
-      remarks: json['remarks']?.toString(),
       status: json['status']?.toString(),
       works: rawWorks is List
           ? rawWorks.map(_parseWork).whereType<OriginalContractorWork>().toList()
@@ -132,7 +129,6 @@ class OriginalContractorItem {
         'name': name,
         'phone': phone,
         'address': address,
-        'remarks': remarks,
         'status': status,
         if (works != null)
           'works': works!.map((work) => work.toJson()).toList(),

@@ -33,7 +33,6 @@ class GetcclistData {
     this.name,
     this.phone,
     this.address,
-    this.remarks,
     this.works,
     this.status,
     this.agreements,
@@ -49,7 +48,6 @@ class GetcclistData {
   String? name;
   String? phone;
   String? address;
-  String? remarks;
   List<GetcclistWork>? works;
   String? status;
   List<String>? agreements;
@@ -67,7 +65,6 @@ class GetcclistData {
       name: json['name']?.toString(),
       phone: json['phone']?.toString(),
       address: json['address']?.toString(),
-      remarks: json['remarks']?.toString(),
       works: rawWorks is List
           ? rawWorks
               .whereType<Map>()
@@ -102,7 +99,6 @@ class GetcclistData {
         'name': name,
         'phone': phone,
         'address': address,
-        'remarks': remarks,
         'status': status,
         if (works != null) 'works': works!.map((w) => w.toJson()).toList(),
         if (agreements != null) 'agreements': agreements,
