@@ -153,6 +153,7 @@ class _HomePageState extends State<HomePage> {
     await _loadSites();
     if (mounted && _attendanceAllowed) {
       await _syncAttendanceAcrossSites();
+      await _syncOnLeaveStatus();
     }
     if (_attendanceAllowed) {
       final granted = await _location.initialize();
@@ -161,6 +162,13 @@ class _HomePageState extends State<HomePage> {
       }
     }
     if (mounted) setState(() {});
+  }
+
+  Future<void> _syncOnLeaveStatus() async {
+    if (!_attendanceAllowed) return;
+    final onLeave = await isUserOnLeaveToday(context);
+    if (!mounted) return;
+    await _attendance.setOnLeave(onLeave);
   }
 
   /// Unlocks the app if the user already punched in at any assigned site.
@@ -308,6 +316,10 @@ class _HomePageState extends State<HomePage> {
 
   Future<void> _handlePunchIn() async {
     if (!_attendanceAllowed) return;
+    if (_attendance.isOnLeave) {
+      _showPunchMessage('Punch in is not allowed while you are on leave.');
+      return;
+    }
     if (_isProcessingPunch || !_attendance.canPunchIn) return;
     setState(() => _isProcessingPunch = true);
 
@@ -655,6 +667,7 @@ class _HomePageState extends State<HomePage> {
       await _saveSelectedSite(selected);
       if (mounted) setState(() => _selectedSite = selected);
       await _syncAttendanceAcrossSites();
+      await _syncOnLeaveStatus();
     }
   }
 
@@ -929,6 +942,7 @@ class _AttendanceCardState extends State<_AttendanceCard> {
   }
 
   Widget _buildPunchButton(bool isPunchedIn) {
+    final onLeave = widget.attendance.isOnLeave && !isPunchedIn;
     final canAct = isPunchedIn
         ? widget.attendance.canPunchOut
         : widget.attendance.canPunchIn;
@@ -937,7 +951,7 @@ class _AttendanceCardState extends State<_AttendanceCard> {
       width: 122,
       height: 46,
       child: ElevatedButton(
-        onPressed: widget.isProcessingPunch || !canAct
+        onPressed: widget.isProcessingPunch || !canAct || onLeave
             ? null
             : (isPunchedIn ? widget.onPunchOut : widget.onPunchIn),
         style: ElevatedButton.styleFrom(
@@ -969,6 +983,7 @@ class _AttendanceCardState extends State<_AttendanceCard> {
   Widget build(BuildContext context) {
     final attendance = widget.attendance;
     final isPunchedIn = attendance.isPunchedIn;
+    final onLeave = attendance.isOnLeave && !isPunchedIn;
 
     return Container(
       width: double.infinity,
@@ -992,7 +1007,11 @@ class _AttendanceCardState extends State<_AttendanceCard> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  isPunchedIn ? 'Currently Punched In' : 'Ready to Punch In',
+                  isPunchedIn
+                      ? 'Currently Punched In'
+                      : onLeave
+                          ? 'On Leave'
+                          : 'Ready to Punch In',
                   style: GoogleFonts.poppins(
                     fontSize: 14,
                     fontWeight: FontWeight.w600,
@@ -1003,7 +1022,9 @@ class _AttendanceCardState extends State<_AttendanceCard> {
                 Text(
                   isPunchedIn
                       ? _punchedInSubtitle(attendance)
-                      : 'Tap to start your shift',
+                      : onLeave
+                          ? 'Punch in is not allowed while you are on leave'
+                          : 'Tap to start your shift',
                   style: GoogleFonts.poppins(
                     fontSize: 12,
                     color: AppColors.textSecondary,

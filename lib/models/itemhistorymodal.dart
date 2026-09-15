@@ -122,6 +122,9 @@ class ItemHistoryRecord {
   static ItemTransactionType displayType(String? type, bool issue) {
     final typeValue = type?.toLowerCase().trim() ?? '';
     if (typeValue == 'credit') return ItemTransactionType.credit;
+    if (typeValue == 'return' || typeValue == 'returned') {
+      return ItemTransactionType.returned;
+    }
     if (typeValue == 'issue' || typeValue == 'issued') {
       return ItemTransactionType.issue;
     }

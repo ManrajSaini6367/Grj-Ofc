@@ -8,8 +8,10 @@ import 'package:grjoffice_apps/core/app_date_time.dart';
 import 'package:grjoffice_apps/core/app_navigator.dart';
 import 'package:grjoffice_apps/core/preference.dart';
 import 'package:grjoffice_apps/firebase_options.dart';
+import 'package:grjoffice_apps/services/connectivity_service.dart';
 import 'package:grjoffice_apps/services/push_notification_service.dart';
 import 'package:grjoffice_apps/spleshscreen/spleshscreen.dart';
+import 'package:grjoffice_apps/widgets/internet_required_guard.dart';
 
 @pragma('vm:entry-point')
 Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
@@ -30,6 +32,7 @@ Future<void> main() async {
 
   AppDateTime.init();
   await Preference.init();
+  ConnectivityService.instance.start();
 
   SystemChrome.setSystemUIOverlayStyle(
     const SystemUiOverlayStyle(
@@ -125,10 +128,12 @@ class MyApp extends StatelessWidget {
               );
 
         // Global: tap/press outside the focused input dismisses the keyboard.
-        return Listener(
-          behavior: HitTestBehavior.translucent,
-          onPointerDown: _dismissKeyboardIfTapOutsideFocusedInput,
-          child: content,
+        return InternetRequiredGuard(
+          child: Listener(
+            behavior: HitTestBehavior.translucent,
+            onPointerDown: _dismissKeyboardIfTapOutsideFocusedInput,
+            child: content,
+          ),
         );
       },
       theme: ThemeData(

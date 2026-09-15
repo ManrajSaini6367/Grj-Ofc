@@ -1,5 +1,6 @@
 package com.grj
 
+import android.content.Intent
 import android.content.ContentValues
 import android.graphics.Bitmap
 import android.graphics.Canvas
@@ -9,6 +10,7 @@ import android.os.Build
 import android.os.Bundle
 import android.os.Environment
 import android.provider.MediaStore
+import android.provider.Settings
 import android.view.View
 import android.view.ViewGroup
 import android.webkit.WebView
@@ -21,6 +23,7 @@ import java.io.FileOutputStream
 
 class MainActivity : FlutterActivity() {
     private val downloadsChannel = "grjoffice_apps/downloads"
+    private val settingsChannel = "grjoffice_apps/settings"
 
     override fun onCreate(savedInstanceState: Bundle?) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.KITKAT) {
@@ -68,6 +71,24 @@ class MainActivity : FlutterActivity() {
                     }
 
                     else -> result.notImplemented()
+                }
+            }
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, settingsChannel)
+            .setMethodCallHandler { call, result ->
+                if (call.method == "openWirelessSettings") {
+                    try {
+                        startActivity(Intent(Settings.ACTION_WIRELESS_SETTINGS))
+                        result.success(true)
+                    } catch (e: Exception) {
+                        try {
+                            startActivity(Intent(Settings.ACTION_WIFI_SETTINGS))
+                            result.success(true)
+                        } catch (e2: Exception) {
+                            result.error("OPEN_FAILED", e2.message, null)
+                        }
+                    }
+                } else {
+                    result.notImplemented()
                 }
             }
     }

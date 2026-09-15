@@ -45,6 +45,7 @@ class _InwardOutwardScreenState extends State<InwardOutwardScreen> {
   ItemModel? _selectedItem;
   String? _selectedContractorKey;
   int? _selectedSiteId;
+
   /// Outward only: `same` = issue to contractor, `different` = transfer to site.
   String _outwardDestType = 'same';
   String? _unit;
@@ -93,8 +94,10 @@ class _InwardOutwardScreenState extends State<InwardOutwardScreen> {
     setState(() => _loadingRecords = true);
     final inbound = await inboundOutboundListApi(context, direction: 'inbound');
     if (!mounted) return;
-    final outbound =
-        await inboundOutboundListApi(context, direction: 'outbound');
+    final outbound = await inboundOutboundListApi(
+      context,
+      direction: 'outbound',
+    );
     if (!mounted) return;
     setState(() {
       _inwardRecords = inbound ?? const [];
@@ -156,8 +159,9 @@ class _InwardOutwardScreenState extends State<InwardOutwardScreen> {
   Future<void> _selectEntryType(_EntryType type) async {
     setState(() {
       _entryType = type;
-      _listTab =
-          type == _EntryType.outward ? _ListTab.outward : _ListTab.inward;
+      _listTab = type == _EntryType.outward
+          ? _ListTab.outward
+          : _ListTab.inward;
       if (!_lookupsLoaded) _loadingLookups = true;
     });
     if (_lookupsLoaded) return;
@@ -311,121 +315,122 @@ class _InwardOutwardScreenState extends State<InwardOutwardScreen> {
                 child: _entryType == null
                     ? _buildHome()
                     : _loadingLookups
-                        ? const Center(
-                            child: CircularProgressIndicator(
-                              color: AppColors.primaryRed,
-                            ),
-                          )
-                        : SingleChildScrollView(
-                            padding: EdgeInsets.fromLTRB(
-                              hPad,
-                              16,
-                              hPad,
-                              24 + MediaQuery.viewInsetsOf(context).bottom,
-                            ),
-                            child: Center(
-                              child: ConstrainedBox(
-                                constraints: const BoxConstraints(maxWidth: 960),
-                                child: Form(
-                                  key: _formKey,
-                                  child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.stretch,
-                                    children: [
-                                      Container(
-                                        padding: const EdgeInsets.all(16),
-                                        decoration: BoxDecoration(
-                                          color: AppColors.cardWhite,
-                                          borderRadius:
-                                              BorderRadius.circular(12),
-                                          border: Border.all(
-                                            color: AppColors.borderGray
-                                                .withValues(alpha: 0.5),
-                                          ),
-                                        ),
-                                        child: Column(
-                                          crossAxisAlignment:
-                                              CrossAxisAlignment.stretch,
-                                          children: [
-                                            Text(
-                                              _entryLabel,
-                                              style: GoogleFonts.poppins(
-                                                fontSize: 16,
-                                                fontWeight: FontWeight.w700,
-                                                color: AppColors.headingBlack,
-                                              ),
-                                            ),
-                                            const SizedBox(height: 16),
-                                            if (isWide) ...[
-                                              Row(
-                                                crossAxisAlignment:
-                                                    CrossAxisAlignment.start,
-                                                children: [
-                                                  Expanded(
-                                                      child: _buildItemField()),
-                                                  const SizedBox(width: 12),
-                                                  Expanded(
-                                                      child: _buildQtyField()),
-                                                ],
-                                              ),
-                                              const SizedBox(height: 16),
-                                              if (_entryType ==
-                                                  _EntryType.outward) ...[
-                                                _buildDestinationField(),
-                                                const SizedBox(height: 16),
-                                              ],
-                                              Row(
-                                                crossAxisAlignment:
-                                                    CrossAxisAlignment.start,
-                                                children: [
-                                                  if (_showToField) ...[
-                                                    Expanded(
-                                                        child: _buildToField()),
-                                                    const SizedBox(width: 12),
-                                                  ],
-                                                  Expanded(
-                                                      child: _buildUnitField()),
-                                                  if (_showSiteField) ...[
-                                                    const SizedBox(width: 12),
-                                                    Expanded(
-                                                        child:
-                                                            _buildSiteField()),
-                                                  ],
-                                                ],
-                                              ),
-                                            ] else ...[
-                                              _buildItemField(),
-                                              const SizedBox(height: 16),
-                                              _buildQtyField(),
-                                              if (_entryType ==
-                                                  _EntryType.outward) ...[
-                                                const SizedBox(height: 16),
-                                                _buildDestinationField(),
-                                              ],
-                                              if (_showToField) ...[
-                                                const SizedBox(height: 16),
-                                                _buildToField(),
-                                              ],
-                                              const SizedBox(height: 16),
-                                              _buildUnitField(),
-                                              if (_showSiteField) ...[
-                                                const SizedBox(height: 16),
-                                                _buildSiteField(),
-                                              ],
-                                            ],
-                                            const SizedBox(height: 16),
-                                            _buildRemarkField(),
-                                          ],
+                    ? const Center(
+                        child: CircularProgressIndicator(
+                          color: AppColors.primaryRed,
+                        ),
+                      )
+                    : SingleChildScrollView(
+                        padding: EdgeInsets.fromLTRB(
+                          hPad,
+                          16,
+                          hPad,
+                          24 + MediaQuery.viewInsetsOf(context).bottom,
+                        ),
+                        child: Center(
+                          child: ConstrainedBox(
+                            constraints: const BoxConstraints(maxWidth: 960),
+                            child: Form(
+                              key: _formKey,
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.stretch,
+                                children: [
+                                  Container(
+                                    padding: const EdgeInsets.all(16),
+                                    decoration: BoxDecoration(
+                                      color: AppColors.cardWhite,
+                                      borderRadius: BorderRadius.circular(12),
+                                      border: Border.all(
+                                        color: AppColors.borderGray.withValues(
+                                          alpha: 0.5,
                                         ),
                                       ),
-                                      const SizedBox(height: 24),
-                                      _buildSubmitButton(),
-                                    ],
+                                    ),
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.stretch,
+                                      children: [
+                                        Text(
+                                          _entryLabel,
+                                          style: GoogleFonts.poppins(
+                                            fontSize: 16,
+                                            fontWeight: FontWeight.w700,
+                                            color: AppColors.headingBlack,
+                                          ),
+                                        ),
+                                        const SizedBox(height: 16),
+                                        if (isWide) ...[
+                                          Row(
+                                            crossAxisAlignment:
+                                                CrossAxisAlignment.start,
+                                            children: [
+                                              Expanded(
+                                                child: _buildItemField(),
+                                              ),
+                                              const SizedBox(width: 12),
+                                              Expanded(child: _buildQtyField()),
+                                            ],
+                                          ),
+                                          const SizedBox(height: 16),
+                                          if (_entryType ==
+                                              _EntryType.outward) ...[
+                                            _buildDestinationField(),
+                                            const SizedBox(height: 16),
+                                          ],
+                                          Row(
+                                            crossAxisAlignment:
+                                                CrossAxisAlignment.start,
+                                            children: [
+                                              if (_showToField) ...[
+                                                Expanded(
+                                                  child: _buildToField(),
+                                                ),
+                                                const SizedBox(width: 12),
+                                              ],
+                                              Expanded(
+                                                child: _buildUnitField(),
+                                              ),
+                                              if (_showSiteField) ...[
+                                                const SizedBox(width: 12),
+                                                Expanded(
+                                                  child: _buildSiteField(),
+                                                ),
+                                              ],
+                                            ],
+                                          ),
+                                        ] else ...[
+                                          _buildItemField(),
+                                          const SizedBox(height: 16),
+                                          _buildQtyField(),
+                                          if (_entryType ==
+                                              _EntryType.outward) ...[
+                                            const SizedBox(height: 16),
+                                            _buildDestinationField(),
+                                          ],
+                                          if (_showToField) ...[
+                                            const SizedBox(height: 16),
+                                            _buildToField(),
+                                          ],
+                                          const SizedBox(height: 16),
+                                          _buildUnitField(),
+                                          if (_showSiteField) ...[
+                                            const SizedBox(height: 16),
+                                            _buildSiteField(),
+                                          ],
+                                        ],
+                                        const SizedBox(height: 16),
+                                        _buildRemarkField(),
+                                      ],
+                                    ),
                                   ),
-                                ),
+                                  const SizedBox(height: 24),
+                                  _buildSubmitButton(),
+                                ],
                               ),
                             ),
                           ),
+                        ),
+                      ),
               ),
             ],
           ),
@@ -437,8 +442,9 @@ class _InwardOutwardScreenState extends State<InwardOutwardScreen> {
   Widget _buildHome() {
     final compact = MediaQuery.sizeOf(context).width < 360;
     final hPad = _hPad(context);
-    final records =
-        _listTab == _ListTab.outward ? _outwardRecords : _inwardRecords;
+    final records = _listTab == _ListTab.outward
+        ? _outwardRecords
+        : _inwardRecords;
 
     return Column(
       children: [
@@ -504,37 +510,37 @@ class _InwardOutwardScreenState extends State<InwardOutwardScreen> {
                   child: CircularProgressIndicator(color: AppColors.primaryRed),
                 )
               : records.isEmpty
-                  ? Center(
-                      child: Padding(
-                        padding: EdgeInsets.symmetric(horizontal: hPad),
-                        child: Text(
-                          _listTab == _ListTab.outward
-                              ? 'No outward records yet.\nTap Outward above to add one.'
-                              : 'No inward records yet.\nTap Inward above to add one.',
-                          textAlign: TextAlign.center,
-                          style: GoogleFonts.poppins(
-                            fontSize: 13,
-                            color: AppColors.textSecondary,
-                            height: 1.4,
-                          ),
-                        ),
-                      ),
-                    )
-                  : RefreshIndicator(
-                      color: AppColors.primaryRed,
-                      onRefresh: _loadRecords,
-                      child: ListView.separated(
-                        padding: EdgeInsets.fromLTRB(hPad, 0, hPad, 24),
-                        itemCount: records.length,
-                        separatorBuilder: (_, __) => const SizedBox(height: 10),
-                        itemBuilder: (context, index) {
-                          final record = records[index];
-                          return _listTab == _ListTab.outward
-                              ? _OutwardRecordCard(record: record)
-                              : _InwardRecordCard(record: record);
-                        },
+              ? Center(
+                  child: Padding(
+                    padding: EdgeInsets.symmetric(horizontal: hPad),
+                    child: Text(
+                      _listTab == _ListTab.outward
+                          ? 'No outward records yet.\nTap Outward above to add one.'
+                          : 'No inward records yet.\nTap Inward above to add one.',
+                      textAlign: TextAlign.center,
+                      style: GoogleFonts.poppins(
+                        fontSize: 13,
+                        color: AppColors.textSecondary,
+                        height: 1.4,
                       ),
                     ),
+                  ),
+                )
+              : RefreshIndicator(
+                  color: AppColors.primaryRed,
+                  onRefresh: _loadRecords,
+                  child: ListView.separated(
+                    padding: EdgeInsets.fromLTRB(hPad, 0, hPad, 24),
+                    itemCount: records.length,
+                    separatorBuilder: (_, __) => const SizedBox(height: 10),
+                    itemBuilder: (context, index) {
+                      final record = records[index];
+                      return _listTab == _ListTab.outward
+                          ? _OutwardRecordCard(record: record)
+                          : _InwardRecordCard(record: record);
+                    },
+                  ),
+                ),
         ),
       ],
     );
@@ -649,8 +655,9 @@ class _InwardOutwardScreenState extends State<InwardOutwardScreen> {
           ),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(12),
-            border:
-                Border.all(color: AppColors.borderGray.withValues(alpha: 0.5)),
+            border: Border.all(
+              color: AppColors.borderGray.withValues(alpha: 0.5),
+            ),
             boxShadow: [
               BoxShadow(
                 color: Colors.black.withValues(alpha: 0.04),
@@ -719,7 +726,7 @@ class _InwardOutwardScreenState extends State<InwardOutwardScreen> {
               (item) => DropdownMenuItem<int>(
                 value: item.id,
                 child: Text(
-                  item.displayName,
+                  "${item.displayName} (${item.sku})",
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: GoogleFonts.poppins(fontSize: 14),
@@ -792,7 +799,8 @@ class _InwardOutwardScreenState extends State<InwardOutwardScreen> {
   }
 
   Widget _buildToField() {
-    final currentValue = _contractors.any((c) => c.key == _selectedContractorKey)
+    final currentValue =
+        _contractors.any((c) => c.key == _selectedContractorKey)
         ? _selectedContractorKey
         : null;
 
@@ -818,10 +826,9 @@ class _InwardOutwardScreenState extends State<InwardOutwardScreen> {
             )
             .toList(),
         onChanged: (value) => setState(() => _selectedContractorKey = value),
-        validator: (value) =>
-            _showToField && (value == null || value.isEmpty)
-                ? 'Contractor is required'
-                : null,
+        validator: (value) => _showToField && (value == null || value.isEmpty)
+            ? 'Contractor is required'
+            : null,
         style: GoogleFonts.poppins(fontSize: 14, color: AppColors.textDark),
       ),
     );
@@ -843,9 +850,7 @@ class _InwardOutwardScreenState extends State<InwardOutwardScreen> {
               ),
             )
             .toList(),
-        onChanged: (value) {
-          if (value != null) setState(() => _unit = value);
-        },
+        onChanged: null,
         validator: (value) =>
             value == null || value.isEmpty ? 'Unit is required' : null,
         style: GoogleFonts.poppins(fontSize: 14, color: AppColors.textDark),
@@ -969,8 +974,9 @@ class _InwardOutwardScreenState extends State<InwardOutwardScreen> {
       contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
       enabledBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(8),
-        borderSide:
-            BorderSide(color: AppColors.borderGray.withValues(alpha: 0.6)),
+        borderSide: BorderSide(
+          color: AppColors.borderGray.withValues(alpha: 0.6),
+        ),
       ),
       focusedBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(8),
@@ -1047,7 +1053,11 @@ class _InwardRecordCard extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 10),
-          _metaRow(Icons.inventory_2_outlined, 'Qty', '$qtyText ${record.unit}'),
+          _metaRow(
+            Icons.inventory_2_outlined,
+            'Qty',
+            '$qtyText ${record.unit}',
+          ),
           const SizedBox(height: 6),
           _metaRow(Icons.person_outline, 'To', record.contractorName),
           if (record.remark.trim().isNotEmpty) ...[
@@ -1114,7 +1124,11 @@ class _OutwardRecordCard extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 10),
-          _metaRow(Icons.inventory_2_outlined, 'Qty', '$qtyText ${record.unit}'),
+          _metaRow(
+            Icons.inventory_2_outlined,
+            'Qty',
+            '$qtyText ${record.unit}',
+          ),
           if (toName.isNotEmpty) ...[
             const SizedBox(height: 6),
             _metaRow(Icons.person_outline, 'To', toName),

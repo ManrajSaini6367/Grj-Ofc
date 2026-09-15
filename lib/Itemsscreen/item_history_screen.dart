@@ -46,7 +46,9 @@ class _ItemHistoryScreenState extends State<ItemHistoryScreen> {
   void initState() {
     super.initState();
     _searchController.addListener(() {
-      setState(() => _searchQuery = _searchController.text.trim().toLowerCase());
+      setState(
+        () => _searchQuery = _searchController.text.trim().toLowerCase(),
+      );
     });
     WidgetsBinding.instance.addPostFrameCallback((_) => _loadHistory());
   }
@@ -70,14 +72,15 @@ class _ItemHistoryScreenState extends State<ItemHistoryScreen> {
     if (!mounted) return;
 
     final records = response?.data?.items ?? [];
-    final mapped = records
-        .map(
-          (record) => record.toTransaction(
-            fallbackUnit: response?.data?.item?.unit ?? widget.item.unit,
-          ),
-        )
-        .toList()
-      ..sort((a, b) => b.dateTime.compareTo(a.dateTime));
+    final mapped =
+        records
+            .map(
+              (record) => record.toTransaction(
+                fallbackUnit: response?.data?.item?.unit ?? widget.item.unit,
+              ),
+            )
+            .toList()
+          ..sort((a, b) => b.dateTime.compareTo(a.dateTime));
 
     setState(() {
       _apiItem = response?.data?.item;
@@ -86,14 +89,17 @@ class _ItemHistoryScreenState extends State<ItemHistoryScreen> {
     });
   }
 
-  String get _displayName =>
-      (_apiItem?.name?.trim().isNotEmpty == true) ? _apiItem!.name!.trim() : widget.item.name;
+  String get _displayName => (_apiItem?.name?.trim().isNotEmpty == true)
+      ? _apiItem!.name!.trim()
+      : widget.item.name;
 
-  String get _displaySku =>
-      (_apiItem?.sku?.trim().isNotEmpty == true) ? _apiItem!.sku!.trim() : widget.item.sku;
+  String get _displaySku => (_apiItem?.sku?.trim().isNotEmpty == true)
+      ? _apiItem!.sku!.trim()
+      : widget.item.sku;
 
-  String get _displayUnit =>
-      (_apiItem?.unit?.trim().isNotEmpty == true) ? _apiItem!.unit!.trim() : widget.item.unit;
+  String get _displayUnit => (_apiItem?.unit?.trim().isNotEmpty == true)
+      ? _apiItem!.unit!.trim()
+      : widget.item.unit;
 
   double get _stockBalance {
     final fromApi = double.tryParse(_apiItem?.balance ?? '');
@@ -123,7 +129,8 @@ class _ItemHistoryScreenState extends State<ItemHistoryScreen> {
   List<ItemTransaction> get _filteredTransactions {
     return _transactions.where((tx) {
       if (_typeFilter != null && tx.type != _typeFilter) return false;
-      if (_issueToFilter != null && (tx.issueTo ?? '') != _issueToFilter) return false;
+      if (_issueToFilter != null && (tx.issueTo ?? '') != _issueToFilter)
+        return false;
       if (!_matchesDateFilter(tx.dateTime)) return false;
       if (_searchQuery.isNotEmpty) {
         final haystack = [
@@ -178,7 +185,9 @@ class _ItemHistoryScreenState extends State<ItemHistoryScreen> {
   }
 
   bool get _hasActiveFilters =>
-      _typeFilter != null || _issueToFilter != null || _dateFilter != _HistoryDateFilter.all;
+      _typeFilter != null ||
+      _issueToFilter != null ||
+      _dateFilter != _HistoryDateFilter.all;
 
   void _clearFilters() {
     setState(() {
@@ -200,8 +209,18 @@ class _ItemHistoryScreenState extends State<ItemHistoryScreen> {
 
   String _formatDate(DateTime dt) {
     const months = [
-      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec',
     ];
     return '${dt.day.toString().padLeft(2, '0')} ${months[dt.month - 1]} ${dt.year}';
   }
@@ -236,7 +255,9 @@ class _ItemHistoryScreenState extends State<ItemHistoryScreen> {
             Expanded(
               child: _isLoading
                   ? const Center(
-                      child: CircularProgressIndicator(color: AppColors.primaryRed),
+                      child: CircularProgressIndicator(
+                        color: AppColors.primaryRed,
+                      ),
                     )
                   : RefreshIndicator(
                       color: AppColors.primaryRed,
@@ -278,7 +299,8 @@ class _ItemHistoryScreenState extends State<ItemHistoryScreen> {
                               padding: EdgeInsets.fromLTRB(hPad, 0, hPad, 24),
                               sliver: SliverList(
                                 delegate: SliverChildBuilderDelegate(
-                                  (context, index) => _buildTransactionCard(rows[index]),
+                                  (context, index) =>
+                                      _buildTransactionCard(rows[index]),
                                   childCount: rows.length,
                                 ),
                               ),
@@ -340,7 +362,11 @@ class _ItemHistoryScreenState extends State<ItemHistoryScreen> {
                     const SizedBox(height: 6),
                     Row(
                       children: [
-                        Icon(Icons.qr_code_2_rounded, size: 14, color: AppColors.textSecondary),
+                        Icon(
+                          Icons.qr_code_2_rounded,
+                          size: 14,
+                          color: AppColors.textSecondary,
+                        ),
                         const SizedBox(width: 4),
                         Expanded(
                           child: Text(
@@ -360,7 +386,10 @@ class _ItemHistoryScreenState extends State<ItemHistoryScreen> {
                       spacing: 8,
                       runSpacing: 6,
                       children: [
-                        _infoChip(Icons.straighten_rounded, formatStoreUnit(_displayUnit)),
+                        _infoChip(
+                          Icons.straighten_rounded,
+                          formatStoreUnit(_displayUnit),
+                        ),
                         _infoChip(
                           Icons.inventory_2_outlined,
                           '${_formatQty(_stockBalance)} ${formatStoreUnit(_displayUnit)}',
@@ -387,14 +416,16 @@ class _ItemHistoryScreenState extends State<ItemHistoryScreen> {
         onPressed: _showIssueItemSheet,
         icon: const Icon(Icons.outbox_outlined, size: 20),
         label: Text(
-          'Issue Item',
+          'Debit Item',
           style: GoogleFonts.poppins(fontSize: 14, fontWeight: FontWeight.w600),
         ),
         style: ElevatedButton.styleFrom(
           backgroundColor: AppColors.primaryRed,
           foregroundColor: AppColors.white,
           elevation: 0,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(10),
+          ),
         ),
       ),
     );
@@ -437,14 +468,16 @@ class _ItemHistoryScreenState extends State<ItemHistoryScreen> {
                             width: 40,
                             height: 4,
                             decoration: BoxDecoration(
-                              color: AppColors.borderGray.withValues(alpha: 0.7),
+                              color: AppColors.borderGray.withValues(
+                                alpha: 0.7,
+                              ),
                               borderRadius: BorderRadius.circular(2),
                             ),
                           ),
                         ),
                         const SizedBox(height: 14),
                         Text(
-                          'Issue Item',
+                          'Debit Item',
                           style: GoogleFonts.poppins(
                             fontSize: 18,
                             fontWeight: FontWeight.w700,
@@ -457,11 +490,11 @@ class _ItemHistoryScreenState extends State<ItemHistoryScreen> {
                         _dateField(setSheetState),
                         const SizedBox(height: 10),
                         _labeledField(
-                          label: 'Issue To',
+                          label: 'Debit To',
                           isRequired: true,
                           child: _issueTextField(
                             controller: _issueToController,
-                            hint: 'Issue To',
+                            hint: 'Debit To',
                           ),
                         ),
                         const SizedBox(height: 10),
@@ -472,8 +505,8 @@ class _ItemHistoryScreenState extends State<ItemHistoryScreen> {
                             hint: 'Remark',
                           ),
                         ),
-                        const SizedBox(height: 14),
-                        _confirmIssueCheckbox(setSheetState),
+                        // const SizedBox(height: 14),
+                        // _confirmIssueCheckbox(setSheetState),
                         const SizedBox(height: 16),
                         SizedBox(
                           height: 46,
@@ -481,9 +514,9 @@ class _ItemHistoryScreenState extends State<ItemHistoryScreen> {
                             onPressed: _isSavingHistory
                                 ? null
                                 : () => _saveIssueHistory(
-                                      sheetContext: sheetContext,
-                                      setSheetState: setSheetState,
-                                    ),
+                                    sheetContext: sheetContext,
+                                    setSheetState: setSheetState,
+                                  ),
                             icon: _isSavingHistory
                                 ? const SizedBox(
                                     width: 16,
@@ -493,7 +526,10 @@ class _ItemHistoryScreenState extends State<ItemHistoryScreen> {
                                       color: AppColors.white,
                                     ),
                                   )
-                                : const Icon(Icons.assignment_turned_in_outlined, size: 18),
+                                : const Icon(
+                                    Icons.assignment_turned_in_outlined,
+                                    size: 18,
+                                  ),
                             label: Text(
                               'Save',
                               style: GoogleFonts.poppins(
@@ -504,8 +540,8 @@ class _ItemHistoryScreenState extends State<ItemHistoryScreen> {
                             style: ElevatedButton.styleFrom(
                               backgroundColor: AppColors.primaryRed,
                               foregroundColor: AppColors.white,
-                              disabledBackgroundColor:
-                                  AppColors.primaryRed.withValues(alpha: 0.6),
+                              disabledBackgroundColor: AppColors.primaryRed
+                                  .withValues(alpha: 0.6),
                               elevation: 0,
                               shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(10),
@@ -558,7 +594,9 @@ class _ItemHistoryScreenState extends State<ItemHistoryScreen> {
       contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
       enabledBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(8),
-        borderSide: BorderSide(color: AppColors.borderGray.withValues(alpha: 0.8)),
+        borderSide: BorderSide(
+          color: AppColors.borderGray.withValues(alpha: 0.8),
+        ),
       ),
       focusedBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(8),
@@ -590,9 +628,7 @@ class _ItemHistoryScreenState extends State<ItemHistoryScreen> {
         controller: _qtyController,
         hint: 'Qty',
         keyboardType: const TextInputType.numberWithOptions(decimal: true),
-        inputFormatters: [
-          FilteringTextInputFormatter.allow(RegExp(r'[0-9.]')),
-        ],
+        inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[0-9.]'))],
       ),
     );
   }
@@ -605,13 +641,14 @@ class _ItemHistoryScreenState extends State<ItemHistoryScreen> {
         onTap: () => _pickIssueDateTime(setSheetState),
         borderRadius: BorderRadius.circular(8),
         child: InputDecorator(
-          decoration: _issueInputDecoration('mm / dd / yyyy, -- : -- --').copyWith(
-            suffixIcon: const Icon(
-              Icons.calendar_today_outlined,
-              size: 16,
-              color: AppColors.textSecondary,
-            ),
-          ),
+          decoration: _issueInputDecoration('mm / dd / yyyy, -- : -- --')
+              .copyWith(
+                suffixIcon: const Icon(
+                  Icons.calendar_today_outlined,
+                  size: 16,
+                  color: AppColors.textSecondary,
+                ),
+              ),
           child: Text(
             _issueDateTime == null
                 ? 'mm / dd / yyyy, -- : -- --'
@@ -696,7 +733,9 @@ class _ItemHistoryScreenState extends State<ItemHistoryScreen> {
     final itemId = int.tryParse(widget.item.id);
     if (itemId == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Item id is not valid.', style: GoogleFonts.poppins())),
+        SnackBar(
+          content: Text('Item id is not valid.', style: GoogleFonts.poppins()),
+        ),
       );
       return;
     }
@@ -704,13 +743,17 @@ class _ItemHistoryScreenState extends State<ItemHistoryScreen> {
     final qty = double.tryParse(_qtyController.text.trim());
     if (qty == null || qty <= 0) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Please enter Qty.', style: GoogleFonts.poppins())),
+        SnackBar(
+          content: Text('Please enter Qty.', style: GoogleFonts.poppins()),
+        ),
       );
       return;
     }
     if (_issueDateTime == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Please select Date.', style: GoogleFonts.poppins())),
+        SnackBar(
+          content: Text('Please select Date.', style: GoogleFonts.poppins()),
+        ),
       );
       return;
     }
@@ -718,7 +761,9 @@ class _ItemHistoryScreenState extends State<ItemHistoryScreen> {
     final issueTo = _issueToController.text.trim();
     if (issueTo.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Please enter Issue To.', style: GoogleFonts.poppins())),
+        SnackBar(
+          content: Text('Please enter Issue To.', style: GoogleFonts.poppins()),
+        ),
       );
       return;
     }
@@ -896,7 +941,10 @@ class _ItemHistoryScreenState extends State<ItemHistoryScreen> {
           Container(
             width: 30,
             height: 30,
-            decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(8)),
+            decoration: BoxDecoration(
+              color: bg,
+              borderRadius: BorderRadius.circular(8),
+            ),
             child: Icon(icon, size: 16, color: color),
           ),
           const SizedBox(height: 10),
@@ -927,7 +975,10 @@ class _ItemHistoryScreenState extends State<ItemHistoryScreen> {
                 const SizedBox(width: 3),
                 Text(
                   formatStoreUnit(unit),
-                  style: GoogleFonts.poppins(fontSize: 10, color: AppColors.textSecondary),
+                  style: GoogleFonts.poppins(
+                    fontSize: 10,
+                    color: AppColors.textSecondary,
+                  ),
                 ),
               ],
             ),
@@ -957,11 +1008,21 @@ class _ItemHistoryScreenState extends State<ItemHistoryScreen> {
           Expanded(
             child: TextField(
               controller: _searchController,
-              style: GoogleFonts.poppins(color: AppColors.textDark, fontSize: 14),
+              style: GoogleFonts.poppins(
+                color: AppColors.textDark,
+                fontSize: 14,
+              ),
               decoration: InputDecoration(
                 hintText: 'Search transactions...',
-                hintStyle: GoogleFonts.poppins(color: AppColors.inputHint, fontSize: 13),
-                prefixIcon: const Icon(Icons.search_rounded, color: AppColors.textSecondary, size: 22),
+                hintStyle: GoogleFonts.poppins(
+                  color: AppColors.inputHint,
+                  fontSize: 13,
+                ),
+                prefixIcon: const Icon(
+                  Icons.search_rounded,
+                  color: AppColors.textSecondary,
+                  size: 22,
+                ),
                 filled: true,
                 fillColor: AppColors.operationsCardBg,
                 contentPadding: const EdgeInsets.symmetric(vertical: 12),
@@ -975,7 +1036,10 @@ class _ItemHistoryScreenState extends State<ItemHistoryScreen> {
                 ),
                 focusedBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(10),
-                  borderSide: BorderSide(color: AppColors.primaryRed.withValues(alpha: 0.5), width: 1.5),
+                  borderSide: BorderSide(
+                    color: AppColors.primaryRed.withValues(alpha: 0.5),
+                    width: 1.5,
+                  ),
                 ),
               ),
             ),
@@ -1007,7 +1071,9 @@ class _ItemHistoryScreenState extends State<ItemHistoryScreen> {
                   child: Icon(
                     Icons.tune_rounded,
                     size: 22,
-                    color: _hasActiveFilters ? AppColors.primaryRed : AppColors.textDark,
+                    color: _hasActiveFilters
+                        ? AppColors.primaryRed
+                        : AppColors.textDark,
                   ),
                 ),
               ),
@@ -1050,10 +1116,20 @@ class _ItemHistoryScreenState extends State<ItemHistoryScreen> {
   }
 
   Widget _buildTransactionCard(ItemTransaction tx) {
-    final isCredit = tx.type == ItemTransactionType.credit;
+    final isReturn = tx.type == ItemTransactionType.returned;
     final isIssue = tx.type == ItemTransactionType.issue;
-    final accent = isCredit ? _creditColor : isIssue ? _issueColor : _debitColor;
-    final accentBg = isCredit ? _creditBg : isIssue ? _issueBg : _debitBg;
+    final isStockIn =
+        tx.type == ItemTransactionType.credit || isReturn;
+    final accent = isStockIn
+        ? _creditColor
+        : isIssue
+        ? _issueColor
+        : _debitColor;
+    final accentBg = isStockIn
+        ? _creditBg
+        : isIssue
+        ? _issueBg
+        : _debitBg;
 
     return Container(
       margin: const EdgeInsets.only(bottom: 10),
@@ -1086,7 +1162,10 @@ class _ItemHistoryScreenState extends State<ItemHistoryScreen> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 10,
+                              vertical: 6,
+                            ),
                             decoration: BoxDecoration(
                               color: accentBg,
                               borderRadius: BorderRadius.circular(8),
@@ -1095,7 +1174,9 @@ class _ItemHistoryScreenState extends State<ItemHistoryScreen> {
                               mainAxisSize: MainAxisSize.min,
                               children: [
                                 Icon(
-                                  isCredit ? Icons.add_circle_outline : Icons.remove_circle_outline,
+                                  isStockIn
+                                      ? Icons.add_circle_outline
+                                      : Icons.remove_circle_outline,
                                   size: 16,
                                   color: accent,
                                 ),
@@ -1117,7 +1198,7 @@ class _ItemHistoryScreenState extends State<ItemHistoryScreen> {
                             crossAxisAlignment: CrossAxisAlignment.end,
                             children: [
                               Text(
-                                '${isCredit ? '+' : '-'}${_formatQty(tx.qty)}',
+                                '${isStockIn ? '+' : '-'}${_formatQty(tx.qty)}',
                                 style: GoogleFonts.poppins(
                                   fontSize: 22,
                                   fontWeight: FontWeight.w700,
@@ -1136,7 +1217,8 @@ class _ItemHistoryScreenState extends State<ItemHistoryScreen> {
                           ),
                         ],
                       ),
-                      if ((tx.issueTo ?? '').isNotEmpty || (tx.remark ?? '').isNotEmpty) ...[
+                      if ((tx.issueTo ?? '').isNotEmpty ||
+                          (tx.remark ?? '').isNotEmpty) ...[
                         const SizedBox(height: 12),
                         Container(
                           width: double.infinity,
@@ -1149,11 +1231,20 @@ class _ItemHistoryScreenState extends State<ItemHistoryScreen> {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               if ((tx.issueTo ?? '').isNotEmpty)
-                                _detailRow(Icons.person_outline_rounded, 'Issue To', tx.issueTo!),
-                              if ((tx.issueTo ?? '').isNotEmpty && (tx.remark ?? '').isNotEmpty)
+                                _detailRow(
+                                  Icons.person_outline_rounded,
+                                  'Issue To',
+                                  tx.issueTo!,
+                                ),
+                              if ((tx.issueTo ?? '').isNotEmpty &&
+                                  (tx.remark ?? '').isNotEmpty)
                                 const SizedBox(height: 6),
                               if ((tx.remark ?? '').isNotEmpty)
-                                _detailRow(Icons.notes_rounded, 'Remark', tx.remark!),
+                                _detailRow(
+                                  Icons.notes_rounded,
+                                  'Remark',
+                                  tx.remark!,
+                                ),
                             ],
                           ),
                         ),
@@ -1161,18 +1252,32 @@ class _ItemHistoryScreenState extends State<ItemHistoryScreen> {
                       const SizedBox(height: 12),
                       Row(
                         children: [
-                          Icon(Icons.calendar_today_outlined, size: 14, color: AppColors.textSecondary),
+                          Icon(
+                            Icons.calendar_today_outlined,
+                            size: 14,
+                            color: AppColors.textSecondary,
+                          ),
                           const SizedBox(width: 6),
                           Text(
                             _formatDate(tx.dateTime),
-                            style: GoogleFonts.poppins(fontSize: 12, color: AppColors.textSecondary),
+                            style: GoogleFonts.poppins(
+                              fontSize: 12,
+                              color: AppColors.textSecondary,
+                            ),
                           ),
                           const SizedBox(width: 12),
-                          Icon(Icons.access_time_rounded, size: 14, color: AppColors.textSecondary),
+                          Icon(
+                            Icons.access_time_rounded,
+                            size: 14,
+                            color: AppColors.textSecondary,
+                          ),
                           const SizedBox(width: 6),
                           Text(
                             _formatTime(tx.dateTime),
-                            style: GoogleFonts.poppins(fontSize: 12, color: AppColors.textSecondary),
+                            style: GoogleFonts.poppins(
+                              fontSize: 12,
+                              color: AppColors.textSecondary,
+                            ),
                           ),
                         ],
                       ),
@@ -1204,7 +1309,10 @@ class _ItemHistoryScreenState extends State<ItemHistoryScreen> {
         Expanded(
           child: Text(
             value,
-            style: GoogleFonts.poppins(fontSize: 12, color: AppColors.textSecondary),
+            style: GoogleFonts.poppins(
+              fontSize: 12,
+              color: AppColors.textSecondary,
+            ),
           ),
         ),
       ],
@@ -1221,8 +1329,10 @@ class _ItemHistoryScreenState extends State<ItemHistoryScreen> {
             _typeFilter == ItemTransactionType.credit
                 ? 'Credit'
                 : _typeFilter == ItemTransactionType.issue
-                    ? 'Issue'
-                    : 'Debit',
+                ? 'Issue'
+                : _typeFilter == ItemTransactionType.returned
+                ? 'Return'
+                : 'Debit',
             () => setState(() => _typeFilter = null),
           ),
         if (_issueToFilter != null)
@@ -1259,8 +1369,15 @@ class _ItemHistoryScreenState extends State<ItemHistoryScreen> {
 
   Widget _activeFilterChip(String label, VoidCallback onRemove) {
     return InputChip(
-      label: Text(label, style: GoogleFonts.poppins(fontSize: 12, color: AppColors.primaryRed)),
-      deleteIcon: const Icon(Icons.close, size: 16, color: AppColors.primaryRed),
+      label: Text(
+        label,
+        style: GoogleFonts.poppins(fontSize: 12, color: AppColors.primaryRed),
+      ),
+      deleteIcon: const Icon(
+        Icons.close,
+        size: 16,
+        color: AppColors.primaryRed,
+      ),
       onDeleted: onRemove,
       backgroundColor: AppColors.primaryRed.withValues(alpha: 0.08),
       side: BorderSide(color: AppColors.primaryRed.withValues(alpha: 0.25)),
@@ -1317,13 +1434,20 @@ class _ItemHistoryScreenState extends State<ItemHistoryScreen> {
                             color: AppColors.primaryRed.withValues(alpha: 0.1),
                             borderRadius: BorderRadius.circular(10),
                           ),
-                          child: const Icon(Icons.tune_rounded, color: AppColors.primaryRed, size: 20),
+                          child: const Icon(
+                            Icons.tune_rounded,
+                            color: AppColors.primaryRed,
+                            size: 20,
+                          ),
                         ),
                         const SizedBox(width: 12),
                         Expanded(
                           child: Text(
                             'Filter Transactions',
-                            style: GoogleFonts.poppins(fontSize: 18, fontWeight: FontWeight.w700),
+                            style: GoogleFonts.poppins(
+                              fontSize: 18,
+                              fontWeight: FontWeight.w700,
+                            ),
                           ),
                         ),
                         if (_hasActiveFilters)
@@ -1348,18 +1472,46 @@ class _ItemHistoryScreenState extends State<ItemHistoryScreen> {
                         setState(() => _typeFilter = null);
                         Navigator.pop(context);
                       }),
-                      _filterChip('Credit', _typeFilter == ItemTransactionType.credit, () {
-                        setState(() => _typeFilter = ItemTransactionType.credit);
-                        Navigator.pop(context);
-                      }),
-                      _filterChip('Debit', _typeFilter == ItemTransactionType.debit, () {
-                        setState(() => _typeFilter = ItemTransactionType.debit);
-                        Navigator.pop(context);
-                      }),
-                      _filterChip('Issue', _typeFilter == ItemTransactionType.issue, () {
-                        setState(() => _typeFilter = ItemTransactionType.issue);
-                        Navigator.pop(context);
-                      }),
+                      _filterChip(
+                        'Credit',
+                        _typeFilter == ItemTransactionType.credit,
+                        () {
+                          setState(
+                            () => _typeFilter = ItemTransactionType.credit,
+                          );
+                          Navigator.pop(context);
+                        },
+                      ),
+                      _filterChip(
+                        'Debit',
+                        _typeFilter == ItemTransactionType.debit,
+                        () {
+                          setState(
+                            () => _typeFilter = ItemTransactionType.debit,
+                          );
+                          Navigator.pop(context);
+                        },
+                      ),
+                      _filterChip(
+                        'Issue',
+                        _typeFilter == ItemTransactionType.issue,
+                        () {
+                          setState(
+                            () => _typeFilter = ItemTransactionType.issue,
+                          );
+                          Navigator.pop(context);
+                        },
+                      ),
+                      _filterChip(
+                        'Return',
+                        _typeFilter == ItemTransactionType.returned,
+                        () {
+                          setState(
+                            () => _typeFilter = ItemTransactionType.returned,
+                          );
+                          Navigator.pop(context);
+                        },
+                      ),
                     ]),
                     const SizedBox(height: 16),
                     _filterSection(
@@ -1367,10 +1519,14 @@ class _ItemHistoryScreenState extends State<ItemHistoryScreen> {
                       Icons.date_range_rounded,
                       _HistoryDateFilter.values
                           .map(
-                            (filter) => _filterChip(filter.label, _dateFilter == filter, () {
-                              setState(() => _dateFilter = filter);
-                              Navigator.pop(context);
-                            }),
+                            (filter) => _filterChip(
+                              filter.label,
+                              _dateFilter == filter,
+                              () {
+                                setState(() => _dateFilter = filter);
+                                Navigator.pop(context);
+                              },
+                            ),
                           )
                           .toList(),
                     ),
@@ -1382,10 +1538,14 @@ class _ItemHistoryScreenState extends State<ItemHistoryScreen> {
                           Navigator.pop(context);
                         }),
                         ..._issueToOptions.map(
-                          (issueTo) => _filterChip(issueTo, _issueToFilter == issueTo, () {
-                            setState(() => _issueToFilter = issueTo);
-                            Navigator.pop(context);
-                          }),
+                          (issueTo) => _filterChip(
+                            issueTo,
+                            _issueToFilter == issueTo,
+                            () {
+                              setState(() => _issueToFilter = issueTo);
+                              Navigator.pop(context);
+                            },
+                          ),
                         ),
                       ]),
                     ],
@@ -1488,7 +1648,10 @@ class _ItemHistoryScreenState extends State<ItemHistoryScreen> {
                 ? 'Credit or debit entries for this item will appear here.'
                 : 'Try adjusting your search or filters',
             textAlign: TextAlign.center,
-            style: GoogleFonts.poppins(fontSize: 13, color: AppColors.textSecondary),
+            style: GoogleFonts.poppins(
+              fontSize: 13,
+              color: AppColors.textSecondary,
+            ),
           ),
           if (_hasActiveFilters || _searchQuery.isNotEmpty) ...[
             const SizedBox(height: 16),

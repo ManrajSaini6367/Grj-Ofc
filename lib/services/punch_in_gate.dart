@@ -25,6 +25,7 @@ class PunchInGate {
 
   static bool get canAccessApp {
     if (!isRequired) return true;
+    if (AttendanceService.instance.isOnLeave) return true;
     return AttendanceService.instance.isPunchedIn;
   }
 

@@ -1,6 +1,6 @@
 enum ItemStatus { published, unpublished }
 
-enum ItemTransactionType { credit, debit, issue }
+enum ItemTransactionType { credit, debit, issue, returned }
 
 class ItemTransaction {
   const ItemTransaction({
@@ -27,10 +27,14 @@ class ItemTransaction {
         return 'issue';
       case ItemTransactionType.debit:
         return 'debit';
+      case ItemTransactionType.returned:
+        return 'return';
     }
   }
 
-  bool get isStockOut => type != ItemTransactionType.credit;
+  bool get isStockOut =>
+      type != ItemTransactionType.credit &&
+      type != ItemTransactionType.returned;
 }
 
 class InventoryItem {
@@ -159,7 +163,10 @@ List<ItemTransaction> getItemTransactions(String itemId) {
 
 double getItemStockBalance(String itemId) {
   return getItemTransactions(itemId).fold<double>(0, (sum, tx) {
-    if (tx.type == ItemTransactionType.credit) return sum + tx.qty;
+    if (tx.type == ItemTransactionType.credit ||
+        tx.type == ItemTransactionType.returned) {
+      return sum + tx.qty;
+    }
     return sum - tx.qty;
   });
 }

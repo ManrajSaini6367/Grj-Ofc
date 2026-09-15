@@ -10,6 +10,7 @@ import 'package:grjoffice_apps/chatmodalsclasses/getchatlistmodal.dart';
 import 'package:grjoffice_apps/chatmodalsclasses/getlistmessagesmodal.dart';
 import 'package:grjoffice_apps/chatmodalsclasses/showthreadmodal.dart';
 import 'package:grjoffice_apps/chatmodalsclasses/threadchatmodal.dart';
+import 'package:grjoffice_apps/core/app_date_time.dart';
 import 'package:grjoffice_apps/core/app_navigator.dart';
 import 'package:grjoffice_apps/core/api_config.dart';
 import 'package:grjoffice_apps/core/preference.dart';
@@ -6196,6 +6197,7 @@ Future<Getmyleavedata?> getMyLeaveApi(
   int perPage = 20,
   int page = 1,
   String status = 'all',
+  bool showErrors = true,
 }) async {
   try {
     final query = <String, String>{
@@ -6227,18 +6229,64 @@ Future<Getmyleavedata?> getMyLeaveApi(
       return model;
     }
 
-    if (context.mounted) {
+    if (showErrors && context.mounted) {
       message(context, apiMessage ?? 'Failed to fetch my leaves.');
     }
     return null;
   } catch (e, stack) {
     debugPrint('[getMyLeaveApi] error: $e');
     debugPrint('[getMyLeaveApi] stack: $stack');
-    if (context.mounted) {
+    if (showErrors && context.mounted) {
       message(context, 'Something went wrong');
     }
     return null;
   }
+}
+
+bool _sameCalendarDay(DateTime a, DateTime b) {
+  return a.year == b.year && a.month == b.month && a.day == b.day;
+}
+
+/// True when today's attendance calendar is leave, or an approved leave covers today.
+Future<bool> isUserOnLeaveToday(BuildContext context) async {
+  final now = AppDateTime.now();
+  final today = DateTime(now.year, now.month, now.day);
+  final monthKey =
+      '${today.year.toString().padLeft(4, '0')}-'
+      '${today.month.toString().padLeft(2, '0')}';
+
+  final calendar = await getAttendanceCalendarApi(
+    context,
+    month: monthKey,
+    showErrors: false,
+  );
+  for (final day in calendar?.data?.days ?? const <CalendarDay>[]) {
+    final date = day.date;
+    if (date != null &&
+        _sameCalendarDay(date, today) &&
+        day.status == CalendarDayStatus.leave) {
+      return true;
+    }
+  }
+
+  final leaves = await getMyLeaveApi(
+    context,
+    status: 'approved',
+    perPage: 50,
+    showErrors: false,
+  );
+  for (final item in leaves?.data?.items ?? const <MyLeaveItem>[]) {
+    final status = item.status?.trim().toLowerCase();
+    if (status != null && status != 'approved') continue;
+    final from = item.fromDate;
+    if (from == null) continue;
+    final to = item.toDate ?? from;
+    final start = DateTime(from.year, from.month, from.day);
+    final end = DateTime(to.year, to.month, to.day);
+    if (!today.isBefore(start) && !today.isAfter(end)) return true;
+  }
+
+  return false;
 }
 
 /// GET /api/v1/leaves/{leaveId}

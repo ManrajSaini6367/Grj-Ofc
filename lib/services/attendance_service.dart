@@ -30,10 +30,12 @@ class AttendanceService extends SafeChangeNotifier {
   String? _todayDate;
   bool _loadedFromApi = false;
   int? _punchSiteId;
+  bool _isOnLeave = false;
 
   bool get isPunchedIn => _isPunchedIn;
-  bool get canPunchIn => _canPunchIn;
+  bool get canPunchIn => _canPunchIn && !_isOnLeave;
   bool get canPunchOut => _canPunchOut;
+  bool get isOnLeave => _isOnLeave;
   /// Site where today's punch-in was recorded. Punch-out must use this site.
   int? get punchSiteId => _punchSiteId;
   DateTime? get punchInTime => _punchInTime;
@@ -75,6 +77,7 @@ class AttendanceService extends SafeChangeNotifier {
       _todayDate = null;
       _loadedFromApi = false;
       _punchSiteId = null;
+      _isOnLeave = false;
       await _save(prefs, todayKey);
       notifyListeners();
       return;
@@ -118,7 +121,7 @@ class AttendanceService extends SafeChangeNotifier {
     _loadedFromApi = true;
     _todayDate = status.date;
     _isPunchedIn = status.isPunchedIn;
-    _canPunchIn = status.canPunchIn;
+    _canPunchIn = status.canPunchIn && !_isOnLeave;
     _canPunchOut = status.canPunchOut;
     _todayAttendance = status.attendance;
     if (status.isPunchedIn) {
@@ -157,8 +160,16 @@ class AttendanceService extends SafeChangeNotifier {
     notifyListeners();
   }
 
+  Future<void> setOnLeave(bool value) async {
+    _isOnLeave = value;
+    if (value && !_isPunchedIn) {
+      _canPunchIn = false;
+    }
+    notifyListeners();
+  }
+
   Future<void> punchIn() async {
-    if (_isPunchedIn) return;
+    if (_isOnLeave || _isPunchedIn) return;
 
     final now = AppDateTime.now();
     _isPunchedIn = true;

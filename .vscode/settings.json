@@ -1,16 +1,15 @@
 {
-    "terminal.integrated.defaultProfile.osx": "zsh",
-    "terminal.integrated.env.osx": {
-      "PATH": "/bin:/usr/bin:/usr/local/bin:${env:PATH}",
-      "SHELL": "/bin/zsh"
-    },
-    "dart.flutterSdkPath": "/Users/aplle/Documents/flutterDev/sdk/flutter",
-    "dart.sdkPath": "/Users/aplle/Documents/flutterDev/sdk/flutter/bin/cache/dart-sdk",
-    "dart.env": {
-      "PATH": "/bin:/usr/bin:/usr/local/bin:${env:PATH}",
-      "SHELL": "/bin/zsh"
-    }
-  }
-  {
-      "java.configuration.updateBuildConfiguration": "disabled"
-  }
+  "terminal.integrated.defaultProfile.osx": "zsh",
+  "terminal.integrated.env.osx": {
+    "PATH": "/opt/homebrew/bin:/opt/homebrew/sbin:/usr/local/bin:/usr/bin:/bin:${env:PATH}",
+    "SHELL": "/bin/zsh"
+  },
+  "dart.flutterSdkPath": "/Users/tdh/Downloads/flutter",
+  "dart.sdkPath": "/Users/tdh/Downloads/flutter/bin/cache/dart-sdk",
+  "dart.env": {
+    "PATH": "/opt/homebrew/bin:/opt/homebrew/sbin:/usr/local/bin:/usr/bin:/bin:${env:PATH}",
+    "SHELL": "/bin/zsh",
+    "LANG": "en_US.UTF-8"
+  },
+  "java.configuration.updateBuildConfiguration": "disabled"
+}

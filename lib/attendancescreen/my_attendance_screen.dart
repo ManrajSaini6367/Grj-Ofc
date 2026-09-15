@@ -128,8 +128,9 @@ class _MyAttendanceScreenState extends State<MyAttendanceScreen> {
     setState(() {
       _loading = false;
       if (!_isSameMonth(_selectedDate, _focusedMonth)) {
-        _selectedDate =
-            _isSameMonth(_today, _focusedMonth) ? _today : _focusedMonth;
+        _selectedDate = _isSameMonth(_today, _focusedMonth)
+            ? _today
+            : _focusedMonth;
       }
     });
   }
@@ -203,10 +204,7 @@ class _MyAttendanceScreenState extends State<MyAttendanceScreen> {
     if (!_isMyAttendanceView) return;
     if (!_isSameMonth(_today, _focusedMonth)) return;
 
-    final liveStatus = await getTodayAttendanceApi(
-      context,
-      showErrors: false,
-    );
+    final liveStatus = await getTodayAttendanceApi(context, showErrors: false);
     if (!mounted || liveStatus == null) return;
 
     final calendarDay = _calendarData?.dayFor(_today);
@@ -883,8 +881,8 @@ class _CalendarDayCell extends StatelessWidget {
     final textColor = !inMonth
         ? AppColors.textSecondary.withValues(alpha: 0.35)
         : isSelected
-            ? Colors.white
-            : AppColors.headingBlack;
+        ? Colors.white
+        : AppColors.headingBlack;
 
     final cell = Column(
       mainAxisAlignment: MainAxisAlignment.center,
@@ -898,8 +896,8 @@ class _CalendarDayCell extends StatelessWidget {
             color: isSelected
                 ? AppColors.primaryRed
                 : isToday
-                    ? AppColors.primaryRed.withValues(alpha: 0.08)
-                    : Colors.transparent,
+                ? AppColors.primaryRed.withValues(alpha: 0.08)
+                : Colors.transparent,
             shape: BoxShape.circle,
             border: isToday && !isSelected
                 ? Border.all(color: AppColors.primaryRed, width: 1.2)
@@ -996,10 +994,7 @@ class _SummaryTile extends StatelessWidget {
 }
 
 class _ActivityLogsSheet extends StatelessWidget {
-  const _ActivityLogsSheet({
-    required this.date,
-    this.day,
-  });
+  const _ActivityLogsSheet({required this.date, this.day});
 
   final DateTime date;
   final MyAttendanceDay? day;
@@ -1007,15 +1002,13 @@ class _ActivityLogsSheet extends StatelessWidget {
   bool get _hasApiData => day?.hasRecord ?? false;
 
   List<MyAttendanceActivity> get _visibleActivities {
-    return (day?.activities ?? const <MyAttendanceActivity>[])
-        .where((item) {
-          final lower = item.title.toLowerCase();
-          return !lower.contains('punch in') &&
-              !lower.contains('punch out') &&
-              !lower.contains('checked in') &&
-              !lower.contains('checked out');
-        })
-        .toList();
+    return (day?.activities ?? const <MyAttendanceActivity>[]).where((item) {
+      final lower = item.title.toLowerCase();
+      return !lower.contains('punch in') &&
+          !lower.contains('punch out') &&
+          !lower.contains('checked in') &&
+          !lower.contains('checked out');
+    }).toList();
   }
 
   Color _statusColor() {
@@ -1123,21 +1116,23 @@ class _ActivityLogsSheet extends StatelessWidget {
                               itemBuilder: (context, index) {
                                 final item = activities[index];
                                 final title = item.title.toLowerCase();
-                                final icon = title.contains('out') ||
+                                final icon =
+                                    title.contains('out') ||
                                         title.contains('checked out')
                                     ? Icons.arrow_circle_up_outlined
                                     : title.contains('in') ||
-                                            title.contains('checked in')
-                                        ? Icons.arrow_circle_down_outlined
-                                        : Icons.event_note_outlined;
+                                          title.contains('checked in')
+                                    ? Icons.arrow_circle_down_outlined
+                                    : Icons.event_note_outlined;
                                 return Container(
                                   padding: const EdgeInsets.all(14),
                                   decoration: BoxDecoration(
                                     color: AppColors.backgroundGray,
                                     borderRadius: BorderRadius.circular(12),
                                     border: Border.all(
-                                      color: AppColors.borderGray
-                                          .withValues(alpha: 0.45),
+                                      color: AppColors.borderGray.withValues(
+                                        alpha: 0.45,
+                                      ),
                                     ),
                                   ),
                                   child: Row(
@@ -1147,8 +1142,9 @@ class _ActivityLogsSheet extends StatelessWidget {
                                         height: 38,
                                         decoration: BoxDecoration(
                                           color: AppColors.iconBgGray,
-                                          borderRadius:
-                                              BorderRadius.circular(10),
+                                          borderRadius: BorderRadius.circular(
+                                            10,
+                                          ),
                                         ),
                                         child: Icon(
                                           icon,
@@ -1170,7 +1166,9 @@ class _ActivityLogsSheet extends StatelessWidget {
                                                 color: AppColors.headingBlack,
                                               ),
                                             ),
-                                            if (item.subtitle?.trim().isNotEmpty ==
+                                            if (item.subtitle
+                                                    ?.trim()
+                                                    .isNotEmpty ==
                                                 true)
                                               Text(
                                                 item.subtitle!.trim(),
@@ -1189,23 +1187,23 @@ class _ActivityLogsSheet extends StatelessWidget {
                               },
                             )
                           : emptyMessage.isNotEmpty
-                              ? Center(
-                                  child: Padding(
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 12,
-                                    ),
-                                    child: Text(
-                                      emptyMessage,
-                                      textAlign: TextAlign.center,
-                                      style: GoogleFonts.poppins(
-                                        fontSize: 14,
-                                        height: 1.5,
-                                        color: AppColors.textSecondary,
-                                      ),
-                                    ),
+                          ? Center(
+                              child: Padding(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 12,
+                                ),
+                                child: Text(
+                                  emptyMessage,
+                                  textAlign: TextAlign.center,
+                                  style: GoogleFonts.poppins(
+                                    fontSize: 14,
+                                    height: 1.5,
+                                    color: AppColors.textSecondary,
                                   ),
-                                )
-                              : const SizedBox.shrink(),
+                                ),
+                              ),
+                            )
+                          : const SizedBox.shrink(),
                     ),
                   ],
                 ),
