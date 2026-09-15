@@ -9,7 +9,6 @@ import 'package:grjoffice_apps/core/app_colors.dart';
 import 'package:grjoffice_apps/drawer/app_end_drawer.dart';
 import 'package:grjoffice_apps/drawer/drawer.dart';
 import 'package:grjoffice_apps/navigation/app_navigation.dart';
-import 'package:grjoffice_apps/core/preference.dart';
 import 'package:grjoffice_apps/models/site_model.dart';
 import 'package:grjoffice_apps/services/attendance_service.dart';
 import 'package:grjoffice_apps/services/api_auth.dart';
@@ -130,7 +129,23 @@ class _HomePageState extends State<HomePage> {
   void initState() {
     super.initState();
     _attendance.addListener(_onAttendanceChanged);
+    _restoreSavedSiteFromCache();
     _bootstrap();
+  }
+
+  void _restoreSavedSiteFromCache() {
+    final cached = cachedSites();
+    if (cached != null && cached.isNotEmpty) {
+      _siteItems = cached;
+      _sites = siteNames(cached);
+      _selectedSite = _resolveSelectedSiteName(cached) ?? '';
+      _isLoadingSites = false;
+      return;
+    }
+    final savedName = selectedSiteName()?.trim();
+    if (savedName != null && savedName.isNotEmpty) {
+      _selectedSite = savedName;
+    }
   }
 
   Future<void> _bootstrap() async {
@@ -185,18 +200,8 @@ class _HomePageState extends State<HomePage> {
 
     if (sites != null && sites.isNotEmpty) {
       final names = siteNames(sites);
-      var selected = Preference.pref.getString('selectedSiteName');
-      final selectedId = selectedSiteId();
-      final selectedIdIsValid =
-          selectedId != null && sites.any((site) => site.id == selectedId);
-
-      if (selectedIdIsValid) {
-        selected = siteNameById(sites, selectedId) ?? selected;
-      }
-
-      final resolvedName = (selected != null && names.contains(selected))
-          ? selected
-          : (_defaultSiteName(sites) ?? names.first);
+      final resolvedName =
+          _resolveSelectedSiteName(sites) ?? names.first;
 
       _siteItems = sites;
       _sites = names;
@@ -210,6 +215,26 @@ class _HomePageState extends State<HomePage> {
     setState(() => _isLoadingSites = false);
   }
 
+  String? _resolveSelectedSiteName(List<SiteModel> sites) {
+    final names = siteNames(sites);
+    if (names.isEmpty) return null;
+
+    final savedId = selectedSiteId();
+    if (savedId != null && savedId > 0) {
+      final name = siteNameById(sites, savedId);
+      if (name != null && names.contains(name)) return name;
+    }
+
+    final savedName = selectedSiteName()?.trim();
+    if (savedName != null &&
+        savedName.isNotEmpty &&
+        names.contains(savedName)) {
+      return savedName;
+    }
+
+    return _defaultSiteName(sites) ?? names.first;
+  }
+
   String? _defaultSiteName(List<SiteModel> sites) {
     final user = cachedUser();
     if (user == null || user.siteId <= 0) return null;
@@ -217,7 +242,10 @@ class _HomePageState extends State<HomePage> {
   }
 
   Future<void> _saveSelectedSite(String siteName) async {
-    for (final site in _siteItems) {
+    final sites = _siteItems.isNotEmpty
+        ? _siteItems
+        : (cachedSites() ?? const <SiteModel>[]);
+    for (final site in sites) {
       if (site.name == siteName) {
         await saveSiteId(site.id, siteName: siteName);
         return;

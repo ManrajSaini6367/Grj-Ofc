@@ -216,8 +216,8 @@ List<String> _stringListFromApi(
 }
 
 int? selectedSiteId() =>
-    Preference.pref.getInt('site_id') ??
-    Preference.pref.getInt('selectedSiteId');
+    Preference.pref.getInt('selectedSiteId') ??
+    Preference.pref.getInt('site_id');
 
 int? currentRoleId() =>
     cachedUser()?.roleId ?? Preference.pref.getInt('role_id');
@@ -233,9 +233,12 @@ Future<void> saveSiteId(int siteId, {String? siteName}) async {
 }
 
 Future<void> saveSiteIdFromUser(UserModel user) async {
-  if (user.siteId > 0) {
-    await saveSiteId(user.siteId);
-  }
+  if (user.siteId <= 0) return;
+  // Keep the last site the user picked on Home. Profile/login refresh
+  // should only seed a default when nothing is stored yet.
+  final existing = selectedSiteId();
+  if (existing != null && existing > 0) return;
+  await saveSiteId(user.siteId);
 }
 
 Future<void> _saveUser(UserModel user) async {
@@ -661,9 +664,7 @@ Future<List<ItemModel>?> storeItemsApi(
 
     await Preference.pref.setInt('site_id', resolvedSiteId);
 
-    final query = <String, String>{
-      'site_id': resolvedSiteId.toString(),
-    };
+    final query = <String, String>{'site_id': resolvedSiteId.toString()};
     if (search.trim().isNotEmpty) query['search'] = search.trim();
 
     final uri = Uri.parse(
@@ -2541,14 +2542,16 @@ Future<bool> createEmployeeApi(
     body['food_allowance'] = foodAllowance ? 1 : 0;
     if (foodAllowance) {
       body['food_allowance_type'] = foodAllowanceType.trim();
-      if (foodAllowanceType == 'amount' && foodEmployeeAmount.trim().isNotEmpty) {
+      if (foodAllowanceType == 'amount' &&
+          foodEmployeeAmount.trim().isNotEmpty) {
         body['food_employee_amount'] = foodEmployeeAmount.trim();
       }
     }
     body['stay_allowance'] = stayAllowance ? 1 : 0;
     if (stayAllowance) {
       body['stay_allowance_type'] = stayAllowanceType.trim();
-      if (stayAllowanceType == 'amount' && stayEmployeeAmount.trim().isNotEmpty) {
+      if (stayAllowanceType == 'amount' &&
+          stayEmployeeAmount.trim().isNotEmpty) {
         body['stay_employee_amount'] = stayEmployeeAmount.trim();
       }
     }
@@ -2919,11 +2922,7 @@ Future<bool> updateEmployeeApi(
     final encoded = jsonEncode(body);
     print('[updateEmployeeApi] body: $encoded');
 
-    final response = await apiPut(
-      uri,
-      headers: authHeaders,
-      body: encoded,
-    );
+    final response = await apiPut(uri, headers: authHeaders, body: encoded);
 
     print('[updateEmployeeApi] statusCode: ${response.statusCode}');
     print('[updateEmployeeApi] response body: ${response.body}');
@@ -4178,9 +4177,7 @@ Future<List<http.MultipartFile>> _multipartPurchaseImages({
   if (files.isEmpty) return const [];
   if (asArray) {
     final arrayField = field.endsWith('[]') ? field : '$field[]';
-    return [
-      for (final file in files) await _multipartImage(arrayField, file),
-    ];
+    return [for (final file in files) await _multipartImage(arrayField, file)];
   }
 
   final extrasField = field.endsWith('_image') ? '${field}s[]' : '$field[]';
@@ -4635,7 +4632,7 @@ Future<TodayAttendanceStatus?> getTodayAttendanceApi(
 /// assigned site, that status is returned so they can keep using other sites
 /// without punching in again.
 Future<({TodayAttendanceStatus status, int? punchSiteId})?>
-    getTodayAttendanceForAccessApi(
+getTodayAttendanceForAccessApi(
   BuildContext context, {
   List<int> siteIds = const [],
   bool showErrors = false,
@@ -4668,25 +4665,20 @@ Future<({TodayAttendanceStatus status, int? punchSiteId})?>
   }
 
   final results = await Future.wait(
-    otherIds.map(
-      (id) async {
-        final status = await getTodayAttendanceApi(
-          context,
-          siteId: id,
-          showErrors: false,
-        );
-        return (id: id, status: status);
-      },
-    ),
+    otherIds.map((id) async {
+      final status = await getTodayAttendanceApi(
+        context,
+        siteId: id,
+        showErrors: false,
+      );
+      return (id: id, status: status);
+    }),
   );
 
   for (final result in results) {
     final status = result.status;
     if (status != null && status.isPunchedIn) {
-      return (
-        status: status,
-        punchSiteId: punchSiteIdOf(status, result.id),
-      );
+      return (status: status, punchSiteId: punchSiteIdOf(status, result.id));
     }
   }
 
@@ -5000,7 +4992,9 @@ Future<Purchase?> purchaseStep2WithKantaApi(
 
     print('[purchaseStep2WithKantaApi] POST $url');
     print('[purchaseStep2WithKantaApi] fields: $fields');
-    print('[purchaseStep2WithKantaApi] unloading_image[] count=${unloadingImages.length}');
+    print(
+      '[purchaseStep2WithKantaApi] unloading_image[] count=${unloadingImages.length}',
+    );
 
     final response = await _sendMultipart(
       Uri.parse(url),
@@ -5065,7 +5059,9 @@ Future<Purchase?> purchaseStep2WithoutKantaApi(
 
     print('[purchaseStep2WithoutKantaApi] POST $url');
     print('[purchaseStep2WithoutKantaApi] fields: $fields');
-    print('[purchaseStep2WithoutKantaApi] unloading_image[] count=${unloadingImages.length}');
+    print(
+      '[purchaseStep2WithoutKantaApi] unloading_image[] count=${unloadingImages.length}',
+    );
 
     final response = await _sendMultipart(
       Uri.parse(url),
@@ -5144,9 +5140,15 @@ Future<Purchase?> purchaseStep3WithKantaApi(
 
     print('[purchaseStep3WithKantaApi] POST $url');
     print('[purchaseStep3WithKantaApi] fields: $fields');
-    print('[purchaseStep3WithKantaApi] kanta_slip_image count=${kantaSlipImages.length}');
-    print('[purchaseStep3WithKantaApi] vehicle_at_kanta_image count=${vehicleAtKantaImages.length}');
-    print('[purchaseStep3WithKantaApi] multipart fields: ${files.map((f) => f.field).toList()}');
+    print(
+      '[purchaseStep3WithKantaApi] kanta_slip_image count=${kantaSlipImages.length}',
+    );
+    print(
+      '[purchaseStep3WithKantaApi] vehicle_at_kanta_image count=${vehicleAtKantaImages.length}',
+    );
+    print(
+      '[purchaseStep3WithKantaApi] multipart fields: ${files.map((f) => f.field).toList()}',
+    );
 
     final response = await _sendMultipart(
       Uri.parse(url),
@@ -7130,7 +7132,8 @@ Future<bool> employeeKycApi(
       if (bankName.trim().isNotEmpty) 'bank_name': bankName.trim(),
       if (accountNumber.trim().isNotEmpty)
         'account_number': accountNumber.trim(),
-      if (ifscCode.trim().isNotEmpty) 'ifsc_code': ifscCode.trim().toUpperCase(),
+      if (ifscCode.trim().isNotEmpty)
+        'ifsc_code': ifscCode.trim().toUpperCase(),
     };
 
     final files = [
