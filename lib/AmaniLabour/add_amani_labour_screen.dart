@@ -95,21 +95,8 @@ class _AddContractorScreenState extends State<AddContractorScreen> {
     setState(() => _cancelChequeFile = file);
   }
 
-  bool _docsValid() {
-    final hasAgreements =
-        _agreementFiles.isNotEmpty || _existingAgreements.isNotEmpty;
-    if (!hasAgreements) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Agreement photo is required.')),
-      );
-      return false;
-    }
-    return true;
-  }
-
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
-    if (!_docsValid()) return;
 
     final status =
         _status == ContractorStatus.published ? 'published' : 'unpublished';
@@ -309,7 +296,6 @@ class _AddContractorScreenState extends State<AddContractorScreen> {
           const SizedBox(height: 10),
           _buildMultiImageField(
             label: 'Agreements',
-            required: true,
             existingUrls: _existingAgreements,
             files: _agreementFiles,
             onAdd: () => _pickMulti(_agreementFiles, title: 'Agreement Photo'),
@@ -317,7 +303,7 @@ class _AddContractorScreenState extends State<AddContractorScreen> {
           ),
           const SizedBox(height: 14),
           _buildMultiImageField(
-            label: 'Documents',
+            label: 'Kyc Documents',
             existingUrls: _existingDocuments,
             files: _documentFiles,
             onAdd: () => _pickMulti(_documentFiles, title: 'Document Photo'),

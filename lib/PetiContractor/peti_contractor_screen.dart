@@ -354,7 +354,7 @@ class _OriginalContractorScreenState extends State<OriginalContractorScreen> {
           ),
           const SizedBox(height: 16),
           Text(
-            'Documents',
+            'Kyc Documents',
             style: GoogleFonts.poppins(
               fontSize: 14,
               fontWeight: FontWeight.w600,
