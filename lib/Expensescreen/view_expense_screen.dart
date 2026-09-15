@@ -69,7 +69,9 @@ class _ViewExpenseScreenState extends State<ViewExpenseScreen> {
       builder: (dialogContext) {
         return AlertDialog(
           backgroundColor: AppColors.cardWhite,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(14),
+          ),
           title: Text(
             'Delete Expense',
             style: GoogleFonts.poppins(
@@ -112,7 +114,9 @@ class _ViewExpenseScreenState extends State<ViewExpenseScreen> {
     final expenseId = int.tryParse(expense.id);
     if (expenseId == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Invalid expense id.', style: GoogleFonts.poppins())),
+        SnackBar(
+          content: Text('Invalid expense id.', style: GoogleFonts.poppins()),
+        ),
       );
       return;
     }
@@ -149,141 +153,152 @@ class _ViewExpenseScreenState extends State<ViewExpenseScreen> {
               title: 'Expense Details',
               onBack: _goBack,
               horizontalPadding: hPad,
-              actions: [
-                IconButton(
-                  onPressed: _isLoading ? null : _editExpense,
-                  icon: const Icon(Icons.edit_outlined, color: AppColors.headingBlack),
-                ),
-                IconButton(
-                  onPressed: _isLoading ? null : _deleteExpense,
-                  icon: const Icon(Icons.delete_outline_rounded, color: AppColors.primaryRed),
-                ),
-              ],
+              // actions: [
+              //   IconButton(
+              //     onPressed: _isLoading ? null : _editExpense,
+              //     icon: const Icon(Icons.edit_outlined, color: AppColors.headingBlack),
+              //   ),
+              //   IconButton(
+              //     onPressed: _isLoading ? null : _deleteExpense,
+              //     icon: const Icon(Icons.delete_outline_rounded, color: AppColors.primaryRed),
+              //   ),
+              // ],
             ),
             Expanded(
               child: _isLoading
                   ? const Center(
-                      child: CircularProgressIndicator(color: AppColors.primaryRed),
+                      child: CircularProgressIndicator(
+                        color: AppColors.primaryRed,
+                      ),
                     )
                   : RefreshIndicator(
                       color: AppColors.primaryRed,
                       onRefresh: _loadExpense,
                       child: SingleChildScrollView(
-                      physics: const AlwaysScrollableScrollPhysics(),
-                      padding: EdgeInsets.fromLTRB(hPad, 16, hPad, 24),
-                      child: Center(
-                        child: ConstrainedBox(
-                          constraints: const BoxConstraints(maxWidth: 640),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.stretch,
-                            children: [
-                              _buildHeader(expense),
-                              const SizedBox(height: 16),
-                              _buildQuickStats(expense),
-                              const SizedBox(height: 16),
-                              _buildSection(
-                                title: 'Details',
-                                icon: Icons.receipt_long_outlined,
-                                children: [
-                                  _infoTile(Icons.title_rounded, 'Title', expense.title),
-                                  _infoTile(
-                                    Icons.notes_rounded,
-                                    'Detail',
-                                    _text(expense.detail, fallback: expense.title),
-                                  ),
-                                  _infoTile(
-                                    Icons.category_outlined,
-                                    'Category',
-                                    expense.categoryLabel,
-                                  ),
-                                  _infoTile(
-                                    Icons.comment_outlined,
-                                    'Remark',
-                                    _text(expense.remark),
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 14),
-                              _buildSection(
-                                title: 'Payment',
-                                icon: Icons.payments_outlined,
-                                children: [
-                                  _infoTile(
-                                    Icons.swap_vert_rounded,
-                                    'Type',
-                                    expense.entryTypeLabel ?? '—',
-                                  ),
-                                  _infoTile(
-                                    Icons.account_balance_wallet_outlined,
-                                    'Source',
-                                    expense.paymentModeLabel,
-                                  ),
-                                  _infoTile(
-                                    Icons.person_outline,
-                                    'Paid To',
-                                    _text(expense.paidTo),
-                                  ),
-                                  _infoTile(
-                                    Icons.verified_outlined,
-                                    'Status',
-                                    expense.statusLabel,
-                                  ),
-                                  if (expense.chequeNo != null &&
-                                      expense.chequeNo!.trim().isNotEmpty)
+                        physics: const AlwaysScrollableScrollPhysics(),
+                        padding: EdgeInsets.fromLTRB(hPad, 16, hPad, 24),
+                        child: Center(
+                          child: ConstrainedBox(
+                            constraints: const BoxConstraints(maxWidth: 640),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
+                              children: [
+                                _buildHeader(expense),
+                                const SizedBox(height: 16),
+                                _buildQuickStats(expense),
+                                const SizedBox(height: 16),
+                                _buildSection(
+                                  title: 'Details',
+                                  icon: Icons.receipt_long_outlined,
+                                  children: [
                                     _infoTile(
-                                      Icons.money_outlined,
-                                      'Cheque No',
-                                      expense.chequeNo!,
+                                      Icons.title_rounded,
+                                      'Title',
+                                      expense.title,
                                     ),
-                                  _infoTile(
-                                    Icons.confirmation_number_outlined,
-                                    'Voucher No',
-                                    _text(expense.voucherNo),
-                                  ),
-                                  if (expense.challanNo != null &&
-                                      expense.challanNo!.trim().isNotEmpty)
                                     _infoTile(
-                                      Icons.article_outlined,
-                                      'Challan No',
-                                      expense.challanNo!,
+                                      Icons.notes_rounded,
+                                      'Detail',
+                                      _text(
+                                        expense.detail,
+                                        fallback: expense.title,
+                                      ),
                                     ),
-                                ],
-                              ),
-                              const SizedBox(height: 14),
-                              _buildSection(
-                                title: 'Site & Balance',
-                                icon: Icons.apartment_outlined,
-                                children: [
-                                  _infoTile(
-                                    Icons.location_on_outlined,
-                                    'Site',
-                                    _text(expense.siteName),
-                                  ),
-                                  _infoTile(
-                                    Icons.calendar_today_outlined,
-                                    'Date',
-                                    formatExpenseListDate(expense.date),
-                                  ),
-                                  _infoTile(
-                                    Icons.account_balance_outlined,
-                                    'Balance Amount',
-                                    expense.balanceAmount == null
-                                        ? '—'
-                                        : formatExpenseAmount(expense.balanceAmount!),
-                                  ),
-                                  _infoTile(
-                                    Icons.tag_rounded,
-                                    'Expense ID',
-                                    '#${expense.id}',
-                                  ),
-                                ],
-                              ),
-                            ],
+                                    _infoTile(
+                                      Icons.category_outlined,
+                                      'Category',
+                                      expense.categoryLabel,
+                                    ),
+                                    _infoTile(
+                                      Icons.comment_outlined,
+                                      'Remark',
+                                      _text(expense.remark),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 14),
+                                _buildSection(
+                                  title: 'Payment',
+                                  icon: Icons.payments_outlined,
+                                  children: [
+                                    _infoTile(
+                                      Icons.swap_vert_rounded,
+                                      'Type',
+                                      expense.entryTypeLabel ?? '—',
+                                    ),
+                                    _infoTile(
+                                      Icons.account_balance_wallet_outlined,
+                                      'Source',
+                                      expense.paymentModeLabel,
+                                    ),
+                                    _infoTile(
+                                      Icons.person_outline,
+                                      'Paid To',
+                                      _text(expense.paidTo),
+                                    ),
+                                    _infoTile(
+                                      Icons.verified_outlined,
+                                      'Status',
+                                      expense.statusLabel,
+                                    ),
+                                    if (expense.chequeNo != null &&
+                                        expense.chequeNo!.trim().isNotEmpty)
+                                      _infoTile(
+                                        Icons.money_outlined,
+                                        'Cheque No',
+                                        expense.chequeNo!,
+                                      ),
+                                    _infoTile(
+                                      Icons.confirmation_number_outlined,
+                                      'Voucher No',
+                                      _text(expense.voucherNo),
+                                    ),
+                                    if (expense.challanNo != null &&
+                                        expense.challanNo!.trim().isNotEmpty)
+                                      _infoTile(
+                                        Icons.article_outlined,
+                                        'Challan No',
+                                        expense.challanNo!,
+                                      ),
+                                  ],
+                                ),
+                                const SizedBox(height: 14),
+                                _buildSection(
+                                  title: 'Site & Balance',
+                                  icon: Icons.apartment_outlined,
+                                  children: [
+                                    _infoTile(
+                                      Icons.location_on_outlined,
+                                      'Site',
+                                      _text(expense.siteName),
+                                    ),
+                                    _infoTile(
+                                      Icons.calendar_today_outlined,
+                                      'Date',
+                                      formatExpenseListDate(expense.date),
+                                    ),
+                                    _infoTile(
+                                      Icons.account_balance_outlined,
+                                      'Balance Amount',
+                                      expense.balanceAmount == null
+                                          ? '—'
+                                          : formatExpenseAmount(
+                                              expense.balanceAmount!,
+                                            ),
+                                    ),
+                                    _infoTile(
+                                      Icons.tag_rounded,
+                                      'Expense ID',
+                                      '#${expense.id}',
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            ),
                           ),
                         ),
                       ),
                     ),
-                  ),
             ),
           ],
         ),
@@ -457,7 +472,10 @@ class _ViewExpenseScreenState extends State<ViewExpenseScreen> {
               ],
             ),
           ),
-          Divider(height: 1, color: AppColors.borderGray.withValues(alpha: 0.45)),
+          Divider(
+            height: 1,
+            color: AppColors.borderGray.withValues(alpha: 0.45),
+          ),
           ...children,
         ],
       ),

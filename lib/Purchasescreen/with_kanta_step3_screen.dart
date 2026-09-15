@@ -83,7 +83,9 @@ class _WithKantaStep3ScreenState extends State<WithKantaStep3Screen> {
           _KantaMaterialLine(
             qtyText: qty == null
                 ? null
-                : (qty == qty.roundToDouble() ? qty.toInt().toString() : qty.toString()),
+                : (qty == qty.roundToDouble()
+                      ? qty.toInt().toString()
+                      : qty.toString()),
             unit: m.unit.trim().isEmpty ? 'Ton' : m.unit.trim(),
             lockedItemId: m.itemId,
             lockedName: m.name,
@@ -97,7 +99,8 @@ class _WithKantaStep3ScreenState extends State<WithKantaStep3Screen> {
 
   Future<void> _loadItems() async {
     final supplierId = widget.purchase.supplierId;
-    final catalog = cachedItems() ??
+    final catalog =
+        cachedItems() ??
         await itemsApi(
           context,
           perPage: 15,
@@ -130,9 +133,9 @@ class _WithKantaStep3ScreenState extends State<WithKantaStep3Screen> {
       final material = p.materials[i];
       if (material.itemId == null) continue;
       final matched = _items.cast<ItemModel?>().firstWhere(
-            (it) => it?.id == material.itemId,
-            orElse: () => null,
-          );
+        (it) => it?.id == material.itemId,
+        orElse: () => null,
+      );
       _lines[i].item = matched;
       if (matched != null && material.unit.trim().isEmpty) {
         _lines[i].unit = unitFromMaterial(matched);
@@ -179,13 +182,23 @@ class _WithKantaStep3ScreenState extends State<WithKantaStep3Screen> {
     if (!_formKey.currentState!.validate()) return;
     if (_kantaSlipImages.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Kanta slip image is required.', style: GoogleFonts.poppins())),
+        SnackBar(
+          content: Text(
+            'Kanta slip image is required.',
+            style: GoogleFonts.poppins(),
+          ),
+        ),
       );
       return;
     }
     if (_vehicleAtKantaImages.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Vehicle at kanta image is required.', style: GoogleFonts.poppins())),
+        SnackBar(
+          content: Text(
+            'Vehicle at kanta image is required.',
+            style: GoogleFonts.poppins(),
+          ),
+        ),
       );
       return;
     }
@@ -195,7 +208,9 @@ class _WithKantaStep3ScreenState extends State<WithKantaStep3Screen> {
     final kantaNo = _kantaNoController.text.trim();
     if (kantaNo.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Kanta No is required.', style: GoogleFonts.poppins())),
+        SnackBar(
+          content: Text('Kanta No is required.', style: GoogleFonts.poppins()),
+        ),
       );
       return;
     }
@@ -217,7 +232,12 @@ class _WithKantaStep3ScreenState extends State<WithKantaStep3Screen> {
 
     if (materials.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Please enter at least one material with qty.', style: GoogleFonts.poppins())),
+        SnackBar(
+          content: Text(
+            'Please enter at least one material with qty.',
+            style: GoogleFonts.poppins(),
+          ),
+        ),
       );
       return;
     }
@@ -225,7 +245,9 @@ class _WithKantaStep3ScreenState extends State<WithKantaStep3Screen> {
     final purchaseId = int.tryParse(widget.purchase.id);
     if (purchaseId == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Invalid purchase ID.', style: GoogleFonts.poppins())),
+        SnackBar(
+          content: Text('Invalid purchase ID.', style: GoogleFonts.poppins()),
+        ),
       );
       return;
     }
@@ -279,14 +301,19 @@ class _WithKantaStep3ScreenState extends State<WithKantaStep3Screen> {
                         decoration: BoxDecoration(
                           color: AppColors.cardWhite,
                           borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: AppColors.borderGray.withValues(alpha: 0.5)),
+                          border: Border.all(
+                            color: AppColors.borderGray.withValues(alpha: 0.5),
+                          ),
                         ),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.stretch,
                           children: [
                             Text(
                               'Information Purchase',
-                              style: GoogleFonts.poppins(fontSize: 16, fontWeight: FontWeight.w700),
+                              style: GoogleFonts.poppins(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w700,
+                              ),
                             ),
                             const SizedBox(height: 16),
                             if (isWide) ...[
@@ -303,7 +330,9 @@ class _WithKantaStep3ScreenState extends State<WithKantaStep3Screen> {
                                   Expanded(
                                     child: _buildReadOnlyField(
                                       label: 'Vehicle No',
-                                      value: _savedVehicleNo.isEmpty ? '—' : _savedVehicleNo,
+                                      value: _savedVehicleNo.isEmpty
+                                          ? '—'
+                                          : _savedVehicleNo,
                                     ),
                                   ),
                                   const SizedBox(width: 12),
@@ -336,13 +365,17 @@ class _WithKantaStep3ScreenState extends State<WithKantaStep3Screen> {
                                   index: index,
                                 ),
                               ),
-                            ]
-                            else ...[
-                              _buildReadOnlyField(label: 'Supplier', value: widget.purchase.supplierName),
+                            ] else ...[
+                              _buildReadOnlyField(
+                                label: 'Supplier',
+                                value: widget.purchase.supplierName,
+                              ),
                               const SizedBox(height: 16),
                               _buildReadOnlyField(
                                 label: 'Vehicle No',
-                                value: _savedVehicleNo.isEmpty ? '—' : _savedVehicleNo,
+                                value: _savedVehicleNo.isEmpty
+                                    ? '—'
+                                    : _savedVehicleNo,
                               ),
                               const SizedBox(height: 16),
                               _buildTextField(
@@ -380,13 +413,22 @@ class _WithKantaStep3ScreenState extends State<WithKantaStep3Screen> {
                             else ...[
                               ...List.generate(_lines.length, (index) {
                                 return Padding(
-                                  padding: EdgeInsets.only(bottom: index < _lines.length - 1 ? 16 : 0),
-                                  child: _buildMaterialRow(index, isWide: isWide),
+                                  padding: EdgeInsets.only(
+                                    bottom: index < _lines.length - 1 ? 16 : 0,
+                                  ),
+                                  child: _buildMaterialRow(
+                                    index,
+                                    isWide: isWide,
+                                  ),
                                 );
                               }),
                             ],
                             const SizedBox(height: 20),
-                            Divider(color: AppColors.borderGray.withValues(alpha: 0.5)),
+                            Divider(
+                              color: AppColors.borderGray.withValues(
+                                alpha: 0.5,
+                              ),
+                            ),
                             const SizedBox(height: 20),
                             if (isWide)
                               Row(
@@ -397,7 +439,8 @@ class _WithKantaStep3ScreenState extends State<WithKantaStep3Screen> {
                                       label: 'Vehicle at Kanta Image',
                                       files: _vehicleAtKantaImages,
                                       allowMultiple: false,
-                                      onAdd: () => _pickImage(isKantaSlip: false),
+                                      onAdd: () =>
+                                          _pickImage(isKantaSlip: false),
                                       onRemoveAt: (index) => _removeImage(
                                         isKantaSlip: false,
                                         index: index,
@@ -410,6 +453,7 @@ class _WithKantaStep3ScreenState extends State<WithKantaStep3Screen> {
                                       label: 'Remark',
                                       controller: _remarkController,
                                       hint: 'Remark',
+                                      isRequired: true,
                                     ),
                                   ),
                                 ],
@@ -430,6 +474,7 @@ class _WithKantaStep3ScreenState extends State<WithKantaStep3Screen> {
                                 label: 'Remark',
                                 controller: _remarkController,
                                 hint: 'Remark',
+                                isRequired: true,
                               ),
                             ],
                             const SizedBox(height: 24),
@@ -447,16 +492,24 @@ class _WithKantaStep3ScreenState extends State<WithKantaStep3Screen> {
                                           color: AppColors.white,
                                         ),
                                       )
-                                    : const Icon(Icons.assignment_outlined, size: 18),
+                                    : const Icon(
+                                        Icons.assignment_outlined,
+                                        size: 18,
+                                      ),
                                 label: Text(
                                   'Save',
-                                  style: GoogleFonts.poppins(fontSize: 14, fontWeight: FontWeight.w600),
+                                  style: GoogleFonts.poppins(
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w600,
+                                  ),
                                 ),
                                 style: ElevatedButton.styleFrom(
                                   backgroundColor: _saveBlue,
                                   foregroundColor: AppColors.white,
                                   elevation: 0,
-                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(10),
+                                  ),
                                 ),
                               ),
                             ),
@@ -490,14 +543,20 @@ class _WithKantaStep3ScreenState extends State<WithKantaStep3Screen> {
       label: 'Qty',
       controller: line.qty,
       hint: 'qty',
+      isRequired: true,
       keyboardType: const TextInputType.numberWithOptions(decimal: true),
-      inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d*'))],
+      inputFormatters: [
+        FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d*')),
+      ],
     );
 
     final unitField = Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text('Unit', style: GoogleFonts.poppins(fontSize: 13, fontWeight: FontWeight.w600)),
+        Text(
+          'Unit',
+          style: GoogleFonts.poppins(fontSize: 13, fontWeight: FontWeight.w600),
+        ),
         const SizedBox(height: 8),
         DropdownButtonFormField<String>(
           value: units.contains(line.unit) ? line.unit : units.first,
@@ -511,9 +570,7 @@ class _WithKantaStep3ScreenState extends State<WithKantaStep3Screen> {
                 ),
               )
               .toList(),
-          onChanged: (v) {
-            if (v != null) setState(() => line.unit = v);
-          },
+          onChanged: null,
         ),
       ],
     );
@@ -551,18 +608,26 @@ class _WithKantaStep3ScreenState extends State<WithKantaStep3Screen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(label, style: GoogleFonts.poppins(fontSize: 13, fontWeight: FontWeight.w600)),
+        Text(
+          label,
+          style: GoogleFonts.poppins(fontSize: 13, fontWeight: FontWeight.w600),
+        ),
         const SizedBox(height: 8),
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
           decoration: BoxDecoration(
             color: const Color(0xFFE5E7EB),
             borderRadius: BorderRadius.circular(6),
-            border: Border.all(color: AppColors.borderGray.withValues(alpha: 0.6)),
+            border: Border.all(
+              color: AppColors.borderGray.withValues(alpha: 0.6),
+            ),
           ),
           child: Text(
             value,
-            style: GoogleFonts.poppins(fontSize: 13, color: AppColors.textSecondary),
+            style: GoogleFonts.poppins(
+              fontSize: 13,
+              color: AppColors.textSecondary,
+            ),
           ),
         ),
       ],
@@ -585,15 +650,22 @@ class _WithKantaStep3ScreenState extends State<WithKantaStep3Screen> {
       contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
       border: OutlineInputBorder(
         borderRadius: BorderRadius.circular(6),
-        borderSide: BorderSide(color: AppColors.borderGray.withValues(alpha: 0.6)),
+        borderSide: BorderSide(
+          color: AppColors.borderGray.withValues(alpha: 0.6),
+        ),
       ),
       enabledBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(6),
-        borderSide: BorderSide(color: AppColors.borderGray.withValues(alpha: 0.6)),
+        borderSide: BorderSide(
+          color: AppColors.borderGray.withValues(alpha: 0.6),
+        ),
       ),
       focusedBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(6),
-        borderSide: BorderSide(color: AppColors.primaryRed.withValues(alpha: 0.5), width: 1.5),
+        borderSide: BorderSide(
+          color: AppColors.primaryRed.withValues(alpha: 0.5),
+          width: 1.5,
+        ),
       ),
     );
   }
@@ -609,9 +681,11 @@ class _WithKantaStep3ScreenState extends State<WithKantaStep3Screen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        fieldLabelText(label,
-            isRequired: isRequired,
-            style: GoogleFonts.poppins(fontSize: 13, fontWeight: FontWeight.w600)),
+        fieldLabelText(
+          label,
+          isRequired: isRequired,
+          style: GoogleFonts.poppins(fontSize: 13, fontWeight: FontWeight.w600),
+        ),
         const SizedBox(height: 8),
         TextFormField(
           controller: controller,

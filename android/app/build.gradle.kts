@@ -54,8 +54,13 @@ android {
 
     buildTypes {
         release {
-            if (keystorePropertiesFile.exists()) {
-                signingConfig = signingConfigs.getByName("release")
+            // Unsigned APKs fail install with "package appears to be invalid".
+            // Use the release keystore when present; otherwise sign with the
+            // debug key so sideloading still works.
+            signingConfig = if (keystorePropertiesFile.exists()) {
+                signingConfigs.getByName("release")
+            } else {
+                signingConfigs.getByName("debug")
             }
         }
     }

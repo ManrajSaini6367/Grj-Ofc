@@ -24,7 +24,8 @@ class _ExpensesScreenState extends State<ExpensesScreen> {
   ExpenseCategory? _categoryFilter;
   _ExpensePeriod _period = _ExpensePeriod.thisMonth;
   List<Expense> _expenses = [];
-  double _totalAmount = 0;
+  double _openingAmount = 0;
+  double _closedAmount = 0;
   bool _isLoading = true;
 
   @override
@@ -60,7 +61,8 @@ class _ExpensesScreenState extends State<ExpensesScreen> {
     if (!mounted) return;
     setState(() {
       _expenses = response?.data?.items ?? [];
-      _totalAmount = response?.data?.totalAmount ?? 0;
+      _openingAmount = response?.data?.openingAmount ?? 0;
+      _closedAmount = response?.data?.closedAmount ?? 0;
       _isLoading = false;
     });
   }
@@ -74,9 +76,6 @@ class _ExpensesScreenState extends State<ExpensesScreen> {
 
   List<Expense> get _filteredExpenses => List<Expense>.from(_expenses)
     ..sort((a, b) => b.date.compareTo(a.date));
-
-  double get _filteredTotal =>
-      _totalAmount > 0 ? _totalAmount : _filteredExpenses.fold(0, (sum, e) => sum + e.amount);
 
   @override
   Widget build(BuildContext context) {
@@ -208,42 +207,58 @@ class _ExpensesScreenState extends State<ExpensesScreen> {
           ),
         ],
       ),
-      child: Row(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Total Expenses',
-                  style: GoogleFonts.poppins(fontSize: 13, color: AppColors.textSecondary),
+          Row(
+            children: [
+              Expanded(
+                child: _buildBalanceValue(
+                  label: 'Opening Amount',
+                  amount: _openingAmount,
                 ),
-                const SizedBox(height: 8),
-                Text(
-                  formatExpenseAmount(_filteredTotal),
-                  style: GoogleFonts.poppins(
-                    fontSize: 28,
-                    fontWeight: FontWeight.w700,
-                    color: AppColors.primaryRed,
-                    height: 1.1,
-                  ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: _buildBalanceValue(
+                  label: 'Closing Amount',
+                  amount: _closedAmount,
                 ),
-                const SizedBox(height: 12),
-                _buildPeriodDropdown(),
-              ],
-            ),
+              ),
+            ],
           ),
-          Container(
-            width: 56,
-            height: 56,
-            decoration: BoxDecoration(
-              color: AppColors.primaryRed.withValues(alpha: 0.1),
-              borderRadius: BorderRadius.circular(14),
-            ),
-            child: Icon(Icons.account_balance_wallet_outlined, color: AppColors.primaryRed, size: 28),
-          ),
+          const SizedBox(height: 12),
+          _buildPeriodDropdown(),
         ],
       ),
+    );
+  }
+
+  Widget _buildBalanceValue({required String label, required double amount}) {
+    final color = amount < 0
+        ? AppColors.primaryRed
+        : amount > 0
+            ? const Color(0xFF059669)
+            : AppColors.headingBlack;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          style: GoogleFonts.poppins(fontSize: 13, color: AppColors.textSecondary),
+        ),
+        const SizedBox(height: 8),
+        Text(
+          formatSignedExpenseAmount(amount),
+          style: GoogleFonts.poppins(
+            fontSize: 22,
+            fontWeight: FontWeight.w700,
+            color: color,
+            height: 1.1,
+          ),
+        ),
+      ],
     );
   }
 
@@ -353,7 +368,11 @@ class _ExpensesScreenState extends State<ExpensesScreen> {
 
   Widget _buildExpenseRow(Expense expense, {bool highlightAmount = false}) {
     final style = _categoryStyle(expense.category);
-    final amountColor = highlightAmount ? AppColors.primaryRed : AppColors.headingBlack;
+    final isCredit = expense.entryType == ExpenseEntryType.credit;
+    final amountPrefix = isCredit ? '+' : '-';
+    final amountColor = isCredit
+        ? const Color(0xFF059669)
+        : (highlightAmount ? AppColors.primaryRed : AppColors.headingBlack);
 
     return InkWell(
       onTap: () => _showDetails(expense),
@@ -400,7 +419,7 @@ class _ExpensesScreenState extends State<ExpensesScreen> {
               ),
             ),
             Text(
-              formatExpenseAmount(expense.amount),
+              '$amountPrefix${formatExpenseAmount(expense.amount)}',
               style: GoogleFonts.poppins(
                 fontSize: 14,
                 fontWeight: FontWeight.w700,

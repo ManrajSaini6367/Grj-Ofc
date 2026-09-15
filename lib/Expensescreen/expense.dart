@@ -217,11 +217,15 @@ class ExpensesListData {
     required this.items,
     this.pagination,
     this.totalAmount = 0,
+    this.openingAmount = 0,
+    this.closedAmount = 0,
   });
 
   final List<Expense> items;
   final PaginationModel? pagination;
   final double totalAmount;
+  final double openingAmount;
+  final double closedAmount;
 
   factory ExpensesListData.fromJson(Map<String, dynamic> json) {
     final itemsJson = json['items'];
@@ -236,6 +240,8 @@ class ExpensesListData {
           ? PaginationModel.fromJson(json['pagination'] as Map<String, dynamic>)
           : null,
       totalAmount: Expense._toDouble(json['total_amount']),
+      openingAmount: Expense._toDouble(json['opening_amount']),
+      closedAmount: Expense._toDouble(json['closed_amount']),
     );
   }
 }
@@ -263,13 +269,20 @@ class ExpensesListResponse {
 }
 
 String formatExpenseAmount(double amount) {
-  final fixed = amount.toStringAsFixed(2);
+  final fixed = amount.abs().toStringAsFixed(2);
   final parts = fixed.split('.');
   final intPart = parts[0].replaceAllMapped(
     RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'),
     (m) => '${m[1]},',
   );
   return '₹$intPart.${parts[1]}';
+}
+
+String formatSignedExpenseAmount(double amount) {
+  if (amount == 0) return formatExpenseAmount(0);
+  return amount < 0
+      ? '-${formatExpenseAmount(amount)}'
+      : '+${formatExpenseAmount(amount)}';
 }
 
 String formatExpenseFormDate(DateTime date) {

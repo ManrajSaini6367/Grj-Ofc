@@ -48,7 +48,12 @@ class _WithKantaStep2ScreenState extends State<WithKantaStep2Screen> {
     if (!_formKey.currentState!.validate()) return;
     if (_unloadingImages.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Unloading vehicle image is required.', style: GoogleFonts.poppins())),
+        SnackBar(
+          content: Text(
+            'Unloading vehicle image is required.',
+            style: GoogleFonts.poppins(),
+          ),
+        ),
       );
       return;
     }
@@ -56,7 +61,12 @@ class _WithKantaStep2ScreenState extends State<WithKantaStep2Screen> {
     final vehicleNo = _savedVehicleNo;
     if (vehicleNo.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Vehicle No from Step 1 is missing.', style: GoogleFonts.poppins())),
+        SnackBar(
+          content: Text(
+            'Vehicle No from Step 1 is missing.',
+            style: GoogleFonts.poppins(),
+          ),
+        ),
       );
       return;
     }
@@ -64,7 +74,9 @@ class _WithKantaStep2ScreenState extends State<WithKantaStep2Screen> {
     final purchaseId = int.tryParse(widget.purchase.id);
     if (purchaseId == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Invalid purchase ID.', style: GoogleFonts.poppins())),
+        SnackBar(
+          content: Text('Invalid purchase ID.', style: GoogleFonts.poppins()),
+        ),
       );
       return;
     }
@@ -112,26 +124,38 @@ class _WithKantaStep2ScreenState extends State<WithKantaStep2Screen> {
                         decoration: BoxDecoration(
                           color: AppColors.cardWhite,
                           borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: AppColors.borderGray.withValues(alpha: 0.5)),
+                          border: Border.all(
+                            color: AppColors.borderGray.withValues(alpha: 0.5),
+                          ),
                         ),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.stretch,
                           children: [
                             Text(
                               'Information Purchase',
-                              style: GoogleFonts.poppins(fontSize: 16, fontWeight: FontWeight.w700),
+                              style: GoogleFonts.poppins(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w700,
+                              ),
                             ),
                             const SizedBox(height: 16),
                             if (isWide)
                               Row(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  Expanded(child: _buildReadOnlyField(label: 'Supplier', value: widget.purchase.supplierName)),
+                                  Expanded(
+                                    child: _buildReadOnlyField(
+                                      label: 'Supplier',
+                                      value: widget.purchase.supplierName,
+                                    ),
+                                  ),
                                   const SizedBox(width: 12),
                                   Expanded(
                                     child: _buildReadOnlyField(
                                       label: 'Vehicle No',
-                                      value: _savedVehicleNo.isEmpty ? '—' : _savedVehicleNo,
+                                      value: _savedVehicleNo.isEmpty
+                                          ? '—'
+                                          : _savedVehicleNo,
                                     ),
                                   ),
                                   const SizedBox(width: 12),
@@ -139,11 +163,16 @@ class _WithKantaStep2ScreenState extends State<WithKantaStep2Screen> {
                                 ],
                               )
                             else ...[
-                              _buildReadOnlyField(label: 'Supplier', value: widget.purchase.supplierName),
+                              _buildReadOnlyField(
+                                label: 'Supplier',
+                                value: widget.purchase.supplierName,
+                              ),
                               const SizedBox(height: 16),
                               _buildReadOnlyField(
                                 label: 'Vehicle No',
-                                value: _savedVehicleNo.isEmpty ? '—' : _savedVehicleNo,
+                                value: _savedVehicleNo.isEmpty
+                                    ? '—'
+                                    : _savedVehicleNo,
                               ),
                               const SizedBox(height: 16),
                               _buildUnloadingImageField(),
@@ -153,7 +182,9 @@ class _WithKantaStep2ScreenState extends State<WithKantaStep2Screen> {
                               ...widget.purchase.materials.asMap().entries.map(
                                 (entry) => Padding(
                                   padding: EdgeInsets.only(
-                                    bottom: entry.key == widget.purchase.materials.length - 1
+                                    bottom:
+                                        entry.key ==
+                                            widget.purchase.materials.length - 1
                                         ? 0
                                         : 12,
                                   ),
@@ -183,16 +214,24 @@ class _WithKantaStep2ScreenState extends State<WithKantaStep2Screen> {
                                           color: AppColors.white,
                                         ),
                                       )
-                                    : const Icon(Icons.assignment_outlined, size: 18),
+                                    : const Icon(
+                                        Icons.assignment_outlined,
+                                        size: 18,
+                                      ),
                                 label: Text(
                                   'Save',
-                                  style: GoogleFonts.poppins(fontSize: 14, fontWeight: FontWeight.w600),
+                                  style: GoogleFonts.poppins(
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w600,
+                                  ),
                                 ),
                                 style: ElevatedButton.styleFrom(
                                   backgroundColor: _saveBlue,
                                   foregroundColor: AppColors.white,
                                   elevation: 0,
-                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(10),
+                                  ),
                                 ),
                               ),
                             ),
@@ -221,18 +260,26 @@ class _WithKantaStep2ScreenState extends State<WithKantaStep2Screen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(label, style: GoogleFonts.poppins(fontSize: 13, fontWeight: FontWeight.w600)),
+        Text(
+          label,
+          style: GoogleFonts.poppins(fontSize: 13, fontWeight: FontWeight.w600),
+        ),
         const SizedBox(height: 8),
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
           decoration: BoxDecoration(
             color: const Color(0xFFE5E7EB),
             borderRadius: BorderRadius.circular(6),
-            border: Border.all(color: AppColors.borderGray.withValues(alpha: 0.6)),
+            border: Border.all(
+              color: AppColors.borderGray.withValues(alpha: 0.6),
+            ),
           ),
           child: Text(
             value,
-            style: GoogleFonts.poppins(fontSize: 13, color: AppColors.textSecondary),
+            style: GoogleFonts.poppins(
+              fontSize: 13,
+              color: AppColors.textSecondary,
+            ),
           ),
         ),
       ],
@@ -247,5 +294,4 @@ class _WithKantaStep2ScreenState extends State<WithKantaStep2Screen> {
       onRemoveAt: _removeUnloadingImage,
     );
   }
-
 }

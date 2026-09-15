@@ -18,7 +18,8 @@ class WithoutKantaStep2Screen extends StatefulWidget {
   final Purchase purchase;
 
   @override
-  State<WithoutKantaStep2Screen> createState() => _WithoutKantaStep2ScreenState();
+  State<WithoutKantaStep2Screen> createState() =>
+      _WithoutKantaStep2ScreenState();
 }
 
 class _MaterialLine {
@@ -89,7 +90,8 @@ class _WithoutKantaStep2ScreenState extends State<WithoutKantaStep2Screen> {
 
   Future<void> _loadItems() async {
     final supplierId = widget.purchase.supplierId;
-    final catalog = cachedItems() ??
+    final catalog =
+        cachedItems() ??
         await itemsApi(
           context,
           perPage: 15,
@@ -122,9 +124,9 @@ class _WithoutKantaStep2ScreenState extends State<WithoutKantaStep2Screen> {
       final material = p.materials[i];
       if (material.itemId == null) continue;
       final matched = _items.cast<ItemModel?>().firstWhere(
-            (it) => it?.id == material.itemId,
-            orElse: () => null,
-          );
+        (it) => it?.id == material.itemId,
+        orElse: () => null,
+      );
       _lines[i].item = matched;
       if (matched != null) {
         _lines[i].unit = unitFromMaterial(matched);
@@ -165,7 +167,12 @@ class _WithoutKantaStep2ScreenState extends State<WithoutKantaStep2Screen> {
     if (!_formKey.currentState!.validate()) return;
     if (_unloadingImages.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Unloading vehicle image is required.', style: GoogleFonts.poppins())),
+        SnackBar(
+          content: Text(
+            'Unloading vehicle image is required.',
+            style: GoogleFonts.poppins(),
+          ),
+        ),
       );
       return;
     }
@@ -187,7 +194,12 @@ class _WithoutKantaStep2ScreenState extends State<WithoutKantaStep2Screen> {
 
     if (materials.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Please enter at least one material with qty.', style: GoogleFonts.poppins())),
+        SnackBar(
+          content: Text(
+            'Please enter at least one material with qty.',
+            style: GoogleFonts.poppins(),
+          ),
+        ),
       );
       return;
     }
@@ -195,7 +207,12 @@ class _WithoutKantaStep2ScreenState extends State<WithoutKantaStep2Screen> {
     final invoiceNo = _invoiceController.text.trim();
     if (invoiceNo.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Invoice No is required.', style: GoogleFonts.poppins())),
+        SnackBar(
+          content: Text(
+            'Invoice No is required.',
+            style: GoogleFonts.poppins(),
+          ),
+        ),
       );
       return;
     }
@@ -203,7 +220,9 @@ class _WithoutKantaStep2ScreenState extends State<WithoutKantaStep2Screen> {
     final purchaseId = int.tryParse(widget.purchase.id);
     if (purchaseId == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Invalid purchase ID.', style: GoogleFonts.poppins())),
+        SnackBar(
+          content: Text('Invalid purchase ID.', style: GoogleFonts.poppins()),
+        ),
       );
       return;
     }
@@ -280,13 +299,24 @@ class _WithoutKantaStep2ScreenState extends State<WithoutKantaStep2Screen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Text('Information Purchase', style: GoogleFonts.poppins(fontSize: 16, fontWeight: FontWeight.w700)),
+          Text(
+            'Information Purchase',
+            style: GoogleFonts.poppins(
+              fontSize: 16,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
           const SizedBox(height: 16),
           if (isWide)
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Expanded(child: _buildReadOnlyField(label: 'Supplier', value: widget.purchase.supplierName)),
+                Expanded(
+                  child: _buildReadOnlyField(
+                    label: 'Supplier',
+                    value: widget.purchase.supplierName,
+                  ),
+                ),
                 const SizedBox(width: 12),
                 Expanded(
                   child: _buildReadOnlyField(
@@ -306,7 +336,10 @@ class _WithoutKantaStep2ScreenState extends State<WithoutKantaStep2Screen> {
               ],
             )
           else ...[
-            _buildReadOnlyField(label: 'Supplier', value: widget.purchase.supplierName),
+            _buildReadOnlyField(
+              label: 'Supplier',
+              value: widget.purchase.supplierName,
+            ),
             const SizedBox(height: 16),
             _buildReadOnlyField(
               label: 'Vehicle No',
@@ -314,18 +347,26 @@ class _WithoutKantaStep2ScreenState extends State<WithoutKantaStep2Screen> {
             ),
             const SizedBox(height: 16),
             _buildTextField(
-                label: 'Invoice No',
-                controller: _invoiceController,
-                hint: 'Invoice no',
-                isRequired: true),
+              label: 'Invoice No',
+              controller: _invoiceController,
+              hint: 'Invoice no',
+              isRequired: false,
+            ),
           ],
           const SizedBox(height: 20),
           if (_loadingItems)
-            const Center(child: Padding(padding: EdgeInsets.all(16), child: CircularProgressIndicator()))
+            const Center(
+              child: Padding(
+                padding: EdgeInsets.all(16),
+                child: CircularProgressIndicator(),
+              ),
+            )
           else ...[
             ...List.generate(_lines.length, (index) {
               return Padding(
-                padding: EdgeInsets.only(bottom: index < _lines.length - 1 ? 16 : 0),
+                padding: EdgeInsets.only(
+                  bottom: index < _lines.length - 1 ? 16 : 0,
+                ),
                 child: _buildMaterialRow(index, isWide: isWide),
               );
             }),
@@ -337,13 +378,25 @@ class _WithoutKantaStep2ScreenState extends State<WithoutKantaStep2Screen> {
               children: [
                 Expanded(child: _buildUnloadingImageField()),
                 const SizedBox(width: 12),
-                Expanded(child: _buildTextField(label: 'Remark', controller: _remarkController, hint: 'Remark')),
+                Expanded(
+                  child: _buildTextField(
+                    label: 'Remark',
+                    controller: _remarkController,
+                    hint: 'Remark',
+                    isRequired: true,
+                  ),
+                ),
               ],
             )
           else ...[
             _buildUnloadingImageField(),
             const SizedBox(height: 16),
-            _buildTextField(label: 'Remark', controller: _remarkController, hint: 'Remark'),
+            _buildTextField(
+              label: 'Remark',
+              controller: _remarkController,
+              hint: 'Remark',
+              isRequired: true,
+            ),
           ],
           const SizedBox(height: 24),
           SizedBox(
@@ -355,15 +408,26 @@ class _WithoutKantaStep2ScreenState extends State<WithoutKantaStep2Screen> {
                 backgroundColor: AppColors.primaryRed,
                 foregroundColor: AppColors.white,
                 elevation: 0,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10),
+                ),
               ),
               child: _isSaving
                   ? const SizedBox(
                       width: 22,
                       height: 22,
-                      child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.white),
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: AppColors.white,
+                      ),
                     )
-                  : Text('Complete Purchase', style: GoogleFonts.poppins(fontSize: 14, fontWeight: FontWeight.w600)),
+                  : Text(
+                      'Complete Purchase',
+                      style: GoogleFonts.poppins(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
             ),
           ),
         ],
@@ -386,13 +450,19 @@ class _WithoutKantaStep2ScreenState extends State<WithoutKantaStep2Screen> {
       label: 'Qty',
       controller: line.qty,
       hint: 'qty',
+      isRequired: true,
       keyboardType: const TextInputType.numberWithOptions(decimal: true),
-      inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d*'))],
+      inputFormatters: [
+        FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d*')),
+      ],
     );
     final unitField = Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text('Unit', style: GoogleFonts.poppins(fontSize: 13, fontWeight: FontWeight.w600)),
+        Text(
+          'Unit',
+          style: GoogleFonts.poppins(fontSize: 13, fontWeight: FontWeight.w600),
+        ),
         const SizedBox(height: 8),
         DropdownButtonFormField<String>(
           value: units.contains(line.unit) ? line.unit : units.first,
@@ -406,9 +476,7 @@ class _WithoutKantaStep2ScreenState extends State<WithoutKantaStep2Screen> {
                 ),
               )
               .toList(),
-          onChanged: (v) {
-            if (v != null) setState(() => line.unit = v);
-          },
+          onChanged: null,
         ),
       ],
     );
@@ -446,18 +514,26 @@ class _WithoutKantaStep2ScreenState extends State<WithoutKantaStep2Screen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(label, style: GoogleFonts.poppins(fontSize: 13, fontWeight: FontWeight.w600)),
+        Text(
+          label,
+          style: GoogleFonts.poppins(fontSize: 13, fontWeight: FontWeight.w600),
+        ),
         const SizedBox(height: 8),
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
           decoration: BoxDecoration(
             color: const Color(0xFFE5E7EB),
             borderRadius: BorderRadius.circular(6),
-            border: Border.all(color: AppColors.borderGray.withValues(alpha: 0.6)),
+            border: Border.all(
+              color: AppColors.borderGray.withValues(alpha: 0.6),
+            ),
           ),
           child: Text(
             value,
-            style: GoogleFonts.poppins(fontSize: 13, color: AppColors.textSecondary),
+            style: GoogleFonts.poppins(
+              fontSize: 13,
+              color: AppColors.textSecondary,
+            ),
           ),
         ),
       ],
@@ -482,15 +558,22 @@ class _WithoutKantaStep2ScreenState extends State<WithoutKantaStep2Screen> {
       contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
       border: OutlineInputBorder(
         borderRadius: BorderRadius.circular(6),
-        borderSide: BorderSide(color: AppColors.borderGray.withValues(alpha: 0.6)),
+        borderSide: BorderSide(
+          color: AppColors.borderGray.withValues(alpha: 0.6),
+        ),
       ),
       enabledBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(6),
-        borderSide: BorderSide(color: AppColors.borderGray.withValues(alpha: 0.6)),
+        borderSide: BorderSide(
+          color: AppColors.borderGray.withValues(alpha: 0.6),
+        ),
       ),
       focusedBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(6),
-        borderSide: BorderSide(color: AppColors.primaryRed.withValues(alpha: 0.5), width: 1.5),
+        borderSide: BorderSide(
+          color: AppColors.primaryRed.withValues(alpha: 0.5),
+          width: 1.5,
+        ),
       ),
     );
   }
@@ -506,9 +589,11 @@ class _WithoutKantaStep2ScreenState extends State<WithoutKantaStep2Screen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        fieldLabelText(label,
-            isRequired: isRequired,
-            style: GoogleFonts.poppins(fontSize: 13, fontWeight: FontWeight.w600)),
+        fieldLabelText(
+          label,
+          isRequired: isRequired,
+          style: GoogleFonts.poppins(fontSize: 13, fontWeight: FontWeight.w600),
+        ),
         const SizedBox(height: 8),
         TextFormField(
           controller: controller,

@@ -3882,6 +3882,8 @@ Future<ExpensesListResponse?> getExpensesApi(
           total: allItems.length,
         ),
         totalAmount: first.data?.totalAmount ?? 0,
+        openingAmount: first.data?.openingAmount ?? 0,
+        closedAmount: first.data?.closedAmount ?? 0,
       ),
     );
   } on TimeoutException {
