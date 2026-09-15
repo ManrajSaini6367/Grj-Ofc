@@ -181,6 +181,8 @@ class _OriginalContractorViewScreenState
                                   _infoLine('Phone', _phone),
                                   const SizedBox(height: 8),
                                   _infoLine('Address', _address),
+                                  const SizedBox(height: 8),
+                                  _infoLine('Remarks', _remarks),
                                   const SizedBox(height: 16),
                                   _imageGroup('Agreements', _agreements),
                                   const SizedBox(height: 12),
@@ -262,6 +264,14 @@ class _OriginalContractorViewScreenState
     return widget.contractor.address.trim().isEmpty
         ? '—'
         : widget.contractor.address;
+  }
+
+  String get _remarks {
+    final fromApi = _detail?.remarks?.trim();
+    if (fromApi != null && fromApi.isNotEmpty) return fromApi;
+    return widget.contractor.remarks.trim().isEmpty
+        ? '—'
+        : widget.contractor.remarks;
   }
 
   List<String> get _agreements {

@@ -13,6 +13,7 @@ class LabourContractor {
     required this.beldarOtRatePerHour,
     required this.coolieOtRatePerHour,
     this.status = ContractorStatus.published,
+    this.remarks = '',
     this.agreements = const [],
     this.documents = const [],
     this.cancelCheque,
@@ -22,6 +23,7 @@ class LabourContractor {
   final String name;
   final String mobile;
   final String address;
+  final String remarks;
   final double masonRatePerDay;
   final double beldarRatePerDay;
   final double coolieRatePerDay;

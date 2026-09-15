@@ -107,6 +107,7 @@ class _ContractorsScreenState extends State<ContractorsScreen> {
       name: item.name ?? '',
       mobile: item.mobile ?? '',
       address: item.address ?? '',
+      remarks: item.remarks ?? '',
       masonRatePerDay: item.masonRateValue,
       beldarRatePerDay: item.beldarRateValue,
       coolieRatePerDay: item.coolieRateValue,

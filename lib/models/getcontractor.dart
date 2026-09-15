@@ -31,6 +31,7 @@ class ContractorDetailData {
     this.name,
     this.mobile,
     this.address,
+    this.remarks,
     this.status,
     this.masonRate,
     this.beldarRate,
@@ -51,6 +52,7 @@ class ContractorDetailData {
   final String? name;
   final String? mobile;
   final String? address;
+  final String? remarks;
   final String? status;
   final String? masonRate;
   final String? beldarRate;
@@ -72,6 +74,7 @@ class ContractorDetailData {
         name: json['name']?.toString(),
         mobile: json['mobile']?.toString(),
         address: json['address']?.toString(),
+        remarks: json['remarks']?.toString(),
         status: json['status']?.toString(),
         masonRate: json['mason_rate']?.toString(),
         beldarRate: json['beldar_rate']?.toString(),

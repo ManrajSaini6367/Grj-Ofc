@@ -104,6 +104,11 @@ class _ViewContractorScreenState extends State<ViewContractorScreen> {
                                     'Address',
                                     _text(d?.address, fallback: c.address),
                                   ),
+                                  _infoTile(
+                                    Icons.notes_outlined,
+                                    'Remarks',
+                                    _text(d?.remarks, fallback: c.remarks),
+                                  ),
                                 ],
                               ),
                               const SizedBox(height: 14),

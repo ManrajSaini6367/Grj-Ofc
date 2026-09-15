@@ -26,6 +26,7 @@ class _AddContractorScreenState extends State<AddContractorScreen> {
   final _nameController = TextEditingController();
   final _mobileController = TextEditingController();
   final _addressController = TextEditingController();
+  final _remarksController = TextEditingController();
   final _masonDayController = TextEditingController();
   final _beldarDayController = TextEditingController();
   final _coolieDayController = TextEditingController();
@@ -51,6 +52,7 @@ class _AddContractorScreenState extends State<AddContractorScreen> {
       _nameController.text = c.name;
       _mobileController.text = c.mobile;
       _addressController.text = c.address;
+      _remarksController.text = c.remarks;
       _masonDayController.text = c.masonRatePerDay.toStringAsFixed(0);
       _beldarDayController.text = c.beldarRatePerDay.toStringAsFixed(0);
       _coolieDayController.text = c.coolieRatePerDay.toStringAsFixed(0);
@@ -69,6 +71,7 @@ class _AddContractorScreenState extends State<AddContractorScreen> {
     _nameController.dispose();
     _mobileController.dispose();
     _addressController.dispose();
+    _remarksController.dispose();
     _masonDayController.dispose();
     _beldarDayController.dispose();
     _coolieDayController.dispose();
@@ -95,8 +98,21 @@ class _AddContractorScreenState extends State<AddContractorScreen> {
     setState(() => _cancelChequeFile = file);
   }
 
+  bool _docsValid() {
+    final hasAgreements =
+        _agreementFiles.isNotEmpty || _existingAgreements.isNotEmpty;
+    if (!hasAgreements) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Agreement photo is required.')),
+      );
+      return false;
+    }
+    return true;
+  }
+
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
+    if (!_docsValid()) return;
 
     final status =
         _status == ContractorStatus.published ? 'published' : 'unpublished';
@@ -124,6 +140,7 @@ class _AddContractorScreenState extends State<AddContractorScreen> {
           name: _nameController.text.trim(),
           mobile: _mobileController.text.trim(),
           address: _addressController.text.trim(),
+          remarks: _remarksController.text.trim(),
           status: status,
           masonRate: masonRate,
           beldarRate: beldarRate,
@@ -164,6 +181,7 @@ class _AddContractorScreenState extends State<AddContractorScreen> {
         name: _nameController.text.trim(),
         mobile: _mobileController.text.trim(),
         address: _addressController.text.trim(),
+        remarks: _remarksController.text.trim(),
         status: status,
         masonRate: masonRate,
         beldarRate: beldarRate,
@@ -275,6 +293,13 @@ class _AddContractorScreenState extends State<AddContractorScreen> {
             maxLines: 3,
             required: true,
           ),
+          const SizedBox(height: 16),
+          _buildTextField(
+            label: 'Remarks',
+            controller: _remarksController,
+            hint: 'Optional remarks',
+            maxLines: 3,
+          ),
           const SizedBox(height: 20),
           _buildSectionTitle('Daily Rates'),
           const SizedBox(height: 10),
@@ -292,10 +317,11 @@ class _AddContractorScreenState extends State<AddContractorScreen> {
           const SizedBox(height: 12),
           _buildRateField('Coolie Over Time Rate (Per Hour)', _coolieOtController),
           const SizedBox(height: 20),
-          _buildSectionTitle('Documents (optional)'),
+          _buildSectionTitle('Documents'),
           const SizedBox(height: 10),
           _buildMultiImageField(
             label: 'Agreements',
+            required: true,
             existingUrls: _existingAgreements,
             files: _agreementFiles,
             onAdd: () => _pickMulti(_agreementFiles, title: 'Agreement Photo'),
@@ -337,11 +363,16 @@ class _AddContractorScreenState extends State<AddContractorScreen> {
     required List<File> files,
     required VoidCallback onAdd,
     required void Function(int index) onRemoveFile,
+    bool required = false,
   }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(label, style: GoogleFonts.poppins(fontSize: 13, fontWeight: FontWeight.w500)),
+        fieldLabelText(
+          label,
+          isRequired: required,
+          style: GoogleFonts.poppins(fontSize: 13, fontWeight: FontWeight.w500),
+        ),
         const SizedBox(height: 8),
         Wrap(
           spacing: 8,

@@ -72,6 +72,7 @@ class ContractorListItem {
     this.name,
     this.mobile,
     this.address,
+    this.remarks,
     this.status,
     this.masonRate,
     this.beldarRate,
@@ -92,6 +93,7 @@ class ContractorListItem {
   final String? name;
   final String? mobile;
   final String? address;
+  final String? remarks;
   final String? status;
   final dynamic masonRate;
   final dynamic beldarRate;
@@ -113,6 +115,7 @@ class ContractorListItem {
         name: json['name']?.toString(),
         mobile: json['mobile']?.toString(),
         address: json['address']?.toString(),
+        remarks: json['remarks']?.toString(),
         status: json['status']?.toString(),
         masonRate: json['mason_rate'],
         beldarRate: json['beldar_rate'],
@@ -142,6 +145,7 @@ class ContractorListItem {
         'name': name,
         'mobile': mobile,
         'address': address,
+        if (remarks != null) 'remarks': remarks,
         'status': status,
         'mason_rate': masonRate,
         'beldar_rate': beldarRate,

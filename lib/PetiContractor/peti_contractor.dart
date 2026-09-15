@@ -31,6 +31,7 @@ class OriginalContractor {
     required this.works,
     this.phone = '',
     this.address = '',
+    this.remarks = '',
     this.status = OriginalContractorStatus.published,
     this.agreements = const [],
     this.documents = const [],
@@ -41,6 +42,7 @@ class OriginalContractor {
   final String name;
   final String phone;
   final String address;
+  final String remarks;
   final List<WorkRateItem> works;
   final OriginalContractorStatus status;
   final List<String> agreements;
@@ -62,6 +64,7 @@ class OriginalContractor {
     String? name,
     String? phone,
     String? address,
+    String? remarks,
     List<WorkRateItem>? works,
     OriginalContractorStatus? status,
     List<String>? agreements,
@@ -73,6 +76,7 @@ class OriginalContractor {
       name: name ?? this.name,
       phone: phone ?? this.phone,
       address: address ?? this.address,
+      remarks: remarks ?? this.remarks,
       works: works ?? this.works,
       status: status ?? this.status,
       agreements: agreements ?? this.agreements,
@@ -86,6 +90,7 @@ class OriginalContractor {
         'name': name,
         'phone': phone,
         'address': address,
+        'remarks': remarks,
         'status': status == OriginalContractorStatus.published
             ? 'published'
             : 'unpublished',
@@ -101,6 +106,7 @@ class OriginalContractor {
       name: item.name ?? '',
       phone: item.phone ?? '',
       address: item.address ?? '',
+      remarks: item.remarks ?? '',
       status: item.status == 'unpublished'
           ? OriginalContractorStatus.unpublished
           : OriginalContractorStatus.published,
@@ -125,6 +131,7 @@ class OriginalContractor {
       name: json['name']?.toString() ?? '',
       phone: json['phone']?.toString() ?? '',
       address: json['address']?.toString() ?? '',
+      remarks: json['remarks']?.toString() ?? '',
       status: json['status']?.toString() == 'unpublished'
           ? OriginalContractorStatus.unpublished
           : OriginalContractorStatus.published,

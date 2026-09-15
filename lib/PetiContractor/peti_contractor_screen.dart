@@ -31,6 +31,7 @@ class _OriginalContractorScreenState extends State<OriginalContractorScreen> {
   final _nameController = TextEditingController();
   final _phoneController = TextEditingController();
   final _addressController = TextEditingController();
+  final _remarksController = TextEditingController();
   OriginalContractorStatus _status = OriginalContractorStatus.published;
   final List<_WorkRateEntry> _rows = [];
   bool _isSaving = false;
@@ -57,6 +58,7 @@ class _OriginalContractorScreenState extends State<OriginalContractorScreen> {
       _nameController.text = existing.name;
       _phoneController.text = existing.phone;
       _addressController.text = existing.address;
+      _remarksController.text = existing.remarks;
       _status = existing.status;
       _existingAgreements = List<String>.from(existing.agreements);
       _existingDocuments = List<String>.from(existing.documents);
@@ -83,6 +85,7 @@ class _OriginalContractorScreenState extends State<OriginalContractorScreen> {
     _nameController.dispose();
     _phoneController.dispose();
     _addressController.dispose();
+    _remarksController.dispose();
     for (final row in _rows) {
       row.dispose();
     }
@@ -116,18 +119,9 @@ class _OriginalContractorScreenState extends State<OriginalContractorScreen> {
   bool _docsValid() {
     final hasAgreements =
         _agreementFiles.isNotEmpty || _existingAgreements.isNotEmpty;
-    final hasDocuments =
-        _documentFiles.isNotEmpty || _existingDocuments.isNotEmpty;
-    final hasCheque = _cancelChequeFile != null ||
-        (_existingCancelCheque != null &&
-            _existingCancelCheque!.trim().isNotEmpty);
-    if (!hasAgreements || !hasDocuments || !hasCheque) {
+    if (!hasAgreements) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(
-            'Agreements, documents and cancel cheque are required.',
-          ),
-        ),
+        const SnackBar(content: Text('Agreement photo is required.')),
       );
       return false;
     }
@@ -172,6 +166,7 @@ class _OriginalContractorScreenState extends State<OriginalContractorScreen> {
           name: _nameController.text.trim(),
           phone: _phoneController.text.trim(),
           address: _addressController.text.trim(),
+          remarks: _remarksController.text.trim(),
           status: _status == OriginalContractorStatus.published
               ? 'published'
               : 'unpublished',
@@ -204,6 +199,9 @@ class _OriginalContractorScreenState extends State<OriginalContractorScreen> {
               address: data?.address?.trim().isNotEmpty == true
                   ? data!.address!.trim()
                   : _addressController.text.trim(),
+              remarks: data?.remarks?.trim().isNotEmpty == true
+                  ? data!.remarks!.trim()
+                  : _remarksController.text.trim(),
               status: (data?.status ?? '').toLowerCase() == 'unpublished'
                   ? OriginalContractorStatus.unpublished
                   : _status,
@@ -245,13 +243,14 @@ class _OriginalContractorScreenState extends State<OriginalContractorScreen> {
         name: _nameController.text.trim(),
         phone: _phoneController.text.trim(),
         address: _addressController.text.trim(),
+        remarks: _remarksController.text.trim(),
         status: _status == OriginalContractorStatus.published
             ? 'published'
             : 'unpublished',
         works: works,
         agreementFiles: _agreementFiles,
         documentFiles: _documentFiles,
-        cancelChequeFile: _cancelChequeFile!,
+        cancelChequeFile: _cancelChequeFile,
       );
       if (!mounted) return;
       if (created != null) {
@@ -362,6 +361,13 @@ class _OriginalContractorScreenState extends State<OriginalContractorScreen> {
             required: true,
           ),
           const SizedBox(height: 16),
+          _buildTextField(
+            label: 'Remarks',
+            controller: _remarksController,
+            hint: 'Optional remarks',
+            maxLines: 3,
+          ),
+          const SizedBox(height: 16),
           Text(
             'Documents',
             style: GoogleFonts.poppins(
@@ -373,6 +379,7 @@ class _OriginalContractorScreenState extends State<OriginalContractorScreen> {
           const SizedBox(height: 10),
           _buildMultiImageField(
             label: 'Agreements',
+            required: true,
             existingUrls: _existingAgreements,
             files: _agreementFiles,
             onAdd: () => _pickMulti(_agreementFiles, title: 'Agreement Photo'),
@@ -465,12 +472,13 @@ class _OriginalContractorScreenState extends State<OriginalContractorScreen> {
     required List<File> files,
     required VoidCallback onAdd,
     required void Function(int index) onRemoveFile,
+    bool required = false,
   }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         fieldLabelText(label,
-            isRequired: true,
+            isRequired: required,
             style: GoogleFonts.poppins(fontSize: 13, fontWeight: FontWeight.w500)),
         const SizedBox(height: 8),
         Wrap(
@@ -498,7 +506,7 @@ class _OriginalContractorScreenState extends State<OriginalContractorScreen> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         fieldLabelText(label,
-            isRequired: true,
+            isRequired: false,
             style: GoogleFonts.poppins(fontSize: 13, fontWeight: FontWeight.w500)),
         const SizedBox(height: 8),
         Wrap(

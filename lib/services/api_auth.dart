@@ -158,6 +158,7 @@ LabourContractor labourContractorFromApiData(
   required String name,
   required String mobile,
   required String address,
+  String remarks = '',
   required double masonRate,
   required double beldarRate,
   required double coolieRate,
@@ -174,6 +175,11 @@ LabourContractor labourContractorFromApiData(
     name: responseData['name']?.toString() ?? name,
     mobile: responseData['mobile']?.toString() ?? mobile,
     address: responseData['address']?.toString() ?? address,
+    remarks: () {
+      final value = responseData['remarks']?.toString().trim();
+      if (value != null && value.isNotEmpty && value != 'null') return value;
+      return remarks;
+    }(),
     masonRatePerDay: apiToDouble(responseData['mason_rate'], masonRate),
     beldarRatePerDay: apiToDouble(responseData['beldar_rate'], beldarRate),
     coolieRatePerDay: apiToDouble(responseData['coolie_rate'], coolieRate),
@@ -1308,6 +1314,7 @@ Future<LabourContractor?> createContractorApi(
   required String name,
   required String mobile,
   required String address,
+  String remarks = '',
   required String status,
   required int masonRate,
   required int beldarRate,
@@ -1347,6 +1354,7 @@ Future<LabourContractor?> createContractorApi(
           'name': name,
           'mobile': mobile,
           'address': address,
+          'remarks': remarks,
           'status': status,
           'mason_rate': masonRate.toString(),
           'beldar_rate': beldarRate.toString(),
@@ -1367,6 +1375,7 @@ Future<LabourContractor?> createContractorApi(
               'name': name,
               'mobile': mobile,
               'address': address,
+              'remarks': remarks,
               'status': status,
               'mason_rate': masonRate,
               'beldar_rate': beldarRate,
@@ -1416,6 +1425,7 @@ Future<LabourContractor?> createContractorApi(
             name: name,
             mobile: mobile,
             address: address,
+            remarks: remarks,
             masonRate: masonRate.toDouble(),
             beldarRate: beldarRate.toDouble(),
             coolieRate: coolieRate.toDouble(),
@@ -1431,6 +1441,7 @@ Future<LabourContractor?> createContractorApi(
           name: name,
           mobile: mobile,
           address: address,
+          remarks: remarks,
           masonRatePerDay: masonRate.toDouble(),
           beldarRatePerDay: beldarRate.toDouble(),
           coolieRatePerDay: coolieRate.toDouble(),
@@ -1531,6 +1542,7 @@ Future<LabourContractor?> updateContractorApi(
   required String name,
   required String mobile,
   required String address,
+  String remarks = '',
   required String status,
   required int masonRate,
   required int beldarRate,
@@ -1569,6 +1581,7 @@ Future<LabourContractor?> updateContractorApi(
           'name': name,
           'mobile': mobile,
           'address': address,
+          'remarks': remarks,
           'status': status,
           'mason_rate': masonRate.toString(),
           'beldar_rate': beldarRate.toString(),
@@ -1587,6 +1600,7 @@ Future<LabourContractor?> updateContractorApi(
           'name': name,
           'mobile': mobile,
           'address': address,
+          'remarks': remarks,
           'status': status,
           'mason_rate': masonRate,
           'beldar_rate': beldarRate,
@@ -1624,6 +1638,7 @@ Future<LabourContractor?> updateContractorApi(
         name: name,
         mobile: mobile,
         address: address,
+        remarks: remarks,
         masonRatePerDay: masonRate.toDouble(),
         beldarRatePerDay: beldarRate.toDouble(),
         coolieRatePerDay: coolieRate.toDouble(),
@@ -1641,6 +1656,7 @@ Future<LabourContractor?> updateContractorApi(
             name: name,
             mobile: mobile,
             address: address,
+            remarks: remarks,
             masonRate: masonRate.toDouble(),
             beldarRate: beldarRate.toDouble(),
             coolieRate: coolieRate.toDouble(),
@@ -6794,11 +6810,12 @@ Future<OriginalContractorItem?> createOriginalContractorApi(
   required String name,
   required String phone,
   required String address,
+  String remarks = '',
   required String status,
   required List<Map<String, dynamic>> works,
   required List<File> agreementFiles,
-  required List<File> documentFiles,
-  required File cancelChequeFile,
+  List<File> documentFiles = const [],
+  File? cancelChequeFile,
 }) async {
   try {
     final url = '$baseUrl/api/v1/original-contractors';
@@ -6821,7 +6838,9 @@ Future<OriginalContractorItem?> createOriginalContractorApi(
     for (final f in documentFiles) {
       files.add(await _multipartImage('documents[]', f));
     }
-    files.add(await _multipartImage('cancel_cheque', cancelChequeFile));
+    if (cancelChequeFile != null) {
+      files.add(await _multipartImage('cancel_cheque', cancelChequeFile));
+    }
 
     print('[createOriginalContractorApi] POST $url multipart');
 
@@ -6832,6 +6851,7 @@ Future<OriginalContractorItem?> createOriginalContractorApi(
         'name': name.trim(),
         'phone': phone.trim(),
         'address': address.trim(),
+        'remarks': remarks,
         'status': status,
         'works': jsonEncode(worksPayload),
       },
@@ -6860,6 +6880,7 @@ Future<OriginalContractorItem?> createOriginalContractorApi(
         name: name.trim(),
         phone: phone.trim(),
         address: address.trim(),
+        remarks: remarks,
         status: status,
       );
     }
@@ -6948,6 +6969,7 @@ Future<Getcclist?> updateOriginalContractorApi(
   required String name,
   required String phone,
   required String address,
+  String remarks = '',
   required String status,
   required List<Map<String, dynamic>> works,
   List<File> agreementFiles = const [],
@@ -6995,6 +7017,7 @@ Future<Getcclist?> updateOriginalContractorApi(
           'name': name.trim(),
           'phone': phone.trim(),
           'address': address.trim(),
+          'remarks': remarks,
           'status': status,
           'works': jsonEncode(worksPayload),
         },
@@ -7008,6 +7031,7 @@ Future<Getcclist?> updateOriginalContractorApi(
           'name': name.trim(),
           'phone': phone.trim(),
           'address': address.trim(),
+          'remarks': remarks,
           'status': status,
           'works': worksPayload,
         }),
