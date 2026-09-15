@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:grjoffice_apps/core/app_colors.dart';
-import 'package:grjoffice_apps/Expensescreen/add_expense_screen.dart';
 import 'package:grjoffice_apps/Expensescreen/expense.dart';
 import 'package:grjoffice_apps/services/api_auth.dart';
 import 'package:grjoffice_apps/widgets/app_top_bar.dart';
@@ -18,7 +17,7 @@ class ViewExpenseScreen extends StatefulWidget {
 class _ViewExpenseScreenState extends State<ViewExpenseScreen> {
   bool _isLoading = true;
   Expense? _detail;
-  bool _didUpdate = false;
+  final bool _didUpdate = false;
 
   @override
   void initState() {
@@ -49,82 +48,6 @@ class _ViewExpenseScreenState extends State<ViewExpenseScreen> {
 
   void _goBack() {
     Navigator.pop(context, _didUpdate ? _expense : null);
-  }
-
-  Future<void> _editExpense() async {
-    final updated = await Navigator.of(context).push<Expense>(
-      MaterialPageRoute(builder: (_) => AddExpenseScreen(expense: _expense)),
-    );
-    if (updated == null || !mounted) return;
-    setState(() {
-      _detail = updated;
-      _didUpdate = true;
-    });
-  }
-
-  Future<void> _deleteExpense() async {
-    final expense = _expense;
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (dialogContext) {
-        return AlertDialog(
-          backgroundColor: AppColors.cardWhite,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(14),
-          ),
-          title: Text(
-            'Delete Expense',
-            style: GoogleFonts.poppins(
-              fontWeight: FontWeight.w700,
-              color: AppColors.headingBlack,
-            ),
-          ),
-          content: Text(
-            'Are you sure you want to delete "${expense.title}"?',
-            style: GoogleFonts.poppins(fontSize: 14, color: AppColors.textDark),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(dialogContext).pop(false),
-              child: Text(
-                'Cancel',
-                style: GoogleFonts.poppins(
-                  color: AppColors.textSecondary,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ),
-            TextButton(
-              onPressed: () => Navigator.of(dialogContext).pop(true),
-              child: Text(
-                'Delete',
-                style: GoogleFonts.poppins(
-                  color: AppColors.primaryRed,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-            ),
-          ],
-        );
-      },
-    );
-
-    if (confirmed != true || !mounted) return;
-
-    final expenseId = int.tryParse(expense.id);
-    if (expenseId == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Invalid expense id.', style: GoogleFonts.poppins()),
-        ),
-      );
-      return;
-    }
-
-    final ok = await deleteExpenseApi(context, expenseId);
-    if (!mounted || !ok) return;
-
-    Navigator.pop(context, 'deleted');
   }
 
   String _text(String? value, {String fallback = '—'}) {

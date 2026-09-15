@@ -116,8 +116,7 @@ class _PurchasesScreenState extends State<PurchasesScreen> {
         if (!haystack.contains(_searchQuery)) return false;
       }
       return true;
-    }).toList()
-      ..sort((a, b) => b.date.compareTo(a.date));
+    }).toList()..sort((a, b) => b.date.compareTo(a.date));
   }
 
   List<String> get _supplierOptions {
@@ -140,7 +139,20 @@ class _PurchasesScreenState extends State<PurchasesScreen> {
       _purchases.where((p) => p.listStage == stage).length;
 
   String _formatDate(DateTime date) {
-    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    const months = [
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec',
+    ];
     return '${date.day.toString().padLeft(2, '0')} ${months[date.month - 1]} ${date.year}';
   }
 
@@ -152,7 +164,10 @@ class _PurchasesScreenState extends State<PurchasesScreen> {
     return Scaffold(
       key: _scaffoldKey,
       backgroundColor: AppColors.backgroundGray,
-      drawer: AppDrawer(selectedIndex: DrawerIndex.purchase, onItemTap: _onDrawerItemTap),
+      drawer: AppDrawer(
+        selectedIndex: DrawerIndex.purchase,
+        onItemTap: _onDrawerItemTap,
+      ),
       endDrawer: const AppEndDrawer(),
       body: SafeArea(
         child: Column(
@@ -184,35 +199,41 @@ class _PurchasesScreenState extends State<PurchasesScreen> {
             Expanded(
               child: _isLoading
                   ? const Center(
-                      child: CircularProgressIndicator(color: AppColors.primaryRed),
+                      child: CircularProgressIndicator(
+                        color: AppColors.primaryRed,
+                      ),
                     )
                   : RefreshIndicator(
-                          color: AppColors.primaryRed,
-                          onRefresh: () => _loadPurchases(showLoader: false),
-                          child: rows.isEmpty
-                              ? ListView(
-                                  physics: const AlwaysScrollableScrollPhysics(),
-                                  children: [
-                                    SizedBox(height: MediaQuery.sizeOf(context).height * 0.15),
-                                    _buildEmptyState(),
-                                  ],
-                                )
-                              : SingleChildScrollView(
-                            physics: const AlwaysScrollableScrollPhysics(),
-                            padding: EdgeInsets.fromLTRB(hPad, 0, hPad, 16),
-                            child: Center(
-                              child: ConstrainedBox(
-                                constraints: const BoxConstraints(maxWidth: 640),
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                                  children: [
-                                    ...rows.map(_buildPurchaseCard),
-                                  ],
+                      color: AppColors.primaryRed,
+                      onRefresh: () => _loadPurchases(showLoader: false),
+                      child: rows.isEmpty
+                          ? ListView(
+                              physics: const AlwaysScrollableScrollPhysics(),
+                              children: [
+                                SizedBox(
+                                  height:
+                                      MediaQuery.sizeOf(context).height * 0.15,
+                                ),
+                                _buildEmptyState(),
+                              ],
+                            )
+                          : SingleChildScrollView(
+                              physics: const AlwaysScrollableScrollPhysics(),
+                              padding: EdgeInsets.fromLTRB(hPad, 0, hPad, 16),
+                              child: Center(
+                                child: ConstrainedBox(
+                                  constraints: const BoxConstraints(
+                                    maxWidth: 640,
+                                  ),
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.stretch,
+                                    children: [...rows.map(_buildPurchaseCard)],
+                                  ),
                                 ),
                               ),
                             ),
-                          ),
-                        ),
+                    ),
             ),
           ],
         ),
@@ -259,7 +280,9 @@ class _PurchasesScreenState extends State<PurchasesScreen> {
                 child: Icon(
                   Icons.tune_rounded,
                   size: 22,
-                  color: _hasActiveFilters ? AppColors.primaryRed : AppColors.textDark,
+                  color: _hasActiveFilters
+                      ? AppColors.primaryRed
+                      : AppColors.textDark,
                 ),
               ),
             ),
@@ -275,16 +298,32 @@ class _PurchasesScreenState extends State<PurchasesScreen> {
       style: GoogleFonts.poppins(fontSize: 14, color: AppColors.textDark),
       decoration: InputDecoration(
         hintText: 'Search purchases...',
-        hintStyle: GoogleFonts.poppins(color: AppColors.inputHint, fontSize: 13),
-        prefixIcon: const Icon(Icons.search_rounded, color: AppColors.textSecondary, size: 22),
+        hintStyle: GoogleFonts.poppins(
+          color: AppColors.inputHint,
+          fontSize: 13,
+        ),
+        prefixIcon: const Icon(
+          Icons.search_rounded,
+          color: AppColors.textSecondary,
+          size: 22,
+        ),
         filled: true,
         fillColor: AppColors.operationsCardBg,
         contentPadding: const EdgeInsets.symmetric(vertical: 12),
-        border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide.none),
-        enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide.none),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(10),
+          borderSide: BorderSide.none,
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(10),
+          borderSide: BorderSide.none,
+        ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(10),
-          borderSide: BorderSide(color: AppColors.primaryRed.withValues(alpha: 0.5), width: 1.5),
+          borderSide: BorderSide(
+            color: AppColors.primaryRed.withValues(alpha: 0.5),
+            width: 1.5,
+          ),
         ),
       ),
     );
@@ -296,7 +335,10 @@ class _PurchasesScreenState extends State<PurchasesScreen> {
       runSpacing: 8,
       children: [
         if (_supplierFilter != null)
-          _activeChip(_supplierFilter!, () => setState(() => _supplierFilter = null)),
+          _activeChip(
+            _supplierFilter!,
+            () => setState(() => _supplierFilter = null),
+          ),
         if (_kantaSlipFilter != _KantaSlipFilter.all)
           _activeChip(
             'Kanta: ${_kantaSlipFilter == _KantaSlipFilter.yes ? 'Yes' : 'No'}',
@@ -306,7 +348,11 @@ class _PurchasesScreenState extends State<PurchasesScreen> {
           onTap: _clearFilters,
           child: Text(
             'Clear all',
-            style: GoogleFonts.poppins(color: AppColors.primaryRed, fontSize: 12, fontWeight: FontWeight.w600),
+            style: GoogleFonts.poppins(
+              color: AppColors.primaryRed,
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+            ),
           ),
         ),
       ],
@@ -315,8 +361,15 @@ class _PurchasesScreenState extends State<PurchasesScreen> {
 
   Widget _activeChip(String label, VoidCallback onRemove) {
     return InputChip(
-      label: Text(label, style: GoogleFonts.poppins(fontSize: 12, color: AppColors.primaryRed)),
-      deleteIcon: const Icon(Icons.close, size: 16, color: AppColors.primaryRed),
+      label: Text(
+        label,
+        style: GoogleFonts.poppins(fontSize: 12, color: AppColors.primaryRed),
+      ),
+      deleteIcon: const Icon(
+        Icons.close,
+        size: 16,
+        color: AppColors.primaryRed,
+      ),
       onDeleted: onRemove,
       backgroundColor: AppColors.primaryRed.withValues(alpha: 0.08),
       side: BorderSide(color: AppColors.primaryRed.withValues(alpha: 0.25)),
@@ -366,13 +419,20 @@ class _PurchasesScreenState extends State<PurchasesScreen> {
                             color: AppColors.primaryRed.withValues(alpha: 0.1),
                             borderRadius: BorderRadius.circular(10),
                           ),
-                          child: const Icon(Icons.tune_rounded, color: AppColors.primaryRed, size: 20),
+                          child: const Icon(
+                            Icons.tune_rounded,
+                            color: AppColors.primaryRed,
+                            size: 20,
+                          ),
                         ),
                         const SizedBox(width: 12),
                         Expanded(
                           child: Text(
                             'Filter Purchases',
-                            style: GoogleFonts.poppins(fontSize: 18, fontWeight: FontWeight.w700),
+                            style: GoogleFonts.poppins(
+                              fontSize: 18,
+                              fontWeight: FontWeight.w700,
+                            ),
                           ),
                         ),
                         if (_hasActiveFilters)
@@ -381,24 +441,48 @@ class _PurchasesScreenState extends State<PurchasesScreen> {
                               _clearFilters();
                               Navigator.pop(context);
                             },
-                            child: Text('Clear', style: GoogleFonts.poppins(color: AppColors.primaryRed, fontWeight: FontWeight.w600)),
+                            child: Text(
+                              'Clear',
+                              style: GoogleFonts.poppins(
+                                color: AppColors.primaryRed,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
                           ),
                       ],
                     ),
                     const SizedBox(height: 20),
                     _filterSection('Kanta Slip', Icons.receipt_long_outlined, [
-                      _filterChip('All', _kantaSlipFilter == _KantaSlipFilter.all, () {
-                        setState(() => _kantaSlipFilter = _KantaSlipFilter.all);
-                        Navigator.pop(context);
-                      }),
-                      _filterChip('Yes', _kantaSlipFilter == _KantaSlipFilter.yes, () {
-                        setState(() => _kantaSlipFilter = _KantaSlipFilter.yes);
-                        Navigator.pop(context);
-                      }),
-                      _filterChip('No', _kantaSlipFilter == _KantaSlipFilter.no, () {
-                        setState(() => _kantaSlipFilter = _KantaSlipFilter.no);
-                        Navigator.pop(context);
-                      }),
+                      _filterChip(
+                        'All',
+                        _kantaSlipFilter == _KantaSlipFilter.all,
+                        () {
+                          setState(
+                            () => _kantaSlipFilter = _KantaSlipFilter.all,
+                          );
+                          Navigator.pop(context);
+                        },
+                      ),
+                      _filterChip(
+                        'Yes',
+                        _kantaSlipFilter == _KantaSlipFilter.yes,
+                        () {
+                          setState(
+                            () => _kantaSlipFilter = _KantaSlipFilter.yes,
+                          );
+                          Navigator.pop(context);
+                        },
+                      ),
+                      _filterChip(
+                        'No',
+                        _kantaSlipFilter == _KantaSlipFilter.no,
+                        () {
+                          setState(
+                            () => _kantaSlipFilter = _KantaSlipFilter.no,
+                          );
+                          Navigator.pop(context);
+                        },
+                      ),
                     ]),
                     const SizedBox(height: 16),
                     _filterSection('Supplier', Icons.storefront_outlined, [
@@ -406,10 +490,13 @@ class _PurchasesScreenState extends State<PurchasesScreen> {
                         setState(() => _supplierFilter = null);
                         Navigator.pop(context);
                       }),
-                      ..._supplierOptions.map((name) => _filterChip(name, _supplierFilter == name, () {
-                        setState(() => _supplierFilter = name);
-                        Navigator.pop(context);
-                      })),
+                      ..._supplierOptions.map(
+                        (name) =>
+                            _filterChip(name, _supplierFilter == name, () {
+                              setState(() => _supplierFilter = name);
+                              Navigator.pop(context);
+                            }),
+                      ),
                     ]),
                   ],
                 ),
@@ -435,7 +522,13 @@ class _PurchasesScreenState extends State<PurchasesScreen> {
             children: [
               Icon(icon, size: 16, color: AppColors.primaryRed),
               const SizedBox(width: 8),
-              Text(title, style: GoogleFonts.poppins(fontSize: 13, fontWeight: FontWeight.w600)),
+              Text(
+                title,
+                style: GoogleFonts.poppins(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
             ],
           ),
           const SizedBox(height: 10),
@@ -461,18 +554,20 @@ class _PurchasesScreenState extends State<PurchasesScreen> {
       checkmarkColor: AppColors.primaryRed,
       backgroundColor: AppColors.cardWhite,
       side: BorderSide(
-        color: selected ? AppColors.primaryRed.withValues(alpha: 0.4) : AppColors.borderGray.withValues(alpha: 0.5),
+        color: selected
+            ? AppColors.primaryRed.withValues(alpha: 0.4)
+            : AppColors.borderGray.withValues(alpha: 0.5),
       ),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
     );
   }
 
   String _statusLabel(PurchaseStatus status) => switch (status) {
-        PurchaseStatus.pending => 'Pending',
-        PurchaseStatus.approved => 'Approved',
-        PurchaseStatus.received => 'Received',
-        PurchaseStatus.cancelled => 'Cancelled',
-      };
+    PurchaseStatus.pending => 'Pending',
+    PurchaseStatus.approved => 'Approved',
+    PurchaseStatus.received => 'Received',
+    PurchaseStatus.cancelled => 'Cancelled',
+  };
 
   Future<void> _openAddPurchase() async {
     final result = await Navigator.of(context).push<Purchase>(
@@ -482,10 +577,10 @@ class _PurchasesScreenState extends State<PurchasesScreen> {
       final msg = result.withKantaStage == WithKantaStage.initial
           ? 'Purchase saved (Initial). Complete Step 2 from the list.'
           : result.withoutKantaStage == WithoutKantaStage.initial
-              ? 'Purchase saved (Initial). Complete Step 2 from the list.'
-              : result.isDirectPurchase
-                  ? 'Purchase ${result.challanNo} saved (Completed).'
-                  : 'Purchase ${result.challanNo} created.';
+          ? 'Purchase saved (Initial). Complete Step 2 from the list.'
+          : result.isDirectPurchase
+          ? 'Purchase ${result.challanNo} saved (Completed).'
+          : 'Purchase ${result.challanNo} created.';
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
       await _loadPurchases();
     }
@@ -605,7 +700,10 @@ class _PurchasesScreenState extends State<PurchasesScreen> {
           icon: const Icon(Icons.add_shopping_cart_outlined, size: 20),
           label: Text(
             'Create Purchase',
-            style: GoogleFonts.poppins(fontSize: 14, fontWeight: FontWeight.w600),
+            style: GoogleFonts.poppins(
+              fontSize: 14,
+              fontWeight: FontWeight.w600,
+            ),
           ),
           style: ElevatedButton.styleFrom(
             backgroundColor: AppColors.primaryRed,
@@ -687,34 +785,50 @@ class _PurchasesScreenState extends State<PurchasesScreen> {
                 ),
                 const SizedBox(height: 10),
                 if ((purchase.itemName ?? '').isNotEmpty) ...[
-                  _buildMetaRow(Icons.inventory_2_outlined, purchase.materialsSummary),
-                  const SizedBox(height: 6),
-                ],
-                if (purchase.withKantaStage != null && purchase.flowStageLabel != null) ...[
                   _buildMetaRow(
-                    Icons.flag_outlined,
-                    'Status: ${purchase.flowStageLabel}',
-                  ),
-                  const SizedBox(height: 6),
-                ] else if (purchase.withoutKantaStage != null && purchase.flowStageLabel != null) ...[
-                  _buildMetaRow(
-                    Icons.flag_outlined,
-                    'Status: ${purchase.flowStageLabel}',
-                  ),
-                  const SizedBox(height: 6),
-                ] else if (purchase.directPurchaseStage != null && purchase.flowStageLabel != null) ...[
-                  _buildMetaRow(
-                    Icons.flag_outlined,
-                    'Status: ${purchase.flowStageLabel}',
+                    Icons.inventory_2_outlined,
+                    purchase.materialsSummary,
                   ),
                   const SizedBox(height: 6),
                 ],
-                _buildMetaRow(Icons.calendar_today_outlined, _formatDate(purchase.date)),
+                if (purchase.withKantaStage != null &&
+                    purchase.flowStageLabel != null) ...[
+                  _buildMetaRow(
+                    Icons.flag_outlined,
+                    'Status: ${purchase.flowStageLabel}',
+                  ),
+                  const SizedBox(height: 6),
+                ] else if (purchase.withoutKantaStage != null &&
+                    purchase.flowStageLabel != null) ...[
+                  _buildMetaRow(
+                    Icons.flag_outlined,
+                    'Status: ${purchase.flowStageLabel}',
+                  ),
+                  const SizedBox(height: 6),
+                ] else if (purchase.directPurchaseStage != null &&
+                    purchase.flowStageLabel != null) ...[
+                  _buildMetaRow(
+                    Icons.flag_outlined,
+                    'Status: ${purchase.flowStageLabel}',
+                  ),
+                  const SizedBox(height: 6),
+                ],
+                _buildMetaRow(
+                  Icons.calendar_today_outlined,
+                  _formatDate(purchase.date),
+                ),
                 const SizedBox(height: 6),
-                _buildMetaRow(Icons.receipt_long_outlined, 'Invoice: ${purchase.invoiceNo}'),
+                _buildMetaRow(
+                  Icons.receipt_long_outlined,
+                  'Invoice: ${purchase.invoiceNo}',
+                ),
                 if ((purchase.remark ?? '').isNotEmpty) ...[
                   const SizedBox(height: 6),
-                  _buildMetaRow(Icons.notes_outlined, 'Remark: ${purchase.remark!}', maxLines: 2),
+                  _buildMetaRow(
+                    Icons.notes_outlined,
+                    'Remark: ${purchase.remark!}',
+                    maxLines: 2,
+                  ),
                 ],
               ],
             ),
@@ -746,7 +860,11 @@ class _PurchasesScreenState extends State<PurchasesScreen> {
                             ),
                           ),
                           const SizedBox(width: 2),
-                          const Icon(Icons.chevron_right, color: AppColors.primaryRed, size: 18),
+                          const Icon(
+                            Icons.chevron_right,
+                            color: AppColors.primaryRed,
+                            size: 18,
+                          ),
                         ],
                       ),
                     ),
@@ -769,134 +887,51 @@ class _PurchasesScreenState extends State<PurchasesScreen> {
                             ),
                           ),
                           const SizedBox(width: 2),
-                          const Icon(Icons.chevron_right, color: AppColors.primaryRed, size: 18),
+                          const Icon(
+                            Icons.chevron_right,
+                            color: AppColors.primaryRed,
+                            size: 18,
+                          ),
                         ],
                       ),
                     ),
                   ),
                 const Spacer(),
-                IconButton(
-                  onPressed: () => _showPurchaseMenu(purchase),
-                  icon: const Icon(
-                    Icons.more_vert,
-                    color: AppColors.textSecondary,
-                    size: 22,
+                if (purchase.isFullyCompleted)
+                  IconButton(
+                    onPressed: () => _downloadChallan(purchase),
+                    icon: const Icon(
+                      Icons.download,
+                      color: AppColors.textSecondary,
+                      size: 22,
+                    ),
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(
+                      minWidth: 32,
+                      minHeight: 32,
+                    ),
+                    visualDensity: VisualDensity.compact,
+                    tooltip: 'Download Challan',
                   ),
-                  padding: EdgeInsets.zero,
-                  constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
-                  visualDensity: VisualDensity.compact,
-                ),
+                // if (_purchaseMenuHasItems(purchase))
+                //   IconButton(
+                //     onPressed: () => _showPurchaseMenu(purchase),
+                //     icon: const Icon(
+                //       Icons.more_vert,
+                //       color: AppColors.textSecondary,
+                //       size: 22,
+                //     ),
+                //     padding: EdgeInsets.zero,
+                //     constraints: const BoxConstraints(
+                //       minWidth: 32,
+                //       minHeight: 32,
+                //     ),
+                //     visualDensity: VisualDensity.compact,
+                //   ),
               ],
             ),
           ),
         ],
-      ),
-    );
-  }
-
-  void _showPurchaseMenu(Purchase purchase) {
-    showModalBottomSheet<void>(
-      context: context,
-      backgroundColor: AppColors.cardWhite,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
-      ),
-      builder: (context) {
-        final withKantaFlow = purchase.isWithKanta && purchase.withKantaStage != null;
-        final withoutKantaFlow = purchase.isWithoutKanta && purchase.withoutKantaStage != null;
-        final isCompleted = purchase.isFullyCompleted;
-        return SafeArea(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              if (withKantaFlow)
-                ListTile(
-                  leading: const Icon(Icons.photo_library_outlined, color: AppColors.textDark),
-                  title: Text('View Vehicle Images', style: GoogleFonts.poppins(fontSize: 14)),
-                  onTap: () {
-                    Navigator.pop(context);
-                    _viewVehicleImages(purchase);
-                  },
-                ),
-              if (isCompleted)
-                ListTile(
-                  leading: const Icon(Icons.download_outlined, color: AppColors.textDark),
-                  title: Text('Download Challan', style: GoogleFonts.poppins(fontSize: 14)),
-                  onTap: () {
-                    Navigator.pop(context);
-                    _downloadChallan(purchase);
-                  },
-                ),
-              if (withKantaFlow && _canOpenWithKantaStep3(purchase))
-                ListTile(
-                  leading: const Icon(Icons.playlist_add_check_outlined, color: AppColors.primaryRed),
-                  title: Text(
-                    'Step 3',
-                    style: GoogleFonts.poppins(
-                      fontSize: 14,
-                      color: AppColors.primaryRed,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                  onTap: () {
-                    Navigator.pop(context);
-                    _openWithKantaStep3(purchase);
-                  },
-                ),
-              if (withoutKantaFlow && _canOpenStep2(purchase))
-                ListTile(
-                  leading: const Icon(Icons.playlist_add_check_outlined, color: AppColors.primaryRed),
-                  title: Text(
-                    'Step 2',
-                    style: GoogleFonts.poppins(
-                      fontSize: 14,
-                      color: AppColors.primaryRed,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                  onTap: () {
-                    Navigator.pop(context);
-                    _openFlowStep2(purchase);
-                  },
-                ),
-            ],
-          ),
-        );
-      },
-    );
-  }
-
-  Future<void> _viewVehicleImages(Purchase purchase) async {
-    final purchaseId = int.tryParse(purchase.id);
-    var detail = purchase;
-
-    if (purchaseId != null) {
-      showDialog<void>(
-        context: context,
-        barrierDismissible: false,
-        useRootNavigator: true,
-        builder: (_) => const PopScope(
-          canPop: false,
-          child: Center(
-            child: CircularProgressIndicator(color: AppColors.primaryRed),
-          ),
-        ),
-      );
-      try {
-        final fetched = await getPurchaseApi(context, purchaseId);
-        if (fetched != null) detail = fetched;
-      } finally {
-        if (mounted) {
-          Navigator.of(context, rootNavigator: true).pop();
-        }
-      }
-    }
-
-    if (!mounted) return;
-
-    await Navigator.of(context).push<void>(
-      MaterialPageRoute(
-        builder: (_) => _VehicleImagesScreen(purchase: detail),
       ),
     );
   }
@@ -958,7 +993,8 @@ class _PurchasesScreenState extends State<PurchasesScreen> {
     }
 
     final parsed = Uri.tryParse(challanUrl);
-    if (parsed == null || !(parsed.isScheme('http') || parsed.isScheme('https'))) {
+    if (parsed == null ||
+        !(parsed.isScheme('http') || parsed.isScheme('https'))) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
@@ -985,7 +1021,8 @@ class _PurchasesScreenState extends State<PurchasesScreen> {
           .get(downloadUrl, headers: pdfAuthHeaders)
           .timeout(const Duration(seconds: 60));
       final bytes = response.bodyBytes;
-      final looksPdf = bytes.length >= 4 &&
+      final looksPdf =
+          bytes.length >= 4 &&
           String.fromCharCodes(bytes.sublist(0, 4)) == '%PDF';
 
       debugPrint(
@@ -1002,8 +1039,7 @@ class _PurchasesScreenState extends State<PurchasesScreen> {
 
         // Open from app cache (FileProvider). MediaStore Downloads paths are
         // often not openable and make the PDF viewer flash then close.
-        final openPath =
-            await PurchaseImageDownloadService.saveToCacheForOpen(
+        final openPath = await PurchaseImageDownloadService.saveToCacheForOpen(
           bytes: bytes,
           fileName: fileName,
         );
@@ -1086,11 +1122,14 @@ class _PurchasesScreenState extends State<PurchasesScreen> {
       dismissLoading();
     }
   }
+
   String? _cardFlowActionLabel(Purchase purchase) {
     final next = purchase.nextAction?.toLowerCase();
     if (next == 'step_2') return 'Step 2';
     if (next == 'step_3') return 'Step 3';
-    if (purchase.withoutKantaStage == WithoutKantaStage.initial) return 'Step 2';
+    if (purchase.withoutKantaStage == WithoutKantaStage.initial) {
+      return 'Step 2';
+    }
     if (purchase.withKantaStage == WithKantaStage.initial) return 'Step 2';
     if (purchase.withKantaStage == WithKantaStage.processing) return 'Step 3';
     return null;
@@ -1098,22 +1137,12 @@ class _PurchasesScreenState extends State<PurchasesScreen> {
 
   void _openCardFlowAction(Purchase purchase) {
     final next = purchase.nextAction?.toLowerCase();
-    if (next == 'step_3' || purchase.withKantaStage == WithKantaStage.processing) {
+    if (next == 'step_3' ||
+        purchase.withKantaStage == WithKantaStage.processing) {
       _openWithKantaStep3(purchase);
       return;
     }
     _openFlowStep2(purchase);
-  }
-
-  bool _canOpenWithKantaStep3(Purchase purchase) =>
-      purchase.nextAction?.toLowerCase() == 'step_3' ||
-      purchase.withKantaStage == WithKantaStage.processing;
-
-  bool _canOpenStep2(Purchase purchase) {
-    if (purchase.nextAction?.toLowerCase() == 'step_2') return true;
-    if (purchase.withoutKantaStage == WithoutKantaStage.initial) return true;
-    if (purchase.withKantaStage == WithKantaStage.initial) return true;
-    return false;
   }
 
   Future<void> _openFlowStep2(Purchase purchase) async {
@@ -1126,7 +1155,9 @@ class _PurchasesScreenState extends State<PurchasesScreen> {
 
   Future<void> _openWithKantaStep2(Purchase purchase) async {
     final updated = await Navigator.of(context).push<Purchase>(
-      MaterialPageRoute(builder: (_) => WithKantaStep2Screen(purchase: purchase)),
+      MaterialPageRoute(
+        builder: (_) => WithKantaStep2Screen(purchase: purchase),
+      ),
     );
     if (updated == null || !mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
@@ -1137,22 +1168,30 @@ class _PurchasesScreenState extends State<PurchasesScreen> {
 
   Future<void> _openWithKantaStep3(Purchase purchase) async {
     final updated = await Navigator.of(context).push<Purchase>(
-      MaterialPageRoute(builder: (_) => WithKantaStep3Screen(purchase: purchase)),
+      MaterialPageRoute(
+        builder: (_) => WithKantaStep3Screen(purchase: purchase),
+      ),
     );
     if (updated == null || !mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('Purchase ${updated.challanNo} marked completed.')),
+      SnackBar(
+        content: Text('Purchase ${updated.challanNo} marked completed.'),
+      ),
     );
     await _loadPurchases();
   }
 
   Future<void> _openWithoutKantaStep2(Purchase purchase) async {
     final updated = await Navigator.of(context).push<Purchase>(
-      MaterialPageRoute(builder: (_) => WithoutKantaStep2Screen(purchase: purchase)),
+      MaterialPageRoute(
+        builder: (_) => WithoutKantaStep2Screen(purchase: purchase),
+      ),
     );
     if (updated == null || !mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('Purchase ${updated.challanNo} marked completed.')),
+      SnackBar(
+        content: Text('Purchase ${updated.challanNo} marked completed.'),
+      ),
     );
     await _loadPurchases();
   }
@@ -1234,7 +1273,10 @@ class _PurchasesScreenState extends State<PurchasesScreen> {
             label,
             maxLines: maxLines,
             overflow: TextOverflow.ellipsis,
-            style: GoogleFonts.poppins(color: AppColors.textSecondary, fontSize: 12),
+            style: GoogleFonts.poppins(
+              color: AppColors.textSecondary,
+              fontSize: 12,
+            ),
           ),
         ),
       ],
@@ -1252,10 +1294,22 @@ class _PurchasesScreenState extends State<PurchasesScreen> {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(Icons.shopping_cart_outlined, size: 48, color: AppColors.textSecondary.withValues(alpha: 0.5)),
+          Icon(
+            Icons.shopping_cart_outlined,
+            size: 48,
+            color: AppColors.textSecondary.withValues(alpha: 0.5),
+          ),
           const SizedBox(height: 12),
-          Text('No purchases found', style: GoogleFonts.poppins(fontSize: 14, fontWeight: FontWeight.w500)),
-          if (_hasActiveFilters || _searchQuery.isNotEmpty || _stageTab != _PurchaseStageTab.total) ...[
+          Text(
+            'No purchases found',
+            style: GoogleFonts.poppins(
+              fontSize: 14,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+          if (_hasActiveFilters ||
+              _searchQuery.isNotEmpty ||
+              _stageTab != _PurchaseStageTab.total) ...[
             const SizedBox(height: 12),
             TextButton(
               onPressed: () {
@@ -1263,7 +1317,13 @@ class _PurchasesScreenState extends State<PurchasesScreen> {
                 _clearFilters();
                 setState(() => _stageTab = _PurchaseStageTab.total);
               },
-              child: Text('Reset filters', style: GoogleFonts.poppins(color: AppColors.primaryRed, fontWeight: FontWeight.w600)),
+              child: Text(
+                'Reset filters',
+                style: GoogleFonts.poppins(
+                  color: AppColors.primaryRed,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
             ),
           ],
         ],
@@ -1313,7 +1373,10 @@ class _VehicleImagesScreenState extends State<_VehicleImagesScreen> {
         .toList();
   }
 
-  List<_VehicleImageItem> _itemsForGroup(String label, List<PurchaseImageRef> images) {
+  List<_VehicleImageItem> _itemsForGroup(
+    String label,
+    List<PurchaseImageRef> images,
+  ) {
     final numbered = images.length > 1;
     return [
       for (var i = 0; i < images.length; i++)
@@ -1350,10 +1413,8 @@ class _VehicleImagesScreenState extends State<_VehicleImagesScreen> {
   void _openFullImage(String label, String imageUrl) {
     Navigator.of(context).push<void>(
       MaterialPageRoute(
-        builder: (_) => _VehicleImageViewerPage(
-          title: label,
-          imageUrl: imageUrl,
-        ),
+        builder: (_) =>
+            _VehicleImageViewerPage(title: label, imageUrl: imageUrl),
       ),
     );
   }
@@ -1448,10 +1509,7 @@ class _VehicleImageItem {
 }
 
 class _VehicleImageListTile extends StatelessWidget {
-  const _VehicleImageListTile({
-    required this.item,
-    required this.onTap,
-  });
+  const _VehicleImageListTile({required this.item, required this.onTap});
 
   final _VehicleImageItem item;
   final ValueChanged<String> onTap;
@@ -1519,8 +1577,8 @@ class _VehicleImageListTile extends StatelessWidget {
                     Text(
                       hasImage
                           ? (item.capturedAt != null
-                              ? formatPurchaseImageDateTime(item.capturedAt!)
-                              : 'Tap to view full size')
+                                ? formatPurchaseImageDateTime(item.capturedAt!)
+                                : 'Tap to view full size')
                           : 'Not uploaded',
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
@@ -1552,7 +1610,11 @@ class _VehicleImageListTile extends StatelessWidget {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, size: 22, color: AppColors.textSecondary.withValues(alpha: 0.65)),
+          Icon(
+            icon,
+            size: 22,
+            color: AppColors.textSecondary.withValues(alpha: 0.65),
+          ),
           const SizedBox(height: 4),
           Text(
             text,
@@ -1568,10 +1630,7 @@ class _VehicleImageListTile extends StatelessWidget {
 }
 
 class _VehicleImageViewerPage extends StatelessWidget {
-  const _VehicleImageViewerPage({
-    required this.title,
-    required this.imageUrl,
-  });
+  const _VehicleImageViewerPage({required this.title, required this.imageUrl});
 
   final String title;
   final String imageUrl;
@@ -1705,7 +1764,9 @@ class _VehicleImageViewerPage extends StatelessWidget {
                           Icon(
                             Icons.touch_app_outlined,
                             size: 16,
-                            color: AppColors.textSecondary.withValues(alpha: 0.85),
+                            color: AppColors.textSecondary.withValues(
+                              alpha: 0.85,
+                            ),
                           ),
                           const SizedBox(width: 8),
                           Text(
@@ -1765,7 +1826,8 @@ class _ChallanWebViewPageState extends State<_ChallanWebViewPage> {
     super.initState();
     final token = Preference.pref.getString('token');
     final headers = <String, String>{
-      'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+      'Accept':
+          'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
       if (token != null && token.isNotEmpty) 'Authorization': 'Bearer $token',
     };
 
@@ -1857,10 +1919,7 @@ class _ChallanWebViewPageState extends State<_ChallanWebViewPage> {
           fileName: _pdfFileName,
         );
         if (!mounted) return;
-        final result = await OpenFilex.open(
-          path,
-          type: 'application/pdf',
-        );
+        final result = await OpenFilex.open(path, type: 'application/pdf');
         if (result.type != ResultType.done) {
           _showSnack('Saved to Downloads/GRJ_Purchases/$_pdfFileName');
         }
@@ -1905,7 +1964,8 @@ class _ChallanWebViewPageState extends State<_ChallanWebViewPage> {
       if (map['chunk'] == true) {
         if (map['done'] == true) {
           final total = (map['total'] as num?)?.toInt() ?? _pdfChunkTotal ?? 0;
-          final fileName = (map['filename']?.toString().trim().isNotEmpty ?? false)
+          final fileName =
+              (map['filename']?.toString().trim().isNotEmpty ?? false)
               ? map['filename'].toString().trim()
               : _pdfFileName;
           final buffer = StringBuffer();
@@ -1978,7 +2038,9 @@ class _ChallanWebViewPageState extends State<_ChallanWebViewPage> {
   }
 
   Future<void> _saveAndOpenPdf(Uint8List bytes, String fileName) async {
-    final safeName = fileName.toLowerCase().endsWith('.pdf') ? fileName : '$fileName.pdf';
+    final safeName = fileName.toLowerCase().endsWith('.pdf')
+        ? fileName
+        : '$fileName.pdf';
     final openPath = await PurchaseImageDownloadService.saveToCacheForOpen(
       bytes: bytes,
       fileName: safeName,
@@ -1994,10 +2056,7 @@ class _ChallanWebViewPageState extends State<_ChallanWebViewPage> {
 
     if (!mounted) return;
 
-    final result = await OpenFilex.open(
-      openPath,
-      type: 'application/pdf',
-    );
+    final result = await OpenFilex.open(openPath, type: 'application/pdf');
     if (result.type != ResultType.done) {
       _showSnack('Saved to Downloads/GRJ_Purchases/$safeName');
     }
@@ -2198,8 +2257,9 @@ class _ChallanWebViewPageState extends State<_ChallanWebViewPage> {
                   style: ElevatedButton.styleFrom(
                     backgroundColor: const Color(0xFF16A34A),
                     foregroundColor: AppColors.white,
-                    disabledBackgroundColor:
-                        const Color(0xFF16A34A).withValues(alpha: 0.55),
+                    disabledBackgroundColor: const Color(
+                      0xFF16A34A,
+                    ).withValues(alpha: 0.55),
                     elevation: 0,
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(10),
@@ -2218,4 +2278,3 @@ class _ChallanWebViewPageState extends State<_ChallanWebViewPage> {
 enum _KantaSlipFilter { all, yes, no }
 
 enum _PurchaseStageTab { total, initial, processing, completed }
-
