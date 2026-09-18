@@ -5248,6 +5248,7 @@ Future<bool> markLabourAttendanceApi(
   required int masonOver,
   required int beldarOver,
   required int coolieOver,
+  required String remark,
 }) async {
   try {
     final url = '$baseUrl/api/v1/labour-attendances';
@@ -5261,6 +5262,7 @@ Future<bool> markLabourAttendanceApi(
       'mason_over': masonOver,
       'beldar_over': beldarOver,
       'coolie_over': coolieOver,
+      'remark': remark,
     };
 
     print('[markLabourAttendanceApi] POST $url');

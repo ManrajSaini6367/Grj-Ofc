@@ -1,7 +1,6 @@
-import 'dart:async';
-
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+
 import 'package:grjoffice_apps/attendancescreen/add_contractor_attendance_screen.dart';
 import 'package:grjoffice_apps/AmaniLabour/amani_labour.dart';
 import 'package:grjoffice_apps/core/app_colors.dart';
@@ -29,171 +28,105 @@ class ContractorAttendanceScreen extends StatefulWidget {
 class _ContractorAttendanceScreenState
     extends State<ContractorAttendanceScreen> {
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
-  final _searchController = TextEditingController();
-  final _searchFocus = FocusNode();
-  Timer? _debounce;
 
   List<LabourContractor> _contractors = [];
-  List<LabourContractor> _suggestions = [];
+
   String? _selectedContractorId;
+
   DateTime? _startDate;
   DateTime? _endDate;
+
   _DatePreset _datePreset = _DatePreset.thisMonth;
 
   bool _loadingContractors = true;
-  bool _showSuggestions = false;
-  bool _suppressSearchListener = false;
   bool _searching = false;
   bool _hasSearched = false;
   bool _publishedOnly = false;
+
   List<_AttendanceDayRow> _rows = [];
+
   _AttendanceRates? _rates;
+
   Amounts? _apiTotals;
   Amounts? _apiAmounts;
 
   @override
   void initState() {
     super.initState();
+
     final now = DateTime.now();
+
     _startDate = DateTime(now.year, now.month, 1);
-    _endDate = now;
-    _searchController.addListener(_onSearchTextChanged);
-    _searchFocus.addListener(() {
-      if (!_searchFocus.hasFocus) {
-        // Delay hide so tap on suggestion still registers.
-        Future<void>.delayed(const Duration(milliseconds: 120), () {
-          if (mounted && !_searchFocus.hasFocus) {
-            setState(() => _showSuggestions = false);
-          }
-        });
-      }
-    });
+
+    _endDate = DateTime(now.year, now.month, now.day);
+
     WidgetsBinding.instance.addPostFrameCallback((_) => _loadContractors());
   }
 
   @override
   void dispose() {
-    _debounce?.cancel();
-    _searchController.removeListener(_onSearchTextChanged);
-    _searchController.dispose();
-    _searchFocus.dispose();
     super.dispose();
   }
 
   double _hPad(BuildContext context) {
     final width = MediaQuery.sizeOf(context).width;
+
     if (width < 360) return 14;
     if (width < 600) return 18;
+
     return 20;
   }
 
   bool get _isWide => MediaQuery.sizeOf(context).width >= 700;
 
-  // bool get _hasData => _hasSearched && _rows.isNotEmpty;
-
   LabourContractor? get _selectedContractor {
     final id = _selectedContractorId;
+
     if (id == null) return null;
-    for (final c in _contractors) {
-      if (c.id == id) return c;
+
+    for (final contractor in _contractors) {
+      if (contractor.id == id) {
+        return contractor;
+      }
     }
+
     return null;
   }
 
-  String _fmtDate(DateTime? d) {
-    if (d == null) return 'Select date';
-    return DateFormat('dd MMM yyyy').format(d);
-  }
-
-  int get _activeFilterCount => _publishedOnly ? 1 : 0;
-
-  List<LabourContractor> _matchContractors(String query) {
-    final q = query.trim().toLowerCase();
-    if (q.isEmpty) return [];
-    return _contractors.where((c) {
-      if (_publishedOnly && c.status != ContractorStatus.published) {
-        return false;
-      }
-      final name = c.name.toLowerCase();
-      final mobile = c.mobile.toLowerCase().replaceAll(' ', '');
-      final qMobile = q.replaceAll(' ', '');
-      return name.contains(q) || mobile.contains(qMobile);
-    }).toList();
-  }
-
-  Future<void> _applyDatePreset(_DatePreset preset) async {
-    final now = DateTime.now();
-    final today = DateTime(now.year, now.month, now.day);
-    DateTime start;
-    DateTime end = today;
-
-    switch (preset) {
-      case _DatePreset.today:
-        start = today;
-      case _DatePreset.thisWeek:
-        start = today.subtract(Duration(days: today.weekday - 1));
-      case _DatePreset.thisMonth:
-        start = DateTime(today.year, today.month, 1);
-      case _DatePreset.custom:
-        setState(() => _datePreset = _DatePreset.custom);
-        return;
+  String _fmtDate(DateTime? date) {
+    if (date == null) {
+      return 'Select date';
     }
 
-    final shouldRefresh =
-        _hasSearched && _selectedContractor != null && !_searching;
-
-    setState(() {
-      _datePreset = preset;
-      _startDate = start;
-      _endDate = end;
-    });
-
-    if (shouldRefresh) {
-      await _onSearch();
-    }
-  }
-
-  void _onSearchTextChanged() {
-    if (_suppressSearchListener) return;
-    _debounce?.cancel();
-    _debounce = Timer(const Duration(milliseconds: 220), () {
-      if (!mounted) return;
-      final q = _searchController.text.trim();
-      setState(() {
-        if (q.isEmpty) {
-          _suggestions = [];
-          _showSuggestions = false;
-          if (_selectedContractorId != null) {
-            _selectedContractorId = null;
-            _hasSearched = false;
-            _rows = [];
-            _rates = null;
-            _apiTotals = null;
-            _apiAmounts = null;
-          }
-        } else {
-          _suggestions = _matchContractors(q);
-          _showSuggestions = true;
-        }
-      });
-    });
-  }
-
-  void _setSearchText(String value) {
-    _suppressSearchListener = true;
-    _searchController.text = value;
-    _searchController.selection = TextSelection.collapsed(offset: value.length);
-    _suppressSearchListener = false;
+    return DateFormat('dd MMM yyyy').format(date);
   }
 
   Future<void> _loadContractors() async {
-    setState(() => _loadingContractors = true);
+    if (mounted) {
+      setState(() {
+        _loadingContractors = true;
+      });
+    }
+
     final response = await getContractorListApi(context, perPage: 100);
+
     if (!mounted) return;
+
+    final contractors =
+        response?.data?.items
+            ?.map(_toContractor)
+            .where((c) => c.name.trim().isNotEmpty)
+            .toList() ??
+        [];
+
     setState(() {
-      _contractors =
-          response?.data?.items?.map(_toContractor).toList() ?? [];
+      _contractors = contractors;
       _loadingContractors = false;
+
+      if (_selectedContractorId != null &&
+          !_contractors.any((c) => c.id == _selectedContractorId)) {
+        _selectedContractorId = null;
+      }
     });
   }
 
@@ -215,41 +148,53 @@ class _ContractorAttendanceScreenState
     );
   }
 
-  void _selectContractor(LabourContractor contractor) {
-    _debounce?.cancel();
-    setState(() {
-      _selectedContractorId = contractor.id;
-      _suggestions = [];
-      _showSuggestions = false;
-      _hasSearched = false;
-      _rows = [];
-      _rates = null;
-      _apiTotals = null;
-      _apiAmounts = null;
-    });
-    _setSearchText(contractor.name);
-    _searchFocus.unfocus();
-  }
+  Future<void> _applyDatePreset(_DatePreset preset) async {
+    final now = DateTime.now();
 
-  void _clearSelectedContractor() {
-    _debounce?.cancel();
+    final today = DateTime(now.year, now.month, now.day);
+
+    DateTime start;
+    DateTime end = today;
+
+    switch (preset) {
+      case _DatePreset.today:
+        start = today;
+        break;
+
+      case _DatePreset.thisWeek:
+        start = today.subtract(Duration(days: today.weekday - 1));
+        break;
+
+      case _DatePreset.thisMonth:
+        start = DateTime(today.year, today.month, 1);
+        break;
+
+      case _DatePreset.custom:
+        setState(() {
+          _datePreset = _DatePreset.custom;
+        });
+        return;
+    }
+
+    final shouldRefresh =
+        _hasSearched && _selectedContractor != null && !_searching;
+
     setState(() {
-      _selectedContractorId = null;
-      _suggestions = [];
-      _showSuggestions = false;
-      _hasSearched = false;
-      _rows = [];
-      _rates = null;
-      _apiTotals = null;
-      _apiAmounts = null;
+      _datePreset = preset;
+      _startDate = start;
+      _endDate = end;
     });
-    _setSearchText('');
+
+    if (shouldRefresh) {
+      await _onSearch();
+    }
   }
 
   Future<void> _pickDate({required bool isStart}) async {
     final initial = isStart
         ? (_startDate ?? DateTime.now())
         : (_endDate ?? DateTime.now());
+
     final picked = await showDatePicker(
       context: context,
       initialDate: initial,
@@ -268,20 +213,28 @@ class _ContractorAttendanceScreenState
         );
       },
     );
-    if (picked == null || !mounted) return;
+
+    if (picked == null || !mounted) {
+      return;
+    }
+
+    final pickedDate = DateTime(picked.year, picked.month, picked.day);
 
     final shouldRefresh =
         _hasSearched && _selectedContractor != null && !_searching;
 
     setState(() {
       _datePreset = _DatePreset.custom;
+
       if (isStart) {
-        _startDate = DateTime(picked.year, picked.month, picked.day);
+        _startDate = pickedDate;
+
         if (_endDate != null && _endDate!.isBefore(_startDate!)) {
           _endDate = _startDate;
         }
       } else {
-        _endDate = DateTime(picked.year, picked.month, picked.day);
+        _endDate = pickedDate;
+
         if (_startDate != null && _startDate!.isAfter(_endDate!)) {
           _startDate = _endDate;
         }
@@ -294,16 +247,20 @@ class _ContractorAttendanceScreenState
   }
 
   Future<void> _onSearch() async {
-    if (_selectedContractor == null) {
+    final contractor = _selectedContractor;
+
+    if (contractor == null) {
       _showMsg('Search and select a contractor first.');
       return;
     }
+
     if (_startDate == null || _endDate == null) {
       _showMsg('Please select start and end date.');
       return;
     }
 
     final siteId = selectedSiteId();
+
     if (siteId == null) {
       _showMsg('Please select a site first.');
       return;
@@ -312,15 +269,12 @@ class _ContractorAttendanceScreenState
     setState(() {
       _searching = true;
       _hasSearched = true;
-      _showSuggestions = false;
     });
-    _searchFocus.unfocus();
 
-    final c = _selectedContractor!;
     final report = await getLabourAttendanceReportApi(
       context,
       siteId: siteId.toString(),
-      contractorId: c.id,
+      contractorId: contractor.id,
       startDate: DateFormat('yyyy-MM-dd').format(_startDate!),
       endDate: DateFormat('yyyy-MM-dd').format(_endDate!),
     );
@@ -335,39 +289,44 @@ class _ContractorAttendanceScreenState
         _apiAmounts = null;
         _searching = false;
       });
+
       if (report?.message != null && report!.message!.trim().isNotEmpty) {
         _showMsg(report.message!);
       }
+
       return;
     }
 
     final data = report.data;
     final apiRates = data?.rates;
-    final rows = (data?.items ?? [])
-        .where((item) => item.date != null)
-        .map(
-          (item) => _AttendanceDayRow(
-            date: item.date!,
-            mason: item.mason?.round() ?? 0,
-            beldar: item.beldar?.round() ?? 0,
-            coolie: item.coolie?.round() ?? 0,
-            masonOver: item.masonOver?.round() ?? 0,
-            beldarOver: item.beldarOver?.round() ?? 0,
-            coolieOver: item.coolieOver?.round() ?? 0,
-          ),
-        )
-        .toList()
-      ..sort((a, b) => a.date.compareTo(b.date));
+
+    final rows =
+        (data?.items ?? [])
+            .where((item) => item.date != null)
+            .map(
+              (item) => _AttendanceDayRow(
+                date: item.date!,
+                mason: item.mason?.round() ?? 0,
+                beldar: item.beldar?.round() ?? 0,
+                coolie: item.coolie?.round() ?? 0,
+                masonOver: item.masonOver?.round() ?? 0,
+                beldarOver: item.beldarOver?.round() ?? 0,
+                coolieOver: item.coolieOver?.round() ?? 0,
+              ),
+            )
+            .toList()
+          ..sort((a, b) => a.date.compareTo(b.date));
 
     setState(() {
       _rates = _AttendanceRates(
-        mason: apiRates?.mason ?? c.masonRatePerDay,
-        beldar: apiRates?.beldar ?? c.beldarRatePerDay,
-        coolie: apiRates?.coolie ?? c.coolieRatePerDay,
-        masonOver: apiRates?.masonOver ?? c.masonOtRatePerHour,
-        beldarOver: apiRates?.beldarOver ?? c.beldarOtRatePerHour,
-        coolieOver: apiRates?.coolieOver ?? c.coolieOtRatePerHour,
+        mason: apiRates?.mason ?? contractor.masonRatePerDay,
+        beldar: apiRates?.beldar ?? contractor.beldarRatePerDay,
+        coolie: apiRates?.coolie ?? contractor.coolieRatePerDay,
+        masonOver: apiRates?.masonOver ?? contractor.masonOtRatePerHour,
+        beldarOver: apiRates?.beldarOver ?? contractor.beldarOtRatePerHour,
+        coolieOver: apiRates?.coolieOver ?? contractor.coolieOtRatePerHour,
       );
+
       _apiTotals = data?.totals;
       _apiAmounts = data?.amounts;
       _rows = rows;
@@ -375,16 +334,51 @@ class _ContractorAttendanceScreenState
     });
   }
 
-  void _onClear() {
-    final now = DateTime.now();
-    _debounce?.cancel();
+  void _selectContractor(String? contractorId) {
+    if (contractorId == null) {
+      return;
+    }
+
+    final contractor = _contractors.firstWhere(
+      (c) => c.id == contractorId,
+      orElse: () => _contractors.first,
+    );
+
+    setState(() {
+      _selectedContractorId = contractor.id;
+
+      _hasSearched = false;
+      _rows = [];
+      _rates = null;
+      _apiTotals = null;
+      _apiAmounts = null;
+    });
+  }
+
+  void _clearSelectedContractor() {
     setState(() {
       _selectedContractorId = null;
-      _suggestions = [];
-      _showSuggestions = false;
+
+      _hasSearched = false;
+      _rows = [];
+      _rates = null;
+      _apiTotals = null;
+      _apiAmounts = null;
+    });
+  }
+
+  void _onClear() {
+    final now = DateTime.now();
+
+    setState(() {
+      _selectedContractorId = null;
+
       _datePreset = _DatePreset.thisMonth;
+
       _startDate = DateTime(now.year, now.month, 1);
-      _endDate = now;
+
+      _endDate = DateTime(now.year, now.month, now.day);
+
       _hasSearched = false;
       _rows = [];
       _rates = null;
@@ -393,20 +387,17 @@ class _ContractorAttendanceScreenState
       _searching = false;
       _publishedOnly = false;
     });
-    _setSearchText('');
-    _searchFocus.unfocus();
   }
 
-  // void _onExport(String type) => _showMsg('Export $type coming soon.');
-
   void _showMsg(String text) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(text, style: GoogleFonts.poppins())),
-    );
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(text, style: GoogleFonts.poppins())));
   }
 
   _AttendanceDayRow get _totalRow {
     final totals = _apiTotals;
+
     if (totals != null) {
       return _AttendanceDayRow(
         date: DateTime(0),
@@ -418,19 +409,21 @@ class _ContractorAttendanceScreenState
         coolieOver: totals.coolieOver?.round() ?? 0,
       );
     }
+
     return _AttendanceDayRow(
       date: DateTime(0),
-      mason: _rows.fold(0, (s, r) => s + r.mason),
-      beldar: _rows.fold(0, (s, r) => s + r.beldar),
-      coolie: _rows.fold(0, (s, r) => s + r.coolie),
-      masonOver: _rows.fold(0, (s, r) => s + r.masonOver),
-      beldarOver: _rows.fold(0, (s, r) => s + r.beldarOver),
-      coolieOver: _rows.fold(0, (s, r) => s + r.coolieOver),
+      mason: _rows.fold(0, (sum, row) => sum + row.mason),
+      beldar: _rows.fold(0, (sum, row) => sum + row.beldar),
+      coolie: _rows.fold(0, (sum, row) => sum + row.coolie),
+      masonOver: _rows.fold(0, (sum, row) => sum + row.masonOver),
+      beldarOver: _rows.fold(0, (sum, row) => sum + row.beldarOver),
+      coolieOver: _rows.fold(0, (sum, row) => sum + row.coolieOver),
     );
   }
 
   _AttendanceDayRow get _amountRow {
     final amounts = _apiAmounts;
+
     if (amounts != null) {
       return _AttendanceDayRow(
         date: DateTime(0),
@@ -442,8 +435,11 @@ class _ContractorAttendanceScreenState
         coolieOver: amounts.coolieOver?.round() ?? 0,
       );
     }
+
     final rates = _rates ?? const _AttendanceRates();
+
     final total = _totalRow;
+
     return _AttendanceDayRow(
       date: DateTime(0),
       mason: (total.mason * rates.mason).round(),
@@ -527,27 +523,22 @@ class _ContractorAttendanceScreenState
               child: ListView(
                 padding: EdgeInsets.fromLTRB(hPad, 12, hPad, 28),
                 children: [
-                  _buildSearchAndFilterRow(),
-                  if (_showSuggestions) ...[
-                    const SizedBox(height: 8),
-                    _buildSuggestionsPanel(),
-                  ],
-                  if (_selectedContractor != null && !_showSuggestions) ...[
-                    const SizedBox(height: 10),
-                    _buildSelectedChip(),
-                  ],
+                  _buildContractorFilterCard(),
+
                   const SizedBox(height: 14),
+
                   _buildDatePresets(),
+
                   const SizedBox(height: 10),
+
                   _buildDateSection(),
+
                   const SizedBox(height: 14),
+
                   _buildActionButtons(),
-                  // Export PDF / Excel — enable when functionality is ready.
-                  // if (_hasData) ...[
-                  //   const SizedBox(height: 10),
-                  //   _buildExportButtons(),
-                  // ],
+
                   const SizedBox(height: 18),
+
                   if (_searching)
                     const Padding(
                       padding: EdgeInsets.only(top: 48),
@@ -562,7 +553,7 @@ class _ContractorAttendanceScreenState
                       icon: Icons.groups_outlined,
                       title: 'Find contractor attendance',
                       subtitle:
-                          'Search a contractor, set dates, then tap Search.',
+                          'Select a contractor from Filter, set dates, then tap Search.',
                     )
                   else if (_rows.isEmpty)
                     _buildEmptyState(
@@ -582,64 +573,64 @@ class _ContractorAttendanceScreenState
     );
   }
 
-  Widget _buildSearchAndFilterRow() {
-    return Row(
-      children: [
-        Expanded(child: _buildSearchField()),
-        const SizedBox(width: 10),
-        _buildOptionsButton(),
-      ],
-    );
-  }
+  Widget _buildContractorFilterCard() {
+    final contractor = _selectedContractor;
 
-  Widget _buildSearchField() {
     return Container(
-      height: 48,
+      width: double.infinity,
+      padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         color: AppColors.cardWhite,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColors.borderGray.withValues(alpha: 0.55)),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: AppColors.borderGray.withValues(alpha: 0.5)),
       ),
-      child: TextField(
-        controller: _searchController,
-        focusNode: _searchFocus,
-        style: GoogleFonts.poppins(fontSize: 14, color: AppColors.textDark),
-        onTap: () {
-          final q = _searchController.text.trim();
-          if (q.isNotEmpty) {
-            setState(() {
-              _suggestions = _matchContractors(q);
-              _showSuggestions = true;
-            });
-          }
-        },
-        decoration: InputDecoration(
-          hintText: 'Search by name or mobile…',
-          hintStyle: GoogleFonts.poppins(
-            fontSize: 13,
-            color: AppColors.inputHint,
-          ),
-          prefixIcon: _loadingContractors
-              ? const Padding(
-                  padding: EdgeInsets.all(12),
-                  child: SizedBox(
-                    width: 18,
-                    height: 18,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2,
-                      color: AppColors.primaryRed,
-                    ),
-                  ),
-                )
-              : const Icon(
-                  Icons.search_rounded,
-                  color: AppColors.textSecondary,
-                  size: 20,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 36,
+                height: 36,
+                decoration: BoxDecoration(
+                  color: AppColors.primaryRed.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(10),
                 ),
-          suffixIcon: _searchController.text.isEmpty
-              ? null
-              : IconButton(
-                  tooltip: 'Clear',
+                child: const Icon(
+                  Icons.person_search_rounded,
+                  size: 18,
+                  color: AppColors.primaryRed,
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Contractor',
+                      style: GoogleFonts.poppins(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w700,
+                        color: AppColors.headingBlack,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      contractor == null
+                          ? 'Select contractor to view attendance'
+                          : 'Selected contractor',
+                      style: GoogleFonts.poppins(
+                        fontSize: 11,
+                        color: AppColors.textSecondary,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              if (contractor != null)
+                IconButton(
+                  tooltip: 'Clear contractor',
                   onPressed: _clearSelectedContractor,
                   icon: const Icon(
                     Icons.close_rounded,
@@ -647,72 +638,63 @@ class _ContractorAttendanceScreenState
                     color: AppColors.textSecondary,
                   ),
                 ),
-          border: InputBorder.none,
-          contentPadding: const EdgeInsets.symmetric(
-            horizontal: 8,
-            vertical: 12,
+            ],
           ),
-        ),
-      ),
-    );
-  }
 
-  Widget _buildSuggestionsPanel() {
-    if (_suggestions.isEmpty) {
-      return Container(
-        width: double.infinity,
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 16),
-        decoration: BoxDecoration(
-          color: AppColors.cardWhite,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: AppColors.borderGray.withValues(alpha: 0.5)),
-        ),
-        child: Text(
-          'No contractor found.',
-          style: GoogleFonts.poppins(
-            fontSize: 13,
-            color: AppColors.textSecondary,
-          ),
-        ),
-      );
-    }
+          const SizedBox(height: 12),
 
-    return Container(
-      constraints: const BoxConstraints(maxHeight: 220),
-      decoration: BoxDecoration(
-        color: AppColors.cardWhite,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColors.borderGray.withValues(alpha: 0.5)),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.05),
-            blurRadius: 12,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: ListView.separated(
-        shrinkWrap: true,
-        padding: const EdgeInsets.symmetric(vertical: 6),
-        itemCount: _suggestions.length,
-        separatorBuilder: (_, __) => Divider(
-          height: 1,
-          color: AppColors.borderGray.withValues(alpha: 0.35),
-        ),
-        itemBuilder: (context, index) {
-          final c = _suggestions[index];
-          final selected = c.id == _selectedContractorId;
-          return InkWell(
-            onTap: () => _selectContractor(c),
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+          if (_loadingContractors)
+            Container(
+              height: 50,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                color: AppColors.operationsCardBg,
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(
+                  color: AppColors.borderGray.withValues(alpha: 0.55),
+                ),
+              ),
+              child: const SizedBox(
+                width: 20,
+                height: 20,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  color: AppColors.primaryRed,
+                ),
+              ),
+            )
+          else if (_contractors.isEmpty)
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: AppColors.operationsCardBg,
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(
+                  color: AppColors.borderGray.withValues(alpha: 0.55),
+                ),
+              ),
               child: Row(
                 children: [
-                  CircleAvatar(
-                    radius: 16,
-                    backgroundColor: AppColors.primaryRed.withValues(alpha: 0.1),
+                  const Icon(
+                    Icons.info_outline_rounded,
+                    size: 18,
+                    color: AppColors.textSecondary,
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
                     child: Text(
-                      c.name.isNotEmpty ? c.name[0].toUpperCase() : '?',
+                      'No contractors found.',
+                      style: GoogleFonts.poppins(
+                        fontSize: 12,
+                        color: AppColors.textSecondary,
+                      ),
+                    ),
+                  ),
+                  TextButton(
+                    onPressed: _loadContractors,
+                    child: Text(
+                      'Retry',
                       style: GoogleFonts.poppins(
                         fontSize: 12,
                         fontWeight: FontWeight.w700,
@@ -720,101 +702,154 @@ class _ContractorAttendanceScreenState
                       ),
                     ),
                   ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          c.name,
-                          style: GoogleFonts.poppins(
-                            fontSize: 13,
-                            fontWeight:
-                                selected ? FontWeight.w600 : FontWeight.w500,
-                            color: AppColors.headingBlack,
-                          ),
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                        if (c.mobile.trim().isNotEmpty) ...[
-                          const SizedBox(height: 2),
-                          Text(
-                            c.mobile,
-                            style: GoogleFonts.poppins(
-                              fontSize: 11,
-                              color: AppColors.textSecondary,
-                            ),
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ],
-                      ],
-                    ),
-                  ),
-                  if (selected)
-                    const Icon(
-                      Icons.check_rounded,
-                      size: 18,
-                      color: AppColors.primaryRed,
-                    ),
                 ],
               ),
-            ),
-          );
-        },
-      ),
-    );
-  }
+            )
+          else
+            DropdownButtonFormField<String>(
+              value: _selectedContractorId,
+              isExpanded: true,
+              menuMaxHeight: 320,
 
-  Widget _buildSelectedChip() {
-    final name = _selectedContractor?.name ?? '';
-    return Align(
-      alignment: Alignment.centerLeft,
-      child: Container(
-        padding: const EdgeInsets.fromLTRB(12, 8, 8, 8),
-        decoration: BoxDecoration(
-          color: AppColors.primaryRed.withValues(alpha: 0.08),
-          borderRadius: BorderRadius.circular(24),
-          border: Border.all(
-            color: AppColors.primaryRed.withValues(alpha: 0.25),
-          ),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Icon(
-              Icons.person_outline_rounded,
-              size: 16,
-              color: AppColors.primaryRed,
-            ),
-            const SizedBox(width: 6),
-            ConstrainedBox(
-              constraints: BoxConstraints(
-                maxWidth: MediaQuery.sizeOf(context).width * 0.55,
-              ),
-              child: Text(
-                name,
-                style: GoogleFonts.poppins(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                  color: AppColors.primaryRed,
+              // Selected contractor ke liye compact UI
+              selectedItemBuilder: (context) {
+                final contractors = _contractors.where((contractor) {
+                  if (_publishedOnly &&
+                      contractor.status != ContractorStatus.published) {
+                    return false;
+                  }
+
+                  return true;
+                }).toList();
+
+                return contractors.map((contractor) {
+                  return Align(
+                    alignment: Alignment.centerLeft,
+                    child: Text(
+                      contractor.name.isEmpty
+                          ? 'Unnamed contractor'
+                          : contractor.name,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: GoogleFonts.poppins(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        color: AppColors.headingBlack,
+                      ),
+                    ),
+                  );
+                }).toList();
+              },
+
+              decoration: InputDecoration(
+                hintText: 'Select contractor',
+                hintStyle: GoogleFonts.poppins(
+                  fontSize: 13,
+                  color: AppColors.inputHint,
                 ),
-                overflow: TextOverflow.ellipsis,
-              ),
-            ),
-            const SizedBox(width: 4),
-            InkWell(
-              onTap: _clearSelectedContractor,
-              borderRadius: BorderRadius.circular(12),
-              child: const Padding(
-                padding: EdgeInsets.all(4),
-                child: Icon(
-                  Icons.close_rounded,
-                  size: 16,
-                  color: AppColors.primaryRed,
+                prefixIcon: const Icon(
+                  Icons.person_outline_rounded,
+                  size: 19,
+                  color: AppColors.textSecondary,
+                ),
+                filled: true,
+                fillColor: AppColors.cardWhite,
+                contentPadding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 13,
+                ),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(10),
+                  borderSide: BorderSide(
+                    color: AppColors.borderGray.withValues(alpha: 0.7),
+                  ),
+                ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(10),
+                  borderSide: BorderSide(
+                    color: AppColors.borderGray.withValues(alpha: 0.7),
+                  ),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(10),
+                  borderSide: const BorderSide(
+                    color: AppColors.primaryRed,
+                    width: 1.4,
+                  ),
                 ),
               ),
+
+              items: _contractors
+                  .where((contractor) {
+                    if (_publishedOnly &&
+                        contractor.status != ContractorStatus.published) {
+                      return false;
+                    }
+
+                    return true;
+                  })
+                  .map(
+                    (contractor) => DropdownMenuItem<String>(
+                      value: contractor.id,
+                      child: Row(
+                        children: [
+                          CircleAvatar(
+                            radius: 15,
+                            backgroundColor: AppColors.primaryRed.withValues(
+                              alpha: 0.1,
+                            ),
+                            child: Text(
+                              contractor.name.isNotEmpty
+                                  ? contractor.name[0].toUpperCase()
+                                  : '?',
+                              style: GoogleFonts.poppins(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w700,
+                                color: AppColors.primaryRed,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+
+                          Expanded(
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min, // IMPORTANT
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  contractor.name.isEmpty
+                                      ? 'Unnamed contractor'
+                                      : contractor.name,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: GoogleFonts.poppins(
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w600,
+                                    color: AppColors.headingBlack,
+                                  ),
+                                ),
+                                if (contractor.mobile.trim().isNotEmpty)
+                                  Text(
+                                    contractor.mobile,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: GoogleFonts.poppins(
+                                      fontSize: 10,
+                                      color: AppColors.textSecondary,
+                                    ),
+                                  ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  )
+                  .toList(),
+
+              onChanged: _selectContractor,
             ),
-          ],
-        ),
+        ],
       ),
     );
   }
@@ -822,6 +857,7 @@ class _ContractorAttendanceScreenState
   Widget _buildDatePresets() {
     Widget chip(String label, _DatePreset preset) {
       final selected = _datePreset == preset;
+
       return FilterChip(
         label: Text(
           label,
@@ -859,219 +895,13 @@ class _ContractorAttendanceScreenState
     );
   }
 
-  Widget _buildOptionsButton() {
-    final active = _publishedOnly;
-    return Material(
-      color: active ? AppColors.primaryRed : AppColors.cardWhite,
-      borderRadius: BorderRadius.circular(12),
-      child: InkWell(
-        onTap: _showFilterSheet,
-        borderRadius: BorderRadius.circular(12),
-        child: Container(
-          width: 48,
-          height: 48,
-          alignment: Alignment.center,
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(
-              color: active
-                  ? AppColors.primaryRed
-                  : AppColors.borderGray.withValues(alpha: 0.6),
-            ),
-          ),
-          child: Stack(
-            clipBehavior: Clip.none,
-            children: [
-              Icon(
-                Icons.tune_rounded,
-                size: 20,
-                color: active ? AppColors.white : AppColors.textDark,
-              ),
-              if (_activeFilterCount > 0)
-                Positioned(
-                  right: -8,
-                  top: -8,
-                  child: Container(
-                    width: 16,
-                    height: 16,
-                    alignment: Alignment.center,
-                    decoration: BoxDecoration(
-                      color: AppColors.white,
-                      shape: BoxShape.circle,
-                      border: Border.all(
-                        color: AppColors.primaryRed,
-                        width: 1.2,
-                      ),
-                    ),
-                    child: Text(
-                      '$_activeFilterCount',
-                      style: GoogleFonts.poppins(
-                        fontSize: 9,
-                        fontWeight: FontWeight.w700,
-                        color: AppColors.primaryRed,
-                      ),
-                    ),
-                  ),
-                ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  void _showFilterSheet() {
-    var draftPublishedOnly = _publishedOnly;
-
-    showModalBottomSheet<void>(
-      context: context,
-      backgroundColor: Colors.transparent,
-      isScrollControlled: true,
-      builder: (sheetContext) {
-        return StatefulBuilder(
-          builder: (context, setSheetState) {
-            return Container(
-              margin: const EdgeInsets.fromLTRB(12, 0, 12, 12),
-              decoration: BoxDecoration(
-                color: AppColors.cardWhite,
-                borderRadius: BorderRadius.circular(20),
-              ),
-              child: SafeArea(
-                top: false,
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(20, 12, 20, 16),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Container(
-                        width: 40,
-                        height: 4,
-                        decoration: BoxDecoration(
-                          color: AppColors.borderGray,
-                          borderRadius: BorderRadius.circular(4),
-                        ),
-                      ),
-                      const SizedBox(height: 14),
-                      Align(
-                        alignment: Alignment.centerLeft,
-                        child: Text(
-                          'Attendance filters',
-                          style: GoogleFonts.poppins(
-                            fontSize: 17,
-                            fontWeight: FontWeight.w700,
-                            color: AppColors.headingBlack,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 14),
-                      Container(
-                        margin: const EdgeInsets.only(bottom: 10),
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 12,
-                          vertical: 6,
-                        ),
-                        decoration: BoxDecoration(
-                          color: AppColors.operationsCardBg,
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: SwitchListTile.adaptive(
-                          contentPadding: EdgeInsets.zero,
-                          title: Text(
-                            'Published contractors only',
-                            style: GoogleFonts.poppins(
-                              fontSize: 13,
-                              fontWeight: FontWeight.w600,
-                              color: AppColors.headingBlack,
-                            ),
-                          ),
-                          subtitle: Text(
-                            'Hide unpublished names in search results',
-                            style: GoogleFonts.poppins(
-                              fontSize: 11,
-                              color: AppColors.textSecondary,
-                            ),
-                          ),
-                          value: draftPublishedOnly,
-                          activeThumbColor: AppColors.primaryRed,
-                          onChanged: (v) =>
-                              setSheetState(() => draftPublishedOnly = v),
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      Row(
-                        children: [
-                          Expanded(
-                            child: OutlinedButton(
-                              onPressed: () => Navigator.pop(sheetContext),
-                              style: OutlinedButton.styleFrom(
-                                minimumSize: const Size.fromHeight(46),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
-                              ),
-                              child: Text(
-                                'Cancel',
-                                style: GoogleFonts.poppins(
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                            ),
-                          ),
-                          const SizedBox(width: 10),
-                          Expanded(
-                            child: ElevatedButton(
-                              onPressed: () {
-                                final publishedChanged =
-                                    draftPublishedOnly != _publishedOnly;
-                                setState(() {
-                                  _publishedOnly = draftPublishedOnly;
-                                  if (publishedChanged &&
-                                      _searchController.text
-                                          .trim()
-                                          .isNotEmpty) {
-                                    _suggestions = _matchContractors(
-                                      _searchController.text,
-                                    );
-                                  }
-                                });
-                                Navigator.pop(sheetContext);
-                              },
-                              style: ElevatedButton.styleFrom(
-                                minimumSize: const Size.fromHeight(46),
-                                backgroundColor: AppColors.primaryRed,
-                                foregroundColor: AppColors.white,
-                                elevation: 0,
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
-                              ),
-                              child: Text(
-                                'Apply',
-                                style: GoogleFonts.poppins(
-                                  fontWeight: FontWeight.w700,
-                                ),
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            );
-          },
-        );
-      },
-    );
-  }
-
   Widget _buildDateSection() {
     final start = _dateCard(
       label: 'Start date',
       value: _fmtDate(_startDate),
       onTap: () => _pickDate(isStart: true),
     );
+
     final end = _dateCard(
       label: 'End date',
       value: _fmtDate(_endDate),
@@ -1088,13 +918,7 @@ class _ContractorAttendanceScreenState
       );
     }
 
-    return Column(
-      children: [
-        start,
-        const SizedBox(height: 10),
-        end,
-      ],
-    );
+    return Column(children: [start, const SizedBox(height: 10), end]);
   }
 
   Widget _dateCard({
@@ -1173,7 +997,16 @@ class _ContractorAttendanceScreenState
       height: 46,
       child: ElevatedButton.icon(
         onPressed: _searching ? null : _onSearch,
-        icon: const Icon(Icons.search_rounded, size: 18),
+        icon: _searching
+            ? const SizedBox(
+                width: 16,
+                height: 16,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  color: Colors.white,
+                ),
+              )
+            : const Icon(Icons.search_rounded, size: 18),
         label: Text(
           'Search',
           style: GoogleFonts.poppins(fontSize: 13, fontWeight: FontWeight.w700),
@@ -1183,7 +1016,9 @@ class _ContractorAttendanceScreenState
           backgroundColor: AppColors.primaryRed,
           foregroundColor: AppColors.white,
           disabledBackgroundColor: AppColors.primaryRed.withValues(alpha: 0.45),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(10),
+          ),
         ),
       ),
     );
@@ -1201,7 +1036,9 @@ class _ContractorAttendanceScreenState
           foregroundColor: AppColors.textDark,
           side: BorderSide(color: AppColors.borderGray.withValues(alpha: 0.8)),
           backgroundColor: AppColors.cardWhite,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(10),
+          ),
         ),
       ),
     );
@@ -1224,54 +1061,6 @@ class _ContractorAttendanceScreenState
       ],
     );
   }
-
-  // Export PDF / Excel — uncomment when export is implemented.
-  // Widget _buildExportButtons() {
-  //   Widget btn(String label, IconData icon, VoidCallback onTap) {
-  //     return SizedBox(
-  //       height: 42,
-  //       child: ElevatedButton.icon(
-  //         onPressed: onTap,
-  //         icon: Icon(icon, size: 16),
-  //         label: Text(
-  //           label,
-  //           style: GoogleFonts.poppins(
-  //             fontSize: 12,
-  //             fontWeight: FontWeight.w600,
-  //           ),
-  //         ),
-  //         style: ElevatedButton.styleFrom(
-  //           elevation: 0,
-  //           backgroundColor: AppColors.headingBlack,
-  //           foregroundColor: AppColors.white,
-  //           shape: RoundedRectangleBorder(
-  //             borderRadius: BorderRadius.circular(10),
-  //           ),
-  //         ),
-  //       ),
-  //     );
-  //   }
-  //
-  //   return Row(
-  //     children: [
-  //       Expanded(
-  //         child: btn(
-  //           'Export PDF',
-  //           Icons.picture_as_pdf_outlined,
-  //           () => _onExport('PDF'),
-  //         ),
-  //       ),
-  //       const SizedBox(width: 10),
-  //       Expanded(
-  //         child: btn(
-  //           'Export Excel',
-  //           Icons.grid_on_outlined,
-  //           () => _onExport('Excel'),
-  //         ),
-  //       ),
-  //     ],
-  //   );
-  // }
 
   Widget _buildEmptyState({
     required IconData icon,
@@ -1323,9 +1112,12 @@ class _ContractorAttendanceScreenState
 
   Widget _buildResults() {
     final rates = _rates ?? const _AttendanceRates();
+
     final total = _totalRow;
     final amount = _amountRow;
+
     final width = MediaQuery.sizeOf(context).width;
+
     final isCompact = width < 420;
 
     return Container(
@@ -1339,10 +1131,13 @@ class _ContractorAttendanceScreenState
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           _buildReportBanner(),
+
           ..._rows.asMap().entries.map((entry) {
             final isLastDay = entry.key == _rows.length - 1;
+
             return _buildDayRow(entry.value, showDivider: !isLastDay);
           }),
+
           _buildSummarySection(
             rates: rates,
             total: total,
@@ -1356,7 +1151,8 @@ class _ContractorAttendanceScreenState
 
   Widget _buildReportBanner() {
     final range =
-        '${DateFormat('dd MMM').format(_startDate!)} – ${DateFormat('dd MMM yyyy').format(_endDate!)}';
+        '${DateFormat('dd MMM').format(_startDate!)} – '
+        '${DateFormat('dd MMM yyyy').format(_endDate!)}';
 
     return Container(
       padding: EdgeInsets.fromLTRB(
@@ -1518,9 +1314,7 @@ class _ContractorAttendanceScreenState
                   style: GoogleFonts.poppins(
                     fontSize: muted ? 15 : 20,
                     fontWeight: FontWeight.w700,
-                    color: muted
-                        ? AppColors.textDark
-                        : AppColors.headingBlack,
+                    color: muted ? AppColors.textDark : AppColors.headingBlack,
                     height: 1.1,
                   ),
                 ),
@@ -1585,11 +1379,7 @@ class _ContractorAttendanceScreenState
               amount: [amount.masonOver, amount.beldarOver, amount.coolieOver],
             ),
           ] else
-            _buildWideSummaryMatrix(
-              rates: rates,
-              total: total,
-              amount: amount,
-            ),
+            _buildWideSummaryMatrix(rates: rates, total: total, amount: amount),
         ],
       ),
     );
@@ -1659,42 +1449,32 @@ class _ContractorAttendanceScreenState
             'Coolie OT',
           ]),
           const SizedBox(height: 10),
-          _summaryDataRow(
-            'Total',
-            [
-              total.mason,
-              total.beldar,
-              total.coolie,
-              total.masonOver,
-              total.beldarOver,
-              total.coolieOver,
-            ],
-            highlight: true,
-          ),
+          _summaryDataRow('Total', [
+            total.mason,
+            total.beldar,
+            total.coolie,
+            total.masonOver,
+            total.beldarOver,
+            total.coolieOver,
+          ], highlight: true),
           const SizedBox(height: 8),
-          _summaryDataRow(
-            'Rate',
-            [
-              rates.mason.round(),
-              rates.beldar.round(),
-              rates.coolie.round(),
-              rates.masonOver.round(),
-              rates.beldarOver.round(),
-              rates.coolieOver.round(),
-            ],
-          ),
+          _summaryDataRow('Rate', [
+            rates.mason.round(),
+            rates.beldar.round(),
+            rates.coolie.round(),
+            rates.masonOver.round(),
+            rates.beldarOver.round(),
+            rates.coolieOver.round(),
+          ]),
           const SizedBox(height: 8),
-          _summaryDataRow(
-            'Amount',
-            [
-              amount.mason,
-              amount.beldar,
-              amount.coolie,
-              amount.masonOver,
-              amount.beldarOver,
-              amount.coolieOver,
-            ],
-          ),
+          _summaryDataRow('Amount', [
+            amount.mason,
+            amount.beldar,
+            amount.coolie,
+            amount.masonOver,
+            amount.beldarOver,
+            amount.coolieOver,
+          ]),
         ],
       ),
     );
@@ -1741,15 +1521,17 @@ class _ContractorAttendanceScreenState
               style: GoogleFonts.poppins(
                 fontSize: 12,
                 fontWeight: FontWeight.w700,
-                color: highlight ? AppColors.primaryRed : AppColors.headingBlack,
+                color: highlight
+                    ? AppColors.primaryRed
+                    : AppColors.headingBlack,
               ),
             ),
           ),
           ...values.map(
-            (v) => Expanded(
+            (value) => Expanded(
               flex: 10,
               child: Text(
-                '$v',
+                '$value',
                 textAlign: TextAlign.center,
                 style: GoogleFonts.poppins(
                   fontSize: 13,
@@ -1777,9 +1559,11 @@ class _AttendanceDayRow {
   });
 
   final DateTime date;
+
   final int mason;
   final int beldar;
   final int coolie;
+
   final int masonOver;
   final int beldarOver;
   final int coolieOver;
@@ -1798,6 +1582,7 @@ class _AttendanceRates {
   final double mason;
   final double beldar;
   final double coolie;
+
   final double masonOver;
   final double beldarOver;
   final double coolieOver;

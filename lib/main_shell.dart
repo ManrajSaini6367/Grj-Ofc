@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+
 import 'package:grjoffice_apps/chatscreen/chatscreen.dart';
 import 'package:grjoffice_apps/core/app_colors.dart';
 import 'package:grjoffice_apps/Purchasescreen/purchases.dart';
@@ -31,36 +32,54 @@ class MainShell extends StatefulWidget {
 
 class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
   late int _selectedIndex;
+
   final List<int> _tabVersions = List<int>.filled(5, 0);
+
   final GlobalKey<NavigatorState> _shellNavigatorKey =
       GlobalKey<NavigatorState>();
+
   final AttendanceService _attendance = AttendanceService.instance;
+
   Timer? _permissionPollTimer;
 
   int get _activeTabVersion => _tabVersions[_selectedIndex];
 
+  /// Tabs that can be accessed without Punch-In.
+  bool _isPunchInFreeTab(int index) {
+    return index == MainTab.dashboard || index == MainTab.chats;
+  }
+
   @override
   void initState() {
     super.initState();
+
     WidgetsBinding.instance.addObserver(this);
 
     _selectedIndex = AppBottomNav.canAccessTab(widget.initialIndex)
         ? widget.initialIndex
         : AppBottomNav.firstAllowedTab();
 
-    if (PunchInGate.isRequired && !PunchInGate.canAccessApp) {
+    // If Punch-In is required and user has not punched in,
+    // allow Dashboard and Chats but default to Dashboard.
+    if (PunchInGate.isRequired &&
+        !PunchInGate.canAccessApp &&
+        !_isPunchInFreeTab(_selectedIndex)) {
       _selectedIndex = MainTab.dashboard;
     }
 
     PermissionService.instance.addListener(_onPermissionsChanged);
+
     _attendance.addListener(_onAttendanceChanged);
 
     // Hydrate session from cache, then sync latest permissions.
     final cached = cachedUser();
+
     if (cached != null) {
       UserSession.instance.setUser(cached);
     }
+
     unawaited(PermissionService.instance.refresh());
+
     _permissionPollTimer = Timer.periodic(
       const Duration(seconds: 45),
       (_) => unawaited(PermissionService.instance.refreshIfStale()),
@@ -68,12 +87,14 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
+
       if (!KycGate.canAccessApp) {
         pushAndRevoveUntil(context, KycGate.homeScreen());
       }
     });
 
     final initialPush = widget.initialPush;
+
     if (initialPush != null) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         _shellNavigatorKey.currentState?.push(
@@ -86,23 +107,37 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
   @override
   void dispose() {
     _permissionPollTimer?.cancel();
+
     WidgetsBinding.instance.removeObserver(this);
+
     PermissionService.instance.removeListener(_onPermissionsChanged);
+
     _attendance.removeListener(_onAttendanceChanged);
+
     super.dispose();
   }
 
   void _onAttendanceChanged() {
     if (!mounted) return;
+
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
-      if (PunchInGate.isRequired && !PunchInGate.canAccessApp) {
+
+      // Only tabs that actually require Punch-In should be
+      // redirected to Dashboard.
+      //
+      // Dashboard and Chats remain accessible without Punch-In.
+      if (PunchInGate.isRequired &&
+          !PunchInGate.canAccessApp &&
+          !_isPunchInFreeTab(_selectedIndex)) {
         _shellNavigatorKey.currentState?.popUntil((route) => route.isFirst);
+
         if (_selectedIndex != MainTab.dashboard) {
           _activateTab(MainTab.dashboard, reload: true);
           return;
         }
       }
+
       setState(() {});
     });
   }
@@ -116,9 +151,13 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
 
   Future<void> _onResumed() async {
     unawaited(PermissionService.instance.refresh());
+
     if (!mounted) return;
+
     await profileApi(context);
+
     if (!mounted) return;
+
     if (!KycGate.canAccessApp) {
       pushAndRevoveUntil(context, KycGate.homeScreen());
     }
@@ -126,8 +165,13 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
 
   void _onPermissionsChanged() {
     if (!mounted) return;
-    if (AppBottomNav.canAccessTab(_selectedIndex)) return;
+
+    if (AppBottomNav.canAccessTab(_selectedIndex)) {
+      return;
+    }
+
     final fallback = AppBottomNav.firstAllowedTab();
+
     if (fallback != _selectedIndex) {
       _activateTab(fallback, reload: false);
     }
@@ -136,46 +180,63 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
   void _activateTab(int index, {bool reload = true}) {
     setState(() {
       _selectedIndex = index;
-      if (reload) _tabVersions[index]++;
+
+      if (reload) {
+        _tabVersions[index]++;
+      }
     });
   }
 
   void _switchTab(int index) {
-    if (index != MainTab.dashboard && !PunchInGate.ensureAccess(context)) {
+    // Dashboard and Chats do NOT require Punch-In.
+    if (!_isPunchInFreeTab(index) && !PunchInGate.ensureAccess(context)) {
       return;
     }
+
     if (!AppBottomNav.canAccessTab(index)) {
       message(context, 'You do not have permission to access this');
       return;
     }
-    if (_selectedIndex == index) return;
+
+    if (_selectedIndex == index) {
+      return;
+    }
+
     _activateTab(index);
   }
 
   void _onTabSelected(int index) {
-    if (index != MainTab.dashboard && !PunchInGate.ensureAccess(context)) {
+    // Dashboard and Chats do NOT require Punch-In.
+    if (!_isPunchInFreeTab(index) && !PunchInGate.ensureAccess(context)) {
       return;
     }
+
     if (!AppBottomNav.canAccessTab(index)) {
       message(context, 'You do not have permission to access this');
       return;
     }
+
     // Soft refresh when switching tabs so role changes apply quickly.
     unawaited(PermissionService.instance.refreshIfStale());
+
     _shellNavigatorKey.currentState?.popUntil((route) => route.isFirst);
+
     _activateTab(index);
   }
 
   Future<void> _handleSystemBack() async {
     final nav = _shellNavigatorKey.currentState;
+
     if (nav == null) {
       SystemNavigator.pop();
       return;
     }
+
     if (nav.canPop()) {
       await nav.maybePop();
       return;
     }
+
     SystemNavigator.pop();
   }
 
@@ -190,10 +251,12 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
         canPop: false,
         onPopInvokedWithResult: (didPop, result) {
           if (didPop) return;
+
           _handleSystemBack();
         },
         child: Scaffold(
           backgroundColor: AppColors.backgroundGray,
+
           body: Navigator(
             key: _shellNavigatorKey,
             onGenerateRoute: (settings) {
@@ -203,6 +266,7 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
               );
             },
           ),
+
           bottomNavigationBar: AppBottomNav(
             selectedIndex: _selectedIndex,
             onTabSelected: _onTabSelected,
@@ -219,15 +283,22 @@ class _ShellTabStack extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final scope = AppShellScope.of(context);
+
     final index = scope.currentIndex;
 
     return KeyedSubtree(
       key: ValueKey('shell-tab-$index-${scope.tabVersion}'),
       child: switch (index) {
         MainTab.dashboard => const HomePage(),
+
+        // Chat can be opened without Punch-In.
         MainTab.chats => const ChatScreen(),
+
+        // These tabs still require Punch-In.
         MainTab.purchase => const PurchasesScreen(),
+
         MainTab.store => const StoreScreen(),
+
         _ => const ProfileScreen(isActive: true),
       },
     );

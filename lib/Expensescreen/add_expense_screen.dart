@@ -46,7 +46,9 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
     if (expense == null) return;
 
     _expenseDate = expense.date;
-    _entryType = expense.entryType == ExpenseEntryType.credit ? 'Credit' : 'Debit';
+    _entryType = expense.entryType == ExpenseEntryType.credit
+        ? 'Credit'
+        : 'Debit';
     _source = switch (expense.paymentMode) {
       ExpensePaymentMode.cash => 'Cash',
       ExpensePaymentMode.cheque => 'Cheque',
@@ -129,7 +131,12 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
     final amount = double.tryParse(amountText);
     if (amount == null || amount <= 0) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Please enter a valid amount.', style: GoogleFonts.poppins())),
+        SnackBar(
+          content: Text(
+            'Please enter a valid amount.',
+            style: GoogleFonts.poppins(),
+          ),
+        ),
       );
       return;
     }
@@ -137,14 +144,24 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
     final detail = _detailController.text.trim();
     if (detail.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Please enter expense detail.', style: GoogleFonts.poppins())),
+        SnackBar(
+          content: Text(
+            'Please enter expense detail.',
+            style: GoogleFonts.poppins(),
+          ),
+        ),
       );
       return;
     }
 
     if (_isChequeSource && _chequeController.text.trim().isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Please enter cheque number.', style: GoogleFonts.poppins())),
+        SnackBar(
+          content: Text(
+            'Please enter cheque number.',
+            style: GoogleFonts.poppins(),
+          ),
+        ),
       );
       return;
     }
@@ -157,7 +174,9 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
       if (expenseId == null) {
         setState(() => _isSaving = false);
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Invalid expense id.', style: GoogleFonts.poppins())),
+          SnackBar(
+            content: Text('Invalid expense id.', style: GoogleFonts.poppins()),
+          ),
         );
         return;
       }
@@ -225,24 +244,32 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
                             decoration: BoxDecoration(
                               color: AppColors.cardWhite,
                               borderRadius: BorderRadius.circular(12),
-                              border: Border.all(color: AppColors.borderGray.withValues(alpha: 0.5)),
+                              border: Border.all(
+                                color: AppColors.borderGray.withValues(
+                                  alpha: 0.5,
+                                ),
+                              ),
                             ),
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.stretch,
                               children: [
                                 Text(
                                   'Information Expenses',
-                                  style: GoogleFonts.poppins(fontSize: 16, fontWeight: FontWeight.w700),
+                                  style: GoogleFonts.poppins(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w700,
+                                  ),
                                 ),
                                 const SizedBox(height: 16),
                                 if (isWide)
                                   Row(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
                                     children: [
                                       Expanded(child: _buildDateField()),
                                       const SizedBox(width: 12),
                                       Expanded(child: _buildTypeField()),
-                                      if (_showSource) ...[
+                                      if (!_showSource) ...[
                                         const SizedBox(width: 12),
                                         Expanded(child: _buildSourceField()),
                                       ],
@@ -252,7 +279,7 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
                                   _buildDateField(),
                                   const SizedBox(height: 16),
                                   _buildTypeField(),
-                                  if (_showSource) ...[
+                                  if (!_showSource) ...[
                                     const SizedBox(height: 16),
                                     _buildSourceField(),
                                   ],
@@ -260,7 +287,8 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
                                 const SizedBox(height: 20),
                                 if (isWide)
                                   Row(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
                                     children: [
                                       if (_isChequeSource) ...[
                                         Expanded(child: _buildChequeField()),
@@ -305,13 +333,16 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
                                   : const Icon(Icons.save_outlined, size: 18),
                               label: Text(
                                 _isEdit ? 'Update' : 'Save',
-                                style: GoogleFonts.poppins(fontSize: 14, fontWeight: FontWeight.w600),
+                                style: GoogleFonts.poppins(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w600,
+                                ),
                               ),
                               style: ElevatedButton.styleFrom(
                                 backgroundColor: AppColors.primaryRed,
                                 foregroundColor: AppColors.white,
-                                disabledBackgroundColor:
-                                    AppColors.primaryRed.withValues(alpha: 0.6),
+                                disabledBackgroundColor: AppColors.primaryRed
+                                    .withValues(alpha: 0.6),
                                 elevation: 0,
                                 shape: RoundedRectangleBorder(
                                   borderRadius: BorderRadius.circular(6),
@@ -356,7 +387,12 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
         initialValue: _entryType,
         decoration: _fieldDecoration(),
         items: kExpenseEntryTypes
-            .map((type) => DropdownMenuItem(value: type, child: Text(type, style: GoogleFonts.poppins(fontSize: 13))))
+            .map(
+              (type) => DropdownMenuItem(
+                value: type,
+                child: Text(type, style: GoogleFonts.poppins(fontSize: 13)),
+              ),
+            )
             .toList(),
         onChanged: (value) {
           if (value == null) return;
@@ -378,7 +414,12 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
         initialValue: _source,
         decoration: _fieldDecoration(),
         items: kExpenseSources
-            .map((source) => DropdownMenuItem(value: source, child: Text(source, style: GoogleFonts.poppins(fontSize: 13))))
+            .map(
+              (source) => DropdownMenuItem(
+                value: source,
+                child: Text(source, style: GoogleFonts.poppins(fontSize: 13)),
+              ),
+            )
             .toList(),
         onChanged: (value) {
           if (value == null) return;
@@ -431,10 +472,13 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
       child: TextFormField(
         controller: _amountController,
         keyboardType: const TextInputType.numberWithOptions(decimal: true),
-        inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d*'))],
+        inputFormatters: [
+          FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d*')),
+        ],
         style: GoogleFonts.poppins(fontSize: 13),
         decoration: _fieldDecoration(hint: 'amount'),
-        validator: (value) => (value == null || value.trim().isEmpty) ? 'Required' : null,
+        validator: (value) =>
+            (value == null || value.trim().isEmpty) ? 'Required' : null,
       ),
     );
   }
@@ -461,16 +505,25 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
         maxLines: 1,
         style: GoogleFonts.poppins(fontSize: 13),
         decoration: _fieldDecoration(hint: 'detail'),
-        validator: (value) => (value == null || value.trim().isEmpty) ? 'Required' : null,
+        validator: (value) =>
+            (value == null || value.trim().isEmpty) ? 'Required' : null,
       ),
     );
   }
 
-  Widget _labeledField({required String label, required Widget child, bool isRequired = false}) {
+  Widget _labeledField({
+    required String label,
+    required Widget child,
+    bool isRequired = false,
+  }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        fieldLabelText(label, isRequired: isRequired, style: GoogleFonts.poppins(fontSize: 13, fontWeight: FontWeight.w600)),
+        fieldLabelText(
+          label,
+          isRequired: isRequired,
+          style: GoogleFonts.poppins(fontSize: 13, fontWeight: FontWeight.w600),
+        ),
         const SizedBox(height: 8),
         child,
       ],
@@ -486,15 +539,22 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
       contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
       border: OutlineInputBorder(
         borderRadius: BorderRadius.circular(6),
-        borderSide: BorderSide(color: AppColors.borderGray.withValues(alpha: 0.6)),
+        borderSide: BorderSide(
+          color: AppColors.borderGray.withValues(alpha: 0.6),
+        ),
       ),
       enabledBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(6),
-        borderSide: BorderSide(color: AppColors.borderGray.withValues(alpha: 0.6)),
+        borderSide: BorderSide(
+          color: AppColors.borderGray.withValues(alpha: 0.6),
+        ),
       ),
       focusedBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(6),
-        borderSide: BorderSide(color: AppColors.primaryRed.withValues(alpha: 0.5), width: 1.5),
+        borderSide: BorderSide(
+          color: AppColors.primaryRed.withValues(alpha: 0.5),
+          width: 1.5,
+        ),
       ),
     );
   }

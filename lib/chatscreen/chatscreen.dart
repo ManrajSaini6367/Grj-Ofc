@@ -68,8 +68,8 @@ class _ChatScreenState extends State<ChatScreen> {
     final threads = _service.threads;
     if (_searchQuery.isEmpty) return threads;
     return threads.where((thread) {
-      final haystack =
-          '${thread.title} ${thread.lastMessage?.text ?? ''}'.toLowerCase();
+      final haystack = '${thread.title} ${thread.lastMessage?.text ?? ''}'
+          .toLowerCase();
       return haystack.contains(_searchQuery);
     }).toList();
   }
@@ -81,9 +81,9 @@ class _ChatScreenState extends State<ChatScreen> {
   }
 
   void _openNewGroup() {
-    Navigator.of(context).push(
-      MaterialPageRoute(builder: (_) => const SelectParticipantsScreen()),
-    );
+    Navigator.of(
+      context,
+    ).push(MaterialPageRoute(builder: (_) => const SelectParticipantsScreen()));
   }
 
   void _openNewChat() {

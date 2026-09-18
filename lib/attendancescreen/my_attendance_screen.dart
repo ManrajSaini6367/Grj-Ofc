@@ -661,6 +661,8 @@ class _MyAttendanceScreenState extends State<MyAttendanceScreen> {
         _LegendDot(color: Color(0xFFE53935), label: 'Absent'),
         _LegendDot(color: Color(0xFFF59E0B), label: 'Leave'),
         _LegendDot(color: Color(0xFF2563EB), label: 'Holiday'),
+        _LegendDot(color: Color(0xFFFFE5E5), label: 'Current'),
+        _LegendDot(color: AppColors.primaryRed, label: 'Selected'),
       ],
     );
   }
@@ -878,9 +880,14 @@ class _CalendarDayCell extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Use the same marker color that was previously shown as a dot.
+    final Color? statusColor = showDot && inMonth ? dotColor : null;
+
     final textColor = !inMonth
         ? AppColors.textSecondary.withValues(alpha: 0.35)
         : isSelected
+        ? Colors.white
+        : statusColor != null
         ? Colors.white
         : AppColors.headingBlack;
 
@@ -893,13 +900,20 @@ class _CalendarDayCell extends StatelessWidget {
           height: 34,
           alignment: Alignment.center,
           decoration: BoxDecoration(
+            // Priority:
+            // 1. Selected date
+            // 2. Status/marker color
+            // 3. Today background
+            // 4. Transparent
             color: isSelected
                 ? AppColors.primaryRed
-                : isToday
-                ? AppColors.primaryRed.withValues(alpha: 0.08)
-                : Colors.transparent,
+                : statusColor ??
+                      (isToday
+                          ? AppColors.primaryRed.withValues(alpha: 0.08)
+                          : Colors.transparent),
             shape: BoxShape.circle,
-            border: isToday && !isSelected
+
+            border: isToday && !isSelected && statusColor == null
                 ? Border.all(color: AppColors.primaryRed, width: 1.2)
                 : null,
           ),
@@ -912,17 +926,11 @@ class _CalendarDayCell extends StatelessWidget {
             ),
           ),
         ),
+
+        // Dot removed because the color is now used
+        // as the date background.
         const SizedBox(height: 3),
-        Container(
-          width: 6,
-          height: 6,
-          decoration: BoxDecoration(
-            color: showDot && inMonth && dotColor != null
-                ? dotColor
-                : Colors.transparent,
-            shape: BoxShape.circle,
-          ),
-        ),
+        const SizedBox(width: 6, height: 6),
       ],
     );
 

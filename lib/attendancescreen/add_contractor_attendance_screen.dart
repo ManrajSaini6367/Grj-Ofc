@@ -26,31 +26,42 @@ class _AddContractorAttendanceScreenState
   static const _saveBlue = Color(0xFF2563EB);
 
   final _formKey = GlobalKey<FormState>();
+
   final _today = DateTime.now();
 
   final _contractorSearchController = TextEditingController();
   final _contractorSearchFocus = FocusNode();
+
   final _masonController = TextEditingController();
   final _beldarController = TextEditingController();
   final _coolieController = TextEditingController();
+
   final _masonOtController = TextEditingController();
   final _beldarOtController = TextEditingController();
   final _coolieOtController = TextEditingController();
 
+  final _remarkController = TextEditingController();
+
   Timer? _debounce;
+
   List<LabourContractor> _contractors = [];
   List<LabourContractor> _suggestions = [];
+
   String? _selectedContractorId;
+
   bool _loadingContractors = true;
   bool _showSuggestions = false;
   bool _suppressSearchListener = false;
   bool _isSaving = false;
+
   String? _contractorError;
 
   @override
   void initState() {
     super.initState();
+
     _contractorSearchController.addListener(_onContractorSearchChanged);
+
     _contractorSearchFocus.addListener(() {
       if (!_contractorSearchFocus.hasFocus) {
         Future<void>.delayed(const Duration(milliseconds: 120), () {
@@ -60,28 +71,38 @@ class _AddContractorAttendanceScreenState
         });
       }
     });
+
     WidgetsBinding.instance.addPostFrameCallback((_) => _loadContractors());
   }
 
   @override
   void dispose() {
     _debounce?.cancel();
+
     _contractorSearchController.removeListener(_onContractorSearchChanged);
+
     _contractorSearchController.dispose();
     _contractorSearchFocus.dispose();
+
     _masonController.dispose();
     _beldarController.dispose();
     _coolieController.dispose();
+
     _masonOtController.dispose();
     _beldarOtController.dispose();
     _coolieOtController.dispose();
+
+    _remarkController.dispose();
+
     super.dispose();
   }
 
   double _hPad(BuildContext context) {
     final width = MediaQuery.sizeOf(context).width;
+
     if (width < 360) return 14;
     if (width < 600) return 18;
+
     return 20;
   }
 
@@ -91,12 +112,17 @@ class _AddContractorAttendanceScreenState
 
   void _onContractorSearchChanged() {
     if (_suppressSearchListener) return;
+
     _debounce?.cancel();
+
     _debounce = Timer(const Duration(milliseconds: 220), () {
       if (!mounted) return;
+
       final q = _contractorSearchController.text.trim().toLowerCase();
+
       setState(() {
         _contractorError = null;
+
         if (q.isEmpty) {
           _suggestions = [];
           _showSuggestions = false;
@@ -105,15 +131,19 @@ class _AddContractorAttendanceScreenState
           _suggestions = _contractors
               .where((c) => c.name.toLowerCase().contains(q))
               .toList();
+
           _showSuggestions = true;
+
           if (_selectedContractorId != null) {
             LabourContractor? selected;
+
             for (final c in _contractors) {
               if (c.id == _selectedContractorId) {
                 selected = c;
                 break;
               }
             }
+
             if (selected == null || selected.name.toLowerCase() != q) {
               _selectedContractorId = null;
             }
@@ -125,42 +155,54 @@ class _AddContractorAttendanceScreenState
 
   void _setSearchText(String value) {
     _suppressSearchListener = true;
+
     _contractorSearchController.text = value;
-    _contractorSearchController.selection =
-        TextSelection.collapsed(offset: value.length);
+
+    _contractorSearchController.selection = TextSelection.collapsed(
+      offset: value.length,
+    );
+
     _suppressSearchListener = false;
   }
 
   void _selectContractor(LabourContractor contractor) {
     _debounce?.cancel();
+
     setState(() {
       _selectedContractorId = contractor.id;
       _suggestions = [];
       _showSuggestions = false;
       _contractorError = null;
     });
+
     _setSearchText(contractor.name);
+
     _contractorSearchFocus.unfocus();
   }
 
   void _clearSelectedContractor() {
     _debounce?.cancel();
+
     setState(() {
       _selectedContractorId = null;
       _suggestions = [];
       _showSuggestions = false;
       _contractorError = null;
     });
+
     _setSearchText('');
   }
 
   Future<void> _loadContractors() async {
     setState(() => _loadingContractors = true);
+
     final response = await getContractorListApi(context, perPage: 100);
+
     if (!mounted) return;
+
     setState(() {
-      _contractors =
-          response?.data?.items?.map(_toContractor).toList() ?? [];
+      _contractors = response?.data?.items?.map(_toContractor).toList() ?? [];
+
       _loadingContractors = false;
     });
   }
@@ -185,18 +227,27 @@ class _AddContractorAttendanceScreenState
 
   int _parseCount(TextEditingController controller) {
     final trimmed = controller.text.trim();
+
     if (trimmed.isEmpty) return 0;
+
     return int.tryParse(trimmed) ?? 0;
   }
 
   Future<void> _onSave() async {
-    if (!_formKey.currentState!.validate()) return;
+    if (!_formKey.currentState!.validate()) {
+      return;
+    }
+
     if (_selectedContractorId == null) {
-      setState(() => _contractorError = 'Please choose a contractor');
+      setState(() {
+        _contractorError = 'Please choose a contractor';
+      });
+
       return;
     }
 
     final siteId = selectedSiteId();
+
     if (siteId == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -206,10 +257,12 @@ class _AddContractorAttendanceScreenState
           ),
         ),
       );
+
       return;
     }
 
     final contractorId = int.tryParse(_selectedContractorId!);
+
     if (contractorId == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -219,10 +272,12 @@ class _AddContractorAttendanceScreenState
           ),
         ),
       );
+
       return;
     }
 
     setState(() => _isSaving = true);
+
     final ok = await markLabourAttendanceApi(
       context,
       siteId: siteId,
@@ -234,8 +289,13 @@ class _AddContractorAttendanceScreenState
       masonOver: _parseCount(_masonOtController),
       beldarOver: _parseCount(_beldarOtController),
       coolieOver: _parseCount(_coolieOtController),
+
+      // Remark API mein send hoga
+      remark: _remarkController.text.trim(),
     );
+
     if (!mounted) return;
+
     setState(() => _isSaving = false);
 
     if (!ok) return;
@@ -249,10 +309,13 @@ class _AddContractorAttendanceScreenState
         backgroundColor: const Color(0xFF166534),
       ),
     );
+
     popShellRoute(context);
   }
 
-  void _onCancel() => popShellRoute(context);
+  void _onCancel() {
+    popShellRoute(context);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -268,6 +331,7 @@ class _AddContractorAttendanceScreenState
               useShellPop: true,
               horizontalPadding: hPad,
             ),
+
             Expanded(
               child: Form(
                 key: _formKey,
@@ -282,9 +346,13 @@ class _AddContractorAttendanceScreenState
                         color: AppColors.headingBlack,
                       ),
                     ),
+
                     const SizedBox(height: 14),
+
                     _buildFormCard(),
+
                     const SizedBox(height: 22),
+
                     _buildActions(),
                   ],
                 ),
@@ -299,36 +367,50 @@ class _AddContractorAttendanceScreenState
   Widget _buildFormCard() {
     final fields = [
       _buildReadOnlyDateField(),
+
       _buildContractorField(),
+
       _buildNumberField(
         label: 'Mason',
         controller: _masonController,
         hint: 'mason',
       ),
+
       _buildNumberField(
         label: 'Beldar',
         controller: _beldarController,
         hint: 'beldar',
       ),
+
       _buildNumberField(
         label: 'Coolie',
         controller: _coolieController,
         hint: 'coolie',
       ),
+
       _buildNumberField(
         label: 'Mason Over Time',
         controller: _masonOtController,
         hint: 'Mason Over Time',
       ),
+
       _buildNumberField(
         label: 'Beldar Over Time',
         controller: _beldarOtController,
         hint: 'Beldar Over Time',
       ),
+
       _buildNumberField(
         label: 'Coolie Over Time',
         controller: _coolieOtController,
         hint: 'Coolie Over Time',
+      ),
+
+      _buildTextField(
+        label: 'Remark',
+        controller: _remarkController,
+        hint: 'remark',
+        maxLines: 3,
       ),
     ];
 
@@ -353,10 +435,50 @@ class _AddContractorAttendanceScreenState
     );
   }
 
+  Widget _buildTextField({
+    required String label,
+    required TextEditingController controller,
+    required String hint,
+    bool required = false,
+    int maxLines = 1,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        fieldLabelText(
+          label,
+          isRequired: required,
+          style: GoogleFonts.poppins(fontSize: 13, fontWeight: FontWeight.w600),
+        ),
+
+        const SizedBox(height: 8),
+
+        TextFormField(
+          controller: controller,
+          maxLines: maxLines,
+          style: GoogleFonts.poppins(fontSize: 13),
+          decoration: _inputDecoration(hint: hint),
+          validator: required
+              ? (value) {
+                  if (value == null || value.trim().isEmpty) {
+                    return 'Required';
+                  }
+                  return null;
+                }
+              : null,
+        ),
+      ],
+    );
+  }
+
   Widget _buildWideGrid(List<Widget> fields) {
     final rows = <Widget>[];
+
     for (var i = 0; i < fields.length; i += 3) {
-      final chunk = fields.sublist(i, (i + 3).clamp(0, fields.length));
+      final end = (i + 3 < fields.length) ? i + 3 : fields.length;
+
+      final chunk = fields.sublist(i, end);
+
       rows.add(
         Padding(
           padding: const EdgeInsets.only(bottom: 14),
@@ -365,6 +487,7 @@ class _AddContractorAttendanceScreenState
             children: [
               for (var j = 0; j < 3; j++) ...[
                 if (j > 0) const SizedBox(width: 12),
+
                 Expanded(child: j < chunk.length ? chunk[j] : const SizedBox()),
               ],
             ],
@@ -372,6 +495,7 @@ class _AddContractorAttendanceScreenState
         ),
       );
     }
+
     return Column(children: rows);
   }
 
@@ -387,7 +511,9 @@ class _AddContractorAttendanceScreenState
             color: AppColors.headingBlack,
           ),
         ),
+
         const SizedBox(height: 8),
+
         InputDecorator(
           decoration: _inputDecoration().copyWith(
             filled: true,
@@ -424,7 +550,9 @@ class _AddContractorAttendanceScreenState
             color: AppColors.headingBlack,
           ),
         ),
+
         const SizedBox(height: 8),
+
         if (_loadingContractors)
           Container(
             height: 48,
@@ -452,14 +580,15 @@ class _AddContractorAttendanceScreenState
             style: GoogleFonts.poppins(fontSize: 13),
             onTap: () {
               final q = _contractorSearchController.text.trim();
+
               if (q.isNotEmpty) {
                 setState(() {
                   _suggestions = _contractors
                       .where(
-                        (c) =>
-                            c.name.toLowerCase().contains(q.toLowerCase()),
+                        (c) => c.name.toLowerCase().contains(q.toLowerCase()),
                       )
                       .toList();
+
                   _showSuggestions = true;
                 });
               }
@@ -484,6 +613,7 @@ class _AddContractorAttendanceScreenState
               errorText: _contractorError,
             ),
           ),
+
           if (_showSuggestions) ...[
             const SizedBox(height: 8),
             _buildSuggestionsPanel(),
@@ -501,7 +631,9 @@ class _AddContractorAttendanceScreenState
         decoration: BoxDecoration(
           color: AppColors.operationsCardBg,
           borderRadius: BorderRadius.circular(8),
-          border: Border.all(color: AppColors.borderGray.withValues(alpha: 0.5)),
+          border: Border.all(
+            color: AppColors.borderGray.withValues(alpha: 0.5),
+          ),
         ),
         child: Text(
           'No contractor found.',
@@ -537,7 +669,9 @@ class _AddContractorAttendanceScreenState
         ),
         itemBuilder: (context, index) {
           final contractor = _suggestions[index];
+
           final selected = contractor.id == _selectedContractorId;
+
           return InkWell(
             onTap: () => _selectContractor(contractor),
             child: Padding(
@@ -549,8 +683,9 @@ class _AddContractorAttendanceScreenState
                       contractor.name,
                       style: GoogleFonts.poppins(
                         fontSize: 13,
-                        fontWeight:
-                            selected ? FontWeight.w700 : FontWeight.w500,
+                        fontWeight: selected
+                            ? FontWeight.w700
+                            : FontWeight.w500,
                         color: AppColors.headingBlack,
                       ),
                     ),
@@ -586,7 +721,9 @@ class _AddContractorAttendanceScreenState
             color: AppColors.headingBlack,
           ),
         ),
+
         const SizedBox(height: 8),
+
         TextFormField(
           controller: controller,
           keyboardType: TextInputType.number,
@@ -594,8 +731,14 @@ class _AddContractorAttendanceScreenState
           style: GoogleFonts.poppins(fontSize: 13),
           decoration: _inputDecoration(hint: hint),
           validator: (v) {
-            if (v == null || v.trim().isEmpty) return null;
-            if (int.tryParse(v.trim()) == null) return 'Enter a valid number';
+            if (v == null || v.trim().isEmpty) {
+              return null;
+            }
+
+            if (int.tryParse(v.trim()) == null) {
+              return 'Enter a valid number';
+            }
+
             return null;
           },
           onChanged: (_) => setState(() {}),
@@ -618,7 +761,9 @@ class _AddContractorAttendanceScreenState
             ),
           ),
         ),
+
         const SizedBox(width: 8),
+
         SizedBox(
           height: 44,
           child: ElevatedButton.icon(
@@ -664,11 +809,15 @@ class _AddContractorAttendanceScreenState
       contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
       border: OutlineInputBorder(
         borderRadius: BorderRadius.circular(8),
-        borderSide: BorderSide(color: AppColors.borderGray.withValues(alpha: 0.7)),
+        borderSide: BorderSide(
+          color: AppColors.borderGray.withValues(alpha: 0.7),
+        ),
       ),
       enabledBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(8),
-        borderSide: BorderSide(color: AppColors.borderGray.withValues(alpha: 0.7)),
+        borderSide: BorderSide(
+          color: AppColors.borderGray.withValues(alpha: 0.7),
+        ),
       ),
       focusedBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(8),
