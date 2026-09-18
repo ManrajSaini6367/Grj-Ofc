@@ -16,6 +16,9 @@ class Employee {
     this.monthlySalary,
     this.leaveAllocation,
     this.attendanceAllow = true,
+    this.sundayMarkedHoliday = true,
+    this.webLoginAllow = true,
+    this.appLoginAllow = true,
     this.accessRoles = const [],
     this.accessRoleIds = const [],
     this.siteIds = const [],
@@ -35,6 +38,9 @@ class Employee {
   final String? monthlySalary;
   final int? leaveAllocation;
   final bool attendanceAllow;
+  final bool sundayMarkedHoliday;
+  final bool webLoginAllow;
+  final bool appLoginAllow;
   final List<String> accessRoles;
   final List<int> accessRoleIds;
   final List<int> siteIds;

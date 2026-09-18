@@ -60,6 +60,12 @@ class _ViewEmployeeProfileScreenState extends State<ViewEmployeeProfileScreen> {
   bool get _isActive => _profile?.isActiveStatus ?? widget.employee.status == EmployeeStatus.active;
 
   bool get _attendanceAllowed => _profile?.attendanceAllow ?? widget.employee.attendanceAllow;
+  bool get _sundayMarkedHoliday =>
+      _profile?.sundayMarkedHoliday ?? widget.employee.sundayMarkedHoliday;
+  bool get _webLoginAllow =>
+      _profile?.webLoginAllow ?? widget.employee.webLoginAllow;
+  bool get _appLoginAllow =>
+      _profile?.appLoginAllow ?? widget.employee.appLoginAllow;
 
   String get _accessRolesLabel {
     final fromProfile = _profile?.accessRoles ?? const <String>[];
@@ -156,6 +162,24 @@ class _ViewEmployeeProfileScreenState extends State<ViewEmployeeProfileScreen> {
                                     'Attendance',
                                     _attendanceAllowed ? 'Allowed' : 'Not Allowed',
                                     valueColor: _attendanceAllowed ? const Color(0xFF059669) : AppColors.textSecondary,
+                                  ),
+                                  _infoTile(
+                                    Icons.weekend_outlined,
+                                    'Sunday Holiday',
+                                    _sundayMarkedHoliday ? 'Yes' : 'No',
+                                    valueColor: _sundayMarkedHoliday ? const Color(0xFF059669) : AppColors.textSecondary,
+                                  ),
+                                  _infoTile(
+                                    Icons.language_outlined,
+                                    'Web Login',
+                                    _webLoginAllow ? 'Allowed' : 'Not Allowed',
+                                    valueColor: _webLoginAllow ? const Color(0xFF059669) : AppColors.textSecondary,
+                                  ),
+                                  _infoTile(
+                                    Icons.phone_android_outlined,
+                                    'App Login',
+                                    _appLoginAllow ? 'Allowed' : 'Not Allowed',
+                                    valueColor: _appLoginAllow ? const Color(0xFF059669) : AppColors.textSecondary,
                                   ),
                                   _infoTile(
                                     Icons.circle,

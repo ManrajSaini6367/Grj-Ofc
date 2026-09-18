@@ -78,6 +78,9 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
         dateOfJoin: existing.dateOfJoin,
         dateOfSuspended: existing.dateOfSuspended,
         attendanceAllow: existing.attendanceAllow,
+        sundayMarkedHoliday: existing.sundayMarkedHoliday,
+        webLoginAllow: existing.webLoginAllow,
+        appLoginAllow: existing.appLoginAllow,
       );
       await Preference.pref.setString('user', jsonEncode(updated.toJson()));
     }

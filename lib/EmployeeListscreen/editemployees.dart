@@ -40,6 +40,9 @@ class _EditEmployeeScreenState extends State<EditEmployeeScreen> {
   DateTime? _dateOfJoin;
   DateTime? _dateSuspended;
   bool _attendanceAllowed = true;
+  bool _sundayMarkedHoliday = true;
+  bool _webLoginAllow = true;
+  bool _appLoginAllow = true;
   bool _isActive = true;
   bool _obscurePassword = true;
   bool _isSaving = false;
@@ -58,6 +61,9 @@ class _EditEmployeeScreenState extends State<EditEmployeeScreen> {
     _leave = TextEditingController(text: e.leaveAllocation?.toString() ?? '');
     _dateOfJoin = e.dateOfJoin ?? DateTime.now();
     _attendanceAllowed = e.attendanceAllow;
+    _sundayMarkedHoliday = e.sundayMarkedHoliday;
+    _webLoginAllow = e.webLoginAllow;
+    _appLoginAllow = e.appLoginAllow;
     _isActive = e.status == EmployeeStatus.active;
     _selectedAccessRoleIds.addAll(e.accessRoleIds);
     _selectedSiteIds.addAll(e.siteIds);
@@ -224,6 +230,9 @@ class _EditEmployeeScreenState extends State<EditEmployeeScreen> {
         monthlySalary: _salary.text.trim(),
         leaveAllocation: _leave.text.trim(),
         attendanceAllow: _attendanceAllowed,
+        sundayMarkedHoliday: _sundayMarkedHoliday,
+        webLoginAllow: _webLoginAllow,
+        appLoginAllow: _appLoginAllow,
         status: _isActive ? 'published' : 'unpublished',
         roleId: roleId,
         accessRoleIds: accessRoles,
@@ -453,6 +462,33 @@ class _EditEmployeeScreenState extends State<EditEmployeeScreen> {
                                 Expanded(child: _chip('Yes', _attendanceAllowed, () => setState(() => _attendanceAllowed = true))),
                                 const SizedBox(width: 10),
                                 Expanded(child: _chip('No', !_attendanceAllowed, () => setState(() => _attendanceAllowed = false))),
+                              ],
+                            ),
+                            const SizedBox(height: 16),
+                            _label('Sunday Marked Holiday'),
+                            Row(
+                              children: [
+                                Expanded(child: _chip('Yes', _sundayMarkedHoliday, () => setState(() => _sundayMarkedHoliday = true))),
+                                const SizedBox(width: 10),
+                                Expanded(child: _chip('No', !_sundayMarkedHoliday, () => setState(() => _sundayMarkedHoliday = false))),
+                              ],
+                            ),
+                            const SizedBox(height: 16),
+                            _label('Web Login Allow'),
+                            Row(
+                              children: [
+                                Expanded(child: _chip('Yes', _webLoginAllow, () => setState(() => _webLoginAllow = true))),
+                                const SizedBox(width: 10),
+                                Expanded(child: _chip('No', !_webLoginAllow, () => setState(() => _webLoginAllow = false))),
+                              ],
+                            ),
+                            const SizedBox(height: 16),
+                            _label('App Login Allow'),
+                            Row(
+                              children: [
+                                Expanded(child: _chip('Yes', _appLoginAllow, () => setState(() => _appLoginAllow = true))),
+                                const SizedBox(width: 10),
+                                Expanded(child: _chip('No', !_appLoginAllow, () => setState(() => _appLoginAllow = false))),
                               ],
                             ),
                             const SizedBox(height: 16),

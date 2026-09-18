@@ -39,6 +39,9 @@ class _AddEmployeeScreenState extends State<AddEmployeeScreen> {
 
   bool _obscurePassword = true;
   bool _attendanceAllowed = true;
+  bool _sundayMarkedHoliday = true;
+  bool _webLoginAllow = true;
+  bool _appLoginAllow = true;
   bool _foodAllowance = false;
   bool _stayAllowance = false;
   String _foodAllowanceType = _foodTypeMess;
@@ -273,6 +276,9 @@ class _AddEmployeeScreenState extends State<AddEmployeeScreen> {
         monthlySalary: _salaryController.text.trim(),
         leaveAllocation: _leaveController.text.trim(),
         attendanceAllow: _attendanceAllowed,
+        sundayMarkedHoliday: _sundayMarkedHoliday,
+        webLoginAllow: _webLoginAllow,
+        appLoginAllow: _appLoginAllow,
         status: 'published',
         accessRoleIds: accessRoles,
         siteIds: siteIds,
@@ -485,6 +491,22 @@ class _AddEmployeeScreenState extends State<AddEmployeeScreen> {
           ),
           const SizedBox(height: 16),
           _buildAttendanceField(),
+          const SizedBox(height: 16),
+          _buildSundayHolidayField(),
+          const SizedBox(height: 16),
+          _buildLoginAllowField(
+            title: 'Web Login Allow',
+            value: _webLoginAllow,
+            onYes: () => setState(() => _webLoginAllow = true),
+            onNo: () => setState(() => _webLoginAllow = false),
+          ),
+          const SizedBox(height: 16),
+          _buildLoginAllowField(
+            title: 'App Login Allow',
+            value: _appLoginAllow,
+            onYes: () => setState(() => _appLoginAllow = true),
+            onNo: () => setState(() => _appLoginAllow = false),
+          ),
           const SizedBox(height: 16),
           _buildAllowanceField(
             title: 'Food Allowance',
@@ -1064,6 +1086,67 @@ class _AddEmployeeScreenState extends State<AddEmployeeScreen> {
               !_attendanceAllowed,
               () => setState(() => _attendanceAllowed = false),
             ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget _buildSundayHolidayField() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Sunday Marked Holiday',
+          style: GoogleFonts.poppins(
+            color: AppColors.textDark,
+            fontSize: 13,
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+        const SizedBox(height: 10),
+        Row(
+          children: [
+            _choiceChip(
+              'Yes',
+              _sundayMarkedHoliday,
+              () => setState(() => _sundayMarkedHoliday = true),
+            ),
+            const SizedBox(width: 10),
+            _choiceChip(
+              'No',
+              !_sundayMarkedHoliday,
+              () => setState(() => _sundayMarkedHoliday = false),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget _buildLoginAllowField({
+    required String title,
+    required bool value,
+    required VoidCallback onYes,
+    required VoidCallback onNo,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          title,
+          style: GoogleFonts.poppins(
+            color: AppColors.textDark,
+            fontSize: 13,
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+        const SizedBox(height: 10),
+        Row(
+          children: [
+            _choiceChip('Yes', value, onYes),
+            const SizedBox(width: 10),
+            _choiceChip('No', !value, onNo),
           ],
         ),
       ],

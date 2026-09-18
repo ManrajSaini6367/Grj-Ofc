@@ -17,6 +17,9 @@ class UserModel {
     this.dateOfJoin,
     this.dateOfSuspended,
     required this.attendanceAllow,
+    this.sundayMarkedHoliday = true,
+    this.webLoginAllow = true,
+    this.appLoginAllow = true,
     this.kycStatus,
     this.accessRoles = const [],
     this.accessRoleIds = const [],
@@ -39,6 +42,9 @@ class UserModel {
   final String? dateOfJoin;
   final String? dateOfSuspended;
   final bool attendanceAllow;
+  final bool sundayMarkedHoliday;
+  final bool webLoginAllow;
+  final bool appLoginAllow;
   final String? kycStatus;
   final List<String> accessRoles;
   final List<int> accessRoleIds;
@@ -65,6 +71,15 @@ class UserModel {
       dateOfJoin: json['date_of_join']?.toString(),
       dateOfSuspended: json['date_of_suspended']?.toString(),
       attendanceAllow: _parseBool(json['attendance_allow']),
+      sundayMarkedHoliday: json.containsKey('sunday_marked_holiday')
+          ? _parseBool(json['sunday_marked_holiday'])
+          : true,
+      webLoginAllow: json.containsKey('web_login_allow')
+          ? _parseBool(json['web_login_allow'])
+          : true,
+      appLoginAllow: json.containsKey('app_login_allow')
+          ? _parseBool(json['app_login_allow'])
+          : true,
       kycStatus: _parseStringOrNull(json['kyc_status'] ?? json['kycStatus']),
       accessRoles: _parseRoleNames(json['access_roles']),
       accessRoleIds: _parseAccessRoleIds(json),
@@ -179,6 +194,9 @@ class UserModel {
       'date_of_join': dateOfJoin,
       'date_of_suspended': dateOfSuspended,
       'attendance_allow': attendanceAllow,
+      'sunday_marked_holiday': sundayMarkedHoliday,
+      'web_login_allow': webLoginAllow,
+      'app_login_allow': appLoginAllow,
       'kyc_status': kycStatus,
       'access_roles': [
         for (var i = 0; i < accessRoleIds.length; i++)
@@ -224,6 +242,9 @@ class UserModel {
     String? dateOfJoin,
     String? dateOfSuspended,
     bool? attendanceAllow,
+    bool? sundayMarkedHoliday,
+    bool? webLoginAllow,
+    bool? appLoginAllow,
     String? kycStatus,
     bool clearKycStatus = false,
     List<String>? accessRoles,
@@ -247,6 +268,9 @@ class UserModel {
       dateOfJoin: dateOfJoin ?? this.dateOfJoin,
       dateOfSuspended: dateOfSuspended ?? this.dateOfSuspended,
       attendanceAllow: attendanceAllow ?? this.attendanceAllow,
+      sundayMarkedHoliday: sundayMarkedHoliday ?? this.sundayMarkedHoliday,
+      webLoginAllow: webLoginAllow ?? this.webLoginAllow,
+      appLoginAllow: appLoginAllow ?? this.appLoginAllow,
       kycStatus: clearKycStatus ? null : (kycStatus ?? this.kycStatus),
       accessRoles: accessRoles ?? this.accessRoles,
       accessRoleIds: accessRoleIds ?? this.accessRoleIds,

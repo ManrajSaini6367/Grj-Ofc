@@ -86,6 +86,9 @@ class EmployeeListItem {
     this.monthlySalary,
     this.leaveAllocation,
     this.attendanceAllow,
+    this.sundayMarkedHoliday,
+    this.webLoginAllow,
+    this.appLoginAllow,
     this.createdAt,
     this.updatedAt,
   });
@@ -109,6 +112,9 @@ class EmployeeListItem {
   final String? monthlySalary;
   final int? leaveAllocation;
   final bool? attendanceAllow;
+  final bool? sundayMarkedHoliday;
+  final bool? webLoginAllow;
+  final bool? appLoginAllow;
   final DateTime? createdAt;
   final DateTime? updatedAt;
 
@@ -133,6 +139,9 @@ class EmployeeListItem {
         monthlySalary: json['monthly_salary']?.toString(),
         leaveAllocation: _parseInt(json['leave_allocation']),
         attendanceAllow: _parseBool(json['attendance_allow']),
+        sundayMarkedHoliday: _parseBool(json['sunday_marked_holiday']),
+        webLoginAllow: _parseBool(json['web_login_allow']),
+        appLoginAllow: _parseBool(json['app_login_allow']),
         createdAt: _parseDate(json['created_at']),
         updatedAt: _parseDate(json['updated_at']),
       );
@@ -167,6 +176,9 @@ class EmployeeListItem {
         'monthly_salary': monthlySalary,
         'leave_allocation': leaveAllocation,
         'attendance_allow': attendanceAllow,
+        'sunday_marked_holiday': sundayMarkedHoliday,
+        'web_login_allow': webLoginAllow,
+        'app_login_allow': appLoginAllow,
         if (createdAt != null) 'created_at': createdAt!.toIso8601String(),
         if (updatedAt != null) 'updated_at': updatedAt!.toIso8601String(),
       };
