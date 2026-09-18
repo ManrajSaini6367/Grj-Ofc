@@ -129,8 +129,9 @@ class _ItemHistoryScreenState extends State<ItemHistoryScreen> {
   List<ItemTransaction> get _filteredTransactions {
     return _transactions.where((tx) {
       if (_typeFilter != null && tx.type != _typeFilter) return false;
-      if (_issueToFilter != null && (tx.issueTo ?? '') != _issueToFilter)
+      if (_issueToFilter != null && (tx.issueTo ?? '') != _issueToFilter) {
         return false;
+      }
       if (!_matchesDateFilter(tx.dateTime)) return false;
       if (_searchQuery.isNotEmpty) {
         final haystack = [
@@ -791,59 +792,6 @@ class _ItemHistoryScreenState extends State<ItemHistoryScreen> {
     await _loadHistory(showLoader: false);
   }
 
-  Widget _confirmIssueCheckbox(StateSetter setSheetState) {
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: _isSavingHistory
-            ? null
-            : () => setSheetState(() => _confirmIssue = !_confirmIssue),
-        borderRadius: BorderRadius.circular(8),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 4),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              SizedBox(
-                width: 22,
-                height: 22,
-                child: Checkbox(
-                  value: _confirmIssue,
-                  onChanged: _isSavingHistory
-                      ? null
-                      : (value) {
-                          setSheetState(() => _confirmIssue = value ?? false);
-                        },
-                  activeColor: AppColors.primaryRed,
-                  side: const BorderSide(
-                    color: AppColors.checkboxBorder,
-                    width: 1.5,
-                  ),
-                  materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                  visualDensity: VisualDensity.compact,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(4),
-                  ),
-                ),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Text(
-                  'Issue this item',
-                  style: GoogleFonts.poppins(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w500,
-                    color: AppColors.textDark,
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
   Widget _infoChip(
     IconData icon,
     String label, {
@@ -1118,8 +1066,7 @@ class _ItemHistoryScreenState extends State<ItemHistoryScreen> {
   Widget _buildTransactionCard(ItemTransaction tx) {
     final isReturn = tx.type == ItemTransactionType.returned;
     final isIssue = tx.type == ItemTransactionType.issue;
-    final isStockIn =
-        tx.type == ItemTransactionType.credit || isReturn;
+    final isStockIn = tx.type == ItemTransactionType.credit || isReturn;
     final accent = isStockIn
         ? _creditColor
         : isIssue
