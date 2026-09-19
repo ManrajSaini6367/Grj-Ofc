@@ -220,7 +220,7 @@ class _KycRequestCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final dateFmt = DateFormat('d MMM yyyy');
+    final dateFmt = DateFormat('dd MMM yyyy');
     final initials = request.employeeName
         .trim()
         .split(RegExp(r'\s+'))
@@ -437,7 +437,7 @@ class _KycRequestDetailScreenState extends State<KycRequestDetailScreen> {
                               value: req.email),
                           _InfoItem(
                               label: 'Date of Birth',
-                              value: DateFormat('d MMM yyyy')
+                              value: DateFormat('dd MMM yyyy')
                                   .format(req.dateOfBirth)),
                           _InfoItem(
                               label: 'Gender',

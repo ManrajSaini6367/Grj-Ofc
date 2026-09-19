@@ -88,7 +88,8 @@ class _LeaveRequestsScreenState extends State<LeaveRequestsScreen> {
     final items = result.data?.items ?? const <HrLeaveRequestItem>[];
     final pagination = result.data?.pagination;
     final currentPage = pagination?.currentPage ?? pageToLoad;
-    final lastPage = pagination?.lastPage ??
+    final lastPage =
+        pagination?.lastPage ??
         (items.length < _perPage ? pageToLoad : pageToLoad + 1);
 
     setState(() {
@@ -122,11 +123,9 @@ class _LeaveRequestsScreenState extends State<LeaveRequestsScreen> {
   Future<void> _openLeave(HrLeaveRequestItem item) async {
     final id = item.id?.trim() ?? '';
     if (id.isEmpty) return;
-    await Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (_) => ViewLeaveScreen(leaveId: id),
-      ),
-    );
+    await Navigator.of(
+      context,
+    ).push(MaterialPageRoute(builder: (_) => ViewLeaveScreen(leaveId: id)));
     if (!mounted) return;
     await _load(reset: true);
   }
@@ -209,8 +208,8 @@ class _LeaveRequestsScreenState extends State<LeaveRequestsScreen> {
     final contentMax = width >= 1100
         ? 860.0
         : width >= 900
-            ? 760.0
-            : double.infinity;
+        ? 760.0
+        : double.infinity;
     final bottomInset = MediaQuery.paddingOf(context).bottom;
     final showFooter = _loadingMore || _hasMore;
 
@@ -238,75 +237,70 @@ class _LeaveRequestsScreenState extends State<LeaveRequestsScreen> {
                       ),
                     )
                   : _items.isEmpty
-                      ? _EmptyState(
-                          hPad: hPad,
-                          onRetry: () => _load(reset: true),
-                        )
-                      : RefreshIndicator(
-                          color: AppColors.primaryRed,
-                          onRefresh: () => _load(reset: true),
-                          child: ListView.separated(
-                            controller: _scrollController,
-                            physics: const AlwaysScrollableScrollPhysics(),
-                            padding: EdgeInsets.fromLTRB(
-                              hPad,
-                              10,
-                              hPad,
-                              18 + bottomInset,
-                            ),
-                            itemCount: _items.length + (showFooter ? 1 : 0),
-                            separatorBuilder: (_, __) =>
-                                const SizedBox(height: 10),
-                            itemBuilder: (context, index) {
-                              if (index >= _items.length) {
-                                return Padding(
-                                  padding:
-                                      const EdgeInsets.symmetric(vertical: 12),
-                                  child: Center(
-                                    child: _loadingMore
-                                        ? const SizedBox(
-                                            width: 22,
-                                            height: 22,
-                                            child: CircularProgressIndicator(
-                                              strokeWidth: 2.2,
-                                              color: AppColors.primaryRed,
-                                            ),
-                                          )
-                                        : TextButton(
-                                            onPressed: () =>
-                                                _load(reset: false),
-                                            child: Text(
-                                              'Load more',
-                                              style: GoogleFonts.poppins(
-                                                fontWeight: FontWeight.w600,
-                                                color: AppColors.primaryRed,
-                                              ),
-                                            ),
-                                          ),
-                                  ),
-                                );
-                              }
-
-                              final item = _items[index];
-                              return Center(
-                                child: ConstrainedBox(
-                                  constraints:
-                                      BoxConstraints(maxWidth: contentMax),
-                                  child: _HrLeaveCard(
-                                    item: item,
-                                    onTap: () => _openLeave(item),
-                                    approving: _actionLeaveId == item.id &&
-                                        _actionType == 'approve',
-                                    rejecting: _actionLeaveId == item.id &&
-                                        _actionType == 'reject',
-                                    onApprove: () => _approveLeave(item),
-                                    onReject: () => _rejectLeave(item),
-                                  ),
-                                ),
-                              );
-                            },
-                          ),
+                  ? _EmptyState(hPad: hPad, onRetry: () => _load(reset: true))
+                  : RefreshIndicator(
+                      color: AppColors.primaryRed,
+                      onRefresh: () => _load(reset: true),
+                      child: ListView.separated(
+                        controller: _scrollController,
+                        physics: const AlwaysScrollableScrollPhysics(),
+                        padding: EdgeInsets.fromLTRB(
+                          hPad,
+                          14,
+                          hPad,
+                          18 + bottomInset,
                         ),
+                        itemCount: _items.length + (showFooter ? 1 : 0),
+                        separatorBuilder: (_, __) => const SizedBox(height: 12),
+                        itemBuilder: (context, index) {
+                          if (index >= _items.length) {
+                            return Padding(
+                              padding: const EdgeInsets.symmetric(vertical: 12),
+                              child: Center(
+                                child: _loadingMore
+                                    ? const SizedBox(
+                                        width: 22,
+                                        height: 22,
+                                        child: CircularProgressIndicator(
+                                          strokeWidth: 2.2,
+                                          color: AppColors.primaryRed,
+                                        ),
+                                      )
+                                    : TextButton(
+                                        onPressed: () => _load(reset: false),
+                                        child: Text(
+                                          'Load more',
+                                          style: GoogleFonts.poppins(
+                                            fontWeight: FontWeight.w600,
+                                            color: AppColors.primaryRed,
+                                          ),
+                                        ),
+                                      ),
+                              ),
+                            );
+                          }
+
+                          final item = _items[index];
+                          return Center(
+                            child: ConstrainedBox(
+                              constraints: BoxConstraints(maxWidth: contentMax),
+                              child: _HrLeaveCard(
+                                item: item,
+                                onTap: () => _openLeave(item),
+                                approving:
+                                    _actionLeaveId == item.id &&
+                                    _actionType == 'approve',
+                                rejecting:
+                                    _actionLeaveId == item.id &&
+                                    _actionType == 'reject',
+                                onApprove: () => _approveLeave(item),
+                                onReject: () => _rejectLeave(item),
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+                    ),
             ),
           ],
         ),
@@ -400,6 +394,10 @@ class _HrLeaveCard extends StatelessWidget {
   final bool approving;
   final bool rejecting;
 
+  static const _approved = Color(0xFF059669);
+  static const _rejected = Color(0xFFDC2626);
+  static const _pending = Color(0xFFD97706);
+
   String get _statusKey => (item.status ?? 'pending').trim().toLowerCase();
 
   String get _statusLabel {
@@ -411,11 +409,11 @@ class _HrLeaveCard extends StatelessWidget {
   Color get _statusColor {
     switch (_statusKey) {
       case 'approved':
-        return const Color(0xFF059669);
+        return _approved;
       case 'rejected':
-        return const Color(0xFFDC2626);
+        return _rejected;
       default:
-        return const Color(0xFFD97706);
+        return _pending;
     }
   }
 
@@ -448,298 +446,326 @@ class _HrLeaveCard extends StatelessWidget {
     final dateFmt = DateFormat('dd MMM yyyy');
     final appliedFmt = DateFormat('dd MMM yyyy, hh:mm a');
     final width = MediaQuery.sizeOf(context).width;
-    final pad = width < 360 ? 10.0 : 12.0;
+    final pad = width < 360 ? 14.0 : 16.0;
     final days = item.durationDays ?? 0;
     final typeLabel = (item.typeLabel ?? item.type ?? 'Leave').trim();
     final name = (item.employeeName ?? 'Employee').trim();
+    final description = (item.description ?? '').trim();
     final fromText =
         item.fromDate == null ? '—' : dateFmt.format(item.fromDate!);
     final toText = item.toDate == null ? '—' : dateFmt.format(item.toDate!);
-    final appliedText =
-        item.createdAt == null ? '—' : appliedFmt.format(item.createdAt!);
+    final appliedText = item.createdAt == null
+        ? '—'
+        : appliedFmt.format(item.createdAt!);
+    final isPending = _statusKey == 'pending' || _statusKey.isEmpty;
 
     return Material(
       color: AppColors.cardWhite,
-      borderRadius: BorderRadius.circular(12),
+      elevation: 0,
+      borderRadius: BorderRadius.circular(16),
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(12),
-        child: Container(
-          width: double.infinity,
-          padding: EdgeInsets.all(pad),
+        borderRadius: BorderRadius.circular(16),
+        child: Ink(
           decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(12),
+            color: AppColors.cardWhite,
+            borderRadius: BorderRadius.circular(16),
             border: Border.all(
-              color: AppColors.borderGray.withValues(alpha: 0.45),
+              color: AppColors.borderGray.withValues(alpha: 0.4),
             ),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withValues(alpha: 0.03),
-                blurRadius: 4,
-                offset: const Offset(0, 1),
+                color: Colors.black.withValues(alpha: 0.04),
+                blurRadius: 10,
+                offset: const Offset(0, 3),
               ),
             ],
           ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Container(
-                    width: 34,
-                    height: 34,
-                    alignment: Alignment.center,
-                    decoration: BoxDecoration(
-                      color: AppColors.primaryRed.withValues(alpha: 0.1),
-                      borderRadius: BorderRadius.circular(10),
+          child: Padding(
+            padding: EdgeInsets.all(pad),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Container(
+                      width: 44,
+                      height: 44,
+                      alignment: Alignment.center,
+                      decoration: BoxDecoration(
+                        color: AppColors.primaryRed.withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Text(
+                        _initials,
+                        style: GoogleFonts.poppins(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w700,
+                          color: AppColors.primaryRed,
+                        ),
+                      ),
                     ),
-                    child: Text(
-                      _initials,
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            name,
+                            style: GoogleFonts.poppins(
+                              fontSize: 15,
+                              fontWeight: FontWeight.w700,
+                              color: AppColors.headingBlack,
+                              height: 1.25,
+                            ),
+                          ),
+                          const SizedBox(height: 3),
+                          Text(
+                            typeLabel,
+                            style: GoogleFonts.poppins(
+                              fontSize: 12.5,
+                              fontWeight: FontWeight.w500,
+                              color: AppColors.textDark,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 6,
+                      ),
+                      decoration: BoxDecoration(
+                        color: _statusBg,
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: Text(
+                        _statusLabel,
+                        style: GoogleFonts.poppins(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w700,
+                          color: _statusColor,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 14),
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 12,
+                  ),
+                  decoration: BoxDecoration(
+                    color: AppColors.operationsCardBg,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: LayoutBuilder(
+                    builder: (context, c) {
+                      final narrow = c.maxWidth < 340;
+                      final from = _MetaCell(
+                        icon: Icons.calendar_today_rounded,
+                        label: 'From',
+                        value: fromText,
+                      );
+                      final to = _MetaCell(
+                        icon: Icons.event_rounded,
+                        label: 'To',
+                        value: toText,
+                      );
+                      final daysCell = _MetaCell(
+                        icon: Icons.timelapse_rounded,
+                        label: 'Duration',
+                        value: days == 1 ? '1 Day' : '$days Days',
+                      );
+
+                      if (narrow) {
+                        return Column(
+                          children: [
+                            Row(
+                              children: [
+                                Expanded(child: from),
+                                const SizedBox(width: 8),
+                                Expanded(child: to),
+                              ],
+                            ),
+                            const SizedBox(height: 10),
+                            daysCell,
+                          ],
+                        );
+                      }
+
+                      return Row(
+                        children: [
+                          Expanded(child: from),
+                          Container(
+                            width: 1,
+                            height: 32,
+                            margin: const EdgeInsets.symmetric(horizontal: 8),
+                            color: AppColors.borderGray.withValues(alpha: 0.55),
+                          ),
+                          Expanded(child: to),
+                          Container(
+                            width: 1,
+                            height: 32,
+                            margin: const EdgeInsets.symmetric(horizontal: 8),
+                            color: AppColors.borderGray.withValues(alpha: 0.55),
+                          ),
+                          Expanded(child: daysCell),
+                        ],
+                      );
+                    },
+                  ),
+                ),
+                if (description.isNotEmpty) ...[
+                  const SizedBox(height: 12),
+                  Text(
+                    description,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: GoogleFonts.poppins(
+                      fontSize: 12.5,
+                      height: 1.4,
+                      color: AppColors.textDark,
+                    ),
+                  ),
+                ],
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    Icon(
+                      Icons.schedule_rounded,
+                      size: 15,
+                      color: AppColors.textSecondary.withValues(alpha: 0.9),
+                    ),
+                    const SizedBox(width: 6),
+                    Expanded(
+                      child: Text(
+                        'Applied $appliedText',
+                        style: GoogleFonts.poppins(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w500,
+                          color: AppColors.textSecondary,
+                        ),
+                      ),
+                    ),
+                    Text(
+                      'View',
                       style: GoogleFonts.poppins(
                         fontSize: 12,
-                        fontWeight: FontWeight.w700,
+                        fontWeight: FontWeight.w600,
                         color: AppColors.primaryRed,
                       ),
                     ),
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          name,
-                          style: GoogleFonts.poppins(
-                            fontSize: 14,
-                            fontWeight: FontWeight.w700,
-                            color: AppColors.headingBlack,
-                            height: 1.25,
-                          ),
-                        ),
-                        const SizedBox(height: 1),
-                        Text(
-                          typeLabel,
-                          style: GoogleFonts.poppins(
-                            fontSize: 12.2,
-                            fontWeight: FontWeight.w500,
-                            color: AppColors.textSecondary,
-                          ),
-                        ),
-                      ],
+                    const SizedBox(width: 2),
+                    const Icon(
+                      Icons.chevron_right_rounded,
+                      size: 18,
+                      color: AppColors.primaryRed,
                     ),
-                  ),
-                  const SizedBox(width: 8),
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 8,
-                      vertical: 4,
-                    ),
-                    decoration: BoxDecoration(
-                      color: _statusBg,
-                      borderRadius: BorderRadius.circular(14),
-                    ),
-                    child: Text(
-                      _statusLabel,
-                      style: GoogleFonts.poppins(
-                        fontSize: 10.5,
-                        fontWeight: FontWeight.w700,
-                        color: _statusColor,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 8),
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-                child: LayoutBuilder(
-                  builder: (context, c) {
-                    final narrow = c.maxWidth < 360;
-                    final from = _MetaCell(
-                      icon: Icons.calendar_today_rounded,
-                      label: 'From',
-                      value: fromText,
-                    );
-                    final to = _MetaCell(
-                      icon: Icons.event_rounded,
-                      label: 'To',
-                      value: toText,
-                    );
-                    final daysCell = _MetaCell(
-                      icon: Icons.timelapse_rounded,
-                      label: 'Total Days',
-                      value: days == 1 ? '1 Day' : '$days Days',
-                    );
-
-                    if (narrow) {
-                      return Column(
-                        children: [
-                          Row(
-                            children: [
-                              Expanded(child: from),
-                              _vDivider(),
-                              Expanded(child: to),
-                            ],
-                          ),
-                          const SizedBox(height: 6),
-                          daysCell,
-                        ],
-                      );
-                    }
-
-                    return Row(
-                      children: [
-                        Expanded(child: from),
-                        _vDivider(),
-                        Expanded(child: to),
-                        _vDivider(),
-                        Expanded(child: daysCell),
-                      ],
-                    );
-                  },
+                  ],
                 ),
-              ),
-              const SizedBox(height: 6),
-              Row(
-                children: [
-                  const Icon(
-                    Icons.schedule_rounded,
-                    size: 14,
-                    color: AppColors.textSecondary,
-                  ),
-                  const SizedBox(width: 6),
-                  Expanded(
-                    child: Text(
-                      'Applied Date: $appliedText',
-                      style: GoogleFonts.poppins(
-                        fontSize: 11,
-                        fontWeight: FontWeight.w500,
-                        color: AppColors.textSecondary,
-                      ),
-                    ),
+                if (isPending) ...[
+                  const SizedBox(height: 14),
+                  _ActionButtons(
+                    approving: approving,
+                    rejecting: rejecting,
+                    onApprove: onApprove,
+                    onReject: onReject,
                   ),
                 ],
-              ),
-              const SizedBox(height: 10),
-              _ActionButtons(
-                status: _statusKey,
-                approving: approving,
-                rejecting: rejecting,
-                onApprove: onApprove,
-                onReject: onReject,
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),
-    );
-  }
-
-  Widget _vDivider() {
-    return Container(
-      width: 1,
-      height: 20,
-      margin: const EdgeInsets.symmetric(horizontal: 4),
-      color: AppColors.borderGray.withValues(alpha: 0.55),
     );
   }
 }
 
 class _ActionButtons extends StatelessWidget {
   const _ActionButtons({
-    required this.status,
     required this.onApprove,
     required this.onReject,
     this.approving = false,
     this.rejecting = false,
   });
 
-  final String status;
   final VoidCallback onApprove;
   final VoidCallback onReject;
   final bool approving;
   final bool rejecting;
 
-  static const approvedColor = Color(0xFF059669);
-  static const rejectedColor = Color(0xFFDC2626);
+  static const _approved = Color(0xFF059669);
+  static const _rejected = Color(0xFFDC2626);
 
   @override
   Widget build(BuildContext context) {
-    final isPending = status == 'pending' || status.isEmpty;
-    final isApproved = status == 'approved';
-    final isRejected = status == 'rejected';
-
-    Widget button({
-      required String label,
-      required Color color,
-      required VoidCallback? onPressed,
-      required bool selected,
-      bool loading = false,
-    }) {
-      return SizedBox(
-        height: 36,
-        child: OutlinedButton(
-          onPressed: loading ? null : onPressed,
-          style: OutlinedButton.styleFrom(
-            foregroundColor: color,
-            backgroundColor: color.withValues(alpha: selected ? 0.14 : 0.06),
-            side: BorderSide(color: color.withValues(alpha: 0.45)),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(10),
-            ),
-            padding: const EdgeInsets.symmetric(horizontal: 12),
-          ),
-          child: loading
-              ? SizedBox(
-                  width: 16,
-                  height: 16,
-                  child: CircularProgressIndicator(
-                    strokeWidth: 2,
-                    color: color,
-                  ),
-                )
-              : Text(
-                  label,
-                  style: GoogleFonts.poppins(
-                    fontSize: 12.5,
-                    fontWeight: FontWeight.w600,
-                    letterSpacing: 0.1,
-                  ),
-                ),
-        ),
-      );
-    }
-
-    if (!isPending) {
-      return button(
-        label: isApproved ? 'Approved' : (isRejected ? 'Rejected' : 'Done'),
-        color: isApproved ? approvedColor : rejectedColor,
-        onPressed: null,
-        selected: true,
-      );
-    }
-
     final busy = approving || rejecting;
+
+    Widget loadingDot(Color color) => SizedBox(
+      width: 18,
+      height: 18,
+      child: CircularProgressIndicator(strokeWidth: 2.2, color: color),
+    );
+
+    final approveBtn = SizedBox(
+      height: 42,
+      child: ElevatedButton(
+        onPressed: busy ? null : onApprove,
+        style: ElevatedButton.styleFrom(
+          backgroundColor: _approved,
+          foregroundColor: Colors.white,
+          disabledBackgroundColor: _approved.withValues(alpha: 0.55),
+          disabledForegroundColor: Colors.white,
+          elevation: 0,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
+        ),
+        child: approving
+            ? loadingDot(Colors.white)
+            : Text(
+                'Approve',
+                style: GoogleFonts.poppins(
+                  fontSize: 13.5,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+      ),
+    );
+
+    final rejectBtn = SizedBox(
+      height: 42,
+      child: OutlinedButton(
+        onPressed: busy ? null : onReject,
+        style: OutlinedButton.styleFrom(
+          foregroundColor: _rejected,
+          side: BorderSide(color: _rejected.withValues(alpha: 0.7)),
+          backgroundColor: Colors.white,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
+        ),
+        child: rejecting
+            ? loadingDot(_rejected)
+            : Text(
+                'Reject',
+                style: GoogleFonts.poppins(
+                  fontSize: 13.5,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+      ),
+    );
 
     return LayoutBuilder(
       builder: (context, c) {
-        final stack = c.maxWidth < 340;
-        final approveBtn = button(
-          label: 'Approve',
-          color: approvedColor,
-          onPressed: busy ? null : onApprove,
-          selected: false,
-          loading: approving,
-        );
-        final rejectBtn = button(
-          label: 'Reject',
-          color: rejectedColor,
-          onPressed: busy ? null : onReject,
-          selected: false,
-          loading: rejecting,
-        );
-        if (stack) {
+        if (c.maxWidth < 320) {
           return Column(
             children: [
               SizedBox(width: double.infinity, child: approveBtn),
@@ -751,7 +777,7 @@ class _ActionButtons extends StatelessWidget {
         return Row(
           children: [
             Expanded(child: approveBtn),
-            const SizedBox(width: 8),
+            const SizedBox(width: 10),
             Expanded(child: rejectBtn),
           ],
         );
@@ -775,8 +801,16 @@ class _MetaCell extends StatelessWidget {
   Widget build(BuildContext context) {
     return Row(
       children: [
-        Icon(icon, size: 14, color: AppColors.primaryRed),
-        const SizedBox(width: 6),
+        Container(
+          width: 28,
+          height: 28,
+          decoration: BoxDecoration(
+            color: AppColors.cardWhite,
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Icon(icon, size: 14, color: AppColors.textDark),
+        ),
+        const SizedBox(width: 8),
         Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,

@@ -871,7 +871,7 @@ class _GenerateSalaryScreenState extends State<GenerateSalaryScreen> {
 
   String _joiningDate() {
     final date = widget.employee.dateOfJoin;
-    return date == null ? '' : DateFormat('dd/MMM/yyyy').format(date);
+    return date == null ? '' : DateFormat('dd MMM yyyy').format(date);
   }
 
   // ------------------------------------------------------ shared widgets

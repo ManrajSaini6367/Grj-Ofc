@@ -172,7 +172,7 @@ class _HeaderCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final submitted = request?.submittedAt;
     final verified = request?.verifiedAt;
-    final dateFmt = DateFormat('d MMM yyyy');
+    final dateFmt = DateFormat('dd MMM yyyy');
 
     return Container(
       padding: const EdgeInsets.all(14),

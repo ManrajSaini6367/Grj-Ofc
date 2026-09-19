@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:grjoffice_apps/core/app_colors.dart';
@@ -9,7 +10,9 @@ import 'package:grjoffice_apps/kycscreens/employee_kyc_store.dart';
 import 'package:grjoffice_apps/models/mykycdatamodal.dart';
 import 'package:grjoffice_apps/navigation/app_navigation.dart';
 import 'package:grjoffice_apps/services/api_auth.dart';
+import 'package:grjoffice_apps/services/purchase_image_download_service.dart';
 import 'package:grjoffice_apps/widgets/app_top_bar.dart';
+import 'package:http/http.dart' as http;
 import 'package:intl/intl.dart';
 
 class EmployeeKycRequestsScreen extends StatefulWidget {
@@ -97,8 +100,8 @@ class _EmployeeKycRequestsScreenState extends State<EmployeeKycRequestsScreen> {
     final contentMax = width >= 1100
         ? 860.0
         : width >= 900
-            ? 760.0
-            : double.infinity;
+        ? 760.0
+        : double.infinity;
     final items = _items;
     final bottomInset = MediaQuery.paddingOf(context).bottom;
 
@@ -154,8 +157,9 @@ class _EmployeeKycRequestsScreenState extends State<EmployeeKycRequestsScreen> {
                                 final item = items[index];
                                 return Center(
                                   child: ConstrainedBox(
-                                    constraints:
-                                        BoxConstraints(maxWidth: contentMax),
+                                    constraints: BoxConstraints(
+                                      maxWidth: contentMax,
+                                    ),
                                     child: _ConfigCard(
                                       config: item,
                                       onTap: () {
@@ -239,10 +243,7 @@ class _EmptyState extends StatelessWidget {
 }
 
 class _ConfigCard extends StatelessWidget {
-  const _ConfigCard({
-    required this.config,
-    required this.onTap,
-  });
+  const _ConfigCard({required this.config, required this.onTap});
 
   final EmployeeKycConfig config;
   final VoidCallback onTap;
@@ -261,13 +262,13 @@ class _ConfigCard extends StatelessWidget {
     final statusBg = statusLower.contains('reject')
         ? const Color(0xFFFEF2F2)
         : statusLower.contains('pending')
-            ? const Color(0xFFFFF7ED)
-            : const Color(0xFFECFDF5);
+        ? const Color(0xFFFFF7ED)
+        : const Color(0xFFECFDF5);
     final statusFg = statusLower.contains('reject')
         ? const Color(0xFFDC2626)
         : statusLower.contains('pending')
-            ? const Color(0xFFEA580C)
-            : const Color(0xFF059669);
+        ? const Color(0xFFEA580C)
+        : const Color(0xFF059669);
 
     String yesNo(bool v) => v ? 'Yes' : 'No';
 
@@ -314,9 +315,7 @@ class _ConfigCard extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          config.employeeName.isNotEmpty
-                              ? 'Employee'
-                              : 'Email',
+                          config.employeeName.isNotEmpty ? 'Employee' : 'Email',
                           style: GoogleFonts.poppins(
                             fontSize: 11.5,
                             color: AppColors.textSecondary,
@@ -706,131 +705,133 @@ class _EmployeeKycDetailScreenState extends State<EmployeeKycDetailScreen> {
                 child: CircularProgressIndicator(color: AppColors.primaryRed),
               )
             : ListView(
-          padding: EdgeInsets.fromLTRB(hPad, 16, hPad, 24),
-          children: [
-            Center(
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 680),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _DetailSection(
-                      title: 'Employee Information',
-                      rows: [
-                        (
-                          'Email',
-                          config.email.isEmpty ? '—' : config.email,
-                        ),
-                        (
-                          'Phone Number',
-                          config.phoneNumber.isEmpty ? '—' : config.phoneNumber,
-                        ),
-                        (
-                          'Assigned Site',
-                          config.assignedSite.isEmpty
-                              ? '—'
-                              : config.assignedSite,
-                        ),
-                        ('Joining Date', config.joiningDate),
-                        (
-                          'Monthly Salary',
-                          config.monthlySalary.isEmpty
-                              ? '—'
-                              : '₹ ${config.monthlySalary}'
-                        ),
-                        (
-                          'Leave Allocation',
-                          config.leaveAllocation.isEmpty
-                              ? '—'
-                              : '${config.leaveAllocation} leaves / month'
-                        ),
-                        ('Employment Type', config.employmentType),
-                        (
-                          'Food Allowance',
-                          config.foodAllowance
-                              ? config.foodTypeLabel
-                              : yesNo(config.foodAllowance),
-                        ),
-                        (
-                          'Stay Allowance',
-                          config.stayAllowance
-                              ? config.stayTypeLabel
-                              : yesNo(config.stayAllowance),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 12),
-                    _DetailSection(
-                      title: 'Bank Details',
-                      rows: [
-                        ('Account Holder', config.accountHolderName),
-                        ('Bank Name', config.bankName),
-                        ('Account Number', config.accountNumber),
-                        ('IFSC Code', config.ifscCode),
-                      ],
-                    ),
-                    const SizedBox(height: 12),
-                    _DetailSection(
-                      title: 'Emergency Contact',
-                      rows: [
-                        (
-                          'Contact Number',
-                          config.emergencyContact.isEmpty
-                              ? '—'
-                              : config.emergencyContact
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 12),
-                    Text(
-                      'Uploaded Documents',
-                      style: GoogleFonts.poppins(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w800,
-                        color: AppColors.headingBlack,
+                padding: EdgeInsets.fromLTRB(hPad, 16, hPad, 24),
+                children: [
+                  Center(
+                    child: ConstrainedBox(
+                      constraints: const BoxConstraints(maxWidth: 680),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          _DetailSection(
+                            title: 'Employee Information',
+                            rows: [
+                              (
+                                'Email',
+                                config.email.isEmpty ? '—' : config.email,
+                              ),
+                              (
+                                'Phone Number',
+                                config.phoneNumber.isEmpty
+                                    ? '—'
+                                    : config.phoneNumber,
+                              ),
+                              (
+                                'Assigned Site',
+                                config.assignedSite.isEmpty
+                                    ? '—'
+                                    : config.assignedSite,
+                              ),
+                              ('Joining Date', config.joiningDate),
+                              (
+                                'Monthly Salary',
+                                config.monthlySalary.isEmpty
+                                    ? '—'
+                                    : '₹ ${config.monthlySalary}',
+                              ),
+                              (
+                                'Leave Allocation',
+                                config.leaveAllocation.isEmpty
+                                    ? '—'
+                                    : '${config.leaveAllocation} leaves / month',
+                              ),
+                              ('Employment Type', config.employmentType),
+                              (
+                                'Food Allowance',
+                                config.foodAllowance
+                                    ? config.foodTypeLabel
+                                    : yesNo(config.foodAllowance),
+                              ),
+                              (
+                                'Stay Allowance',
+                                config.stayAllowance
+                                    ? config.stayTypeLabel
+                                    : yesNo(config.stayAllowance),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 12),
+                          _DetailSection(
+                            title: 'Bank Details',
+                            rows: [
+                              ('Account Holder', config.accountHolderName),
+                              ('Bank Name', config.bankName),
+                              ('Account Number', config.accountNumber),
+                              ('IFSC Code', config.ifscCode),
+                            ],
+                          ),
+                          const SizedBox(height: 12),
+                          _DetailSection(
+                            title: 'Emergency Contact',
+                            rows: [
+                              (
+                                'Contact Number',
+                                config.emergencyContact.isEmpty
+                                    ? '—'
+                                    : config.emergencyContact,
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 12),
+                          Text(
+                            'Uploaded Documents',
+                            style: GoogleFonts.poppins(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w800,
+                              color: AppColors.headingBlack,
+                            ),
+                          ),
+                          const SizedBox(height: 10),
+                          _DetailImage(label: 'PAN Card', path: config.panPath),
+                          _DetailImage(
+                            label: 'Aadhaar Card Front',
+                            path: config.aadhaarFrontPath,
+                          ),
+                          _DetailImage(
+                            label: 'Aadhaar Card Back',
+                            path: config.aadhaarBackPath,
+                          ),
+                          _DetailImage(
+                            label: '10th Marksheet',
+                            path: config.marksheet10Path,
+                          ),
+                          _DetailImage(
+                            label: '12th Marksheet',
+                            path: config.marksheet12Path,
+                          ),
+                          if (config.degreePaths.isNotEmpty)
+                            for (var i = 0; i < config.degreePaths.length; i++)
+                              _DetailImage(
+                                label: 'Degree Photo ${i + 1}',
+                                path: config.degreePaths[i],
+                              ),
+                          _DetailImage(
+                            label: 'Cancelled Cheque',
+                            path: config.bankChequePath,
+                          ),
+                          const SizedBox(height: 8),
+                          _EmployeeKycStatusActions(
+                            status: config.status,
+                            actioning: _actioning,
+                            onApprove: _confirmApprove,
+                            onReject: _confirmReject,
+                          ),
+                        ],
                       ),
                     ),
-                    const SizedBox(height: 10),
-                    _DetailImage(label: 'PAN Card', path: config.panPath),
-                    _DetailImage(
-                      label: 'Aadhaar Card Front',
-                      path: config.aadhaarFrontPath,
-                    ),
-                    _DetailImage(
-                      label: 'Aadhaar Card Back',
-                      path: config.aadhaarBackPath,
-                    ),
-                    _DetailImage(
-                      label: '10th Marksheet',
-                      path: config.marksheet10Path,
-                    ),
-                    _DetailImage(
-                      label: '12th Marksheet',
-                      path: config.marksheet12Path,
-                    ),
-                    if (config.degreePaths.isNotEmpty)
-                      for (var i = 0; i < config.degreePaths.length; i++)
-                        _DetailImage(
-                          label: 'Degree Photo ${i + 1}',
-                          path: config.degreePaths[i],
-                        ),
-                    _DetailImage(
-                      label: 'Cancelled Cheque',
-                      path: config.bankChequePath,
-                    ),
-                    const SizedBox(height: 8),
-                    _EmployeeKycStatusActions(
-                      status: config.status,
-                      actioning: _actioning,
-                      onApprove: _confirmApprove,
-                      onReject: _confirmReject,
-                    ),
-                  ],
-                ),
+                  ),
+                ],
               ),
-            ),
-          ],
-        ),
       ),
     );
   }
@@ -897,8 +898,9 @@ class _EmployeeKycStatusActions extends StatelessWidget {
                   style: ElevatedButton.styleFrom(
                     backgroundColor: const Color(0xFF059669),
                     foregroundColor: Colors.white,
-                    disabledBackgroundColor:
-                        const Color(0xFF059669).withValues(alpha: 0.5),
+                    disabledBackgroundColor: const Color(
+                      0xFF059669,
+                    ).withValues(alpha: 0.5),
                     elevation: 0,
                     padding: const EdgeInsets.symmetric(vertical: 12),
                     shape: RoundedRectangleBorder(
@@ -968,9 +970,7 @@ class _DetailSection extends StatelessWidget {
       decoration: BoxDecoration(
         color: AppColors.cardWhite,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: AppColors.borderGray.withValues(alpha: 0.4),
-        ),
+        border: Border.all(color: AppColors.borderGray.withValues(alpha: 0.4)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1032,8 +1032,8 @@ class _DetailImage extends StatelessWidget {
     final file = path.trim().isEmpty ? null : File(path);
     final hasFile = file != null && file.existsSync();
     final networkUrl = mediaUrl(path);
-    final isNetwork = networkUrl.startsWith('http://') ||
-        networkUrl.startsWith('https://');
+    final isNetwork =
+        networkUrl.startsWith('http://') || networkUrl.startsWith('https://');
 
     Widget image;
     if (hasFile) {
@@ -1119,15 +1119,13 @@ class _DetailImage extends StatelessWidget {
       color: AppColors.cardWhite,
       child: Text(
         'No image',
-        style: GoogleFonts.poppins(
-          color: AppColors.textSecondary,
-        ),
+        style: GoogleFonts.poppins(color: AppColors.textSecondary),
       ),
     );
   }
 }
 
-class _KycDocumentPreviewScreen extends StatelessWidget {
+class _KycDocumentPreviewScreen extends StatefulWidget {
   const _KycDocumentPreviewScreen({
     required this.title,
     this.file,
@@ -1139,21 +1137,92 @@ class _KycDocumentPreviewScreen extends StatelessWidget {
   final String? networkUrl;
 
   @override
+  State<_KycDocumentPreviewScreen> createState() =>
+      _KycDocumentPreviewScreenState();
+}
+
+class _KycDocumentPreviewScreenState extends State<_KycDocumentPreviewScreen> {
+  bool _downloading = false;
+
+  bool get _canDownload =>
+      widget.file != null ||
+      (widget.networkUrl != null && widget.networkUrl!.trim().isNotEmpty);
+
+  Future<void> _downloadImage() async {
+    if (!_canDownload || _downloading) return;
+
+    setState(() => _downloading = true);
+    try {
+      late final Uint8List bytes;
+      late final String fileName;
+
+      if (widget.file != null) {
+        bytes = await widget.file!.readAsBytes();
+        final raw = widget.file!.uri.pathSegments.last;
+        fileName = raw.isEmpty
+            ? 'kyc_${DateTime.now().millisecondsSinceEpoch}.jpg'
+            : raw;
+      } else {
+        final url = widget.networkUrl!.trim();
+        final response = await http.get(Uri.parse(url));
+        if (response.statusCode != 200 || response.bodyBytes.isEmpty) {
+          throw Exception('Download failed (${response.statusCode})');
+        }
+        bytes = response.bodyBytes;
+        final raw = url.split('/').last.split('?').first;
+        fileName = raw.isEmpty
+            ? 'kyc_${DateTime.now().millisecondsSinceEpoch}.jpg'
+            : raw;
+      }
+
+      final savedPath =
+          await PurchaseImageDownloadService.downloadToDownloadsFolder(
+            bytes: bytes,
+            fileName: fileName,
+          );
+
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Saved to Downloads\n$savedPath',
+            style: GoogleFonts.poppins(fontSize: 12),
+          ),
+          duration: const Duration(seconds: 4),
+        ),
+      );
+    } catch (e) {
+      debugPrint('[KycDocumentPreview] download error: $e');
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Failed to download image. Please try again.',
+            style: GoogleFonts.poppins(),
+          ),
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _downloading = false);
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
     final size = MediaQuery.sizeOf(context);
     final padding = MediaQuery.paddingOf(context);
 
     Widget image;
-    if (file != null) {
+    if (widget.file != null) {
       image = Image.file(
-        file!,
+        widget.file!,
         fit: BoxFit.contain,
         width: size.width,
         height: size.height,
       );
-    } else if (networkUrl != null && networkUrl!.isNotEmpty) {
+    } else if (widget.networkUrl != null && widget.networkUrl!.isNotEmpty) {
       image = Image.network(
-        networkUrl!,
+        widget.networkUrl!,
         fit: BoxFit.contain,
         width: size.width,
         height: size.height,
@@ -1181,6 +1250,23 @@ class _KycDocumentPreviewScreen extends StatelessWidget {
 
     return Scaffold(
       backgroundColor: Colors.black,
+      floatingActionButton: _canDownload
+          ? FloatingActionButton(
+              onPressed: _downloading ? null : _downloadImage,
+              backgroundColor: AppColors.primaryRed,
+              foregroundColor: Colors.white,
+              child: _downloading
+                  ? const SizedBox(
+                      width: 22,
+                      height: 22,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2.5,
+                        color: Colors.white,
+                      ),
+                    )
+                  : const Icon(Icons.download_rounded),
+            )
+          : null,
       body: Stack(
         children: [
           Positioned.fill(
@@ -1213,7 +1299,7 @@ class _KycDocumentPreviewScreen extends StatelessWidget {
             left: 16,
             right: 68,
             child: Text(
-              title,
+              widget.title,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: GoogleFonts.poppins(

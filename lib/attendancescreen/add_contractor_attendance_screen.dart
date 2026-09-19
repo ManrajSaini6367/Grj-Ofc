@@ -108,7 +108,7 @@ class _AddContractorAttendanceScreenState
 
   bool get _isWide => MediaQuery.sizeOf(context).width >= 700;
 
-  String get _todayLabel => DateFormat('MM / dd / yyyy').format(_today);
+  String get _todayLabel => DateFormat('dd MMM yyyy').format(_today);
 
   void _onContractorSearchChanged() {
     if (_suppressSearchListener) return;

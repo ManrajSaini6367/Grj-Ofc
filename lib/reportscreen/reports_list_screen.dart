@@ -70,10 +70,7 @@ class _ReportsListScreenState extends State<ReportsListScreen> {
       _missingSite = false;
     });
 
-    final response = await getReportsApi(
-      context,
-      siteId: siteId,
-    );
+    final response = await getReportsApi(context, siteId: siteId);
 
     if (!mounted) return;
 
@@ -233,8 +230,8 @@ class _ReportsListScreenState extends State<ReportsListScreen> {
                                       final itemWidth = columns == 1
                                           ? constraints.maxWidth
                                           : (constraints.maxWidth -
-                                                  gap * (columns - 1)) /
-                                              columns;
+                                                    gap * (columns - 1)) /
+                                                columns;
 
                                       return Wrap(
                                         spacing: gap,
@@ -282,9 +279,7 @@ class _EmptyReportsState extends StatelessWidget {
       decoration: BoxDecoration(
         color: AppColors.cardWhite,
         borderRadius: BorderRadius.circular(10),
-        border: Border.all(
-          color: AppColors.borderGray.withValues(alpha: 0.35),
-        ),
+        border: Border.all(color: AppColors.borderGray.withValues(alpha: 0.35)),
       ),
       child: Column(
         children: [
@@ -321,10 +316,7 @@ class _EmptyReportsState extends StatelessWidget {
 }
 
 class _ReportGridCard extends StatelessWidget {
-  const _ReportGridCard({
-    required this.item,
-    required this.onTap,
-  });
+  const _ReportGridCard({required this.item, required this.onTap});
 
   final ReportListItem item;
   final VoidCallback onTap;

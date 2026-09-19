@@ -46,12 +46,9 @@ class _LabourAttendanceReportScreenState
   List<_LabourDayRow> _rows = [];
 
   bool get _showDownloadExcel =>
-      !_searching &&
-      _searched &&
-      _rows.isNotEmpty &&
-      widget.report.hasExcelUrl;
+      !_searching && _searched && _rows.isNotEmpty && widget.report.hasExcelUrl;
 
-  static final _dateFmt = DateFormat('dd/MM/yyyy');
+  static final _dateFmt = DateFormat('dd MMM yyyy');
   static final _apiDateFmt = DateFormat('yyyy-MM-dd');
 
   @override
@@ -180,21 +177,22 @@ class _LabourAttendanceReportScreenState
         .whereType<Map>()
         .map((e) => LabourAttendanceItem.fromJson(Map<String, dynamic>.from(e)))
         .toList();
-    final rows = items
-        .where((item) => item.date != null)
-        .map(
-          (item) => _LabourDayRow(
-            date: item.date!,
-            mason: item.mason,
-            beldar: item.beldar,
-            coolie: item.coolie,
-            masonOver: item.masonOver,
-            beldarOver: item.beldarOver,
-            coolieOver: item.coolieOver,
-          ),
-        )
-        .toList()
-      ..sort((a, b) => a.date.compareTo(b.date));
+    final rows =
+        items
+            .where((item) => item.date != null)
+            .map(
+              (item) => _LabourDayRow(
+                date: item.date!,
+                mason: item.mason,
+                beldar: item.beldar,
+                coolie: item.coolie,
+                masonOver: item.masonOver,
+                beldarOver: item.beldarOver,
+                coolieOver: item.coolieOver,
+              ),
+            )
+            .toList()
+          ..sort((a, b) => a.date.compareTo(b.date));
 
     setState(() {
       _rows = rows;
@@ -260,16 +258,17 @@ class _LabourAttendanceReportScreenState
       );
 
       final stamp = DateFormat('yyyyMMdd').format(DateTime.now());
-      final safeTitle = widget.report.title
-          .trim()
-          .replaceAll(RegExp(r'[\\/:*?"<>|]'), '_');
+      final safeTitle = widget.report.title.trim().replaceAll(
+        RegExp(r'[\\/:*?"<>|]'),
+        '_',
+      );
       final fileName =
           '${safeTitle.isEmpty ? 'labour_attendance' : safeTitle}_$stamp.xlsx';
       final savedPath =
           await PurchaseImageDownloadService.downloadToDownloadsFolder(
-        bytes: bytes,
-        fileName: fileName,
-      );
+            bytes: bytes,
+            fileName: fileName,
+          );
       if (!mounted) return;
 
       final result = await OpenFilex.open(savedPath);
@@ -449,7 +448,9 @@ class _LabourAttendanceReportScreenState
                 const SizedBox(width: 8),
                 Expanded(
                   child: _ActionButton(
-                    label: _downloadingExcel ? 'Downloading...' : 'Download Excel',
+                    label: _downloadingExcel
+                        ? 'Downloading...'
+                        : 'Download Excel',
                     icon: Icons.file_download_outlined,
                     onPressed: _downloadingExcel ? () {} : _downloadExcel,
                   ),
@@ -579,11 +580,15 @@ class _LabourAttendanceReportScreenState
       contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
       border: OutlineInputBorder(
         borderRadius: BorderRadius.circular(6),
-        borderSide: BorderSide(color: AppColors.borderGray.withValues(alpha: 0.7)),
+        borderSide: BorderSide(
+          color: AppColors.borderGray.withValues(alpha: 0.7),
+        ),
       ),
       enabledBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(6),
-        borderSide: BorderSide(color: AppColors.borderGray.withValues(alpha: 0.7)),
+        borderSide: BorderSide(
+          color: AppColors.borderGray.withValues(alpha: 0.7),
+        ),
       ),
       focusedBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(6),
@@ -801,8 +806,10 @@ class _LabourAttendanceReportScreenState
           Row(
             children: [
               Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 6,
+                ),
                 decoration: BoxDecoration(
                   color: AppColors.primaryRed.withValues(alpha: 0.08),
                   borderRadius: BorderRadius.circular(8),
@@ -918,9 +925,7 @@ class _LabourAttendanceReportScreenState
             ? AppColors.operationsCardBg
             : AppColors.backgroundGray.withValues(alpha: 0.55),
         borderRadius: BorderRadius.circular(10),
-        border: Border.all(
-          color: AppColors.borderGray.withValues(alpha: 0.35),
-        ),
+        border: Border.all(color: AppColors.borderGray.withValues(alpha: 0.35)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1003,10 +1008,7 @@ class _ActionButton extends StatelessWidget {
           label,
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
-          style: GoogleFonts.poppins(
-            fontSize: 12,
-            fontWeight: FontWeight.w600,
-          ),
+          style: GoogleFonts.poppins(fontSize: 12, fontWeight: FontWeight.w600),
         ),
         style: ElevatedButton.styleFrom(
           backgroundColor: AppColors.primaryRed,

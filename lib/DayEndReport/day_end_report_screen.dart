@@ -23,7 +23,7 @@ class _DayEndReportScreenState extends State<DayEndReportScreen> {
 
   DateTime? _selectedDate;
 
-  static final _displayFormat = DateFormat('dd/MM/yyyy');
+  static final _displayFormat = DateFormat('dd MMM yyyy');
   static final _prettyFormat = DateFormat('EEE, dd MMM yyyy');
 
   double _hPad(double width) {

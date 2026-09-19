@@ -287,7 +287,7 @@ String formatSignedExpenseAmount(double amount) {
 
 String formatExpenseFormDate(DateTime date) {
   const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-  return '${date.day.toString().padLeft(2, '0')}-${months[date.month - 1]}-${date.year}';
+  return '${date.day.toString().padLeft(2, '0')} ${months[date.month - 1]} ${date.year}';
 }
 
 ExpensePaymentMode expensePaymentModeFromSource(String source) => switch (source) {

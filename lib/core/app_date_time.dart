@@ -1,3 +1,4 @@
+import 'package:intl/intl.dart';
 import 'package:timezone/data/latest.dart' as tz_data;
 import 'package:timezone/timezone.dart' as tz;
 
@@ -7,6 +8,15 @@ class AppDateTime {
 
   static bool _ready = false;
   static late tz.Location _india;
+
+  /// Display format: `10 Sep 2026`
+  static final DateFormat _displayFmt = DateFormat('dd MMM yyyy');
+
+  /// Compact display format: `10 Sep`
+  static final DateFormat _displayShortFmt = DateFormat('dd MMM');
+
+  /// API / payload format: `2026-09-10`
+  static final DateFormat _apiFmt = DateFormat('yyyy-MM-dd');
 
   static void init() {
     if (_ready) return;
@@ -61,5 +71,25 @@ class AppDateTime {
   static String todayKey() {
     final n = now();
     return '${n.year}-${n.month.toString().padLeft(2, '0')}-${n.day.toString().padLeft(2, '0')}';
+  }
+
+  /// e.g. `10 Sep 2026`
+  static String formatDisplay(DateTime? date, {String fallback = '-'}) {
+    if (date == null) return fallback;
+    return _displayFmt.format(date);
+  }
+
+  /// e.g. `10 Sep`
+  static String formatDisplayShort(DateTime? date, {String fallback = '-'}) {
+    if (date == null) return fallback;
+    return _displayShortFmt.format(date);
+  }
+
+  /// e.g. `2026-09-10` for API bodies
+  static String formatApi(DateTime date) => _apiFmt.format(date);
+
+  static DateTime? tryParse(String? value) {
+    if (value == null || value.trim().isEmpty) return null;
+    return DateTime.tryParse(value.trim());
   }
 }

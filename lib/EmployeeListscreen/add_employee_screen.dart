@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:grjoffice_apps/core/app_colors.dart';
+import 'package:grjoffice_apps/core/app_date_time.dart';
 import 'package:grjoffice_apps/widgets/field_label.dart';
 import 'package:grjoffice_apps/EmployeeListscreen/employee.dart';
 import 'package:grjoffice_apps/models/site_model.dart';
@@ -164,10 +165,7 @@ class _AddEmployeeScreenState extends State<AddEmployeeScreen> {
   }
 
   String _formatDate(DateTime? date) {
-    if (date == null) return 'Select date';
-    final d = date.day.toString().padLeft(2, '0');
-    final m = date.month.toString().padLeft(2, '0');
-    return '$d/$m/${date.year}';
+    return AppDateTime.formatDisplay(date, fallback: 'Select date');
   }
 
   Future<void> _pickDate({required bool isJoinDate}) async {
@@ -202,12 +200,7 @@ class _AddEmployeeScreenState extends State<AddEmployeeScreen> {
     });
   }
 
-  String _formatApiDate(DateTime date) {
-    final y = date.year.toString();
-    final m = date.month.toString().padLeft(2, '0');
-    final d = date.day.toString().padLeft(2, '0');
-    return '$y-$m-$d';
-  }
+  String _formatApiDate(DateTime date) => AppDateTime.formatApi(date);
 
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;

@@ -19,6 +19,7 @@ import 'package:grjoffice_apps/services/punch_in_location_validator.dart';
 import 'package:grjoffice_apps/services/user_session.dart';
 import 'package:grjoffice_apps/widgets/app_logo.dart';
 import 'package:grjoffice_apps/widgets/site_selection_dialog.dart';
+
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
 
@@ -54,10 +55,7 @@ class _HomePageState extends State<HomePage> {
       Icons.storefront_outlined,
       'Store',
       'STORE',
-      anyOf: [
-        AppPermissions.itemsView,
-        AppPermissions.itemsCreate,
-      ],
+      anyOf: [AppPermissions.itemsView, AppPermissions.itemsCreate],
     ),
     _OperationItem(
       Icons.shopping_cart_outlined,
@@ -208,8 +206,7 @@ class _HomePageState extends State<HomePage> {
 
     if (sites != null && sites.isNotEmpty) {
       final names = siteNames(sites);
-      final resolvedName =
-          _resolveSelectedSiteName(sites) ?? names.first;
+      final resolvedName = _resolveSelectedSiteName(sites) ?? names.first;
 
       _siteItems = sites;
       _sites = names;
@@ -308,9 +305,7 @@ class _HomePageState extends State<HomePage> {
 
   void _showPunchMessage(String text) {
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(text)),
-    );
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(text)));
     setState(() => _isProcessingPunch = false);
   }
 
@@ -330,8 +325,7 @@ class _HomePageState extends State<HomePage> {
       return;
     }
     if (!site.hasCoordinates) {
-      _showPunchMessage(
-        'Punch-in not allowed you are outside that location.',      );
+      _showPunchMessage('Punch-in not allowed you are outside that location.');
       return;
     }
     if (!site.hasPunchRadius) {
@@ -350,8 +344,9 @@ class _HomePageState extends State<HomePage> {
     final radiusMeters = site.radiusMeters!;
     final maxAccuracyMeters =
         PunchInLocationValidator.maxAcceptableAccuracyMeters(radiusMeters);
-    final desiredAccuracyMeters =
-        maxAccuracyMeters < 50 ? maxAccuracyMeters : 50.0;
+    final desiredAccuracyMeters = maxAccuracyMeters < 50
+        ? maxAccuracyMeters
+        : 50.0;
     final position = await _location.getAccurateCurrentLocation(
       reason: 'PUNCH IN location',
       desiredAccuracyMeters: desiredAccuracyMeters,
@@ -373,8 +368,7 @@ class _HomePageState extends State<HomePage> {
     );
     if (!locationCheck.allowed) {
       _showPunchMessage(
-        locationCheck.message ??
-            'You are outside that location.',
+        locationCheck.message ?? 'You are outside that location.',
       );
       return;
     }
@@ -412,17 +406,23 @@ class _HomePageState extends State<HomePage> {
     final granted = await _location.initialize();
     if (!granted && mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Location permission is required to punch out.')),
+        const SnackBar(
+          content: Text('Location permission is required to punch out.'),
+        ),
       );
       setState(() => _isProcessingPunch = false);
       return;
     }
 
-    final position = await _location.getCurrentLocation(reason: 'PUNCH OUT location');
+    final position = await _location.getCurrentLocation(
+      reason: 'PUNCH OUT location',
+    );
     if (position == null) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Unable to fetch current location. Try again.')),
+          const SnackBar(
+            content: Text('Unable to fetch current location. Try again.'),
+          ),
         );
         setState(() => _isProcessingPunch = false);
       }
@@ -488,70 +488,70 @@ class _HomePageState extends State<HomePage> {
                 color: AppColors.primaryRed,
                 onRefresh: _bootstrap,
                 child: LayoutBuilder(
-                builder: (context, constraints) {
-                  return SingleChildScrollView(
-                    physics: const AlwaysScrollableScrollPhysics(),
-                    padding: EdgeInsets.fromLTRB(hPad, 16, hPad, 24),
-                    child: Center(
-                      child: ConstrainedBox(
-                        constraints: const BoxConstraints(maxWidth: 640),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            _buildHeader(),
-                            const SizedBox(height: 14),
-                            AnimatedBuilder(
-                              animation: UserSession.instance,
-                              builder: (context, _) {
-                                if (!_attendanceAllowed) {
-                                  return const SizedBox.shrink();
-                                }
-                                return Column(
-                                  children: [
-                                    _AttendanceCard(
-                                      attendance: _attendance,
-                                      isProcessingPunch: _isProcessingPunch,
-                                      onPunchIn: _handlePunchIn,
-                                      onPunchOut: _handlePunchOut,
-                                    ),
-                                    const SizedBox(height: 16),
-                                  ],
-                                );
-                              },
-                            ),
-                            // Chats stays available without punch-in.
-                            _buildQuickActions(),
-                            const SizedBox(height: 24),
-                            PunchInLockedLayer(
-                              child: AnimatedBuilder(
-                                animation: PermissionService.instance,
+                  builder: (context, constraints) {
+                    return SingleChildScrollView(
+                      physics: const AlwaysScrollableScrollPhysics(),
+                      padding: EdgeInsets.fromLTRB(hPad, 16, hPad, 24),
+                      child: Center(
+                        child: ConstrainedBox(
+                          constraints: const BoxConstraints(maxWidth: 640),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              _buildHeader(),
+                              const SizedBox(height: 14),
+                              AnimatedBuilder(
+                                animation: UserSession.instance,
                                 builder: (context, _) {
-                                  final visibleOps = _visibleOperations;
-                                  if (visibleOps.isEmpty) {
+                                  if (!_attendanceAllowed) {
                                     return const SizedBox.shrink();
                                   }
                                   return Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
                                     children: [
-                                      _buildSectionTitle('Operations'),
-                                      const SizedBox(height: 12),
-                                      _buildOperationsGrid(
-                                        constraints.maxWidth,
-                                        visibleOps,
+                                      _AttendanceCard(
+                                        attendance: _attendance,
+                                        isProcessingPunch: _isProcessingPunch,
+                                        onPunchIn: _handlePunchIn,
+                                        onPunchOut: _handlePunchOut,
                                       ),
+                                      const SizedBox(height: 16),
                                     ],
                                   );
                                 },
                               ),
-                            ),
-                          ],
+                              // Chats stays available without punch-in.
+                              _buildQuickActions(),
+                              const SizedBox(height: 24),
+                              PunchInLockedLayer(
+                                child: AnimatedBuilder(
+                                  animation: PermissionService.instance,
+                                  builder: (context, _) {
+                                    final visibleOps = _visibleOperations;
+                                    if (visibleOps.isEmpty) {
+                                      return const SizedBox.shrink();
+                                    }
+                                    return Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        _buildSectionTitle('Operations'),
+                                        const SizedBox(height: 12),
+                                        _buildOperationsGrid(
+                                          constraints.maxWidth,
+                                          visibleOps,
+                                        ),
+                                      ],
+                                    );
+                                  },
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
                       ),
-                    ),
-                  );
-                },
-              ),
+                    );
+                  },
+                ),
               ),
             ),
           ],
@@ -586,7 +586,11 @@ class _HomePageState extends State<HomePage> {
               if (!PunchInGate.ensureAccess(context)) return;
               _scaffoldKey.currentState?.openEndDrawer();
             },
-            icon: Icon(Icons.person_outline, color: AppColors.textSecondary, size: 22),
+            icon: Icon(
+              Icons.person_outline,
+              color: AppColors.textSecondary,
+              size: 22,
+            ),
             padding: EdgeInsets.zero,
           ),
         ),
@@ -599,9 +603,7 @@ class _HomePageState extends State<HomePage> {
       color: AppColors.cardWhite,
       borderRadius: BorderRadius.circular(8),
       child: InkWell(
-        onTap: _isLoadingSites || _sites.isEmpty
-            ? null
-            : _openSiteSelection,
+        onTap: _isLoadingSites || _sites.isEmpty ? null : _openSiteSelection,
         borderRadius: BorderRadius.circular(8),
         child: Container(
           height: 40,
@@ -626,14 +628,14 @@ class _HomePageState extends State<HomePage> {
                       )
                     : Text(
                         _selectedSite.isEmpty ? 'Select site' : _selectedSite,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: GoogleFonts.poppins(
-                    color: AppColors.textDark,
-                    fontSize: 14,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: GoogleFonts.poppins(
+                          color: AppColors.textDark,
+                          fontSize: 14,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
               ),
               Icon(
                 Icons.keyboard_arrow_down_rounded,
@@ -678,10 +680,7 @@ class _HomePageState extends State<HomePage> {
         const SizedBox(height: 4),
         Text(
           'Administrative command center & logistics',
-          style: TextStyle(
-            color: AppColors.textSecondary,
-            fontSize: 14,
-          ),
+          style: TextStyle(color: AppColors.textSecondary, fontSize: 14),
         ),
       ],
     );
@@ -691,8 +690,9 @@ class _HomePageState extends State<HomePage> {
     return AnimatedBuilder(
       animation: PermissionService.instance,
       builder: (context, _) {
-        final showActivity =
-            PermissionService.instance.can(AppPermissions.viewDayReport);
+        final showActivity = PermissionService.instance.can(
+          AppPermissions.viewDayReport,
+        );
 
         return Row(
           children: [
@@ -730,35 +730,32 @@ class _HomePageState extends State<HomePage> {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: AppColors.operationsCardBg,
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Icon(icon, color: AppColors.primaryRed, size: 26),
-          const SizedBox(height: 12),
-          Text(
-            title,
-            style: TextStyle(
-              color: AppColors.headingBlack,
-              fontSize: 15,
-              fontWeight: FontWeight.w700,
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: AppColors.operationsCardBg,
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Icon(icon, color: AppColors.primaryRed, size: 26),
+            const SizedBox(height: 12),
+            Text(
+              title,
+              style: TextStyle(
+                color: AppColors.headingBlack,
+                fontSize: 15,
+                fontWeight: FontWeight.w700,
+              ),
             ),
-          ),
-          const SizedBox(height: 2),
-          Text(
-            subtitle,
-            style: TextStyle(
-              color: AppColors.textSecondary,
-              fontSize: 12,
+            const SizedBox(height: 2),
+            Text(
+              subtitle,
+              style: TextStyle(color: AppColors.textSecondary, fontSize: 12),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
-    ),
     );
   }
 
@@ -790,8 +787,7 @@ class _HomePageState extends State<HomePage> {
         childAspectRatio: aspectRatio,
       ),
       itemCount: operations.length,
-      itemBuilder: (context, index) =>
-          _buildOperationCard(operations[index]),
+      itemBuilder: (context, index) => _buildOperationCard(operations[index]),
     );
   }
 
@@ -924,7 +920,8 @@ class _AttendanceCardState extends State<_AttendanceCard> {
       return 'Tap punch out when you finish';
     }
 
-    final punchSiteName = attendance.todayAttendance?.siteName?.trim() ??
+    final punchSiteName =
+        attendance.todayAttendance?.siteName?.trim() ??
         siteNameById(cachedSites() ?? const [], punchSiteId)?.trim();
     if (punchSiteName != null && punchSiteName.isNotEmpty) {
       return 'Punched in at $punchSiteName. This site is unlocked.';
@@ -946,17 +943,24 @@ class _AttendanceCardState extends State<_AttendanceCard> {
             ? null
             : (isPunchedIn ? widget.onPunchOut : widget.onPunchIn),
         style: ElevatedButton.styleFrom(
-          backgroundColor: isPunchedIn ? AppColors.headingBlack : AppColors.punchLightGreen,
+          backgroundColor: isPunchedIn
+              ? AppColors.headingBlack
+              : AppColors.punchLightGreen,
           foregroundColor: AppColors.white,
           elevation: 0,
           padding: const EdgeInsets.symmetric(horizontal: 10),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
         ),
         child: widget.isProcessingPunch
             ? const SizedBox(
                 width: 18,
                 height: 18,
-                child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.white),
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  color: AppColors.white,
+                ),
               )
             : Text(
                 isPunchedIn ? 'PUNCH OUT' : 'PUNCH IN',
@@ -1001,8 +1005,8 @@ class _AttendanceCardState extends State<_AttendanceCard> {
                   isPunchedIn
                       ? 'Currently Punched In'
                       : onLeave
-                          ? 'On Leave'
-                          : 'Ready to Punch In',
+                      ? 'On Leave'
+                      : 'Ready to Punch In',
                   style: GoogleFonts.poppins(
                     fontSize: 14,
                     fontWeight: FontWeight.w600,
@@ -1014,8 +1018,8 @@ class _AttendanceCardState extends State<_AttendanceCard> {
                   isPunchedIn
                       ? _punchedInSubtitle(attendance)
                       : onLeave
-                          ? 'Punch in is not allowed while you are on leave'
-                          : 'Tap to start your shift',
+                      ? 'Punch in is not allowed while you are on leave'
+                      : 'Tap to start your shift',
                   style: GoogleFonts.poppins(
                     fontSize: 12,
                     color: AppColors.textSecondary,

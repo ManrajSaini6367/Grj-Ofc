@@ -30,7 +30,7 @@ class ReportDetailScreen extends StatefulWidget {
 }
 
 class _ReportDetailScreenState extends State<ReportDetailScreen> {
-  static final _displayDateFmt = DateFormat('dd/MM/yyyy');
+  static final _displayDateFmt = DateFormat('dd MMM yyyy');
   static final _apiDateFmt = DateFormat('yyyy-MM-dd');
 
   List<ContractorListItem> _contractors = [];
@@ -51,10 +51,7 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
   List<Map<String, dynamic>> _rows = [];
 
   bool get _showDownloadExcel =>
-      !_searching &&
-      _searched &&
-      _rows.isNotEmpty &&
-      widget.report.hasExcelUrl;
+      !_searching && _searched && _rows.isNotEmpty && widget.report.hasExcelUrl;
 
   double _hPad(double width) {
     if (width < 360) return 14;
@@ -290,16 +287,17 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
       );
 
       final stamp = DateFormat('yyyyMMdd').format(DateTime.now());
-      final safeTitle = widget.report.title
-          .trim()
-          .replaceAll(RegExp(r'[\\/:*?"<>|]'), '_');
+      final safeTitle = widget.report.title.trim().replaceAll(
+        RegExp(r'[\\/:*?"<>|]'),
+        '_',
+      );
       final fileName =
           '${safeTitle.isEmpty ? 'report' : safeTitle}_$stamp.xlsx';
       final savedPath =
           await PurchaseImageDownloadService.downloadToDownloadsFolder(
-        bytes: bytes,
-        fileName: fileName,
-      );
+            bytes: bytes,
+            fileName: fileName,
+          );
       if (!mounted) return;
 
       final result = await OpenFilex.open(savedPath);
@@ -415,7 +413,11 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
       ),
       child: Row(
         children: [
-          const Icon(Icons.location_on_outlined, size: 16, color: AppColors.primaryRed),
+          const Icon(
+            Icons.location_on_outlined,
+            size: 16,
+            color: AppColors.primaryRed,
+          ),
           const SizedBox(width: 8),
           Expanded(
             child: Text(
@@ -493,7 +495,9 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
                 const SizedBox(width: 8),
                 Expanded(
                   child: _actionButton(
-                    label: _downloadingExcel ? 'Downloading...' : 'Download Excel',
+                    label: _downloadingExcel
+                        ? 'Downloading...'
+                        : 'Download Excel',
                     icon: Icons.file_download_outlined,
                     onPressed: _downloadingExcel ? null : _downloadExcel,
                   ),
@@ -547,10 +551,8 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
           field = _dateField(
             label: 'Start date',
             value: _startDate,
-            onTap: () => _pickDate(
-              initial: _startDate,
-              onPicked: (d) => _startDate = d,
-            ),
+            onTap: () =>
+                _pickDate(initial: _startDate, onPicked: (d) => _startDate = d),
           );
         case 'end_date':
           field = _dateField(
@@ -588,8 +590,8 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
             value: _type,
             hint: 'Choose type',
             items: const [
-              DropdownMenuItem(value: 'in', child: Text('In')),
-              DropdownMenuItem(value: 'out', child: Text('Out')),
+              DropdownMenuItem(value: 'normal', child: Text('Normal')),
+              DropdownMenuItem(value: 'full', child: Text('Full')),
               DropdownMenuItem(value: 'all', child: Text('All')),
             ],
             onChanged: (v) => setState(() => _type = v),
@@ -614,7 +616,10 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
                 ? 'Loading report...'
                 : 'Select filters and tap Search to load report.',
             textAlign: TextAlign.center,
-            style: GoogleFonts.poppins(fontSize: 13, color: AppColors.textSecondary),
+            style: GoogleFonts.poppins(
+              fontSize: 13,
+              color: AppColors.textSecondary,
+            ),
           ),
         ),
       );
@@ -645,7 +650,10 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
           child: Text(
             'No records found for selected filters.',
             textAlign: TextAlign.center,
-            style: GoogleFonts.poppins(fontSize: 13, color: AppColors.textSecondary),
+            style: GoogleFonts.poppins(
+              fontSize: 13,
+              color: AppColors.textSecondary,
+            ),
           ),
         ),
       );
@@ -665,7 +673,9 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
         const SizedBox(height: 10),
         ..._rows.asMap().entries.map((entry) {
           return Padding(
-            padding: EdgeInsets.only(bottom: entry.key == _rows.length - 1 ? 0 : 10),
+            padding: EdgeInsets.only(
+              bottom: entry.key == _rows.length - 1 ? 0 : 10,
+            ),
             child: _buildRowCard(entry.value, entry.key + 1, isCompact),
           );
         }),
@@ -804,7 +814,9 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
               value == null ? 'dd/mm/yyyy' : _displayDateFmt.format(value),
               style: GoogleFonts.poppins(
                 fontSize: 13,
-                color: value == null ? AppColors.inputHint : AppColors.headingBlack,
+                color: value == null
+                    ? AppColors.inputHint
+                    : AppColors.headingBlack,
               ),
             ),
           ),
@@ -822,7 +834,9 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
       border: OutlineInputBorder(borderRadius: BorderRadius.circular(6)),
       enabledBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(6),
-        borderSide: BorderSide(color: AppColors.borderGray.withValues(alpha: 0.7)),
+        borderSide: BorderSide(
+          color: AppColors.borderGray.withValues(alpha: 0.7),
+        ),
       ),
       focusedBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(6),

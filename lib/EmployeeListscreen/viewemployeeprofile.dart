@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:grjoffice_apps/core/app_colors.dart';
+import 'package:grjoffice_apps/core/app_date_time.dart';
 import 'package:grjoffice_apps/EmployeeListscreen/employee.dart';
 import 'package:grjoffice_apps/models/getemployeemodal.dart';
 import 'package:grjoffice_apps/services/api_auth.dart';
@@ -48,14 +49,10 @@ class _ViewEmployeeProfileScreenState extends State<ViewEmployeeProfileScreen> {
     return value.trim();
   }
 
-  String _formatDate(DateTime? date) {
-    if (date == null) return '-';
-    return '${date.day.toString().padLeft(2, '0')}/${date.month.toString().padLeft(2, '0')}/${date.year}';
-  }
+  String _formatDate(DateTime? date) => AppDateTime.formatDisplay(date);
 
   String _formatDateString(String? value) {
-    if (value == null || value.trim().isEmpty) return '-';
-    return _formatDate(DateTime.tryParse(value.trim()));
+    return AppDateTime.formatDisplay(AppDateTime.tryParse(value));
   }
 
   bool get _isActive =>
@@ -340,9 +337,7 @@ class _ViewEmployeeProfileScreenState extends State<ViewEmployeeProfileScreen> {
           child: _statCard(
             icon: Icons.calendar_month_outlined,
             label: 'Joined',
-            value: _formatDate(_profile?.dateOfJoin).length > 8
-                ? _formatDate(_profile?.dateOfJoin).substring(0, 5)
-                : _formatDate(_profile?.dateOfJoin),
+            value: AppDateTime.formatDisplayShort(_profile?.dateOfJoin),
             color: const Color(0xFF2563EB),
           ),
         ),

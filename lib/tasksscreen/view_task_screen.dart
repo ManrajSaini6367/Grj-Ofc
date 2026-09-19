@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:grjoffice_apps/core/app_colors.dart';
+import 'package:grjoffice_apps/core/app_date_time.dart';
 import 'package:grjoffice_apps/models/task_model.dart';
 import 'package:grjoffice_apps/services/api_auth.dart';
 import 'package:grjoffice_apps/tasksscreen/add_task_screen.dart';
@@ -145,12 +146,7 @@ class _ViewTaskScreenState extends State<ViewTaskScreen> {
     return value.trim();
   }
 
-  String _formatDate(DateTime? date) {
-    if (date == null) return '-';
-    final d = date.day.toString().padLeft(2, '0');
-    final m = date.month.toString().padLeft(2, '0');
-    return '$d/$m/${date.year}';
-  }
+  String _formatDate(DateTime? date) => AppDateTime.formatDisplay(date);
 
   String _statusLabel(TaskStatus status) {
     switch (status) {
