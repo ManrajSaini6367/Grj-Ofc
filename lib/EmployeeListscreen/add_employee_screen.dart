@@ -264,11 +264,8 @@ class _AddEmployeeScreenState extends State<AddEmployeeScreen> {
         mobile: _phoneController.text.trim(),
         password: _passwordController.text,
         passwordConfirmation: _passwordController.text,
-        designation: _roles
-            .where((role) => role.id == roleId)
-            .firstOrNull
-            ?.name ??
-            '',
+        designation:
+            _roles.where((role) => role.id == roleId).firstOrNull?.name ?? '',
         dateOfJoin: _formatApiDate(_dateOfJoin!),
         dateOfSuspended: _dateSuspended != null
             ? _formatApiDate(_dateSuspended!)
@@ -284,12 +281,14 @@ class _AddEmployeeScreenState extends State<AddEmployeeScreen> {
         siteIds: siteIds,
         foodAllowance: _foodAllowance,
         foodAllowanceType: _foodAllowance ? _foodAllowanceType : '',
-        foodEmployeeAmount: _foodAllowance && _foodAllowanceType == _foodTypeAmount
+        foodEmployeeAmount:
+            _foodAllowance && _foodAllowanceType == _foodTypeAmount
             ? _foodAmountController.text.trim()
             : '',
         stayAllowance: _stayAllowance,
         stayAllowanceType: _stayAllowance ? _stayAllowanceType : '',
-        stayEmployeeAmount: _stayAllowance && _stayAllowanceType == _stayTypeAmount
+        stayEmployeeAmount:
+            _stayAllowance && _stayAllowanceType == _stayTypeAmount
             ? _stayAmountController.text.trim()
             : '',
       );
@@ -804,8 +803,8 @@ class _AddEmployeeScreenState extends State<AddEmployeeScreen> {
             _isLoadingRoles
                 ? 'Loading roles...'
                 : items.isEmpty
-                    ? 'No roles available.'
-                    : 'Select $label',
+                ? 'No roles available.'
+                : 'Select $label',
           ),
           style: GoogleFonts.poppins(
             color: AppColors.headingBlack,
@@ -1203,7 +1202,9 @@ class _AddEmployeeScreenState extends State<AddEmployeeScreen> {
               label: 'Amount',
               controller: amountCtrl,
               hint: '0.00',
-              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              keyboardType: const TextInputType.numberWithOptions(
+                decimal: true,
+              ),
               inputFormatters: [
                 FilteringTextInputFormatter.allow(RegExp(r'[0-9.]')),
               ],

@@ -52,14 +52,19 @@ class _EditEmployeeScreenState extends State<EditEmployeeScreen> {
     super.initState();
     final e = widget.employee;
     final parts = e.name.trim().split(RegExp(r'\s+'));
-    _firstName = TextEditingController(text: e.firstName ?? (parts.isNotEmpty ? parts.first : ''));
-    _lastName = TextEditingController(text: e.lastName ?? (parts.length > 1 ? parts.sublist(1).join(' ') : ''));
+    _firstName = TextEditingController(
+      text: e.firstName ?? (parts.isNotEmpty ? parts.first : ''),
+    );
+    _lastName = TextEditingController(
+      text: e.lastName ?? (parts.length > 1 ? parts.sublist(1).join(' ') : ''),
+    );
     _email = TextEditingController(text: e.email ?? '');
     _phone = TextEditingController(text: e.mobile ?? '');
     _password = TextEditingController();
     _salary = TextEditingController(text: e.monthlySalary ?? '');
     _leave = TextEditingController(text: e.leaveAllocation?.toString() ?? '');
     _dateOfJoin = e.dateOfJoin ?? DateTime.now();
+    _dateSuspended = e.dateOfSuspended;
     _attendanceAllowed = e.attendanceAllow;
     _sundayMarkedHoliday = e.sundayMarkedHoliday;
     _webLoginAllow = e.webLoginAllow;
@@ -90,13 +95,18 @@ class _EditEmployeeScreenState extends State<EditEmployeeScreen> {
       _isLoadingRoles = false;
       _isLoadingAccessRoles = false;
       _selectedRoleId ??= options
-            .where((role) => role.name.toLowerCase() == currentName)
-            .firstOrNull
-            ?.id;
-      if (_selectedAccessRoleIds.isEmpty && widget.employee.accessRoles.isNotEmpty) {
-        final names = widget.employee.accessRoles.map((n) => n.toLowerCase()).toSet();
+          .where((role) => role.name.toLowerCase() == currentName)
+          .firstOrNull
+          ?.id;
+      if (_selectedAccessRoleIds.isEmpty &&
+          widget.employee.accessRoles.isNotEmpty) {
+        final names = widget.employee.accessRoles
+            .map((n) => n.toLowerCase())
+            .toSet();
         _selectedAccessRoleIds.addAll(
-          options.where((role) => names.contains(role.name.toLowerCase())).map((role) => role.id),
+          options
+              .where((role) => names.contains(role.name.toLowerCase()))
+              .map((role) => role.id),
         );
       }
     });
@@ -140,7 +150,9 @@ class _EditEmployeeScreenState extends State<EditEmployeeScreen> {
   Future<void> _pickDate({required bool isJoin}) async {
     final picked = await showDatePicker(
       context: context,
-      initialDate: isJoin ? (_dateOfJoin ?? DateTime.now()) : (_dateSuspended ?? DateTime.now()),
+      initialDate: isJoin
+          ? (_dateOfJoin ?? DateTime.now())
+          : (_dateSuspended ?? DateTime.now()),
       firstDate: DateTime(2000),
       lastDate: DateTime(2100),
       builder: (context, child) => Theme(
@@ -174,9 +186,9 @@ class _EditEmployeeScreenState extends State<EditEmployeeScreen> {
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
     if (_selectedRoleId == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please select role.')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Please select role.')));
       return;
     }
     if (_dateOfJoin == null) {
@@ -194,9 +206,9 @@ class _EditEmployeeScreenState extends State<EditEmployeeScreen> {
 
     final employeeId = widget.employee.employeeId;
     if (employeeId == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Invalid employee id.')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Invalid employee id.')));
       return;
     }
 
@@ -217,14 +229,13 @@ class _EditEmployeeScreenState extends State<EditEmployeeScreen> {
         lastName: _lastName.text.trim(),
         email: _email.text.trim(),
         mobile: _phone.text.trim(),
-        designation: _roles
-            .where((role) => role.id == roleId)
-            .firstOrNull
-            ?.name ??
+        designation:
+            _roles.where((role) => role.id == roleId).firstOrNull?.name ??
             widget.employee.role,
         dateOfJoin: _formatApiDate(_dateOfJoin!),
-        dateOfSuspended:
-            _dateSuspended != null ? _formatApiDate(_dateSuspended!) : null,
+        dateOfSuspended: _dateSuspended != null
+            ? _formatApiDate(_dateSuspended!)
+            : null,
         password: password.isNotEmpty ? password : null,
         passwordConfirmation: password.isNotEmpty ? password : null,
         monthlySalary: _salary.text.trim(),
@@ -255,7 +266,9 @@ class _EditEmployeeScreenState extends State<EditEmployeeScreen> {
     final hPad = MediaQuery.sizeOf(context).width < 360 ? 14.0 : 18.0;
     final inputBorder = OutlineInputBorder(
       borderRadius: BorderRadius.circular(8),
-      borderSide: BorderSide(color: AppColors.borderGray.withValues(alpha: 0.6)),
+      borderSide: BorderSide(
+        color: AppColors.borderGray.withValues(alpha: 0.6),
+      ),
     );
 
     return Scaffold(
@@ -287,7 +300,10 @@ class _EditEmployeeScreenState extends State<EditEmployeeScreen> {
                       const SizedBox(height: 6),
                       Text(
                         'Update employee details below.',
-                        style: GoogleFonts.poppins(color: AppColors.textSecondary, fontSize: 14),
+                        style: GoogleFonts.poppins(
+                          color: AppColors.textSecondary,
+                          fontSize: 14,
+                        ),
                       ),
                       const SizedBox(height: 20),
                       Container(
@@ -295,7 +311,9 @@ class _EditEmployeeScreenState extends State<EditEmployeeScreen> {
                         decoration: BoxDecoration(
                           color: AppColors.cardWhite,
                           borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: AppColors.borderGray.withValues(alpha: 0.5)),
+                          border: Border.all(
+                            color: AppColors.borderGray.withValues(alpha: 0.5),
+                          ),
                         ),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -306,14 +324,21 @@ class _EditEmployeeScreenState extends State<EditEmployeeScreen> {
                             _label('First Name', isRequired: true),
                             TextFormField(
                               controller: _firstName,
-                              validator: (v) => v == null || v.trim().isEmpty ? 'Required' : null,
-                              decoration: _decoration('First name', inputBorder),
+                              validator: (v) => v == null || v.trim().isEmpty
+                                  ? 'Required'
+                                  : null,
+                              decoration: _decoration(
+                                'First name',
+                                inputBorder,
+                              ),
                             ),
                             const SizedBox(height: 16),
                             _label('Last Name', isRequired: true),
                             TextFormField(
                               controller: _lastName,
-                              validator: (v) => v == null || v.trim().isEmpty ? 'Required' : null,
+                              validator: (v) => v == null || v.trim().isEmpty
+                                  ? 'Required'
+                                  : null,
                               decoration: _decoration('Last name', inputBorder),
                             ),
                             const SizedBox(height: 16),
@@ -322,41 +347,61 @@ class _EditEmployeeScreenState extends State<EditEmployeeScreen> {
                               controller: _email,
                               keyboardType: TextInputType.emailAddress,
                               validator: (v) {
-                                if (v == null || v.trim().isEmpty) return 'Required';
+                                if (v == null || v.trim().isEmpty) {
+                                  return 'Required';
+                                }
                                 if (!v.contains('@')) return 'Invalid email';
                                 return null;
                               },
-                              decoration: _decoration('employee@company.com', inputBorder),
+                              decoration: _decoration(
+                                'employee@company.com',
+                                inputBorder,
+                              ),
                             ),
                             const SizedBox(height: 16),
                             _label('Phone', isRequired: true),
                             TextFormField(
                               controller: _phone,
                               keyboardType: TextInputType.phone,
-                              validator: (v) => v == null || v.trim().isEmpty ? 'Required' : null,
-                              decoration: _decoration('+91 98765 43210', inputBorder),
+                              validator: (v) => v == null || v.trim().isEmpty
+                                  ? 'Required'
+                                  : null,
+                              decoration: _decoration(
+                                '+91 98765 43210',
+                                inputBorder,
+                              ),
                             ),
                             const SizedBox(height: 16),
                             _label('Password (optional)'),
                             TextFormField(
                               controller: _password,
                               obscureText: _obscurePassword,
-                              decoration: _decoration('Leave blank to keep same', inputBorder).copyWith(
-                                suffixIcon: IconButton(
-                                  icon: Icon(
-                                    _obscurePassword ? Icons.visibility_off_outlined : Icons.visibility_outlined,
-                                    color: AppColors.textSecondary,
-                                    size: 20,
+                              decoration:
+                                  _decoration(
+                                    'Leave blank to keep same',
+                                    inputBorder,
+                                  ).copyWith(
+                                    suffixIcon: IconButton(
+                                      icon: Icon(
+                                        _obscurePassword
+                                            ? Icons.visibility_off_outlined
+                                            : Icons.visibility_outlined,
+                                        color: AppColors.textSecondary,
+                                        size: 20,
+                                      ),
+                                      onPressed: () => setState(
+                                        () => _obscurePassword =
+                                            !_obscurePassword,
+                                      ),
+                                    ),
                                   ),
-                                  onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
-                                ),
-                              ),
                             ),
                             const SizedBox(height: 16),
                             _label('Role', isRequired: true),
                             DropdownButtonFormField<int>(
                               key: ValueKey('edit-role-${_roles.length}'),
-                              initialValue: _roles.any((r) => r.id == _selectedRoleId)
+                              initialValue:
+                                  _roles.any((r) => r.id == _selectedRoleId)
                                   ? _selectedRoleId
                                   : null,
                               items: _roles
@@ -371,10 +416,14 @@ class _EditEmployeeScreenState extends State<EditEmployeeScreen> {
                                   ? null
                                   : (v) => setState(() => _selectedRoleId = v),
                               decoration: _decoration(
-                                _isLoadingRoles ? 'Loading roles...' : 'Select role',
+                                _isLoadingRoles
+                                    ? 'Loading roles...'
+                                    : 'Select role',
                                 inputBorder,
                               ),
-                              icon: const Icon(Icons.keyboard_arrow_down_rounded),
+                              icon: const Icon(
+                                Icons.keyboard_arrow_down_rounded,
+                              ),
                             ),
                             const SizedBox(height: 16),
                             _label('Access Roles (Optional)'),
@@ -387,11 +436,20 @@ class _EditEmployeeScreenState extends State<EditEmployeeScreen> {
                             InkWell(
                               onTap: () => _pickDate(isJoin: true),
                               child: InputDecorator(
-                                decoration: _decoration(_formatDate(_dateOfJoin), inputBorder),
+                                decoration: _decoration(
+                                  _formatDate(_dateOfJoin),
+                                  inputBorder,
+                                ),
                                 child: Row(
                                   children: [
-                                    Expanded(child: Text(_formatDate(_dateOfJoin))),
-                                    const Icon(Icons.calendar_today_outlined, size: 18, color: AppColors.textSecondary),
+                                    Expanded(
+                                      child: Text(_formatDate(_dateOfJoin)),
+                                    ),
+                                    const Icon(
+                                      Icons.calendar_today_outlined,
+                                      size: 18,
+                                      color: AppColors.textSecondary,
+                                    ),
                                   ],
                                 ),
                               ),
@@ -404,11 +462,22 @@ class _EditEmployeeScreenState extends State<EditEmployeeScreen> {
                                   child: InkWell(
                                     onTap: () => _pickDate(isJoin: false),
                                     child: InputDecorator(
-                                      decoration: _decoration(_formatDate(_dateSuspended), inputBorder),
+                                      decoration: _decoration(
+                                        _formatDate(_dateSuspended),
+                                        inputBorder,
+                                      ),
                                       child: Row(
                                         children: [
-                                          Expanded(child: Text(_formatDate(_dateSuspended))),
-                                          const Icon(Icons.calendar_today_outlined, size: 18, color: AppColors.textSecondary),
+                                          Expanded(
+                                            child: Text(
+                                              _formatDate(_dateSuspended),
+                                            ),
+                                          ),
+                                          const Icon(
+                                            Icons.calendar_today_outlined,
+                                            size: 18,
+                                            color: AppColors.textSecondary,
+                                          ),
                                         ],
                                       ),
                                     ),
@@ -416,7 +485,8 @@ class _EditEmployeeScreenState extends State<EditEmployeeScreen> {
                                 ),
                                 if (_dateSuspended != null)
                                   IconButton(
-                                    onPressed: () => setState(() => _dateSuspended = null),
+                                    onPressed: () =>
+                                        setState(() => _dateSuspended = null),
                                     icon: const Icon(Icons.close, size: 18),
                                   ),
                               ],
@@ -425,15 +495,22 @@ class _EditEmployeeScreenState extends State<EditEmployeeScreen> {
                             _label('Monthly Salary'),
                             TextFormField(
                               controller: _salary,
-                              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                              keyboardType:
+                                  const TextInputType.numberWithOptions(
+                                    decimal: true,
+                                  ),
                               inputFormatters: [
-                                FilteringTextInputFormatter.allow(RegExp(r'[0-9.]')),
+                                FilteringTextInputFormatter.allow(
+                                  RegExp(r'[0-9.]'),
+                                ),
                               ],
                               validator: (v) {
                                 final t = (v ?? '').trim();
                                 if (t.isEmpty) return null;
                                 final n = double.tryParse(t);
-                                if (n == null || n < 0) return 'Enter a valid salary';
+                                if (n == null || n < 0) {
+                                  return 'Enter a valid salary';
+                                }
                                 return null;
                               },
                               decoration: _decoration('0.00', inputBorder),
@@ -443,7 +520,9 @@ class _EditEmployeeScreenState extends State<EditEmployeeScreen> {
                             TextFormField(
                               controller: _leave,
                               keyboardType: TextInputType.number,
-                              inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                              inputFormatters: [
+                                FilteringTextInputFormatter.digitsOnly,
+                              ],
                               validator: (v) {
                                 final t = (v ?? '').trim();
                                 if (t.isEmpty) return null;
@@ -459,45 +538,115 @@ class _EditEmployeeScreenState extends State<EditEmployeeScreen> {
                             _label('Attendance Allow'),
                             Row(
                               children: [
-                                Expanded(child: _chip('Yes', _attendanceAllowed, () => setState(() => _attendanceAllowed = true))),
+                                Expanded(
+                                  child: _chip(
+                                    'Yes',
+                                    _attendanceAllowed,
+                                    () => setState(
+                                      () => _attendanceAllowed = true,
+                                    ),
+                                  ),
+                                ),
                                 const SizedBox(width: 10),
-                                Expanded(child: _chip('No', !_attendanceAllowed, () => setState(() => _attendanceAllowed = false))),
+                                Expanded(
+                                  child: _chip(
+                                    'No',
+                                    !_attendanceAllowed,
+                                    () => setState(
+                                      () => _attendanceAllowed = false,
+                                    ),
+                                  ),
+                                ),
                               ],
                             ),
                             const SizedBox(height: 16),
                             _label('Sunday Marked Holiday'),
                             Row(
                               children: [
-                                Expanded(child: _chip('Yes', _sundayMarkedHoliday, () => setState(() => _sundayMarkedHoliday = true))),
+                                Expanded(
+                                  child: _chip(
+                                    'Yes',
+                                    _sundayMarkedHoliday,
+                                    () => setState(
+                                      () => _sundayMarkedHoliday = true,
+                                    ),
+                                  ),
+                                ),
                                 const SizedBox(width: 10),
-                                Expanded(child: _chip('No', !_sundayMarkedHoliday, () => setState(() => _sundayMarkedHoliday = false))),
+                                Expanded(
+                                  child: _chip(
+                                    'No',
+                                    !_sundayMarkedHoliday,
+                                    () => setState(
+                                      () => _sundayMarkedHoliday = false,
+                                    ),
+                                  ),
+                                ),
                               ],
                             ),
                             const SizedBox(height: 16),
                             _label('Web Login Allow'),
                             Row(
                               children: [
-                                Expanded(child: _chip('Yes', _webLoginAllow, () => setState(() => _webLoginAllow = true))),
+                                Expanded(
+                                  child: _chip(
+                                    'Yes',
+                                    _webLoginAllow,
+                                    () => setState(() => _webLoginAllow = true),
+                                  ),
+                                ),
                                 const SizedBox(width: 10),
-                                Expanded(child: _chip('No', !_webLoginAllow, () => setState(() => _webLoginAllow = false))),
+                                Expanded(
+                                  child: _chip(
+                                    'No',
+                                    !_webLoginAllow,
+                                    () =>
+                                        setState(() => _webLoginAllow = false),
+                                  ),
+                                ),
                               ],
                             ),
                             const SizedBox(height: 16),
                             _label('App Login Allow'),
                             Row(
                               children: [
-                                Expanded(child: _chip('Yes', _appLoginAllow, () => setState(() => _appLoginAllow = true))),
+                                Expanded(
+                                  child: _chip(
+                                    'Yes',
+                                    _appLoginAllow,
+                                    () => setState(() => _appLoginAllow = true),
+                                  ),
+                                ),
                                 const SizedBox(width: 10),
-                                Expanded(child: _chip('No', !_appLoginAllow, () => setState(() => _appLoginAllow = false))),
+                                Expanded(
+                                  child: _chip(
+                                    'No',
+                                    !_appLoginAllow,
+                                    () =>
+                                        setState(() => _appLoginAllow = false),
+                                  ),
+                                ),
                               ],
                             ),
                             const SizedBox(height: 16),
                             _label('Status'),
                             Row(
                               children: [
-                                Expanded(child: _chip('Active', _isActive, () => setState(() => _isActive = true))),
+                                Expanded(
+                                  child: _chip(
+                                    'Active',
+                                    _isActive,
+                                    () => setState(() => _isActive = true),
+                                  ),
+                                ),
                                 const SizedBox(width: 10),
-                                Expanded(child: _chip('Inactive', !_isActive, () => setState(() => _isActive = false))),
+                                Expanded(
+                                  child: _chip(
+                                    'Inactive',
+                                    !_isActive,
+                                    () => setState(() => _isActive = false),
+                                  ),
+                                ),
                               ],
                             ),
                           ],
@@ -511,17 +660,25 @@ class _EditEmployeeScreenState extends State<EditEmployeeScreen> {
                           style: ElevatedButton.styleFrom(
                             backgroundColor: AppColors.primaryRed,
                             foregroundColor: AppColors.white,
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(10),
+                            ),
                           ),
                           child: _isSaving
                               ? const SizedBox(
                                   width: 22,
                                   height: 22,
-                                  child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.white),
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    color: AppColors.white,
+                                  ),
                                 )
                               : Text(
                                   'UPDATE EMPLOYEE',
-                                  style: GoogleFonts.poppins(fontWeight: FontWeight.w700, letterSpacing: 0.6),
+                                  style: GoogleFonts.poppins(
+                                    fontWeight: FontWeight.w700,
+                                    letterSpacing: 0.6,
+                                  ),
                                 ),
                         ),
                       ),
@@ -529,12 +686,25 @@ class _EditEmployeeScreenState extends State<EditEmployeeScreen> {
                       SizedBox(
                         height: 48,
                         child: OutlinedButton(
-                          onPressed: _isSaving ? null : () => Navigator.pop(context),
+                          onPressed: _isSaving
+                              ? null
+                              : () => Navigator.pop(context),
                           style: OutlinedButton.styleFrom(
-                            side: BorderSide(color: AppColors.borderGray.withValues(alpha: 0.8)),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                            side: BorderSide(
+                              color: AppColors.borderGray.withValues(
+                                alpha: 0.8,
+                              ),
+                            ),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(10),
+                            ),
                           ),
-                          child: Text('CANCEL', style: GoogleFonts.poppins(fontWeight: FontWeight.w600)),
+                          child: Text(
+                            'CANCEL',
+                            style: GoogleFonts.poppins(
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
                         ),
                       ),
                     ],
@@ -549,71 +719,95 @@ class _EditEmployeeScreenState extends State<EditEmployeeScreen> {
   }
 
   Widget _label(String text, {bool isRequired = false}) => Padding(
-        padding: const EdgeInsets.only(bottom: 8),
-        child: fieldLabelText(
-          text,
-          isRequired: isRequired,
-          style: GoogleFonts.poppins(fontSize: 13, fontWeight: FontWeight.w500, color: AppColors.textDark),
-        ),
-      );
+    padding: const EdgeInsets.only(bottom: 8),
+    child: fieldLabelText(
+      text,
+      isRequired: isRequired,
+      style: GoogleFonts.poppins(
+        fontSize: 13,
+        fontWeight: FontWeight.w500,
+        color: AppColors.textDark,
+      ),
+    ),
+  );
 
-  InputDecoration _decoration(String hint, OutlineInputBorder border) => InputDecoration(
-        hintText: hint,
-        hintStyle: GoogleFonts.poppins(color: AppColors.inputHint, fontSize: 14),
-        filled: true,
-        fillColor: AppColors.operationsCardBg,
-        contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
-        enabledBorder: border,
-        focusedBorder: border.copyWith(borderSide: const BorderSide(color: AppColors.primaryRed, width: 1.5)),
-        errorBorder: border.copyWith(borderSide: const BorderSide(color: AppColors.primaryRed)),
-      );
+  InputDecoration _decoration(
+    String hint,
+    OutlineInputBorder border,
+  ) => InputDecoration(
+    hintText: hint,
+    hintStyle: GoogleFonts.poppins(color: AppColors.inputHint, fontSize: 14),
+    filled: true,
+    fillColor: AppColors.operationsCardBg,
+    contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+    enabledBorder: border,
+    focusedBorder: border.copyWith(
+      borderSide: const BorderSide(color: AppColors.primaryRed, width: 1.5),
+    ),
+    errorBorder: border.copyWith(
+      borderSide: const BorderSide(color: AppColors.primaryRed),
+    ),
+  );
 
   Widget _readOnly(String value) => Container(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
-        decoration: BoxDecoration(
-          color: AppColors.operationsCardBg,
-          borderRadius: BorderRadius.circular(8),
-          border: Border.all(color: AppColors.borderGray.withValues(alpha: 0.6)),
-        ),
-        child: Text(value, style: GoogleFonts.poppins(fontSize: 14, color: AppColors.headingBlack)),
-      );
+    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+    decoration: BoxDecoration(
+      color: AppColors.operationsCardBg,
+      borderRadius: BorderRadius.circular(8),
+      border: Border.all(color: AppColors.borderGray.withValues(alpha: 0.6)),
+    ),
+    child: Text(
+      value,
+      style: GoogleFonts.poppins(fontSize: 14, color: AppColors.headingBlack),
+    ),
+  );
 
   Widget _chip(String label, bool selected, VoidCallback onTap) => InkWell(
-        onTap: onTap,
+    onTap: onTap,
+    borderRadius: BorderRadius.circular(8),
+    child: Container(
+      height: 44,
+      alignment: Alignment.center,
+      decoration: BoxDecoration(
+        color: selected
+            ? AppColors.primaryRed.withValues(alpha: 0.1)
+            : AppColors.operationsCardBg,
         borderRadius: BorderRadius.circular(8),
-        child: Container(
-          height: 44,
-          alignment: Alignment.center,
-          decoration: BoxDecoration(
-            color: selected ? AppColors.primaryRed.withValues(alpha: 0.1) : AppColors.operationsCardBg,
-            borderRadius: BorderRadius.circular(8),
-            border: Border.all(
-              color: selected ? AppColors.primaryRed : AppColors.borderGray.withValues(alpha: 0.6),
-              width: selected ? 1.5 : 1,
-            ),
-          ),
-          child: Text(
-            label,
-            style: GoogleFonts.poppins(
-              color: selected ? AppColors.primaryRed : AppColors.textDark,
-              fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
-            ),
-          ),
+        border: Border.all(
+          color: selected
+              ? AppColors.primaryRed
+              : AppColors.borderGray.withValues(alpha: 0.6),
+          width: selected ? 1.5 : 1,
         ),
-      );
+      ),
+      child: Text(
+        label,
+        style: GoogleFonts.poppins(
+          color: selected ? AppColors.primaryRed : AppColors.textDark,
+          fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
+        ),
+      ),
+    ),
+  );
 
   Widget _buildAccessRolesChips() {
     final options = _accessRoles;
     if (_isLoadingAccessRoles) {
       return Text(
         'Loading roles...',
-        style: GoogleFonts.poppins(color: AppColors.textSecondary, fontSize: 13),
+        style: GoogleFonts.poppins(
+          color: AppColors.textSecondary,
+          fontSize: 13,
+        ),
       );
     }
     if (options.isEmpty) {
       return Text(
         'No extra roles available.',
-        style: GoogleFonts.poppins(color: AppColors.textSecondary, fontSize: 13),
+        style: GoogleFonts.poppins(
+          color: AppColors.textSecondary,
+          fontSize: 13,
+        ),
       );
     }
     return Wrap(
@@ -648,7 +842,9 @@ class _EditEmployeeScreenState extends State<EditEmployeeScreen> {
                 ? AppColors.primaryRed.withValues(alpha: 0.4)
                 : AppColors.borderGray.withValues(alpha: 0.5),
           ),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+          ),
         );
       }).toList(),
     );
@@ -658,13 +854,19 @@ class _EditEmployeeScreenState extends State<EditEmployeeScreen> {
     if (_isLoadingSites) {
       return Text(
         'Loading sites...',
-        style: GoogleFonts.poppins(color: AppColors.textSecondary, fontSize: 13),
+        style: GoogleFonts.poppins(
+          color: AppColors.textSecondary,
+          fontSize: 13,
+        ),
       );
     }
     if (_sites.isEmpty) {
       return Text(
         'No sites available.',
-        style: GoogleFonts.poppins(color: AppColors.textSecondary, fontSize: 13),
+        style: GoogleFonts.poppins(
+          color: AppColors.textSecondary,
+          fontSize: 13,
+        ),
       );
     }
     return Wrap(
@@ -699,7 +901,9 @@ class _EditEmployeeScreenState extends State<EditEmployeeScreen> {
                 ? AppColors.primaryRed.withValues(alpha: 0.4)
                 : AppColors.borderGray.withValues(alpha: 0.5),
           ),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+          ),
         );
       }).toList(),
     );

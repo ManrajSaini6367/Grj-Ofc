@@ -13,6 +13,7 @@ class Employee {
     this.email,
     this.mobile,
     this.dateOfJoin,
+    this.dateOfSuspended,
     this.monthlySalary,
     this.leaveAllocation,
     this.attendanceAllow = true,
@@ -35,6 +36,7 @@ class Employee {
   final String? email;
   final String? mobile;
   final DateTime? dateOfJoin;
+  final DateTime? dateOfSuspended;
   final String? monthlySalary;
   final int? leaveAllocation;
   final bool attendanceAllow;

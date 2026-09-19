@@ -45,9 +45,7 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
   int get _activeTabVersion => _tabVersions[_selectedIndex];
 
   /// Tabs that can be accessed without Punch-In.
-  bool _isPunchInFreeTab(int index) {
-    return index == MainTab.dashboard || index == MainTab.chats;
-  }
+  bool _isPunchInFreeTab(int index) => isPunchInFreeMainTab(index);
 
   @override
   void initState() {

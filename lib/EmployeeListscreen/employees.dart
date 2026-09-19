@@ -100,6 +100,7 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
       site: selectedSiteName() ?? 'Site ${item.siteId ?? ''}',
       status: item.isActiveStatus ? EmployeeStatus.active : EmployeeStatus.inactive,
       dateOfJoin: item.dateOfJoin,
+      dateOfSuspended: DateTime.tryParse(item.dateOfSuspended?.trim() ?? ''),
       monthlySalary: item.monthlySalary,
       leaveAllocation: item.leaveAllocation,
       attendanceAllow: item.attendanceAllow ?? true,

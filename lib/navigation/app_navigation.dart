@@ -92,13 +92,18 @@ void showComingSoon(BuildContext context, String label) {
   ).showSnackBar(SnackBar(content: Text('$label is coming soon.')));
 }
 
+/// Tabs that stay reachable before punch-in (Dashboard + Chats).
+bool isPunchInFreeMainTab(int index) {
+  return index == MainTab.dashboard || index == MainTab.chats;
+}
+
 /// Switches tab when already inside [MainShell], otherwise opens [MainShell].
 void navigateToMainTab(BuildContext context, int index) {
   if (!KycGate.canAccessApp) {
     pushAndRevoveUntil(context, KycGate.homeScreen());
     return;
   }
-  if (index != MainTab.dashboard && !PunchInGate.ensureAccess(context)) {
+  if (!isPunchInFreeMainTab(index) && !PunchInGate.ensureAccess(context)) {
     return;
   }
 

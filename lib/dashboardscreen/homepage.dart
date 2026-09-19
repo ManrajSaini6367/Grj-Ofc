@@ -519,39 +519,30 @@ class _HomePageState extends State<HomePage> {
                                 );
                               },
                             ),
+                            // Chats stays available without punch-in.
+                            _buildQuickActions(),
+                            const SizedBox(height: 24),
                             PunchInLockedLayer(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  _buildQuickActions(),
-                                  const SizedBox(height: 24),
-                                  AnimatedBuilder(
-                                    animation: PermissionService.instance,
-                                    builder: (context, _) {
-                                      final visibleOps = _visibleOperations;
-                                      if (visibleOps.isEmpty) {
-                                        return const SizedBox.shrink();
-                                      }
-                                      return Column(
-                                        crossAxisAlignment:
-                                            CrossAxisAlignment.start,
-                                        children: [
-                                          _buildSectionTitle('Operations'),
-                                          const SizedBox(height: 12),
-                                          _buildOperationsGrid(
-                                            constraints.maxWidth,
-                                            visibleOps,
-                                          ),
-                                        ],
-                                      );
-                                    },
-                                  ),
-                                  // const SizedBox(height: 24),
-                                  // _buildSectionTitle('Office Supplies'),
-                                  // const SizedBox(height: 12),
-                                  // ..._supplies.map(_buildSupplyCard),
-                                  // const SizedBox(height: 32),
-                                ],
+                              child: AnimatedBuilder(
+                                animation: PermissionService.instance,
+                                builder: (context, _) {
+                                  final visibleOps = _visibleOperations;
+                                  if (visibleOps.isEmpty) {
+                                    return const SizedBox.shrink();
+                                  }
+                                  return Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      _buildSectionTitle('Operations'),
+                                      const SizedBox(height: 12),
+                                      _buildOperationsGrid(
+                                        constraints.maxWidth,
+                                        visibleOps,
+                                      ),
+                                    ],
+                                  );
+                                },
                               ),
                             ),
                           ],

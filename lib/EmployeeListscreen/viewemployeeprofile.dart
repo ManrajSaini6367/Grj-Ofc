@@ -12,7 +12,8 @@ class ViewEmployeeProfileScreen extends StatefulWidget {
   final Employee employee;
 
   @override
-  State<ViewEmployeeProfileScreen> createState() => _ViewEmployeeProfileScreenState();
+  State<ViewEmployeeProfileScreen> createState() =>
+      _ViewEmployeeProfileScreenState();
 }
 
 class _ViewEmployeeProfileScreenState extends State<ViewEmployeeProfileScreen> {
@@ -57,9 +58,12 @@ class _ViewEmployeeProfileScreenState extends State<ViewEmployeeProfileScreen> {
     return _formatDate(DateTime.tryParse(value.trim()));
   }
 
-  bool get _isActive => _profile?.isActiveStatus ?? widget.employee.status == EmployeeStatus.active;
+  bool get _isActive =>
+      _profile?.isActiveStatus ??
+      widget.employee.status == EmployeeStatus.active;
 
-  bool get _attendanceAllowed => _profile?.attendanceAllow ?? widget.employee.attendanceAllow;
+  bool get _attendanceAllowed =>
+      _profile?.attendanceAllow ?? widget.employee.attendanceAllow;
   bool get _sundayMarkedHoliday =>
       _profile?.sundayMarkedHoliday ?? widget.employee.sundayMarkedHoliday;
   bool get _webLoginAllow =>
@@ -69,7 +73,9 @@ class _ViewEmployeeProfileScreenState extends State<ViewEmployeeProfileScreen> {
 
   String get _accessRolesLabel {
     final fromProfile = _profile?.accessRoles ?? const <String>[];
-    final names = fromProfile.isNotEmpty ? fromProfile : widget.employee.accessRoles;
+    final names = fromProfile.isNotEmpty
+        ? fromProfile
+        : widget.employee.accessRoles;
     if (names.isEmpty) return '-';
     return names.map(_titleCase).join(', ');
   }
@@ -82,7 +88,8 @@ class _ViewEmployeeProfileScreenState extends State<ViewEmployeeProfileScreen> {
         .join(' ');
   }
 
-  String get _employeeId => _text(_profile?.username, fallback: widget.employee.id);
+  String get _employeeId =>
+      _text(_profile?.username, fallback: widget.employee.id);
 
   double _hPad(BuildContext context) {
     final width = MediaQuery.sizeOf(context).width;
@@ -107,95 +114,137 @@ class _ViewEmployeeProfileScreenState extends State<ViewEmployeeProfileScreen> {
             ),
             Expanded(
               child: _isLoading
-                  ? const Center(child: CircularProgressIndicator(color: AppColors.primaryRed))
+                  ? const Center(
+                      child: CircularProgressIndicator(
+                        color: AppColors.primaryRed,
+                      ),
+                    )
                   : RefreshIndicator(
                       color: AppColors.primaryRed,
                       onRefresh: _loadProfile,
                       child: SingleChildScrollView(
-                      physics: const AlwaysScrollableScrollPhysics(),
-                      padding: EdgeInsets.fromLTRB(hPad, 16, hPad, 24),
-                      child: Center(
-                        child: ConstrainedBox(
-                          constraints: const BoxConstraints(maxWidth: 640),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.stretch,
-                            children: [
-                              _buildProfileHeader(),
-                              const SizedBox(height: 16),
-                              _buildQuickStats(),
-                              const SizedBox(height: 16),
-                              _buildSection(
-                                title: 'Contact',
-                                icon: Icons.contact_mail_outlined,
-                                children: [
-                                  _infoTile(Icons.email_outlined, 'Email', _text(_profile?.email)),
-                                  _infoTile(Icons.phone_outlined, 'Phone', _text(_profile?.mobile)),
-                                ],
-                              ),
-                              const SizedBox(height: 14),
-                              _buildSection(
-                                title: 'Employment',
-                                icon: Icons.work_outline_rounded,
-                                children: [
-                                  _infoTile(Icons.badge_outlined, 'Employee ID', _employeeId),
-                                  _infoTile(Icons.apartment_outlined, 'Site', widget.employee.site),
-                                  _infoTile(Icons.calendar_today_outlined, 'Date of Join', _formatDate(_profile?.dateOfJoin)),
-                                  _infoTile(
-                                    Icons.event_busy_outlined,
-                                    'Date of Suspended',
-                                    _formatDateString(_profile?.dateOfSuspended),
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 14),
-                              _buildSection(
-                                title: 'Access & Status',
-                                icon: Icons.verified_user_outlined,
-                                children: [
-                                  _infoTile(
-                                    Icons.admin_panel_settings_outlined,
-                                    'Access Roles',
-                                    _accessRolesLabel,
-                                  ),
-                                  _infoTile(
-                                    Icons.fingerprint_outlined,
-                                    'Attendance',
-                                    _attendanceAllowed ? 'Allowed' : 'Not Allowed',
-                                    valueColor: _attendanceAllowed ? const Color(0xFF059669) : AppColors.textSecondary,
-                                  ),
-                                  _infoTile(
-                                    Icons.weekend_outlined,
-                                    'Sunday Holiday',
-                                    _sundayMarkedHoliday ? 'Yes' : 'No',
-                                    valueColor: _sundayMarkedHoliday ? const Color(0xFF059669) : AppColors.textSecondary,
-                                  ),
-                                  _infoTile(
-                                    Icons.language_outlined,
-                                    'Web Login',
-                                    _webLoginAllow ? 'Allowed' : 'Not Allowed',
-                                    valueColor: _webLoginAllow ? const Color(0xFF059669) : AppColors.textSecondary,
-                                  ),
-                                  _infoTile(
-                                    Icons.phone_android_outlined,
-                                    'App Login',
-                                    _appLoginAllow ? 'Allowed' : 'Not Allowed',
-                                    valueColor: _appLoginAllow ? const Color(0xFF059669) : AppColors.textSecondary,
-                                  ),
-                                  _infoTile(
-                                    Icons.circle,
-                                    'Status',
-                                    _isActive ? 'Active' : 'Inactive',
-                                    valueColor: _isActive ? AppColors.primaryRed : AppColors.textSecondary,
-                                    leadingIconSize: 10,
-                                  ),
-                                ],
-                              ),
-                            ],
+                        physics: const AlwaysScrollableScrollPhysics(),
+                        padding: EdgeInsets.fromLTRB(hPad, 16, hPad, 24),
+                        child: Center(
+                          child: ConstrainedBox(
+                            constraints: const BoxConstraints(maxWidth: 640),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
+                              children: [
+                                _buildProfileHeader(),
+                                const SizedBox(height: 16),
+                                _buildQuickStats(),
+                                const SizedBox(height: 16),
+                                _buildSection(
+                                  title: 'Contact',
+                                  icon: Icons.contact_mail_outlined,
+                                  children: [
+                                    _infoTile(
+                                      Icons.email_outlined,
+                                      'Email',
+                                      _text(_profile?.email),
+                                    ),
+                                    _infoTile(
+                                      Icons.phone_outlined,
+                                      'Phone',
+                                      _text(_profile?.mobile),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 14),
+                                _buildSection(
+                                  title: 'Employment',
+                                  icon: Icons.work_outline_rounded,
+                                  children: [
+                                    _infoTile(
+                                      Icons.badge_outlined,
+                                      'Employee ID',
+                                      _employeeId,
+                                    ),
+                                    _infoTile(
+                                      Icons.apartment_outlined,
+                                      'Site',
+                                      widget.employee.site,
+                                    ),
+                                    _infoTile(
+                                      Icons.calendar_today_outlined,
+                                      'Date of Join',
+                                      _formatDate(_profile?.dateOfJoin),
+                                    ),
+                                    _infoTile(
+                                      Icons.event_busy_outlined,
+                                      'Date of Suspended',
+                                      _formatDateString(
+                                        _profile?.dateOfSuspended,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 14),
+                                _buildSection(
+                                  title: 'Access & Status',
+                                  icon: Icons.verified_user_outlined,
+                                  children: [
+                                    _infoTile(
+                                      Icons.admin_panel_settings_outlined,
+                                      'Access Roles',
+                                      _accessRolesLabel,
+                                    ),
+                                    _infoTile(
+                                      Icons.fingerprint_outlined,
+                                      'Attendance',
+                                      _attendanceAllowed
+                                          ? 'Allowed'
+                                          : 'Not Allowed',
+                                      valueColor: _attendanceAllowed
+                                          ? const Color(0xFF059669)
+                                          : AppColors.textSecondary,
+                                    ),
+                                    _infoTile(
+                                      Icons.weekend_outlined,
+                                      'Sunday Holiday',
+                                      _sundayMarkedHoliday ? 'Yes' : 'No',
+                                      valueColor: _sundayMarkedHoliday
+                                          ? const Color(0xFF059669)
+                                          : AppColors.textSecondary,
+                                    ),
+                                    _infoTile(
+                                      Icons.language_outlined,
+                                      'Web Login',
+                                      _webLoginAllow
+                                          ? 'Allowed'
+                                          : 'Not Allowed',
+                                      valueColor: _webLoginAllow
+                                          ? const Color(0xFF059669)
+                                          : AppColors.textSecondary,
+                                    ),
+                                    _infoTile(
+                                      Icons.phone_android_outlined,
+                                      'App Login',
+                                      _appLoginAllow
+                                          ? 'Allowed'
+                                          : 'Not Allowed',
+                                      valueColor: _appLoginAllow
+                                          ? const Color(0xFF059669)
+                                          : AppColors.textSecondary,
+                                    ),
+                                    _infoTile(
+                                      Icons.circle,
+                                      'Status',
+                                      _isActive ? 'Active' : 'Inactive',
+                                      valueColor: _isActive
+                                          ? AppColors.primaryRed
+                                          : AppColors.textSecondary,
+                                      leadingIconSize: 10,
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            ),
                           ),
                         ),
                       ),
                     ),
-                  ),
             ),
           ],
         ),
@@ -211,7 +260,9 @@ class _ViewEmployeeProfileScreenState extends State<ViewEmployeeProfileScreen> {
     );
     final role = _text(
       _profile?.designation,
-      fallback: widget.employee.role.isEmpty ? 'Employee' : widget.employee.role,
+      fallback: widget.employee.role.isEmpty
+          ? 'Employee'
+          : widget.employee.role,
     );
 
     return Container(
@@ -334,7 +385,10 @@ class _ViewEmployeeProfileScreenState extends State<ViewEmployeeProfileScreen> {
           const SizedBox(height: 10),
           Text(
             label,
-            style: GoogleFonts.poppins(fontSize: 11, color: AppColors.textSecondary),
+            style: GoogleFonts.poppins(
+              fontSize: 11,
+              color: AppColors.textSecondary,
+            ),
           ),
           const SizedBox(height: 2),
           Text(
@@ -390,7 +444,10 @@ class _ViewEmployeeProfileScreenState extends State<ViewEmployeeProfileScreen> {
               ],
             ),
           ),
-          Divider(height: 1, color: AppColors.borderGray.withValues(alpha: 0.35)),
+          Divider(
+            height: 1,
+            color: AppColors.borderGray.withValues(alpha: 0.35),
+          ),
           Padding(
             padding: const EdgeInsets.fromLTRB(8, 4, 8, 8),
             child: Column(children: children),
@@ -419,7 +476,11 @@ class _ViewEmployeeProfileScreenState extends State<ViewEmployeeProfileScreen> {
               color: AppColors.operationsCardBg,
               borderRadius: BorderRadius.circular(10),
             ),
-            child: Icon(icon, size: leadingIconSize, color: AppColors.textSecondary),
+            child: Icon(
+              icon,
+              size: leadingIconSize,
+              color: AppColors.textSecondary,
+            ),
           ),
           const SizedBox(width: 12),
           Expanded(
@@ -428,7 +489,10 @@ class _ViewEmployeeProfileScreenState extends State<ViewEmployeeProfileScreen> {
               children: [
                 Text(
                   label,
-                  style: GoogleFonts.poppins(fontSize: 12, color: AppColors.textSecondary),
+                  style: GoogleFonts.poppins(
+                    fontSize: 12,
+                    color: AppColors.textSecondary,
+                  ),
                 ),
                 const SizedBox(height: 2),
                 Text(
