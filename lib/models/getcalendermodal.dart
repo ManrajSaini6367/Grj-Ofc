@@ -31,10 +31,18 @@ class Getcalendermodal {
         ? payload.month!.trim()
         : MyAttendanceCalendarData.dateKey(DateTime.now()).substring(0, 7);
 
+    final joinDate = payload.dateOfJoin;
+    final suspendedDate = payload.dateOfSuspended;
+
     final days = <String, MyAttendanceDay>{};
     for (final day in payload.days ?? const <CalendarDay>[]) {
       final mapped = day.toMyAttendanceDay();
       if (mapped == null) continue;
+      // Before join / after suspension: keep empty (no absent/holiday marker).
+      if (joinDate != null && mapped.date.isBefore(joinDate)) continue;
+      if (suspendedDate != null && mapped.date.isAfter(suspendedDate)) {
+        continue;
+      }
       days[MyAttendanceCalendarData.dateKey(mapped.date)] = mapped;
     }
 
@@ -59,6 +67,8 @@ class CalendarData {
     this.siteId,
     this.userId,
     this.month,
+    this.dateOfJoin,
+    this.dateOfSuspended,
     this.summary,
     this.days,
   });
@@ -66,6 +76,8 @@ class CalendarData {
   final int? siteId;
   final int? userId;
   final String? month;
+  final DateTime? dateOfJoin;
+  final DateTime? dateOfSuspended;
   final CalendarSummary? summary;
   final List<CalendarDay>? days;
 
@@ -75,6 +87,8 @@ class CalendarData {
       siteId: _toInt(json['site_id']),
       userId: _toInt(json['user_id']),
       month: json['month']?.toString(),
+      dateOfJoin: _parseDateOnly(json['date_of_join']),
+      dateOfSuspended: _parseDateOnly(json['date_of_suspended']),
       summary: json['summary'] is Map
           ? CalendarSummary.fromJson(
               Map<String, dynamic>.from(json['summary'] as Map),
@@ -126,6 +140,12 @@ class CalendarDay {
     final dayDate = date;
     if (dayDate == null) return null;
 
+    // Empty / not applicable days must not render as absent or holiday.
+    if (status == CalendarDayStatus.notApplicable ||
+        status == CalendarDayStatus.empty) {
+      return null;
+    }
+
     final holiday = isHoliday == true || status == CalendarDayStatus.holiday;
     final attendanceStatus = _toAttendanceStatus(status, holiday: holiday);
     final activityItems = (activities ?? const <CalendarActivity>[])
@@ -144,10 +164,15 @@ class CalendarDay {
         )
         .toList();
 
+    final recorded = hasRecord == true || activityItems.isNotEmpty;
+    if (!recorded && !holiday) {
+      return null;
+    }
+
     return MyAttendanceDay(
       date: dayDate,
       status: attendanceStatus,
-      hasRecord: hasRecord == true || activityItems.isNotEmpty,
+      hasRecord: recorded || holiday,
       isHoliday: holiday,
       activities: activityItems,
     );
@@ -190,7 +215,9 @@ enum CalendarDayStatus {
   present,
   absent,
   leave,
-  holiday;
+  holiday,
+  notApplicable,
+  empty;
 
   static CalendarDayStatus? fromApi(String? raw) {
     if (raw == null || raw.trim().isEmpty) return null;
@@ -198,6 +225,9 @@ enum CalendarDayStatus {
       'present' => CalendarDayStatus.present,
       'leave' => CalendarDayStatus.leave,
       'holiday' => CalendarDayStatus.holiday,
+      'absent' => CalendarDayStatus.absent,
+      'not_applicable' || 'n/a' || 'na' => CalendarDayStatus.notApplicable,
+      'empty' || 'upcoming' || 'none' => CalendarDayStatus.empty,
       _ => CalendarDayStatus.absent,
     };
   }
@@ -236,11 +266,22 @@ AttendanceStatus _toAttendanceStatus(
     CalendarDayStatus.leave => AttendanceStatus.leave,
     CalendarDayStatus.holiday => AttendanceStatus.present,
     CalendarDayStatus.absent => AttendanceStatus.absent,
-    null => AttendanceStatus.absent,
+    CalendarDayStatus.notApplicable ||
+    CalendarDayStatus.empty ||
+    null =>
+      AttendanceStatus.absent,
   };
 }
 
 int? _toInt(dynamic value) {
   if (value is int) return value;
   return int.tryParse(value?.toString() ?? '');
+}
+
+DateTime? _parseDateOnly(dynamic value) {
+  final raw = value?.toString().trim();
+  if (raw == null || raw.isEmpty) return null;
+  final parsed = DateTime.tryParse(raw);
+  if (parsed == null) return null;
+  return DateTime(parsed.year, parsed.month, parsed.day);
 }
