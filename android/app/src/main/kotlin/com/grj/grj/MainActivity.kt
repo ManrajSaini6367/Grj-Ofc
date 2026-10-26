@@ -1,4 +1,4 @@
-package com.grj
+package com.grj.grj
 
 import android.content.Intent
 import android.content.ContentValues
