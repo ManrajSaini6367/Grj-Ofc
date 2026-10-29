@@ -1,13 +1,13 @@
 {
   "project_info": {
-    "project_number": "949646447302",
-    "project_id": "grjofficeapps",
-    "storage_bucket": "grjofficeapps.firebasestorage.app"
+    "project_number": "647890269311",
+    "project_id": "grj-office",
+    "storage_bucket": "grj-office.firebasestorage.app"
   },
   "client": [
     {
       "client_info": {
-        "mobilesdk_app_id": "1:949646447302:android:ac20d94805b4611f72bdc7",
+        "mobilesdk_app_id": "1:647890269311:android:3d2f78f8243595c30bfb4a",
         "android_client_info": {
           "package_name": "com.grj.grj"
         }
@@ -15,26 +15,7 @@
       "oauth_client": [],
       "api_key": [
         {
-          "current_key": "AIzaSyAXkcbW4E50lkZVShWOWuA5IwAqpUJXI5E"
-        }
-      ],
-      "services": {
-        "appinvite_service": {
-          "other_platform_oauth_client": []
-        }
-      }
-    },
-    {
-      "client_info": {
-        "mobilesdk_app_id": "1:949646447302:android:43576f2abd3c51be72bdc7",
-        "android_client_info": {
-          "package_name": "com.grj.office"
-        }
-      },
-      "oauth_client": [],
-      "api_key": [
-        {
-          "current_key": "AIzaSyAXkcbW4E50lkZVShWOWuA5IwAqpUJXI5E"
+          "current_key": "AIzaSyDUzZNpv9hrx9uEoiKdd7GFZro1Q2UnACE"
         }
       ],
       "services": {

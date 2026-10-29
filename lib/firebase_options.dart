@@ -41,46 +41,46 @@ class DefaultFirebaseOptions {
   }
 
   static const FirebaseOptions web = FirebaseOptions(
-    apiKey: 'AIzaSyDlSfpcd9U0WGZ1f8Kod8uQmqp-aWqOr0c',
-    appId: '1:949646447302:web:be9e2341a96a4a3c72bdc7',
-    messagingSenderId: '949646447302',
-    projectId: 'grjofficeapps',
-    authDomain: 'grjofficeapps.firebaseapp.com',
-    storageBucket: 'grjofficeapps.firebasestorage.app',
-    measurementId: 'G-49QNCZ34BF',
+    apiKey: 'AIzaSyAw53xxXNOJZean0pZvyGdbvlv1VT9QjuU',
+    appId: '1:647890269311:web:ced3ff908c2b7d720bfb4a',
+    messagingSenderId: '647890269311',
+    projectId: 'grj-office',
+    authDomain: 'grj-office.firebaseapp.com',
+    storageBucket: 'grj-office.firebasestorage.app',
+    measurementId: 'G-81FG9VH6EH',
   );
 
   static const FirebaseOptions android = FirebaseOptions(
-    apiKey: 'AIzaSyAXkcbW4E50lkZVShWOWuA5IwAqpUJXI5E',
-    appId: '1:949646447302:android:ac20d94805b4611f72bdc7',
-    messagingSenderId: '949646447302',
-    projectId: 'grjofficeapps',
-    storageBucket: 'grjofficeapps.firebasestorage.app',
+    apiKey: 'AIzaSyDUzZNpv9hrx9uEoiKdd7GFZro1Q2UnACE',
+    appId: '1:647890269311:android:3d2f78f8243595c30bfb4a',
+    messagingSenderId: '647890269311',
+    projectId: 'grj-office',
+    storageBucket: 'grj-office.firebasestorage.app',
   );
   static const FirebaseOptions ios = FirebaseOptions(
-    apiKey: 'AIzaSyBK_axppXNJOXMwZNZkpDdeofk4g9KjuOs',
-    appId: '1:949646447302:ios:ac3496b008223bc572bdc7',
-    messagingSenderId: '949646447302',
-    projectId: 'grjofficeapps',
-    storageBucket: 'grjofficeapps.firebasestorage.app',
+    apiKey: 'AIzaSyAoiA_sM7gN8vf6aeUqlTOlxvf8ZnGQlRA',
+    appId: '1:647890269311:ios:80c124f366fc86e20bfb4a',
+    messagingSenderId: '647890269311',
+    projectId: 'grj-office',
+    storageBucket: 'grj-office.firebasestorage.app',
     iosBundleId: 'com.grj',
   );
   static const FirebaseOptions macos = FirebaseOptions(
-    apiKey: 'AIzaSyBK_axppXNJOXMwZNZkpDdeofk4g9KjuOs',
-    appId: '1:949646447302:ios:ac3496b008223bc572bdc7',
-    messagingSenderId: '949646447302',
-    projectId: 'grjofficeapps',
-    storageBucket: 'grjofficeapps.firebasestorage.app',
+    apiKey: 'AIzaSyAoiA_sM7gN8vf6aeUqlTOlxvf8ZnGQlRA',
+    appId: '1:647890269311:ios:80c124f366fc86e20bfb4a',
+    messagingSenderId: '647890269311',
+    projectId: 'grj-office',
+    storageBucket: 'grj-office.firebasestorage.app',
     iosBundleId: 'com.grj',
   );
 
   static const FirebaseOptions windows = FirebaseOptions(
-    apiKey: 'AIzaSyDlSfpcd9U0WGZ1f8Kod8uQmqp-aWqOr0c',
-    appId: '1:949646447302:web:2aa03f6cdccb1fa572bdc7',
-    messagingSenderId: '949646447302',
-    projectId: 'grjofficeapps',
-    authDomain: 'grjofficeapps.firebaseapp.com',
-    storageBucket: 'grjofficeapps.firebasestorage.app',
-    measurementId: 'G-EPPJVGJZXT',
+    apiKey: 'AIzaSyAw53xxXNOJZean0pZvyGdbvlv1VT9QjuU',
+    appId: '1:647890269311:web:c2fcaf5cc988b9a80bfb4a',
+    messagingSenderId: '647890269311',
+    projectId: 'grj-office',
+    authDomain: 'grj-office.firebaseapp.com',
+    storageBucket: 'grj-office.firebasestorage.app',
+    measurementId: 'G-4ME5R8G2C8',
   );
 }

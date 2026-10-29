@@ -1,4 +1,4 @@
-const String baseUrl = 'https://admin.tripnic.io';
+const String baseUrl = 'https://grjoffice.com';
 
 /// Builds a full URL for relative media/avatar paths from the API.
 String mediaUrl(String? path) {

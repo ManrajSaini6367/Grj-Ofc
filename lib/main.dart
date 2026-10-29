@@ -114,7 +114,7 @@ class MyApp extends StatelessWidget {
     return MaterialApp(
       navigatorKey: appNavigatorKey,
       debugShowCheckedModeBanner: false,
-      title: 'GRJ Office App',
+      title: 'GRJ Office',
       builder: (context, child) {
         if (child == null) return const SizedBox.shrink();
         final media = MediaQuery.of(context);
