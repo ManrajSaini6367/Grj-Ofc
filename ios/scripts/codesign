@@ -1,0 +1,42 @@
+#!/bin/sh
+# macOS 26 codesign rejects FinderInfo and File Provider xattrs
+# ("resource fork, Finder information, or similar detritus not allowed").
+# iCloud Desktop stamps those onto bundle directories. Strip them, then sign.
+real=/usr/bin/codesign
+
+target=
+for arg in "$@"; do
+  case "$arg" in
+    -*) ;;
+    *) target=$arg ;;
+  esac
+done
+
+strip_one() {
+  if [ -e "$1" ]; then
+    xattr -cr "$1" >/dev/null 2>&1 || true
+  fi
+}
+
+if [ -n "$target" ] && [ -e "$target" ]; then
+  strip_one "$target"
+  dir=$target
+  if [ -f "$dir" ]; then
+    dir=$(dirname "$dir")
+  fi
+  while [ "$dir" != "/" ] && [ -n "$dir" ]; do
+    base=$(basename "$dir")
+    case "$base" in
+      *.framework|*.app|*.bundle|*.xctest|*.appex|*.plugin)
+        strip_one "$dir"
+        ;;
+    esac
+    parent=$(dirname "$dir")
+    if [ "$parent" = "$dir" ]; then
+      break
+    fi
+    dir=$parent
+  done
+fi
+
+exec "$real" "$@"

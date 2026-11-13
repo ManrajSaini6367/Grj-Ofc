@@ -63,7 +63,7 @@ class DefaultFirebaseOptions {
     messagingSenderId: '647890269311',
     projectId: 'grj-office',
     storageBucket: 'grj-office.firebasestorage.app',
-    iosBundleId: 'com.grj',
+    iosBundleId: 'com.grj.grj',
   );
   static const FirebaseOptions macos = FirebaseOptions(
     apiKey: 'AIzaSyAoiA_sM7gN8vf6aeUqlTOlxvf8ZnGQlRA',
@@ -71,7 +71,7 @@ class DefaultFirebaseOptions {
     messagingSenderId: '647890269311',
     projectId: 'grj-office',
     storageBucket: 'grj-office.firebasestorage.app',
-    iosBundleId: 'com.grj',
+    iosBundleId: 'com.grj.grj',
   );
 
   static const FirebaseOptions windows = FirebaseOptions(
